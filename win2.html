@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Emred Room — bet1x</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<nav class="navbar exchange-header">
+  <div class="exchange-logo-box">
+    bet1x<span>.com</span>
+  </div>
+  <div id="headerAuthArea">
+    <!-- Loaded dynamically by ui-common.js -->
+  </div>
+</nav>
+
+<div class="sub-navbar">
+  <ul class="sub-navbar-links">
+    <li class="sub-navbar-item"><a href="index.html" class="sub-navbar-link">Home</a></li>
+    <li class="sub-navbar-item"><a href="aviator.html" class="sub-navbar-link">Vimaan</a></li>
+    <li class="sub-navbar-item"><a href="win.html" class="sub-navbar-link">Sapre</a></li>
+    <li class="sub-navbar-item"><a href="win1.html" class="sub-navbar-link">Becone</a></li>
+    <li class="sub-navbar-item"><a href="win2.html" class="sub-navbar-link active">Emred</a></li>
+    <li class="sub-navbar-item"><a href="win3.html" class="sub-navbar-link">VIP</a></li>
+    <li class="sub-navbar-item"><a href="teenpatti.html" class="sub-navbar-link">Teen Patti</a></li>
+    <li class="sub-navbar-item"><a href="boundarybaazi.html" class="sub-navbar-link">Boundary Baazi</a></li>
+    <li class="sub-navbar-item"><a href="youreleven.html" class="sub-navbar-link">Your Eleven</a></li>
+    <li class="sub-navbar-item"><a href="football.html" class="sub-navbar-link">Football</a></li>
+    <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
+    <li class="sub-navbar-item"><a href="parity.html" class="sub-navbar-link">Admin</a></li>
+  </ul>
+</div>
+
+<div class="container section-tight">
+
+  <div class="card">
+    <div class="timer-wrap">
+      <div class="ring-holder">
+        <svg width="132" height="132" viewBox="0 0 132 132">
+          <circle class="ring-bg" cx="66" cy="66" r="58" stroke-width="10"></circle>
+          <circle class="ring-fg" id="ringFg" cx="66" cy="66" r="58" stroke-width="10"></circle>
+        </svg>
+        <div class="ring-center">
+          <div class="ring-time" id="ringTime">03:00</div>
+          <div class="ring-label">left</div>
+        </div>
+      </div>
+      <div class="round-meta">
+        <h3>Emred Room <span style="color:var(--violet);font-size:13px;font-weight:500;">● Violet tier</span></h3>
+        <div class="round-id">Round #<span id="roundId">—</span> · 3min rounds</div>
+        <div class="text-dim" style="font-size:13px;margin-top:8px;">253 players active in this room</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="alertBox"></div>
+
+  <div class="grid-2">
+    <div>
+      <div class="card">
+        <h3>Place Your Bet</h3>
+
+        <label>Color</label>
+        <div class="bet-options">
+          <button type="button" class="color-btn green" data-cat="color" data-val="Green">Green<span class="mult">×2.0</span></button>
+          <button type="button" class="color-btn violet" data-cat="color" data-val="Violet">Violet<span class="mult">×4.5</span></button>
+          <button type="button" class="color-btn red" data-cat="color" data-val="Red">Red<span class="mult">×2.0</span></button>
+        </div>
+
+        <label>...or Number (0–9)</label>
+        <div class="number-grid" id="numberGrid"></div>
+
+        <label>...or Size</label>
+        <div class="size-options">
+          <button type="button" class="size-btn" data-cat="size" data-val="Small">Small (0–4) ×2</button>
+          <button type="button" class="size-btn" data-cat="size" data-val="Big">Big (5–9) ×2</button>
+        </div>
+
+        <label>Bet Amount</label>
+        <div class="amount-row">
+          <button type="button" class="chip-amt" data-amt="10">🪙10</button>
+          <button type="button" class="chip-amt" data-amt="50">🪙50</button>
+          <button type="button" class="chip-amt" data-amt="100">🪙100</button>
+          <button type="button" class="chip-amt" data-amt="500">🪙500</button>
+        </div>
+        <input type="number" id="amountInput" min="1" placeholder="Or enter custom amount">
+
+        <button class="btn btn-gold btn-block" id="placeBetBtn" disabled>Select an option first</button>
+      </div>
+
+      <div class="card">
+        <h3>My Bets — This Round</h3>
+        <table>
+          <thead><tr><th>Type</th><th>Value</th><th>Amount</th><th>Status</th></tr></thead>
+          <tbody id="myBetsBody">
+            <tr><td colspan="4" class="text-dim">No bets yet this round.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h3>Recent Results</h3>
+        <table>
+          <thead><tr><th>Round</th><th>No.</th><th>Result</th><th>Size</th></tr></thead>
+          <tbody id="resultsBody"></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h3>Live Activity</h3>
+        <div class="activity-feed" id="activityFeed"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  bet1x — Emred room. All players, bets, and results shown are simulated for presentation purposes.
+</div>
+
+<script src="assets/js/dummy-data.js"></script>
+<script src="assets/js/ui-common.js"></script>
+<script>
+const ROOM_KEY = 'emred';
+const ROOM_DURATION = 180;
+
+// build number grid 0-9
+const numberGrid = document.getElementById('numberGrid');
+for (let i = 0; i <= 9; i++) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'num-btn';
+  b.dataset.cat = 'number';
+  b.dataset.val = i;
+  b.textContent = i;
+  numberGrid.appendChild(b);
+}
+
+// recent results table + pulse-like history
+const results = generateFakeResults(10);
+const resultsBody = document.getElementById('resultsBody');
+results.slice().reverse().forEach(r => {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>${r.roundNumber}</td>
+    <td>${r.number}</td>
+    <td><span class="result-chip"><span class="result-dot ${r.dotClass}"></span>${r.color}</span></td>
+    <td>${r.size}</td>
+  `;
+  resultsBody.appendChild(tr);
+});
+
+// bet selection state
+let selectedCat = null, selectedVal = null, selectedAmount = null;
+const placeBetBtn = document.getElementById('placeBetBtn');
+
+document.querySelectorAll('[data-cat]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-cat]').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedCat = btn.dataset.cat;
+    selectedVal = btn.dataset.val;
+    updateSubmitState();
+  });
+});
+
+document.querySelectorAll('.chip-amt').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.chip-amt').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedAmount = parseFloat(btn.dataset.amt);
+    document.getElementById('amountInput').value = selectedAmount;
+    updateSubmitState();
+  });
+});
+
+document.getElementById('amountInput').addEventListener('input', (e) => {
+  document.querySelectorAll('.chip-amt').forEach(b => b.classList.remove('selected'));
+  selectedAmount = parseFloat(e.target.value) || null;
+  updateSubmitState();
+});
+
+function updateSubmitState() {
+  if (current_time_left <= 5) {
+    placeBetBtn.disabled = true;
+    placeBetBtn.textContent = 'Stakes frozen (5s remaining)';
+    return;
+  }
+  if (selectedCat && selectedVal !== null && selectedAmount > 0) {
+    placeBetBtn.disabled = false;
+    placeBetBtn.textContent = `Place Bet: ${selectedCat.toUpperCase()} · ${selectedVal} · 🪙${selectedAmount}`;
+  } else {
+    placeBetBtn.disabled = true;
+    placeBetBtn.textContent = 'Select an option first';
+  }
+}
+
+const myBetsBody = document.getElementById('myBetsBody');
+let myBetsThisRound = [];
+
+function renderMyBets() {
+  if (myBetsThisRound.length === 0) {
+    myBetsBody.innerHTML = '<tr><td colspan="4" class="text-dim">No bets yet this round.</td></tr>';
+    return;
+  }
+  myBetsBody.innerHTML = myBetsThisRound.map(b => `
+    <tr>
+      <td>${b.category[0].toUpperCase() + b.category.slice(1)}</td>
+      <td>${b.value}</td>
+      <td>🪙${b.amount.toFixed(2)}</td>
+      <td><span class="badge pending">Pending</span></td>
+    </tr>
+  `).join('');
+}
+
+function showAlert(msg, type) {
+  document.getElementById('alertBox').innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+  setTimeout(() => { document.getElementById('alertBox').innerHTML = ''; }, 3500);
+}
+
+placeBetBtn.addEventListener('click', () => {
+  const balance = getWallet();
+  if (selectedAmount > balance) {
+    showAlert('Insufficient virtual coin balance.', 'error');
+    return;
+  }
+  adjustWallet(-selectedAmount);
+  myBetsThisRound.push({ category: selectedCat, value: selectedVal, amount: selectedAmount });
+  renderMyBets();
+  showAlert(`Bet placed: ${selectedCat.toUpperCase()} · ${selectedVal} for 🪙${selectedAmount.toFixed(2)}`, 'success');
+
+  pushHistory({
+    room: 'Emred', roundNumber: document.getElementById('roundId').textContent,
+    category: selectedCat, value: selectedVal, amount: selectedAmount, status: 'pending'
+  });
+});
+
+// Server synchronization loop for Color Guess
+const ringFg = document.getElementById('ringFg');
+const ringTime = document.getElementById('ringTime');
+const roundIdEl = document.getElementById('roundId');
+const radius = ringFg.r.baseVal.value;
+const circumference = 2 * Math.PI * radius;
+ringFg.style.strokeDasharray = circumference;
+
+let lastRoundId = null;
+let current_time_left = 30;
+
+function formatTime(sec) {
+  const m = Math.floor(sec / 60).toString().padStart(2, '0');
+  const s = Math.floor(sec % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+function updateBetButtonsSummary(aggs) {
+  if (!aggs) return;
+  
+  // Colors
+  const btnGreen = document.querySelector('[data-cat="color"][data-val="Green"]');
+  if (btnGreen) {
+    btnGreen.innerHTML = `
+      <span style="font-size: 15px; font-weight: 800; display: block; letter-spacing: 0.5px;">Green <span style="font-family: var(--font-mono); font-size: 11px; opacity: 0.85;">×2.0</span></span>
+      <div style="font-family: var(--font-mono); font-size: 10.5px; background: rgba(0,0,0,0.22); padding: 4px 6px; border-radius: 6px; margin-top: 5px; font-weight: 700; display: inline-block; width: 100%; box-sizing: border-box; line-height: 1.2; text-align: center;">
+        👥 ${aggs.Green.count} plrs · 🪙${aggs.Green.amount.toLocaleString()}
+      </div>
+    `;
+  }
+  const btnViolet = document.querySelector('[data-cat="color"][data-val="Violet"]');
+  if (btnViolet) {
+    btnViolet.innerHTML = `
+      <span style="font-size: 15px; font-weight: 800; display: block; letter-spacing: 0.5px;">Violet <span style="font-family: var(--font-mono); font-size: 11px; opacity: 0.85;">×4.5</span></span>
+      <div style="font-family: var(--font-mono); font-size: 10.5px; background: rgba(0,0,0,0.22); padding: 4px 6px; border-radius: 6px; margin-top: 5px; font-weight: 700; display: inline-block; width: 100%; box-sizing: border-box; line-height: 1.2; text-align: center;">
+        👥 ${aggs.Violet.count} plrs · 🪙${aggs.Violet.amount.toLocaleString()}
+      </div>
+    `;
+  }
+  const btnRed = document.querySelector('[data-cat="color"][data-val="Red"]');
+  if (btnRed) {
+    btnRed.innerHTML = `
+      <span style="font-size: 15px; font-weight: 800; display: block; letter-spacing: 0.5px;">Red <span style="font-family: var(--font-mono); font-size: 11px; opacity: 0.85;">×2.0</span></span>
+      <div style="font-family: var(--font-mono); font-size: 10.5px; background: rgba(0,0,0,0.22); padding: 4px 6px; border-radius: 6px; margin-top: 5px; font-weight: 700; display: inline-block; width: 100%; box-sizing: border-box; line-height: 1.2; text-align: center;">
+        👥 ${aggs.Red.count} plrs · 🪙${aggs.Red.amount.toLocaleString()}
+      </div>
+    `;
+  }
+  
+  // Sizes
+  const btnSmall = document.querySelector('[data-cat="size"][data-val="Small"]');
+  if (btnSmall) {
+    btnSmall.innerHTML = `
+      <span style="font-size: 15px; font-weight: 800; display: block; letter-spacing: 0.5px;">Small (0–4) <span style="font-family: var(--font-mono); font-size: 11px; opacity: 0.85;">×2</span></span>
+      <div style="font-family: var(--font-mono); font-size: 10.5px; background: rgba(0,0,0,0.22); padding: 4px 6px; border-radius: 6px; margin-top: 5px; font-weight: 700; display: inline-block; width: 100%; box-sizing: border-box; line-height: 1.2; text-align: center;">
+        👥 ${aggs.Small.count} plrs · 🪙${aggs.Small.amount.toLocaleString()}
+      </div>
+    `;
+  }
+  const btnBig = document.querySelector('[data-cat="size"][data-val="Big"]');
+  if (btnBig) {
+    btnBig.innerHTML = `
+      <span style="font-size: 15px; font-weight: 800; display: block; letter-spacing: 0.5px;">Big (5–9) <span style="font-family: var(--font-mono); font-size: 11px; opacity: 0.85;">×2</span></span>
+      <div style="font-family: var(--font-mono); font-size: 10.5px; background: rgba(0,0,0,0.22); padding: 4px 6px; border-radius: 6px; margin-top: 5px; font-weight: 700; display: inline-block; width: 100%; box-sizing: border-box; line-height: 1.2; text-align: center;">
+        👥 ${aggs.Big.count} plrs · 🪙${aggs.Big.amount.toLocaleString()}
+      </div>
+    `;
+  }
+  
+  // Numbers
+  for (let i = 0; i <= 9; i++) {
+    const btnNum = document.querySelector(`[data-cat="number"][data-val="${i}"]`);
+    if (btnNum) {
+      btnNum.style.aspectRatio = 'auto';
+      btnNum.style.borderRadius = '12px';
+      btnNum.style.padding = '8px 4px';
+      btnNum.style.height = 'auto';
+      const info = aggs.num[i];
+      btnNum.innerHTML = `
+        <span style="font-size: 16px; font-weight: 800; display: block; line-height: 1; margin-bottom: 4px;">${i}</span>
+        <div style="font-family: var(--font-mono); font-size: 9px; line-height: 1.25; background: rgba(0,0,0,0.18); border-radius: 4px; padding: 2px 0; margin-top: 2px;">
+          👥 ${info.count}<br>
+          🪙${info.amount.toLocaleString()}
+        </div>
+      `;
+    }
+  }
+}
+
+let serverTimeLeft = ROOM_DURATION;
+let serverReceivedAt = Date.now();
+let isOffline = false;
+let localRoundId = Math.floor(100000 + Math.random() * 900000);
+if (!lastRoundId) { lastRoundId = localRoundId; roundIdEl.textContent = localRoundId; }
+
+if (ringFg) {
+  ringFg.style.transition = 'none';
+}
+
+function tickVisualProgress() {
+  const elapsed = (Date.now() - serverReceivedAt) / 1000;
+  const visualTimeLeft = Math.max(0, serverTimeLeft - elapsed);
+  
+  current_time_left = visualTimeLeft;
+  ringTime.textContent = formatTime(visualTimeLeft);
+  
+  const pct = visualTimeLeft / ROOM_DURATION;
+  ringFg.style.strokeDashoffset = circumference * (1 - pct);
+  
+  updateSubmitState();
+}
+setInterval(tickVisualProgress, 30);
+
+function resolveColorNumber(num) {
+  if (num === 0) return { color: 'Red-Violet', dotClass: 'violet', size: 'Small' };
+  if (num === 5) return { color: 'Green-Violet', dotClass: 'violet', size: 'Big' };
+  if ([1, 3, 7, 9].includes(num)) return { color: 'Green', dotClass: 'green', size: num >= 5 ? 'Big' : 'Small' };
+  return { color: 'Red', dotClass: 'red', size: num >= 5 ? 'Big' : 'Small' };
+}
+
+function settleRoundLocally() {
+  const winningNum = Math.floor(Math.random() * 10);
+  const resolved = resolveColorNumber(winningNum);
+  const newResult = { roundNumber: lastRoundId, number: winningNum, color: resolved.color, dotClass: resolved.dotClass, size: resolved.size };
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td>${newResult.roundNumber}</td><td>${newResult.number}</td><td><span class="result-chip"><span class="result-dot ${newResult.dotClass}"></span>${newResult.color}</span></td><td>${newResult.size}</td>`;
+  resultsBody.insertBefore(tr, resultsBody.firstChild);
+  if (resultsBody.children.length > 10) resultsBody.lastChild.remove();
+  let totalPayout = 0;
+  let hasBets = myBetsThisRound.length > 0;
+  myBetsThisRound.forEach(b => {
+    let won = false, mult = 0;
+    if (b.category === 'number') { won = parseInt(b.value) === winningNum; mult = 9; }
+    else if (b.category === 'size') { won = b.value === newResult.size; mult = 2; }
+    else if (b.category === 'color') {
+      const bc = b.value.toLowerCase();
+      if (bc === 'violet') { won = (winningNum === 0 || winningNum === 5); mult = 4.5; }
+      else {
+        if (winningNum === 0 && bc === 'red') { won = true; mult = 1.5; }
+        else if (winningNum === 5 && bc === 'green') { won = true; mult = 1.5; }
+        else if (bc === 'green' && [1, 3, 7, 9].includes(winningNum)) { won = true; mult = 2; }
+        else if (bc === 'red' && [2, 4, 6, 8].includes(winningNum)) { won = true; mult = 2; }
+      }
+    }
+    if (won) totalPayout += b.amount * mult;
+  });
+  if (totalPayout > 0) {
+    adjustWallet(totalPayout, `${ROOM_KEY.toUpperCase()} Win Payout Round #${lastRoundId}`);
+    showAlert(`Round settled! Result: ${winningNum} (${newResult.color}, ${newResult.size}) — you won 🪙${totalPayout.toFixed(2)}`, 'success');
+    triggerWinShower(document.querySelector('.card'));
+  } else if (hasBets) {
+    showAlert(`Round settled. Result: ${winningNum} (${newResult.color}, ${newResult.size}) — no win this round.`, 'error');
+  }
+  myBetsThisRound = [];
+  renderMyBets();
+  selectedCat = null; selectedVal = null; selectedAmount = null;
+  document.querySelectorAll('[data-cat], .chip-amt').forEach(b => b.classList.remove('selected'));
+  document.getElementById('amountInput').value = '';
+}
+
+setInterval(() => {
+  if (!isOffline) return;
+  const elapsed = (Date.now() - serverReceivedAt) / 1000;
+  if (elapsed >= ROOM_DURATION) {
+    settleRoundLocally();
+    localRoundId++;
+    lastRoundId = localRoundId;
+    roundIdEl.textContent = localRoundId;
+    serverTimeLeft = ROOM_DURATION;
+    serverReceivedAt = Date.now();
+  }
+}, 1000);
+
+function syncState() {
+  fetch(`api/game_sync.php?action=color_get_state&room=${ROOM_KEY}`)
+  .then(res => res.json())
+  .then(data => {
+    if (data.error) return;
+    isOffline = false;
+    serverTimeLeft = data.time_left;
+    serverReceivedAt = Date.now();
+    roundIdEl.textContent = data.round_id;
+    setWallet(data.wallet_balance);
+    if (lastRoundId && lastRoundId !== data.round_id) {
+      const lastResult = data.history.find(h => h.roundNumber == lastRoundId) || (data.history.length > 0 ? data.history[data.history.length - 1] : null);
+      if (lastResult) {
+        let totalPayout = 0;
+        let hasBets = myBetsThisRound.length > 0;
+        myBetsThisRound.forEach(b => {
+          let won = false, mult = 0;
+          if (b.category === 'number') { won = parseInt(b.value) === lastResult.number; mult = 9; }
+          else if (b.category === 'size') { won = b.value === lastResult.size; mult = 2; }
+          else if (b.category === 'color') {
+            const bc = b.value.toLowerCase();
+            if (bc === 'violet') { won = (lastResult.number === 0 || lastResult.number === 5); mult = 4.5; }
+            else {
+              if (lastResult.number === 0 && bc === 'red') { won = true; mult = 1.5; }
+              else if (lastResult.number === 5 && bc === 'green') { won = true; mult = 1.5; }
+              else if (bc === 'green' && [1, 3, 7, 9].includes(lastResult.number)) { won = true; mult = 2; }
+              else if (bc === 'red' && [2, 4, 6, 8].includes(lastResult.number)) { won = true; mult = 2; }
+            }
+          }
+          if (won) totalPayout += b.amount * mult;
+        });
+        if (totalPayout > 0) {
+          showAlert(`Round settled! Result: ${lastResult.number} (${lastResult.color}, ${lastResult.size}) — you won 🪙${totalPayout.toFixed(2)}`, 'success');
+          triggerWinShower(document.querySelector('.card'));
+        } else if (hasBets) {
+          showAlert(`Round settled. Result: ${lastResult.number} (${lastResult.color}, ${lastResult.size}) — no win this round.`, 'error');
+        }
+      }
+      myBetsThisRound = [];
+      renderMyBets();
+      selectedCat = null; selectedVal = null; selectedAmount = null;
+      document.querySelectorAll('[data-cat], .chip-amt').forEach(b => b.classList.remove('selected'));
+      document.getElementById('amountInput').value = '';
+    }
+    if (data.my_bets && data.my_bets.length > 0 && myBetsThisRound.length === 0) {
+      myBetsThisRound = data.my_bets;
+      renderMyBets();
+    }
+    lastRoundId = data.round_id;
+    updateBetButtonsSummary(data.aggregates);
+    resultsBody.innerHTML = '';
+    data.history.slice().reverse().forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.roundNumber}</td><td>${r.number}</td><td><span class="result-chip"><span class="result-dot ${r.dotClass}"></span>${r.color}</span></td><td>${r.size}</td>`;
+      resultsBody.appendChild(tr);
+    });
+  })
+  .catch(err => {
+    console.error("Error syncing color room state:", err);
+    isOffline = true;
+  });
+}
+
+placeBetBtn.addEventListener('click', () => {
+  if (selectedAmount > getWallet()) {
+    showAlert('Insufficient virtual coin balance.', 'error');
+    return;
+  }
+  if (isOffline) {
+    adjustWallet(-selectedAmount, `${ROOM_KEY.toUpperCase()} Bet placed`);
+    myBetsThisRound.push({ category: selectedCat, value: selectedVal, amount: selectedAmount });
+    renderMyBets();
+    showAlert(`Bet placed: ${selectedCat.toUpperCase()} · ${selectedVal} for 🪙${selectedAmount.toFixed(2)}`, 'success');
+    if (typeof pushHistory === 'function') {
+      pushHistory({ room: ROOM_KEY.toUpperCase(), roundNumber: lastRoundId, category: selectedCat, value: selectedVal, amount: selectedAmount, status: 'pending' });
+    }
+    return;
+  }
+  const params = new URLSearchParams();
+  params.append('room', ROOM_KEY);
+  params.append('category', selectedCat);
+  params.append('value', selectedVal);
+  params.append('amount', selectedAmount);
+  fetch('api/game_sync.php?action=color_place_bet', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.error) {
+      showAlert(data.error, 'error');
+    } else {
+      myBetsThisRound.push({ category: selectedCat, value: selectedVal, amount: selectedAmount });
+      renderMyBets();
+      setWallet(data.new_balance);
+      showAlert(`Bet placed: ${selectedCat.toUpperCase()} · ${selectedVal} for 🪙${selectedAmount.toFixed(2)}`, 'success');
+      if (typeof pushHistory === 'function') {
+        pushHistory({ room: ROOM_KEY.toUpperCase(), roundNumber: lastRoundId, category: selectedCat, value: selectedVal, amount: selectedAmount, status: 'pending' });
+      }
+    }
+  })
+  .catch(err => {
+    showAlert('Server connection error.', 'error');
+  });
+});
+
+// Run server polling loop every 1 second
+setInterval(syncState, 1000);
+syncState();
+
+startActivityFeed(document.getElementById('activityFeed'));
+</script>
+</body>
+</html>

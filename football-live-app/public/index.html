@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Football Scores Dashboard</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <style>
+    :root {
+      --bg-dark: #0b0f19;
+      --bg-card: #151c2c;
+      --bg-card-hover: #1b243a;
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-hover: rgba(59, 130, 246, 0.4);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-blue: #3b82f6;
+      --accent-live: #10b981;
+      --accent-live-bg: rgba(16, 185, 129, 0.15);
+      --accent-upcoming: #f59e0b;
+      --accent-upcoming-bg: rgba(245, 158, 11, 0.15);
+      --accent-finished: #64748b;
+      --accent-finished-bg: rgba(100, 116, 139, 0.15);
+      --glass-bg: rgba(21, 28, 44, 0.7);
+      --glass-blur: blur(12px);
+      --shadow-premium: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+      --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.15);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.03) 0%, transparent 45%);
+      background-attachment: fixed;
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      min-height: 100vh;
+      padding: 2rem 1.5rem;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* Header & Controls styling */
+    header {
+      margin-bottom: 2.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .logo-area {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .logo-icon {
+      color: var(--accent-blue);
+      animation: spin-slow 20s infinite linear;
+    }
+
+    h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* Auto-refresh indicator styling */
+    .refresh-status {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background: var(--glass-bg);
+      backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--border-color);
+      padding: 0.5rem 1rem;
+      border-radius: 50px;
+      font-size: 0.85rem;
+      box-shadow: var(--shadow-premium);
+    }
+
+    .timer-ring-container {
+      position: relative;
+      width: 20px;
+      height: 20px;
+    }
+
+    .timer-ring-bg {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.1);
+      stroke-width: 2.5;
+    }
+
+    .timer-ring-bar {
+      fill: none;
+      stroke: var(--accent-blue);
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+      transition: stroke-dashoffset 1s linear;
+    }
+
+    .sync-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.2s, transform 0.2s;
+    }
+
+    .sync-btn:hover {
+      color: var(--text-main);
+      transform: scale(1.1);
+    }
+
+    .sync-btn.spinning i,
+    .sync-btn.spinning svg {
+      animation: spin 0.8s linear infinite;
+    }
+
+    /* Stats Overview */
+    .stats-overview {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-card {
+      background: var(--glass-bg);
+      backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--border-color);
+      padding: 1.25rem;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      box-shadow: var(--shadow-premium);
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .stat-icon-wrapper {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .stat-icon-wrapper.live {
+      background: var(--accent-live-bg);
+      color: var(--accent-live);
+    }
+
+    .stat-icon-wrapper.upcoming {
+      background: var(--accent-upcoming-bg);
+      color: var(--accent-upcoming);
+    }
+
+    .stat-icon-wrapper.finished {
+      background: var(--accent-finished-bg);
+      color: var(--accent-finished);
+    }
+
+    .stat-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .stat-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Filter & Search Bar */
+    .controls-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      background: var(--glass-bg);
+      backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--border-color);
+      padding: 1rem;
+      border-radius: 16px;
+      box-shadow: var(--shadow-premium);
+    }
+
+    .filters-group {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      color: var(--text-muted);
+      padding: 0.6rem 1.2rem;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .filter-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+    }
+
+    .filter-btn.active {
+      background: var(--accent-blue);
+      border-color: var(--accent-blue);
+      color: white;
+      box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+    }
+
+    .search-wrapper {
+      position: relative;
+      flex-grow: 1;
+      max-width: 400px;
+      min-width: 250px;
+    }
+
+    .search-input {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-color);
+      padding: 0.65rem 1rem 0.65rem 2.5rem;
+      border-radius: 10px;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+      background: rgba(255, 255, 255, 0.07);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 0.85rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    /* Grid layout for matches */
+    .matches-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+      gap: 1.5rem;
+      margin-top: 1.5rem;
+    }
+
+    /* Match Card details styling */
+    .match-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: var(--shadow-premium);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .match-card:hover {
+      transform: translateY(-5px);
+      border-color: var(--border-hover);
+      box-shadow: var(--shadow-premium), var(--shadow-glow);
+    }
+
+    .match-card.is-live {
+      border-left: 4px solid var(--accent-live);
+    }
+
+    .match-header {
+      padding: 1rem 1.25rem;
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .competition-info {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .competition-logo {
+      width: 18px;
+      height: 18px;
+      object-fit: contain;
+    }
+
+    /* Badge indicators */
+    .status-badge {
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.25rem 0.6rem;
+      border-radius: 50px;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      text-transform: uppercase;
+    }
+
+    .status-badge.live {
+      background: var(--accent-live-bg);
+      color: var(--accent-live);
+    }
+
+    .status-badge.upcoming {
+      background: var(--accent-upcoming-bg);
+      color: var(--accent-upcoming);
+    }
+
+    .status-badge.finished {
+      background: var(--accent-finished-bg);
+      color: var(--accent-finished);
+    }
+
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: currentColor;
+    }
+
+    .badge-dot.pulse {
+      animation: pulse 1.5s infinite ease-in-out;
+    }
+
+    .match-body {
+      padding: 1.5rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.25rem;
+      flex-grow: 1;
+      justify-content: center;
+    }
+
+    .teams-container {
+      display: flex;
+      width: 100%;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+    }
+
+    .team-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+      width: 38%;
+      text-align: center;
+    }
+
+    .team-crest-wrapper {
+      position: relative;
+      width: 64px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .team-crest {
+      width: 56px;
+      height: 56px;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+      transition: transform 0.2s;
+    }
+
+    .team-block:hover .team-crest {
+      transform: scale(1.1);
+    }
+
+    .team-crest-placeholder {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: white;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    }
+
+    .team-name {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text-main);
+      line-height: 1.3;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      min-height: 2.5rem;
+    }
+
+    .score-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 24%;
+    }
+
+    .score-value {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -1px;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .score-divider {
+      color: var(--text-muted);
+      font-weight: 400;
+      font-size: 1.2rem;
+    }
+
+    .score-value.live {
+      color: var(--accent-live);
+      text-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+    }
+
+    .live-time-ticker {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--accent-live);
+      background: var(--accent-live-bg);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      margin-top: 0.5rem;
+      letter-spacing: 0.5px;
+    }
+
+    .upcoming-time-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .time-value {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--accent-upcoming);
+    }
+
+    .date-value {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    /* Skeleton Loading Screens */
+    .skeleton-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      height: 220px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      padding: 1.25rem;
+      gap: 1.25rem;
+    }
+
+    .shimmer {
+      background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);
+      background-size: 200% 100%;
+      animation: shimmer-load 1.6s infinite linear;
+      border-radius: 8px;
+    }
+
+    .shimmer.text-line {
+      height: 12px;
+      width: 100%;
+    }
+
+    .shimmer.circle {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+    }
+
+    .shimmer.header {
+      height: 20px;
+      width: 60%;
+    }
+
+    .shimmer.badge {
+      height: 20px;
+      width: 70px;
+      border-radius: 50px;
+    }
+
+    /* Error and Empty State designs */
+    .status-container {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 4rem 2rem;
+      text-align: center;
+      background: var(--glass-bg);
+      backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      box-shadow: var(--shadow-premium);
+    }
+
+    .status-icon {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+    }
+
+    .status-icon.error {
+      background: rgba(239, 68, 68, 0.15);
+      color: #ef4444;
+    }
+
+    .status-icon.empty {
+      background: rgba(59, 130, 246, 0.15);
+      color: var(--accent-blue);
+    }
+
+    .status-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      color: var(--text-main);
+    }
+
+    .status-desc {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+      max-width: 400px;
+      line-height: 1.5;
+    }
+
+    .retry-btn {
+      background: var(--accent-blue);
+      border: none;
+      color: white;
+      font-weight: 600;
+      padding: 0.75rem 1.75rem;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background-color 0.2s, transform 0.2s;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .retry-btn:hover {
+      background: #2563eb;
+      transform: scale(1.03);
+    }
+
+    .retry-btn:active {
+      transform: scale(0.98);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* Keyframes animations */
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @keyframes spin-slow {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.3); opacity: 0.4; }
+    }
+
+    @keyframes shimmer-load {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      body {
+        padding: 1.5rem 1rem;
+      }
+      header {
+        margin-bottom: 1.5rem;
+      }
+      h1 {
+        font-size: 1.75rem;
+      }
+      .controls-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .search-wrapper {
+        max-width: 100%;
+      }
+      .matches-grid {
+        grid-template-columns: 1fr;
+      }
+      .team-crest-wrapper {
+        width: 48px;
+        height: 48px;
+      }
+      .team-crest, .team-crest-placeholder {
+        width: 42px;
+        height: 42px;
+        font-size: 1rem;
+      }
+      .score-value {
+        font-size: 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div class="header-top">
+        <div class="logo-area">
+          <svg class="logo-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            <path d="M2 12h20"/>
+          </svg>
+          <h1>Wormhole Live Scores</h1>
+        </div>
+        
+        <!-- Refresh status & counter -->
+        <div class="refresh-status">
+          <div class="timer-ring-container">
+            <svg width="20" height="20">
+              <circle class="timer-ring-bg" cx="10" cy="10" r="8"></circle>
+              <circle id="timer-bar" class="timer-ring-bar" cx="10" cy="10" r="8" stroke-dasharray="50.26" stroke-dashoffset="0"></circle>
+            </svg>
+          </div>
+          <span id="countdown-label">Syncing...</span>
+          <button id="sync-btn" class="sync-btn" title="Refresh Now">
+            <i data-lucide="refresh-cw" style="width: 16px; height: 16px;"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats Overview Row -->
+      <div class="stats-overview">
+        <div class="stat-card">
+          <div class="stat-icon-wrapper live">
+            <i data-lucide="activity" style="width: 24px; height: 24px;"></i>
+          </div>
+          <div class="stat-info">
+            <span id="stat-live-val" class="stat-value">-</span>
+            <span class="stat-label">Live Now</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon-wrapper upcoming">
+            <i data-lucide="calendar" style="width: 24px; height: 24px;"></i>
+          </div>
+          <div class="stat-info">
+            <span id="stat-upcoming-val" class="stat-value">-</span>
+            <span class="stat-label">Scheduled</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon-wrapper finished">
+            <i data-lucide="check-circle-2" style="width: 24px; height: 24px;"></i>
+          </div>
+          <div class="stat-info">
+            <span id="stat-finished-val" class="stat-value">-</span>
+            <span class="stat-label">Finished</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Search & Filters -->
+      <div class="controls-row">
+        <div class="filters-group">
+          <button class="filter-btn active" data-filter="ALL">
+            <i data-lucide="list" style="width: 16px; height: 16px;"></i> All Matches
+          </button>
+          <button class="filter-btn" data-filter="LIVE">
+            <div class="badge-dot pulse" style="background-color: var(--accent-live)"></div> Live
+          </button>
+          <button class="filter-btn" data-filter="SCHEDULED">
+            <i data-lucide="calendar-clock" style="width: 16px; height: 16px;"></i> Scheduled
+          </button>
+          <button class="filter-btn" data-filter="FINISHED">
+            <i data-lucide="award" style="width: 16px; height: 16px;"></i> Finished
+          </button>
+        </div>
+
+        <div class="search-wrapper">
+          <i data-lucide="search" class="search-icon" style="width: 16px; height: 16px;"></i>
+          <input type="text" id="search-input" class="search-input" placeholder="Search teams or competitions...">
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main>
+      <!-- Matches Grid -->
+      <div id="matches-grid" class="matches-grid">
+        <!-- Skeleton loaders displayed by default -->
+        <div class="skeleton-card">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="shimmer header"></div>
+            <div class="shimmer badge"></div>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-grow: 1; margin: 10px 0;">
+            <div style="display: flex; flex-direction: column; align-items: center; width: 38%; gap: 10px;">
+              <div class="shimmer circle"></div>
+              <div class="shimmer text-line" style="width: 80%"></div>
+            </div>
+            <div style="width: 20%; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+              <div class="shimmer text-line" style="height: 20px; width: 60%"></div>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: center; width: 38%; gap: 10px;">
+              <div class="shimmer circle"></div>
+              <div class="shimmer text-line" style="width: 80%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="skeleton-card">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="shimmer header"></div>
+            <div class="shimmer badge"></div>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-grow: 1; margin: 10px 0;">
+            <div style="display: flex; flex-direction: column; align-items: center; width: 38%; gap: 10px;">
+              <div class="shimmer circle"></div>
+              <div class="shimmer text-line" style="width: 80%"></div>
+            </div>
+            <div style="width: 20%; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+              <div class="shimmer text-line" style="height: 20px; width: 60%"></div>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: center; width: 38%; gap: 10px;">
+              <div class="shimmer circle"></div>
+              <div class="shimmer text-line" style="width: 80%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="skeleton-card">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="shimmer header"></div>
+            <div class="shimmer badge"></div>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-grow: 1; margin: 10px 0;">
+            <div style="display: flex; flex-direction: column; align-items: center; width: 38%; gap: 10px;">
+              <div class="shimmer circle"></div>
+              <div class="shimmer text-line" style="width: 80%"></div>
+            </div>
+            <div style="width: 20%; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+              <div class="shimmer text-line" style="height: 20px; width: 60%"></div>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: center; width: 38%; gap: 10px;">
+              <div class="shimmer circle"></div>
+              <div class="shimmer text-line" style="width: 80%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- JavaScript logic -->
+  <script>
+    // State management
+    const state = {
+      matches: [],
+      loading: true,
+      error: null,
+      filter: 'ALL',
+      searchQuery: '',
+      countdown: 30
+    };
+
+    // Constants
+    const API_URL = 'http://localhost:3000/api/matches';
+    const REFRESH_INTERVAL_SECS = 30;
+    const CIRCLE_CIRCUMFERENCE = 50.26; // 2 * pi * r (r = 8)
+
+    // DOM Elements
+    const elements = {
+      grid: document.getElementById('matches-grid'),
+      searchInput: document.getElementById('search-input'),
+      syncBtn: document.getElementById('sync-btn'),
+      timerBar: document.getElementById('timer-bar'),
+      countdownLabel: document.getElementById('countdown-label'),
+      filterBtns: document.querySelectorAll('.filter-btn'),
+      statLive: document.getElementById('stat-live-val'),
+      statUpcoming: document.getElementById('stat-upcoming-val'),
+      statFinished: document.getElementById('stat-finished-val')
+    };
+
+    // Helpers
+    function getGradientForTeam(name) {
+      if (!name) name = "Unknown";
+      let hash = 0;
+      for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const h = Math.abs(hash % 360);
+      return `linear-gradient(135deg, hsl(${h}, 65%, 45%), hsl(${(h + 40) % 360}, 65%, 28%))`;
+    }
+
+    function getInitials(name) {
+      if (!name) return '??';
+      const words = name.trim().split(/\s+/);
+      if (words.length >= 2) {
+        return (words[0][0] + words[1][0]).toUpperCase();
+      }
+      return name.slice(0, 2).toUpperCase();
+    }
+
+    function getMatchCategory(status) {
+      if (!status) return 'SCHEDULED';
+      const statusUpper = status.toUpperCase();
+      const liveStatuses = ['LIVE', 'IN_PLAY', 'PAUSED'];
+      const scheduledStatuses = ['TIMED', 'SCHEDULED', 'UPCOMING'];
+      const finishedStatuses = ['FINISHED', 'FT'];
+
+      if (liveStatuses.includes(statusUpper)) return 'LIVE';
+      if (scheduledStatuses.includes(statusUpper)) return 'SCHEDULED';
+      if (finishedStatuses.includes(statusUpper)) return 'FINISHED';
+      
+      // Fallback categorization based on standard football API structure
+      return 'SCHEDULED'; 
+    }
+
+    function formatTime(dateStr) {
+      if (!dateStr) return '';
+      const date = new Date(dateStr);
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      const date = new Date(dateStr);
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
+
+    // Fetch matches from Node backend
+    async function fetchMatches(isManual = false) {
+      if (isManual) {
+        elements.syncBtn.classList.add('spinning');
+      }
+      
+      try {
+        const response = await fetch(API_URL);
+        if (!response.ok) {
+          throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        // Ensure structure matches requirements
+        state.matches = data.matches || [];
+        state.error = null;
+      } catch (err) {
+        console.error('Fetch error:', err);
+        state.error = err.message || 'Failed to load matches';
+      } finally {
+        state.loading = false;
+        elements.syncBtn.classList.remove('spinning');
+        updateUI();
+        resetTimer();
+      }
+    }
+
+    // Timer Logic
+    let countdownInterval;
+
+    function startTimer() {
+      if (countdownInterval) clearInterval(countdownInterval);
+      
+      countdownInterval = setInterval(() => {
+        state.countdown--;
+        
+        if (state.countdown <= 0) {
+          state.countdown = REFRESH_INTERVAL_SECS;
+          fetchMatches();
+        } else {
+          updateTimerUI();
+        }
+      }, 1000);
+      
+      updateTimerUI();
+    }
+
+    function resetTimer() {
+      state.countdown = REFRESH_INTERVAL_SECS;
+      updateTimerUI();
+    }
+
+    function updateTimerUI() {
+      // Update circular indicator
+      const progress = state.countdown / REFRESH_INTERVAL_SECS;
+      const offset = CIRCLE_CIRCUMFERENCE - (progress * CIRCLE_CIRCUMFERENCE);
+      elements.timerBar.style.strokeDashoffset = offset;
+      
+      // Update label
+      elements.countdownLabel.textContent = `Syncing in ${state.countdown}s`;
+    }
+
+    // UI Rendering
+    function updateUI() {
+      updateStats();
+      renderMatchesGrid();
+      lucide.createIcons(); // re-initialize icons
+    }
+
+    function updateStats() {
+      if (state.error || state.loading) {
+        elements.statLive.textContent = '-';
+        elements.statUpcoming.textContent = '-';
+        elements.statFinished.textContent = '-';
+        return;
+      }
+
+      const live = state.matches.filter(m => getMatchCategory(m.status) === 'LIVE').length;
+      const upcoming = state.matches.filter(m => getMatchCategory(m.status) === 'SCHEDULED').length;
+      const finished = state.matches.filter(m => getMatchCategory(m.status) === 'FINISHED').length;
+
+      elements.statLive.textContent = live;
+      elements.statUpcoming.textContent = upcoming;
+      elements.statFinished.textContent = finished;
+    }
+
+    function renderMatchesGrid() {
+      if (state.loading) {
+        // Handled in HTML initially, but keep as fallback
+        return;
+      }
+
+      if (state.error) {
+        elements.grid.innerHTML = `
+          <div class="status-container">
+            <div class="status-icon error">
+              <i data-lucide="alert-triangle" style="width: 32px; height: 32px;"></i>
+            </div>
+            <h3 class="status-title">Unable to Fetch Scores</h3>
+            <p class="status-desc">Something went wrong while connecting to the football scores endpoint: "${state.error}". Please make sure the Node server is active.</p>
+            <button class="retry-btn" onclick="retryFetch()">
+              <i data-lucide="rotate-ccw" style="width: 16px; height: 16px;"></i> Try Again
+            </button>
+          </div>
+        `;
+        return;
+      }
+
+      // Filter and Search logic
+      const filtered = state.matches.filter(match => {
+        const cat = getMatchCategory(match.status);
+        const homeName = (match.homeTeam?.name || '').toLowerCase();
+        const awayName = (match.awayTeam?.name || '').toLowerCase();
+        const compName = (match.competition?.name || '').toLowerCase();
+        const query = state.searchQuery.toLowerCase();
+
+        const matchesSearch = homeName.includes(query) || awayName.includes(query) || compName.includes(query);
+        const matchesFilter = state.filter === 'ALL' || cat === state.filter;
+
+        return matchesSearch && matchesFilter;
+      });
+
+      if (filtered.length === 0) {
+        elements.grid.innerHTML = `
+          <div class="status-container">
+            <div class="status-icon empty">
+              <i data-lucide="help-circle" style="width: 32px; height: 32px;"></i>
+            </div>
+            <h3 class="status-title">No Matches Found</h3>
+            <p class="status-desc">We couldn't find any matches matching your search "${state.searchQuery}" or selected category filter.</p>
+          </div>
+        `;
+        return;
+      }
+
+      elements.grid.innerHTML = filtered.map(match => {
+        const category = getMatchCategory(match.status);
+        const isLive = category === 'LIVE';
+        const isFinished = category === 'FINISHED';
+        const isScheduled = category === 'SCHEDULED';
+        
+        // Competiton label
+        const competitionName = match.competition?.name || 'Football Match';
+        const competitionEmblem = match.competition?.emblem;
+        
+        // Match status visual components
+        let statusBadgeHTML = '';
+        let scoreHTML = '';
+        
+        if (isLive) {
+          statusBadgeHTML = `
+            <span class="status-badge live">
+              <div class="badge-dot pulse"></div> LIVE
+            </span>
+          `;
+          
+          const homeScore = match.score?.fullTime?.home ?? 0;
+          const awayScore = match.score?.fullTime?.away ?? 0;
+          const minute = match.minute || 'Live';
+          
+          scoreHTML = `
+            <div class="score-block">
+              <div class="score-value live">${homeScore} <span class="score-divider">-</span> ${awayScore}</div>
+              <div class="live-time-ticker">${minute === 'Live' ? '' : '<span>' + minute + '\'</span>'}</div>
+            </div>
+          `;
+        } else if (isFinished) {
+          statusBadgeHTML = `
+            <span class="status-badge finished">
+              <div class="badge-dot"></div> FT
+            </span>
+          `;
+          
+          const homeScore = match.score?.fullTime?.home ?? 0;
+          const awayScore = match.score?.fullTime?.away ?? 0;
+          
+          scoreHTML = `
+            <div class="score-block">
+              <div class="score-value" style="opacity: 0.8;">${homeScore} <span class="score-divider">-</span> ${awayScore}</div>
+            </div>
+          `;
+        } else {
+          // Scheduled
+          statusBadgeHTML = `
+            <span class="status-badge upcoming">
+              <div class="badge-dot"></div> ${match.status || 'UPCOMING'}
+            </span>
+          `;
+          
+          const matchTime = formatTime(match.utcDate);
+          const matchDate = formatDate(match.utcDate);
+          
+          scoreHTML = `
+            <div class="score-block">
+              <div class="upcoming-time-block">
+                <div class="time-value">${matchTime || '--:--'}</div>
+                <div class="date-value">${matchDate || 'Scheduled'}</div>
+              </div>
+            </div>
+          `;
+        }
+
+        // Teams layouts
+        const homeCrest = match.homeTeam?.crest;
+        const awayCrest = match.awayTeam?.crest;
+        
+        return `
+          <div class="match-card ${isLive ? 'is-live' : ''}">
+            <div class="match-header">
+              <div class="competition-info">
+                ${competitionEmblem ? `<img class="competition-logo" src="${competitionEmblem}" alt="${competitionName}">` : '<i data-lucide="trophy" style="width: 14px; height: 14px; color: var(--text-muted);"></i>'}
+                <span>${competitionName}</span>
+              </div>
+              ${statusBadgeHTML}
+            </div>
+            
+            <div class="match-body">
+              <div class="teams-container">
+                <!-- Home Team -->
+                <div class="team-block">
+                  <div class="team-crest-wrapper">
+                    ${homeCrest ? `<img class="team-crest" src="${homeCrest}" alt="${match.homeTeam.name}" onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden');">` : ''}
+                    <div class="team-crest-placeholder ${homeCrest ? 'hidden' : ''}" style="background: ${getGradientForTeam(match.homeTeam?.name)}">
+                      ${getInitials(match.homeTeam?.name)}
+                    </div>
+                  </div>
+                  <div class="team-name">${match.homeTeam?.name || 'Home Team'}</div>
+                </div>
+                
+                <!-- Score / Time -->
+                ${scoreHTML}
+                
+                <!-- Away Team -->
+                <div class="team-block">
+                  <div class="team-crest-wrapper">
+                    ${awayCrest ? `<img class="team-crest" src="${awayCrest}" alt="${match.awayTeam.name}" onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden');">` : ''}
+                    <div class="team-crest-placeholder ${awayCrest ? 'hidden' : ''}" style="background: ${getGradientForTeam(match.awayTeam?.name)}">
+                      ${getInitials(match.awayTeam?.name)}
+                    </div>
+                  </div>
+                  <div class="team-name">${match.awayTeam?.name || 'Away Team'}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function retryFetch() {
+      state.loading = true;
+      elements.grid.innerHTML = `
+        <div class="skeleton-card">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="shimmer header"></div>
+            <div class="shimmer badge"></div>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-grow: 1; margin: 10px 0;">
+            <div style="display: flex; flex-direction: column; align-items: center; width: 38%; gap: 10px;">
+              <div class="shimmer circle"></div>
+              <div class="shimmer text-line" style="width: 80%"></div>
+            </div>
+            <div style="width: 20%; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+              <div class="shimmer text-line" style="height: 20px; width: 60%"></div>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: center; width: 38%; gap: 10px;">
+              <div class="shimmer circle"></div>
+              <div class="shimmer text-line" style="width: 80%"></div>
+            </div>
+          </div>
+        </div>
+      `;
+      fetchMatches(true);
+    }
+
+    // Event Listeners
+    elements.syncBtn.addEventListener('click', () => {
+      fetchMatches(true);
+    });
+
+    elements.searchInput.addEventListener('input', (e) => {
+      state.searchQuery = e.target.value;
+      renderMatchesGrid();
+      lucide.createIcons();
+    });
+
+    elements.filterBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        elements.filterBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.filter = btn.dataset.filter;
+        renderMatchesGrid();
+        lucide.createIcons();
+      });
+    });
+
+    // Initial setup
+    fetchMatches();
+    startTimer();
+    lucide.createIcons();
+  </script>
+</body>
+</html>

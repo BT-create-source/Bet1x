@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin · Parity Monitor — bet1x</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<nav class="navbar exchange-header">
+  <div class="exchange-logo-box">
+    bet1x<span>.com</span>
+  </div>
+  <div id="headerAuthArea">
+    <!-- Loaded dynamically by ui-common.js -->
+  </div>
+</nav>
+
+<div class="sub-navbar">
+  <ul class="sub-navbar-links">
+    <li class="sub-navbar-item"><a href="index.html" class="sub-navbar-link">Home</a></li>
+    <li class="sub-navbar-item"><a href="aviator.html" class="sub-navbar-link">Vimaan</a></li>
+    <li class="sub-navbar-item"><a href="win.html" class="sub-navbar-link">Sapre</a></li>
+    <li class="sub-navbar-item"><a href="win1.html" class="sub-navbar-link">Becone</a></li>
+    <li class="sub-navbar-item"><a href="win2.html" class="sub-navbar-link">Emred</a></li>
+    <li class="sub-navbar-item"><a href="win3.html" class="sub-navbar-link">VIP</a></li>
+    <li class="sub-navbar-item"><a href="teenpatti.html" class="sub-navbar-link">Teen Patti</a></li>
+    <li class="sub-navbar-item"><a href="boundarybaazi.html" class="sub-navbar-link">Boundary Baazi</a></li>
+    <li class="sub-navbar-item"><a href="youreleven.html" class="sub-navbar-link">Your Eleven</a></li>
+    <li class="sub-navbar-item"><a href="football.html" class="sub-navbar-link">Football</a></li>
+    <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
+    <li class="sub-navbar-item"><a href="parity.html" class="sub-navbar-link active">Admin</a></li>
+  </ul>
+</div>
+
+<div class="container section-tight">
+  <div class="flex-between" style="margin-bottom:20px;">
+    <div>
+      <h2 style="font-family:var(--font-display);margin:0 0 4px;">Parity / Bet Monitor</h2>
+      <div class="text-dim" style="font-size:13px;">Live pending-bet distribution for the current open round</div>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <a href="admin.html" onclick="localStorage.setItem('admin_active_tab', 'cheats')" class="btn btn-gold" style="font-size:12.5px; font-weight:700; color:#000; text-decoration:none; padding:6px 12px; display:flex; align-items:center; gap:6px;">🔧 Outcome Bias Control</a>
+      <select id="roomSelect" style="padding:6px 10px;">
+        <option value="sapre">Sapre (30s)</option>
+        <option value="becone">Becone (1min)</option>
+        <option value="emred">Emred (3min)</option>
+        <option value="vip">VIP (5min)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="stat-row" style="margin-top:0;">
+    <div class="stat-card"><div class="stat-value" id="statPendingBets">0</div><div class="stat-label">Pending bets this round</div></div>
+    <div class="stat-card"><div class="stat-value" id="statPendingAmt">0</div><div class="stat-label">Total pending amount</div></div>
+    <div class="stat-card"><div class="stat-value up" id="statPlayers">0</div><div class="stat-label">Players in room</div></div>
+    <div class="stat-card"><div class="stat-value" id="statRound">—</div><div class="stat-label">Current round ID</div></div>
+  </div>
+
+  <div class="grid-2" style="margin-top:24px;">
+    <div class="card">
+      <h3>By Color</h3>
+      <div id="colorBars"></div>
+    </div>
+    <div class="card">
+      <h3>By Size</h3>
+      <div id="sizeBars"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>By Number (0–9)</h3>
+    <div id="numberBars"></div>
+  </div>
+
+  <div class="card">
+    <h3>Individual Pending Bets</h3>
+    <table>
+      <thead><tr><th>User</th><th>Category</th><th>Value</th><th>Amount</th><th>Placed</th></tr></thead>
+      <tbody id="pendingBetsBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="footer">
+  bet1x — Admin monitor. All bet data shown is simulated for presentation purposes.
+</div>
+
+<script src="assets/js/dummy-data.js"></script>
+<script src="assets/js/ui-common.js"></script>
+<script>
+const ROOM_PLAYER_COUNTS = { sapre: 612, becone: 487, emred: 253, vip: 96 };
+
+function renderDashboard(roomKey) {
+  const dist = generateFakeDistribution();
+  const totalBets = dist.colors.reduce((s, c) => s + c.bets, 0);
+  const totalAmt = dist.colors.reduce((s, c) => s + c.amount, 0);
+
+  animateCounter(document.getElementById('statPendingBets'), totalBets);
+  animateCounter(document.getElementById('statPendingAmt'), totalAmt, { prefix: '🪙' });
+  animateCounter(document.getElementById('statPlayers'), ROOM_PLAYER_COUNTS[roomKey]);
+  document.getElementById('statRound').textContent = formatRoundId(new Date(), randomInt(10000, 99999));
+
+  // color bars
+  const maxColorAmt = Math.max(...dist.colors.map(c => c.amount));
+  document.getElementById('colorBars').innerHTML = dist.colors.map(c => `
+    <div class="bar-row">
+      <div class="bar-label">${c.label}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(c.amount / maxColorAmt * 100).toFixed(0)}%; background: var(--${c.cls});"></div></div>
+      <div class="bar-value">🪙${c.amount.toLocaleString('en-IN')} (${c.bets})</div>
+    </div>
+  `).join('');
+
+  // size bars
+  const maxSizeAmt = Math.max(...dist.sizes.map(s => s.amount));
+  document.getElementById('sizeBars').innerHTML = dist.sizes.map(s => `
+    <div class="bar-row">
+      <div class="bar-label">${s.label}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(s.amount / maxSizeAmt * 100).toFixed(0)}%; background: var(--violet);"></div></div>
+      <div class="bar-value">🪙${s.amount.toLocaleString('en-IN')} (${s.bets})</div>
+    </div>
+  `).join('');
+
+  // number bars
+  const maxNumAmt = Math.max(...dist.numbers.map(n => n.amount));
+  document.getElementById('numberBars').innerHTML = dist.numbers.map(n => `
+    <div class="bar-row">
+      <div class="bar-label">Number ${n.n}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(n.amount / maxNumAmt * 100).toFixed(0)}%; background: var(--gold);"></div></div>
+      <div class="bar-value">🪙${n.amount.toLocaleString('en-IN')} (${n.bets})</div>
+    </div>
+  `).join('');
+
+  // individual pending bets table
+  const rows = [];
+  for (let i = 0; i < 12; i++) {
+    const ev = generateFakeActivityEvent();
+    const label = ev.category === 'number' ? `Number ${ev.value}` : ev.value;
+    rows.push(`
+      <tr>
+        <td>${ev.user}</td>
+        <td>${ev.category[0].toUpperCase() + ev.category.slice(1)}</td>
+        <td>${label}</td>
+        <td>🪙${ev.amount}</td>
+        <td>${randomInt(1, 28)}s ago</td>
+      </tr>
+    `);
+  }
+  document.getElementById('pendingBetsBody').innerHTML = rows.join('');
+}
+
+document.getElementById('roomSelect').addEventListener('change', (e) => renderDashboard(e.target.value));
+renderDashboard('sapre');
+
+// keep the dashboard feeling "live"
+setInterval(() => renderDashboard(document.getElementById('roomSelect').value), 6000);
+</script>
+</body>
+</html>

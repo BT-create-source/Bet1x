@@ -1,0 +1,1428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your Eleven — bet1x</title>
+<link rel="stylesheet" href="assets/css/style.css">
+<style>
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .game-container {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 32px 24px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-size: 32px;
+    color: var(--gold);
+    margin: 10px 0 5px;
+    text-align: center;
+    letter-spacing: -0.02em;
+  }
+  .subtitle {
+    color: var(--text-dim);
+    margin-bottom: 24px;
+    font-size: 14px;
+    text-align: center;
+  }
+  
+  .cricket-felt {
+    background: radial-gradient(circle at center, #0b4533 30%, #031a13 90%);
+    border: 8px solid #362211;
+    border-radius: var(--radius-lg);
+    width: 100%;
+    max-width: 840px;
+    padding: 24px;
+    box-shadow: inset 0 0 60px rgba(0,0,0,0.7), var(--shadow-card);
+    margin-bottom: 20px;
+    position: relative;
+  }
+
+  /* Contest Selector Cards */
+  .contest-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 640px) {
+    .contest-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  .contest-card {
+    background: rgba(11, 14, 29, 0.85);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .contest-card.selected {
+    border-color: var(--gold);
+    background: rgba(26, 32, 64, 0.85);
+    box-shadow: 0 0 12px rgba(255, 197, 61, 0.2);
+  }
+  .contest-title {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .contest-fee {
+    font-size: 20px;
+    font-weight: bold;
+    color: var(--gold);
+    margin: 6px 0;
+  }
+  .contest-winnings {
+    font-size: 11px;
+    color: var(--green);
+  }
+
+  /* Sticky stats bar */
+  .squad-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(11, 14, 29, 0.95);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 18px;
+    margin-bottom: 20px;
+    position: sticky;
+    top: 64px;
+    z-index: 10;
+    backdrop-filter: blur(8px);
+  }
+  .squad-stat {
+    font-size: 13px;
+    font-family: var(--font-mono);
+  }
+  .squad-stat b {
+    color: var(--gold);
+  }
+
+  /* Filters */
+  .role-tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    justify-content: center;
+  }
+  .role-tab {
+    padding: 6px 14px;
+    border-radius: 20px;
+    background: rgba(11, 14, 29, 0.6);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+  }
+  .role-tab.active {
+    background: var(--gold);
+    color: #0b0e1d;
+    font-weight: bold;
+    border-color: var(--gold);
+  }
+
+  /* Players list */
+  .player-list-box {
+    max-height: 380px;
+    overflow-y: auto;
+    background: rgba(11, 14, 29, 0.65);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px;
+    margin-bottom: 20px;
+  }
+  .player-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    transition: all 0.2s;
+    border-radius: var(--radius-sm);
+  }
+  .player-row:last-child {
+    border-bottom: none;
+  }
+  .player-row.selected {
+    background: rgba(46, 212, 122, 0.08);
+    border-color: rgba(46, 212, 122, 0.3);
+  }
+  .player-meta {
+    display: flex;
+    flex-direction: column;
+  }
+  .player-name-wrap {
+    font-weight: 600;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .role-badge {
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--surface-3);
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+  }
+  .role-badge.wk { background: #3b82f6; color: #fff; }
+  .role-badge.bat { background: #10b981; color: #fff; }
+  .role-badge.ar { background: #f59e0b; color: #fff; }
+  .role-badge.bowl { background: #ec4899; color: #fff; }
+  
+  .team-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+  .credits-tag {
+    font-family: var(--font-mono);
+    font-weight: bold;
+    color: var(--gold);
+    font-size: 13px;
+    margin-right: 8px;
+  }
+
+  /* Captain drop downs */
+  .leader-selector-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+    background: rgba(11, 14, 29, 0.65);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+  @media (max-width: 480px) {
+    .leader-selector-wrap {
+      grid-template-columns: 1fr;
+    }
+  }
+  .leader-box h3 {
+    font-size: 13px;
+    color: var(--gold);
+    margin: 0 0 8px;
+  }
+  .leader-select {
+    width: 100%;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    font-size: 13px;
+    outline: none;
+  }
+
+  /* Error warnings */
+  .error-box {
+    background: rgba(255, 75, 110, 0.1);
+    border: 1px solid rgba(255, 75, 110, 0.3);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    font-size: 12px;
+    color: var(--red);
+    margin-bottom: 20px;
+  }
+  .error-box div {
+    padding: 2px 0;
+  }
+
+  /* Results styling */
+  .score-badge {
+    text-align: center;
+    margin: 16px 0;
+  }
+  .score-val {
+    font-size: 48px;
+    font-weight: 900;
+    color: var(--gold);
+    font-family: var(--font-display);
+    text-shadow: 0 0 16px rgba(255, 197, 61, 0.3);
+  }
+  .score-lbl {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+
+  .results-list {
+    max-height: 380px;
+    overflow-y: auto;
+    background: rgba(11, 14, 29, 0.7);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px;
+    margin-bottom: 20px;
+  }
+  .result-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+  .result-card:last-child {
+    border-bottom: none;
+  }
+  .result-card.captain {
+    border-left: 3px solid var(--gold);
+  }
+  .result-card.vice {
+    border-left: 3px solid #60a5fa;
+  }
+  .tag-c {
+    font-size: 9px;
+    background: var(--gold);
+    color: #0b0e1d;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-weight: bold;
+    margin-left: 6px;
+  }
+  .tag-vc {
+    font-size: 9px;
+    background: #3b82f6;
+    color: #fff;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-weight: bold;
+    margin-left: 6px;
+  }
+  .result-stats {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 3px;
+  }
+  .points-badge {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: bold;
+    color: var(--gold);
+  }
+
+  .rules-card {
+    max-width: 840px;
+    width: 100%;
+    background: rgba(11, 14, 29, 0.5);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    font-size: 12px;
+  }
+  .rules-card h4 {
+    margin: 0 0 10px;
+    color: var(--gold);
+    font-size: 14px;
+  }
+  .rules-card ul {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--text-dim);
+    line-height: 1.8;
+  }
+
+  /* Cricket Stadium Pitch Preview */
+  .stadium-pitch {
+    background: repeating-linear-gradient(
+      180deg,
+      #145a32 0px,
+      #145a32 40px,
+      #196f3d 40px,
+      #196f3d 80px
+    );
+    border: 3px solid rgba(255,255,255,0.15);
+    border-radius: var(--radius);
+    padding: 16px 8px;
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.5);
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    max-width: 840px;
+  }
+  .stadium-pitch::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 10px;
+    right: 10px;
+    height: 1px;
+    background: rgba(255,255,255,0.15);
+  }
+  .pitch-crease {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60px;
+    height: 90px;
+    border: 1.5px solid rgba(255,255,255,0.2);
+    background: #d4ac0d;
+    opacity: 0.15;
+    pointer-events: none;
+  }
+  .pitch-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    z-index: 2;
+  }
+  .pitch-player {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 65px;
+    text-align: center;
+    position: relative;
+  }
+  .jersey-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    position: relative;
+    border: 1.5px solid #fff;
+  }
+  .jersey-badge.jersey-ind {
+    background: #1d4ed8;
+  }
+  .jersey-badge.jersey-aus {
+    background: #eab308;
+  }
+  .pitch-name {
+    font-size: 9.5px;
+    background: rgba(11, 14, 29, 0.85);
+    color: #fff;
+    padding: 2px 4px;
+    border-radius: 4px;
+    margin-top: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 75px;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .pitch-leader-badge {
+    position: absolute;
+    top: -5px;
+    right: -8px;
+    font-size: 8px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    border: 1px solid #fff;
+  }
+  .pitch-leader-badge.c {
+    background: #f59e0b;
+  }
+  .pitch-leader-badge.vc {
+    background: #3b82f6;
+  }
+
+  /* Lobby Styles */
+  .lobby-card {
+    background: rgba(11, 14, 29, 0.85);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    width: 100%;
+    max-width: 600px;
+    margin: 20px auto;
+    box-shadow: var(--shadow-card);
+    transition: all 0.25s;
+  }
+  .lobby-card:hover {
+    border-color: var(--gold);
+    box-shadow: 0 8px 24px rgba(255, 197, 61, 0.15);
+  }
+  .lobby-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+  }
+  .lobby-series {
+    font-size: 11px;
+    color: var(--gold);
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+  .lobby-countdown {
+    font-size: 12px;
+    color: var(--red);
+    font-family: var(--font-mono);
+    background: rgba(255, 75, 110, 0.1);
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 75, 110, 0.2);
+  }
+  .lobby-teams {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    margin: 18px 0;
+    font-family: var(--font-display);
+  }
+  .lobby-team-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .lobby-flag {
+    font-size: 32px;
+  }
+  .lobby-team-name {
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .lobby-vs {
+    font-size: 14px;
+    color: var(--text-dim);
+    font-style: italic;
+    background: rgba(255,255,255,0.05);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .lobby-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  
+  /* Live Match Tracking Styles */
+  .live-scoreboard-box {
+    background: rgba(11, 14, 29, 0.95);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    width: 100%;
+    max-width: 680px;
+    margin: 10px auto 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+  }
+  .live-score-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .live-score-team {
+    font-size: 15px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .live-score-val {
+    font-size: 18px;
+    font-family: var(--font-mono);
+    font-weight: bold;
+    color: var(--gold);
+  }
+  .live-status-tag {
+    font-size: 10px;
+    background: var(--red);
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    font-weight: bold;
+    letter-spacing: 0.05em;
+    animation: flash 1s infinite alternate;
+  }
+  @keyframes flash {
+    0% { opacity: 0.6; }
+    100% { opacity: 1; }
+  }
+  .live-commentary-ticker {
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 12.5px;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    color: var(--text-light);
+    border-left: 3px solid var(--gold);
+    margin-bottom: 16px;
+  }
+  
+  .live-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 12px;
+  }
+  .live-table th {
+    text-align: left;
+    color: var(--text-dim);
+    font-weight: 600;
+    padding: 8px;
+    border-bottom: 1.5px solid rgba(255,255,255,0.08);
+  }
+  .live-table td {
+    padding: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .live-table tr:hover {
+    background: rgba(255,255,255,0.02);
+  }
+</style>
+</head>
+<body>
+
+<nav class="navbar exchange-header">
+  <div class="exchange-logo-box">
+    bet1x<span>.com</span>
+  </div>
+  <div id="headerAuthArea">
+    <!-- Loaded dynamically by ui-common.js -->
+  </div>
+</nav>
+
+<div class="sub-navbar">
+  <ul class="sub-navbar-links">
+    <li class="sub-navbar-item"><a href="index.html" class="sub-navbar-link">Home</a></li>
+    <li class="sub-navbar-item"><a href="aviator.html" class="sub-navbar-link">Vimaan</a></li>
+    <li class="sub-navbar-item"><a href="win.html" class="sub-navbar-link">Sapre</a></li>
+    <li class="sub-navbar-item"><a href="win1.html" class="sub-navbar-link">Becone</a></li>
+    <li class="sub-navbar-item"><a href="win2.html" class="sub-navbar-link">Emred</a></li>
+    <li class="sub-navbar-item"><a href="win3.html" class="sub-navbar-link">VIP</a></li>
+    <li class="sub-navbar-item"><a href="teenpatti.html" class="sub-navbar-link">Teen Patti</a></li>
+    <li class="sub-navbar-item"><a href="boundarybaazi.html" class="sub-navbar-link">Boundary Baazi</a></li>
+    <li class="sub-navbar-item"><a href="youreleven.html" class="sub-navbar-link active">Your Eleven</a></li>
+    <li class="sub-navbar-item"><a href="football.html" class="sub-navbar-link">Football</a></li>
+    <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
+    <li class="sub-navbar-item"><a href="parity.html" class="sub-navbar-link">Admin</a></li>
+  </ul>
+</div>
+
+<div class="game-container">
+  <h1>🏏 YOUR ELEVEN 🏏</h1>
+  <div class="subtitle">Fantasy Cricket Simulator — Pick 11, Settle Contests & Claim Payouts!</div>
+
+  <div class="cricket-felt">
+    <div id="gameScreen"></div>
+  </div>
+
+  <div class="rules-card">
+    <h4>Fantasy Scoring Sheet</h4>
+    <ul>
+      <li><b>Batting</b>: 1 Run = 1 pt | Boundary (4) = +1 bonus | Six = +2 bonus</li>
+      <li><b>Milestones</b>: 30+ runs = +4 pts | Half-century = +8 pts | Century = +16 pts | Duck = -2 pts</li>
+      <li><b>Bowling</b>: Wicket = 25 pts | 3 Wickets = +4 pts | 5 Wickets = +8 pts | Maiden over = +4 pts</li>
+      <li><b>Fielding</b>: Catch = +8 pts | Stumping = +12 pts | Run-out = +6 pts</li>
+      <li><b>Leaders</b>: Captain gets 2.0x points | Vice-Captain gets 1.5x points</li>
+    </ul>
+  </div>
+</div>
+
+<div class="footer">
+  bet1x pitch — Your Eleven. All players, scores, and match results are simulated for entertainment purposes.
+</div>
+
+<script src="assets/js/dummy-data.js"></script>
+<script src="assets/js/ui-common.js"></script>
+<script>
+const SQUAD_SIZE = 11;
+const BUDGET_LIMIT = 110.0;
+
+const contests = [
+  { id: 'bronze',   title: 'Bronze League',   fee: 50,  payoutRatio: 1 },
+  { id: 'gold',     title: 'Gold Trophy',     fee: 200, payoutRatio: 4 },
+  { id: 'platinum', title: 'Platinum Cup',    fee: 500, payoutRatio: 10 }
+];
+
+let gameState = {
+  selectedContest: 'bronze',
+  selectedPlayers: [], // array of player ids
+  captainId: null,
+  viceId: null,
+  currentFilter: 'ALL',
+  status: 'lobby', // lobby | drafting | simulating | result
+  simulationResult: null,
+  simulationScore: 0,
+  payoutAwarded: 0,
+  activeMatchId: null
+};
+
+function enterMatchDraft(matchId) {
+  gameState.activeMatchId = matchId;
+  gameState.status = 'drafting';
+  render();
+}
+
+// Compute selected stats
+function getCreditsUsed() {
+  return gameState.selectedPlayers.reduce((sum, id) => {
+    const p = playerPool.find(item => item.id === id);
+    return sum + (p ? p.credits : 0);
+  }, 0);
+}
+
+function getRoleCount(role) {
+  return gameState.selectedPlayers.filter(id => {
+    const p = playerPool.find(item => item.id === id);
+    return p && p.role === role;
+  }).length;
+}
+
+function getTeamCount(team) {
+  return gameState.selectedPlayers.filter(id => {
+    const p = playerPool.find(item => item.id === id);
+    return p && p.team === team;
+  }).length;
+}
+
+function togglePlayerSelection(id) {
+  if (gameState.status !== 'drafting') return;
+  const idx = gameState.selectedPlayers.indexOf(id);
+  
+  if (idx >= 0) {
+    gameState.selectedPlayers.splice(idx, 1);
+    if (gameState.captainId === id) gameState.captainId = null;
+    if (gameState.viceId === id) gameState.viceId = null;
+  } else {
+    if (gameState.selectedPlayers.length >= SQUAD_SIZE) {
+      alert(`Aap sirf ${SQUAD_SIZE} players hi choose kar sakte hain.`);
+      return;
+    }
+    const player = playerPool.find(p => p.id === id);
+    if (getCreditsUsed() + player.credits > BUDGET_LIMIT) {
+      alert("Credits budget limits paar ho rahi hai!");
+      return;
+    }
+    gameState.selectedPlayers.push(id);
+  }
+  render();
+}
+
+function getTeamValidationErrors() {
+  const errors = [];
+  if (gameState.selectedPlayers.length !== SQUAD_SIZE) {
+    errors.push(`Aapko exactly ${SQUAD_SIZE} players select karne hain.`);
+  }
+  const wk = getRoleCount('WK');
+  const bat = getRoleCount('BAT');
+  const ar = getRoleCount('AR');
+  const bowl = getRoleCount('BOWL');
+
+  if (wk < 1 || wk > 4) errors.push("Wicket-Keeper (WK) count 1 se 4 ke beech hona chahiye.");
+  if (bat < 3 || bat > 6) errors.push("Batsman (BAT) count 3 se 6 ke beech hona chahiye.");
+  if (ar < 1 || ar > 4) errors.push("All-Rounder (AR) count 1 se 4 ke beech hona chahiye.");
+  if (bowl < 3 || bowl > 6) errors.push("Bowler (BOWL) count 3 se 6 ke beech hona chahiye.");
+
+  const teams = ['India', 'Australia'];
+  teams.forEach(t => {
+    if (getTeamCount(t) > 7) {
+      errors.push(`Ek team (${t}) se maximum 7 players hi choose kar sakte hain.`);
+    }
+  });
+
+  if (gameState.selectedPlayers.length === SQUAD_SIZE) {
+    if (!gameState.captainId) errors.push("Kripya Captain (C) select karein.");
+    if (!gameState.viceId) errors.push("Kripya Vice-Captain (VC) select karein.");
+    if (gameState.captainId && gameState.viceId && gameState.captainId === gameState.viceId) {
+      errors.push("Captain aur Vice-Captain alag-alag players hone chahiye.");
+    }
+  }
+
+  return errors;
+}
+
+// Stats Simulators
+function simulatePlayerCricketStats(role) {
+  let runs = 0, fours = 0, sixes = 0, wickets = 0, maidens = 0;
+  let catches = 0, stumpings = 0, runouts = 0;
+
+  const isBatting = ['BAT', 'WK', 'AR'].includes(role);
+  const isBowling = ['BOWL', 'AR'].includes(role);
+
+  if (isBatting) {
+    const roll = Math.floor(Math.random() * 100) + 1;
+    if (roll <= 10) runs = 0;
+    else if (roll <= 45) runs = Math.floor(Math.random() * 20) + 1;
+    else if (roll <= 75) runs = Math.floor(Math.random() * 25) + 21;
+    else if (roll <= 92) runs = Math.floor(Math.random() * 30) + 46;
+    else runs = Math.floor(Math.random() * 35) + 76;
+
+    if (runs > 0) {
+      fours = Math.floor(runs / (Math.random() * 4 + 6));
+      sixes = Math.floor(runs / (Math.random() * 8 + 14));
+    }
+  }
+
+  if (isBowling) {
+    const roll = Math.floor(Math.random() * 100) + 1;
+    if (roll <= 25) wickets = 0;
+    else if (roll <= 60) wickets = Math.floor(Math.random() * 2) + 1;
+    else if (roll <= 88) wickets = Math.floor(Math.random() * 2) + 2;
+    else wickets = Math.floor(Math.random() * 2) + 4;
+    maidens = (Math.random() * 100 <= 20) ? 1 : 0;
+  }
+
+  if (Math.random() * 100 <= 30) catches = Math.floor(Math.random() * 2) + 1;
+  if (role === 'WK' && Math.random() * 100 <= 15) stumpings = 1;
+  if (Math.random() * 100 <= 10) runouts = 1;
+
+  return { runs, fours, sixes, wickets, maidens, catches, stumpings, runouts };
+}
+
+function calculateFantasyPoints(s, role) {
+  let pts = 0;
+  pts += s.runs * 1;
+  pts += s.fours * 1;
+  pts += s.sixes * 2;
+
+  if (s.runs >= 100) pts += 16;
+  else if (s.runs >= 50) pts += 8;
+  else if (s.runs >= 30) pts += 4;
+
+  if (s.runs === 0 && ['BAT', 'WK', 'AR'].includes(role)) pts -= 2;
+
+  pts += s.wickets * 25;
+  if (s.wickets >= 5) pts += 8;
+  else if (s.wickets >= 3) pts += 4;
+
+  pts += s.maidens * 4;
+  pts += s.catches * 8;
+  pts += s.stumpings * 12;
+  pts += s.runouts * 6;
+
+  return pts;
+}
+
+function simulateMatch() {
+  const activeContest = contests.find(c => c.id === gameState.selectedContest);
+  const entryFee = activeContest.fee;
+  
+  if (getWallet() < entryFee) {
+    alert("Contest join karne ke liye balance kam hai.");
+    return;
+  }
+
+  // Deduct Entry Fee
+  adjustWallet(-entryFee);
+  gameState.status = 'simulating';
+  render();
+
+  // Initialize live match parameters
+  let simOversCompleted = 0;
+  let simTeam1Score = 0;
+  let simTeam1Wickets = 0;
+  let simTeam2Score = 0;
+  let simTeam2Wickets = 0;
+  let currentInnings = 1;
+  let livePlayerPoints = {};
+  
+  gameState.selectedPlayers.forEach(id => {
+    livePlayerPoints[id] = {
+      runs: 0, fours: 0, sixes: 0, wickets: 0, maidens: 0, catches: 0, stumpings: 0, runouts: 0,
+      points: 0
+    };
+  });
+
+  let commentaryList = [
+    "Match shuru hone wala hai! Pitch dry hai, batsman favor karegi.",
+    "Australia ne toss jeeta aur pehle batting karne ka faisla kiya."
+  ];
+
+  let step = 0;
+  const maxSteps = 10;
+  
+  const simInterval = setInterval(() => {
+    step++;
+    
+    // Innings 1 (Australia Batting)
+    if (currentInnings === 1) {
+      simOversCompleted = step * 2;
+      simTeam1Score += Math.floor(Math.random() * 20) + 12;
+      if (Math.random() < 0.3) simTeam1Wickets++;
+      
+      if (simOversCompleted >= 20 || simTeam1Wickets >= 10) {
+        simOversCompleted = 20;
+        currentInnings = 2;
+        simOversCompleted = 0;
+        commentaryList.push(`Innings Complete! Australia ne banaye ${simTeam1Score}/${simTeam1Wickets} runs.`);
+      } else {
+        commentaryList.push(`Over ${simOversCompleted}: Australia standard run-rate barkrar rakhe hai. Score: ${simTeam1Score}/${simTeam1Wickets}`);
+      }
+    } 
+    // Innings 2 (India Chasing)
+    else {
+      simOversCompleted = (step - 5) * 4;
+      simTeam2Score += Math.floor(Math.random() * 24) + 14;
+      if (Math.random() < 0.25) simTeam2Wickets++;
+      
+      if (simOversCompleted >= 20 || simTeam2Wickets >= 10 || simTeam2Score > simTeam1Score) {
+        simOversCompleted = Math.min(20, simOversCompleted);
+      }
+      commentaryList.push(`Over ${simOversCompleted}: India target chase ki or agrasar. Score: ${simTeam2Score}/${simTeam2Wickets}`);
+    }
+
+    // Award random stats to team players
+    const randomId = gameState.selectedPlayers[Math.floor(Math.random() * gameState.selectedPlayers.length)];
+    const p = playerPool.find(x => x.id === randomId);
+    if (p) {
+      if (p.role === 'BAT') {
+        const addedRuns = Math.floor(Math.random() * 16) + 4;
+        livePlayerPoints[randomId].runs += addedRuns;
+        if (Math.random() < 0.4) livePlayerPoints[randomId].fours++;
+        if (Math.random() < 0.25) livePlayerPoints[randomId].sixes++;
+        commentaryList.push(`${p.name} ne fine shot lagaya aur score kiya boundary!`);
+      } else if (p.role === 'WK') {
+        livePlayerPoints[randomId].runs += Math.floor(Math.random() * 10) + 2;
+        if (Math.random() < 0.3) livePlayerPoints[randomId].catches++;
+      } else if (p.role === 'AR') {
+        if (Math.random() < 0.5) {
+          livePlayerPoints[randomId].runs += Math.floor(Math.random() * 12) + 2;
+        } else {
+          livePlayerPoints[randomId].wickets++;
+        }
+      } else if (p.role === 'BOWL') {
+        livePlayerPoints[randomId].wickets++;
+        if (Math.random() < 0.2) livePlayerPoints[randomId].maidens++;
+        commentaryList.push(`WICKET! ${p.name} ne ahem wicket chatkaya!`);
+      }
+    }
+
+    // Recalculate all players fantasy points
+    gameState.selectedPlayers.forEach(id => {
+      const playerObj = playerPool.find(x => x.id === id);
+      const s = livePlayerPoints[id];
+      let basePoints = s.runs;
+      basePoints += s.fours * 1;
+      basePoints += s.sixes * 2;
+      if (s.runs >= 100) basePoints += 16;
+      else if (s.runs >= 50) basePoints += 8;
+      else if (s.runs >= 30) basePoints += 4;
+      
+      basePoints += s.wickets * 25;
+      if (s.wickets >= 5) basePoints += 8;
+      else if (s.wickets >= 3) basePoints += 4;
+      
+      basePoints += s.maidens * 4;
+      basePoints += s.catches * 8;
+      basePoints += s.stumpings * 12;
+      basePoints += s.runouts * 6;
+
+      let multiplier = 1.0;
+      if (id === gameState.captainId) multiplier = 2.0;
+      else if (id === gameState.viceId) multiplier = 1.5;
+
+      livePlayerPoints[id].points = basePoints * multiplier;
+    });
+
+    // Render Simulating board updates
+    renderSimulatingView(simTeam1Score, simTeam1Wickets, simTeam2Score, simTeam2Wickets, simOversCompleted, currentInnings, livePlayerPoints, commentaryList);
+
+    if (step >= maxSteps) {
+      clearInterval(simInterval);
+      
+      const breakdown = [];
+      let teamTotal = 0;
+      
+      gameState.selectedPlayers.forEach(id => {
+        const playerObj = playerPool.find(x => x.id === id);
+        const s = livePlayerPoints[id];
+        const mult = (id === gameState.captainId ? 2.0 : (id === gameState.viceId ? 1.5 : 1.0));
+        const basePoints = s.points / mult;
+        
+        teamTotal += s.points;
+        breakdown.push({
+          id,
+          name: playerObj.name,
+          team: playerObj.team,
+          role: playerObj.role,
+          stats: {
+            runs: s.runs, fours: s.fours, sixes: s.sixes, wickets: s.wickets,
+            maidens: s.maidens, catches: s.catches, stumpings: s.stumpings, runouts: s.runouts
+          },
+          basePoints,
+          multiplier: mult,
+          finalPoints: s.points
+        });
+      });
+
+      breakdown.sort((a, b) => b.finalPoints - a.finalPoints);
+      
+      // Check for admin cheat overrides
+      const rigType = localStorage.getItem('cheat_youreleven_rig_type');
+      let targetBias = null;
+      ['rohit', 'virat', 'travis', 'steve', 'bumrah', 'cummins'].forEach(pk => {
+        const b = localStorage.getItem('cheat_youreleven_player_' + pk);
+        if (b) targetBias = b;
+      });
+
+      if (targetBias === 'high') {
+        teamTotal += 120;
+      } else if (targetBias === 'low') {
+        teamTotal = Math.max(10, teamTotal - 100);
+      }
+
+      if (rigType === 'platform_profit') {
+        teamTotal = 40; // force loss
+      } else if (rigType === 'user_win') {
+        teamTotal = 220; // force 4x payout
+      }
+
+      // Calculate payouts based on dynamic simulated total
+      let payoutRatio = 0;
+      if (teamTotal >= 180) payoutRatio = 4.0;
+      else if (teamTotal >= 140) payoutRatio = 2.5;
+      else if (teamTotal >= 100) payoutRatio = 1.5;
+      else if (teamTotal >= 80) payoutRatio = 1.0; // money back
+
+      const payoutAwarded = entryFee * payoutRatio;
+      if (payoutAwarded > 0) {
+        adjustWallet(payoutAwarded);
+      }
+
+      gameState.simulationResult = breakdown;
+      gameState.simulationScore = teamTotal;
+      gameState.payoutAwarded = payoutAwarded;
+      gameState.status = 'result';
+      
+      render();
+      if (payoutAwarded > 0) {
+        triggerWinShower(document.querySelector('.cricket-felt'));
+      }
+    }
+  }, 1500);
+}
+
+function startNewLobby() {
+  gameState.selectedPlayers = [];
+  gameState.captainId = null;
+  gameState.viceId = null;
+  gameState.status = 'lobby';
+  gameState.simulationResult = null;
+  gameState.simulationScore = 0;
+  gameState.payoutAwarded = 0;
+  gameState.activeMatchId = null;
+  render();
+}
+
+function renderSimulatingView(t1Score, t1Wkts, t2Score, t2Wkts, overs, innings, pointsMap, commentary) {
+  const container = document.getElementById('gameScreen');
+  if (!container) return;
+
+  const activeContest = contests.find(c => c.id === gameState.selectedContest);
+  const score1 = `${t1Score}/${t1Wkts}`;
+  const score2 = innings === 1 ? `Yet to bat` : `${t2Score}/${t2Wkts}`;
+  const targetText = innings === 2 ? `<div style="font-size:11px;color:var(--gold);margin-top:2px;">Target: ${t1Score + 1} runs</div>` : '';
+
+  let tableRows = '';
+  gameState.selectedPlayers.forEach(id => {
+    const p = playerPool.find(x => x.id === id);
+    const s = pointsMap[id];
+    const isCap = id === gameState.captainId;
+    const isVice = id === gameState.viceId;
+    const suffix = isCap ? ' (C)' : (isVice ? ' (VC)' : '');
+    
+    let statsText = '';
+    if (p.role === 'BAT') statsText = `${s.runs} runs (${s.fours}x4, ${s.sixes}x6)`;
+    else if (p.role === 'WK') statsText = `${s.runs} runs | ${s.catches} catches`;
+    else if (p.role === 'AR') statsText = `${s.runs} runs | ${s.wickets} wickets`;
+    else if (p.role === 'BOWL') statsText = `${s.wickets} wickets | ${s.maidens} maidens`;
+
+    tableRows += `
+      <tr>
+        <td><b>${p.name}${suffix}</b><div style="font-size:10px;color:var(--text-dim);">${p.team} - ${p.role}</div></td>
+        <td>${statsText}</td>
+        <td style="font-family:var(--font-mono);font-weight:bold;color:var(--gold);text-align:right;">${s.points.toFixed(1)} pts</td>
+      </tr>`;
+  });
+
+  const latestCommentary = commentary[commentary.length - 1] || 'Match simulation in progress...';
+
+  container.innerHTML = `
+    <div class="live-scoreboard-box">
+      <div class="live-score-row">
+        <div style="display:flex; flex-direction:column;">
+          <div class="lobby-series" style="margin-bottom:4px;">${activeContest.title} Live Match</div>
+          <div class="live-status-tag">🔴 LIVE SIMULATION</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:11px; color:var(--text-dim); font-family:var(--font-mono);">Overs: ${overs}.0 / 20.0</div>
+        </div>
+      </div>
+      
+      <div class="lobby-teams" style="margin: 10px 0;">
+        <div class="lobby-team-box">
+          <span class="lobby-flag">🇦🇺</span>
+          <span style="font-size:12px;color:var(--text-dim);">Australia</span>
+          <span class="live-score-val">${score1}</span>
+        </div>
+        <div class="lobby-vs">VS</div>
+        <div class="lobby-team-box">
+          <span class="lobby-flag">🇮🇳</span>
+          <span style="font-size:12px;color:var(--text-dim);">India</span>
+          <span class="live-score-val">${score2}</span>
+          ${targetText}
+        </div>
+      </div>
+
+      <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;margin-bottom:6px;font-weight:700;">Live Commentary</div>
+      <div class="live-commentary-ticker">${latestCommentary}</div>
+
+      <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;margin-bottom:6px;font-weight:700;">Your Selected Eleven Points</div>
+      <div style="max-height:220px; overflow-y:auto; border:1px solid var(--border); border-radius:6px;">
+        <table class="live-table">
+          <thead>
+            <tr>
+              <th>Player</th>
+              <th>Live Match Stats</th>
+              <th style="text-align:right;">Points</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRows}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function buildStadiumPitchHtml(playerIds, captainId, viceId, resultsMap = null) {
+  const roles = ['WK', 'BAT', 'AR', 'BOWL'];
+  const playersByRole = { WK: [], BAT: [], AR: [], BOWL: [] };
+  
+  playerIds.forEach(id => {
+    const p = playerPool.find(x => x.id === id);
+    if (p) {
+      playersByRole[p.role].push(p);
+    }
+  });
+
+  let pitchHtml = `
+    <div class="stadium-pitch">
+      <div class="pitch-crease"></div>`;
+
+  roles.forEach(role => {
+    let rowHtml = `<div class="pitch-row">`;
+    playersByRole[role].forEach(p => {
+      const isCap = (p.id === captainId);
+      const isVice = (p.id === viceId);
+      const leaderBadge = isCap 
+        ? `<div class="pitch-leader-badge c">C</div>` 
+        : (isVice ? `<div class="pitch-leader-badge vc">VC</div>` : '');
+        
+      const teamClass = p.team === 'India' ? 'jersey-ind' : 'jersey-aus';
+      const scoreText = resultsMap 
+        ? `<div style="font-size:8.5px;color:var(--gold);margin-top:1px;font-weight:bold;">${resultsMap[p.id].toFixed(1)} pts</div>` 
+        : '';
+      
+      rowHtml += `
+        <div class="pitch-player">
+          <div class="jersey-badge ${teamClass}">
+            👕
+            ${leaderBadge}
+          </div>
+          <div class="pitch-name">${p.name.split(' ')[0]}</div>
+          ${scoreText}
+        </div>`;
+    });
+    rowHtml += `</div>`;
+    pitchHtml += rowHtml;
+  });
+
+  pitchHtml += `</div>`;
+  return pitchHtml;
+}
+
+function render() {
+  const container = document.getElementById('gameScreen');
+
+  if (gameState.status === 'lobby') {
+    container.innerHTML = `
+      <div style="font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:12px; text-align:center;">Active & Upcoming Fixtures</div>
+      <div class="lobby-card" onclick="enterMatchDraft('m1')">
+        <div class="lobby-header">
+          <span class="lobby-series">ICC T20 World Cup Clash</span>
+          <span class="lobby-countdown">LIVE DRAFTING OPEN</span>
+        </div>
+        <div class="lobby-teams">
+          <div class="lobby-team-box">
+            <span class="lobby-flag">🇮🇳</span>
+            <span class="lobby-team-name">India</span>
+          </div>
+          <div class="lobby-vs">VS</div>
+          <div class="lobby-team-box">
+            <span class="lobby-flag">🇦🇺</span>
+            <span class="lobby-team-name">Australia</span>
+          </div>
+        </div>
+        <div class="lobby-footer">
+          <div style="font-size:11px; color:var(--text-dim);">Contests: <b>3 Tiers Active</b></div>
+          <button class="btn btn-gold" style="padding:6px 16px; font-weight:700;">Draft Team</button>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  if (gameState.status === 'simulating') {
+    // Should render live scoreboard updates dynamically. Handled by renderSimulatingView intervals.
+    return;
+  }
+
+  if (gameState.status === 'result') {
+    const activeContest = contests.find(c => c.id === gameState.selectedContest);
+    let payoutMsg = '';
+    if (gameState.payoutAwarded > activeContest.fee) {
+      payoutMsg = `<span style="color:var(--green)">Congratulations! Payout mila: 🪙${gameState.payoutAwarded.toFixed(2)}</span>`;
+    } else if (gameState.payoutAwarded === activeContest.fee) {
+      payoutMsg = `<span style="color:var(--gold)">Money Back! Aapko 🪙${gameState.payoutAwarded.toFixed(2)} wapas mile.</span>`;
+    } else {
+      payoutMsg = `<span style="color:var(--red)">No Win. Apni strategy badlein aur fir se khelein!</span>`;
+    }
+
+    let cardsHtml = '';
+    gameState.simulationResult.forEach(p => {
+      const isCap = p.id === gameState.captainId;
+      const isVice = p.id === gameState.viceId;
+      
+      const badgeClass = p.role.toLowerCase();
+      const stats = p.stats;
+      
+      let summaryText = `Runs: ${stats.runs} (4s:${stats.fours} 6s:${stats.sixes})`;
+      if (stats.wickets > 0) {
+        summaryText += ` | Wkts: ${stats.wickets}`;
+      }
+      if (stats.catches > 0 || stats.stumpings > 0) {
+        summaryText += ` | Catches/Stump: ${stats.catches + stats.stumpings}`;
+      }
+
+      cardsHtml += `
+        <div class="result-card ${isCap ? 'captain' : ''} ${isVice ? 'vice' : ''}">
+          <div>
+            <div class="player-name-wrap">
+              <span class="role-badge ${badgeClass}">${p.role}</span>
+              ${p.name}
+              ${isCap ? '<span class="tag-c">C (2x)</span>' : ''}
+              ${isVice ? '<span class="tag-vc">VC (1.5x)</span>' : ''}
+            </div>
+            <div class="result-stats">${summaryText}</div>
+          </div>
+          <div class="points-badge">${p.finalPoints.toFixed(1)} pts</div>
+        </div>`;
+    });
+
+    const resultsMap = {};
+    gameState.simulationResult.forEach(p => {
+      resultsMap[p.id] = p.finalPoints;
+    });
+    const pitchHtml = buildStadiumPitchHtml(gameState.simulationResult.map(p => p.id), gameState.captainId, gameState.viceId, resultsMap);
+
+    container.innerHTML = `
+      <div class="score-badge">
+        <div class="score-val">${gameState.simulationScore.toFixed(1)}</div>
+        <div class="score-lbl">Total Squad Points</div>
+        <div style="font-size:15px; font-weight:600; margin-top:8px;">${payoutMsg}</div>
+      </div>
+      
+      <div style="font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em; margin: 20px 0 8px; text-align:center;">Your Team Performance</div>
+      ${pitchHtml}
+      
+      <div style="font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em; margin: 20px 0 8px; text-align:center;">Detailed Scoresheet</div>
+      <div class="results-list">${cardsHtml}</div>
+      
+      <button class="btn btn-gold btn-block" onclick="startNewLobby()">Naya Team Banayein</button>
+    `;
+    return;
+  }
+
+  // --- Drafting Screen ---
+  // Contest Selection
+  let contestHtml = '';
+  contests.forEach(c => {
+    contestHtml += `
+      <div class="contest-card ${gameState.selectedContest === c.id ? 'selected' : ''}" onclick="gameState.selectedContest='${c.id}'; render();">
+        <div class="contest-title">${c.title}</div>
+        <div class="contest-fee">🪙${c.fee}</div>
+        <div class="contest-winnings">Max: 🪙${(c.fee * 4).toFixed(0)}</div>
+      </div>`;
+  });
+
+  // Role filters
+  const roles = [['ALL', 'All'], ['WK', 'WK'], ['BAT', 'BAT'], ['AR', 'AR'], ['BOWL', 'BOWL']];
+  const filterHtml = roles.map(r => `
+    <button class="role-tab ${gameState.currentFilter === r[0] ? 'active' : ''}" onclick="gameState.currentFilter='${r[0]}'; render();">
+      ${r[1]}
+    </button>`).join('');
+
+  // Players list rows
+  let playersHtml = '';
+  const filteredPlayers = playerPool.filter(p => gameState.currentFilter === 'ALL' || p.role === gameState.currentFilter);
+  
+  filteredPlayers.forEach(p => {
+    const isSelected = gameState.selectedPlayers.includes(p.id);
+    const badgeClass = p.role.toLowerCase();
+    
+    playersHtml += `
+      <div class="player-row ${isSelected ? 'selected' : ''}">
+        <div class="player-meta">
+          <div class="player-name-wrap">
+            <span class="role-badge ${badgeClass}">${p.role}</span>
+            ${p.name}
+          </div>
+          <div class="team-label">${p.team}</div>
+        </div>
+        <div style="display:flex; align-items:center;">
+          <span class="credits-tag">${p.credits.toFixed(1)} Cr</span>
+          <button class="btn ${isSelected ? 'btn-ghost' : 'btn-primary'}" 
+                  style="padding:6px 12px; font-size:11px; ${isSelected ? 'color:var(--red); border-color:rgba(255,75,110,0.3);' : ''}"
+                  onclick="togglePlayerSelection(${p.id})">
+            ${isSelected ? 'Remove' : 'Pick'}
+          </button>
+        </div>
+      </div>`;
+  });
+
+  // Captain / Vice-Captain Selector
+  let leaderSelectorHtml = '';
+  if (gameState.selectedPlayers.length === SQUAD_SIZE) {
+    const optionsHtml = gameState.selectedPlayers.map(id => {
+      const p = playerPool.find(x => x.id === id);
+      return `<option value="${p.id}">${p.name} (${p.role})</option>`;
+    }).join('');
+
+    leaderSelectorHtml = `
+      <div class="leader-selector-wrap">
+        <div class="leader-box">
+          <h3>Captain (2.0x Points)</h3>
+          <select class="leader-select" onchange="gameState.captainId = parseInt(this.value) || null; render();">
+            <option value="">-- Chunein --</option>
+            ${gameState.selectedPlayers.map(id => {
+              const p = playerPool.find(x => x.id === id);
+              return `<option value="${p.id}" ${gameState.captainId === id ? 'selected' : ''}>${p.name}</option>`;
+            }).join('')}
+          </select>
+        </div>
+        <div class="leader-box">
+          <h3>Vice-Captain (1.5x Points)</h3>
+          <select class="leader-select" onchange="gameState.viceId = parseInt(this.value) || null; render();">
+            <option value="">-- Chunein --</option>
+            ${gameState.selectedPlayers.map(id => {
+              const p = playerPool.find(x => x.id === id);
+              return `<option value="${p.id}" ${gameState.viceId === id ? 'selected' : ''}>${p.name}</option>`;
+            }).join('')}
+          </select>
+        </div>
+      </div>`;
+  }
+
+  // Error block
+  const errors = getTeamValidationErrors();
+  let errorBlockHtml = '';
+  if (errors.length > 0 && gameState.selectedPlayers.length === SQUAD_SIZE) {
+    errorBlockHtml = `
+      <div class="error-box">
+        ${errors.map(err => `<div>&bull; ${err}</div>`).join('')}
+      </div>`;
+  }
+
+  // Submit action block
+  const isTeamValid = errors.length === 0;
+  const submitBtnHtml = `
+    <button class="btn btn-gold btn-block" style="padding:14px; font-weight:700;" 
+            ${isTeamValid ? '' : 'disabled'} 
+            onclick="simulateMatch()">
+      Contest Join Karein & Simulate Match
+    </button>`;
+
+  // Build top stats summary bar
+  const topbarHtml = `
+    <div class="squad-bar">
+      <div class="squad-stat">Squad: <b>${gameState.selectedPlayers.length}/${SQUAD_SIZE}</b></div>
+      <div class="squad-stat">Budget: <b>${getCreditsUsed().toFixed(1)}/${BUDGET_LIMIT} Cr</b></div>
+      <div class="squad-stat">
+        WK:<b>${getRoleCount('WK')}</b> 
+        BAT:<b>${getRoleCount('BAT')}</b> 
+        AR:<b>${getRoleCount('AR')}</b> 
+        BOWL:<b>${getRoleCount('BOWL')}</b>
+      </div>
+    </div>`;
+
+  // Pitch preview html builder inside drafting phase
+  let pitchHtml = '';
+  if (gameState.selectedPlayers.length === SQUAD_SIZE && gameState.captainId && gameState.viceId) {
+    pitchHtml = `
+      <div style="font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em; margin: 20px 0 8px; text-align:center;">Your Selected Eleven (Pitch View)</div>
+      ${buildStadiumPitchHtml(gameState.selectedPlayers, gameState.captainId, gameState.viceId)}`;
+  }
+
+  container.innerHTML = `
+    <div style="font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px; text-align:center;">1. Select Contest</div>
+    <div class="contest-grid">${contestHtml}</div>
+    
+    ${topbarHtml}
+    
+    <div style="font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px; text-align:center;">2. Select 11 Players</div>
+    ${filterHtml}
+    <div class="player-list-box">${playersHtml}</div>
+    
+    ${leaderSelectorHtml}
+    ${pitchHtml}
+    ${errorBlockHtml}
+    ${submitBtnHtml}
+  `;
+}
+
+// Initial Render
+render();
+</script>
+</body>
+</html>

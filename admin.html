@@ -1,0 +1,3324 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>bet1x — Admin Dashboard</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <style>
+    .admin-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    @media (min-width: 768px) {
+      .admin-stats-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    .admin-stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      text-align: center;
+    }
+
+    .admin-stat-val {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--gold);
+      font-family: var(--font-display);
+      margin-top: 6px;
+    }
+
+    .admin-stat-lbl {
+      color: var(--text-dim);
+      font-size: 11.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .admin-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-top: 20px;
+      box-shadow: var(--shadow-card);
+    }
+
+    .admin-tabs {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 6px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+      overflow: hidden;
+    }
+
+    .admin-tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-weight: 700;
+      font-size: 11px;
+      padding: 8px 4px;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.2s;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .admin-tab-btn.active {
+      color: #000;
+      background: var(--gold);
+      box-shadow: 0 0 10px var(--primary-glow);
+    }
+
+    .admin-content {
+      display: none;
+    }
+
+    .admin-content.active {
+      display: block;
+    }
+
+    /* Table modifications */
+    .admin-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .admin-table th {
+      color: var(--text-dim);
+      text-align: left;
+      padding: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .admin-table td {
+      padding: 10px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .admin-table tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .badge.completed {
+      background: rgba(46, 204, 113, 0.15);
+      color: #2ecc71;
+    }
+
+    .badge.pending {
+      background: rgba(201, 160, 84, 0.15);
+      color: var(--gold);
+    }
+
+    .badge.rejected {
+      background: rgba(231, 76, 60, 0.15);
+      color: #e74c3c;
+    }
+
+    /* Admin Action Button styles */
+    .btn-action {
+      padding: 4px 10px;
+      font-size: 11.5px;
+      border-radius: 4px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-action.approve {
+      background: rgba(46, 204, 113, 0.15);
+      border: 1px solid #2ecc71;
+      color: #2ecc71;
+    }
+
+    .btn-action.approve:hover {
+      background: #2ecc71;
+      color: #000;
+    }
+
+    .btn-action.reject {
+      background: rgba(231, 76, 60, 0.15);
+      border: 1px solid #e74c3c;
+      color: #e74c3c;
+    }
+
+    .btn-action.reject:hover {
+      background: #e74c3c;
+      color: #000;
+    }
+
+    .btn-action.edit {
+      background: rgba(201, 160, 84, 0.15);
+      border: 1px solid var(--gold);
+      color: var(--gold);
+    }
+
+    .btn-action.edit:hover {
+      background: var(--gold);
+      color: #000;
+    }
+
+    /* Modal Overlay for Balance Modification */
+    .admin-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(13, 15, 18, 0.8);
+      backdrop-filter: blur(6px);
+      z-index: 1100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .admin-modal-overlay.active {
+      display: flex;
+    }
+
+    .admin-modal-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      width: 100%;
+      max-width: 380px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+  </style>
+</head>
+
+<body>
+
+  <nav class="navbar">
+    <div class="brand"><span class="dot"></span> bet1x</div>
+    <div class="nav-links">
+      <a href="index.html">Dashboard</a>
+      <a href="win.html">Sapre</a>
+      <a href="win1.html">Becone</a>
+      <a href="win2.html">Emred</a>
+      <a href="win3.html">VIP</a>
+      <a href="teenpatti.html">Teen Patti</a>
+      <a href="youreleven.html">Your Eleven</a>
+      <a href="boundarybaazi.html">Boundary Baazi</a>
+      <a href="aviator.html">Aviator</a>
+      <a href="parity.html" class="active">Admin</a>
+      <span class="wallet-chip" data-wallet-chip>🪙 0.00</span>
+    </div>
+  </nav>
+
+  <div class="container">
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px;">
+      <div>
+        <h1 style="margin:0;">🔧 Admin Control Panel</h1>
+        <div style="font-size:12.5px; color:var(--text-dim);">Manage withdraw approvals, user wallets, deposits and
+          betting history.</div>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <a href="parity.html" class="btn btn-ghost"
+          style="padding:6px 12px; font-size:12.5px; text-decoration:none; display:flex; align-items:center;">📊 Parity
+          Monitor</a>
+        <button class="btn btn-ghost" style="padding:6px 12px; font-size:12.5px;" onclick="location.reload()">🔄 Refresh
+          Logs</button>
+      </div>
+    </div>
+
+    <!-- Stats summary grid -->
+    <div class="admin-stats-grid">
+      <div class="admin-stat-card">
+        <div class="admin-stat-lbl">Registered Users</div>
+        <div class="admin-stat-val" id="statUsers">0</div>
+      </div>
+      <div class="admin-stat-card">
+        <div class="admin-stat-lbl">Total Deposits</div>
+        <div class="admin-stat-val" id="statDeposits">🪙0.00</div>
+      </div>
+      <div class="admin-stat-card">
+        <div class="admin-stat-lbl">Wallet Liability</div>
+        <div class="admin-stat-val" id="statLiability">🪙0.00</div>
+      </div>
+      <div class="admin-stat-card">
+        <div class="admin-stat-lbl">Pending Cashouts</div>
+        <div class="admin-stat-val" id="statPending" style="color:var(--gold);">0</div>
+      </div>
+      <div class="admin-stat-card">
+        <div class="admin-stat-lbl">Pending UPI Deposits</div>
+        <div class="admin-stat-val" id="statPendingDeposits" style="color:var(--green);">0</div>
+      </div>
+    </div>
+
+    <div class="admin-card">
+      <div class="admin-tabs">
+        <button class="admin-tab-btn" onclick="switchAdminTab('withdrawals', this)">💸 Pending Cashouts</button>
+        <button class="admin-tab-btn" onclick="switchAdminTab('deposits', this)">📥 Pending UPI Deposits</button>
+        <button class="admin-tab-btn" onclick="switchAdminTab('users', this)">👥 User Accounts</button>
+        <button class="admin-tab-btn" onclick="switchAdminTab('transactions', this)">📜 All Transaction Logs</button>
+        <button class="admin-tab-btn" onclick="switchAdminTab('wagers', this)">🎯 Game Betting History</button>
+        <button class="admin-tab-btn active" onclick="switchAdminTab('cheats', this)">🔧 Outcome Bias Console</button>
+      </div>
+
+      <!-- Tab: Pending UPI Deposits -->
+      <div id="admin-deposits" class="admin-content">
+        <h3 style="margin-bottom:12px; font-size:16px;">📥 Pending UPI Deposit Verification Queue</h3>
+        <p style="font-size:12.5px; color:var(--text-dim); margin-bottom:20px;">Verify customer-submitted UTR numbers
+          and QR receipts. Approving a deposit automatically adds virtual coins to the user's wallet balance.</p>
+        <div style="overflow-x:auto;">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Deposit ID</th>
+                <th>Username</th>
+                <th>Amount</th>
+                <th>UTR / Ref Number</th>
+                <th>QR Mode</th>
+                <th>Requested At</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="adminDepositsBody">
+              <!-- Dynamic -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab 1: Pending Cashouts (Withdrawals) -->
+      <div id="admin-withdrawals" class="admin-content">
+        <h3 style="margin-bottom:12px; font-size:16px;">Pending Cashout Requests</h3>
+        <div style="overflow-x:auto;">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Txn ID</th>
+                <th>Username</th>
+                <th>Amount</th>
+                <th>Withdrawal Destination</th>
+                <th>Requested At</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="adminWithdrawalsBody">
+              <!-- Dynamic -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab 2: User Accounts Manager -->
+      <div id="admin-users" class="admin-content">
+        <h3 style="margin-bottom:12px; font-size:16px;">User Accounts Manager</h3>
+        <div style="overflow-x:auto;">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Email Address</th>
+                <th>Current Wallet Balance</th>
+                <th>Manage Balance</th>
+              </tr>
+            </thead>
+            <tbody id="adminUsersBody">
+              <!-- Dynamic -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab 3: Transaction Logs -->
+      <div id="admin-transactions" class="admin-content">
+        <h3 style="margin-bottom:12px; font-size:16px;">Global Transaction Logs</h3>
+        <div style="overflow-x:auto;">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Txn ID</th>
+                <th>Username</th>
+                <th>Type</th>
+                <th>Amount</th>
+                <th>Method Details</th>
+                <th>Status</th>
+                <th>Timestamp</th>
+              </tr>
+            </thead>
+            <tbody id="adminTxnsBody">
+              <!-- Dynamic -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab 4: Betting History -->
+      <div id="admin-wagers" class="admin-content">
+        <h3 style="margin-bottom:12px; font-size:16px;">Global Game Betting History</h3>
+        <div style="overflow-x:auto;">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Round ID</th>
+                <th>Game Type</th>
+                <th>Selection</th>
+                <th>Stake Amount</th>
+                <th>Result</th>
+                <th>Payout</th>
+                <th>Timestamp</th>
+              </tr>
+            </thead>
+            <tbody id="adminWagersBody">
+              <!-- Dynamic -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab 5: Outcome Bias Control (Cheating Dashboard) -->
+      <div id="admin-cheats" class="admin-content active">
+        <h3 style="margin-bottom:12px; font-size:16px;">🔧 Administrative Results Bias Console</h3>
+        <p style="font-size:12.5px; color:var(--text-dim); margin-bottom:20px;">Use this panel to rig or override
+          outcomes for active customer bets across Color Drawing rooms, Vimaan (Aviator), and Teen Patti showdowns.</p>
+
+        <div class="grid-2">
+          <!-- Column 1: Color Rooms Bias -->
+          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:0;">
+            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">🎨
+              Color Prediction Bias Control</h4>
+
+            <div class="cashier-input-group" style="margin-bottom:12px;">
+              <label for="cheatColorRoomSelect">Select Target Game Room</label>
+              <select id="cheatColorRoomSelect" class="cashier-input" style="background:#0d0f12; color:#fff;"
+                onchange="pollLiveAdminGames()">
+                <option value="sapre">Sapre (30s)</option>
+                <option value="becone">Becone (1min)</option>
+                <option value="emred">Emred (3min)</option>
+                <option value="vip">VIP (5min)</option>
+              </select>
+            </div>
+
+            <!-- Live Round Timer & Progress Bar (Uniform gliding) -->
+            <div id="adminColorTimerHeader"
+              style="background:#0d0f12; padding:12px; border-radius:6px 6px 0 0; border-bottom:1px solid #1a222d; margin-bottom: 0;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                <div>
+                  <div
+                    style="font-size: 10px; color: var(--text-dim); text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px;">
+                    Current Room Round</div>
+                  <div id="adminColorRoundId"
+                    style="font-family: var(--font-mono); font-size: 14px; font-weight: 700; color: var(--gold);">
+                    #------</div>
+                </div>
+                <div style="text-align: right;">
+                  <div
+                    style="font-size: 10px; color: var(--text-dim); text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px;">
+                    Time Remaining</div>
+                  <div id="adminColorTimeVal"
+                    style="font-family: var(--font-mono); font-size: 18px; font-weight: 700; color: var(--green);">00:00
+                  </div>
+                </div>
+              </div>
+              <div
+                style="width: 100%; height: 5px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden;">
+                <div id="adminColorProgressBar"
+                  style="width: 100%; height: 100%; background: var(--green); transition: none;"></div>
+              </div>
+            </div>
+
+            <!-- Active Round Fixed Outcome Status Banner -->
+            <div id="adminColorActiveOverrideBanner"
+              style="background:#0d0f12; border:1px dashed var(--border); border-radius:6px; padding:10px 12px; margin-top:12px; margin-bottom:12px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="font-size:11.5px; color:var(--text-dim);">
+                  🎲 <b>Outcome Status:</b> NO BIAS (Fair Random Settlement)
+                </div>
+                <span style="font-size:10.5px; color:var(--text-dim);">Click any color below to fix outcome</span>
+              </div>
+            </div>
+
+            <!-- Last Round Fixed Result Banner -->
+            <div id="adminColorLastResultBanner"
+              style="background:#090d14; border:1px solid var(--border); border-radius:6px; padding:12px; margin-top:12px; margin-bottom:12px; display:none;">
+              <div
+                style="font-size:10px; color:var(--text-dim); text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+                <span>🏆 Last Round Settled Result</span>
+                <span id="adminColorLastResultTime" style="color:var(--text-dim); font-size:10px;">--:--:--</span>
+              </div>
+              <div id="adminColorLastResultBody"
+                style="display:flex; align-items:center; gap:12px; font-family:var(--font-mono);">
+                <!-- Dynamic result badge rendered here -->
+              </div>
+            </div>
+
+            <div
+              style="background:#0d0f12; padding:10px; border-radius:0 0 6px 6px; margin-bottom:16px; border-top: 1px solid #1a222d;">
+              <div
+                style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; font-weight:700;">
+                Active Customer Bets (This Round)</div>
+              <div id="cheatColorRoomActiveBets" style="font-size:13px; font-family:var(--font-mono); color:#fff;">
+                Loading bet distribution...</div>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:12px;">
+              <label for="cheatColorSelect">Force Next Winning Color</label>
+              <select id="cheatColorSelect" class="cashier-input" style="background:#0d0f12; color:#fff;">
+                <option value="">-- No Color Bias --</option>
+                <option value="Green">Green (numbers 1,3,7,9,5)</option>
+                <option value="Red">Red (numbers 2,4,6,8,0)</option>
+                <option value="Violet">Violet (numbers 0,5)</option>
+              </select>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:12px;">
+              <label for="cheatNumberSelect">Force Next Winning Number</label>
+              <select id="cheatNumberSelect" class="cashier-input" style="background:#0d0f12; color:#fff;">
+                <option value="">-- No Number Bias --</option>
+                <option value="0">Number 0 (Red + Violet)</option>
+                <option value="1">Number 1 (Green)</option>
+                <option value="2">Number 2 (Red)</option>
+                <option value="3">Number 3 (Green)</option>
+                <option value="4">Number 4 (Red)</option>
+                <option value="5">Number 5 (Green + Violet)</option>
+                <option value="6">Number 6 (Red)</option>
+                <option value="7">Number 7 (Green)</option>
+                <option value="8">Number 8 (Red)</option>
+                <option value="9">Number 9 (Green)</option>
+              </select>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:12px;">
+              <label for="cheatSizeSelect">Force Next Winning Size</label>
+              <select id="cheatSizeSelect" class="cashier-input" style="background:#0d0f12; color:#fff;">
+                <option value="">-- No Size Bias --</option>
+                <option value="Small">Small (numbers 0–4)</option>
+                <option value="Big">Big (numbers 5–9)</option>
+              </select>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:16px;">
+              <label for="cheatColorRigType">Platform Auto-Rig Mode</label>
+              <select id="cheatColorRigType" class="cashier-input" style="background:#0d0f12; color:#fff;">
+                <option value="">-- No Auto-Rig --</option>
+                <option value="platform_profit">Platform Profit (Force user loss)</option>
+                <option value="user_win">User Win (Force user payout)</option>
+              </select>
+            </div>
+
+            <button class="btn btn-gold btn-block" onclick="applyColorRoomCheat()"
+              style="color:#000; font-weight:700;">Apply Color Room Override</button>
+          </div>
+
+          <!-- Football Betting Rig & Live Monitor Card -->
+          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:16px;">
+            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">⚽
+              Football Betting Rig & Live Monitor</h4>
+
+            <div style="background:#0d0f12; padding:10px; border-radius:6px; margin-bottom:12px;">
+              <div
+                style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; font-weight:700;">
+                Live Active Football Wagers</div>
+              <div id="cheatFootballActiveBets"
+                style="font-size:13px; font-family:var(--font-mono); color:#fff; max-height:100px; overflow-y:auto;">
+                Loading active wagers...</div>
+            </div>
+
+            <!-- Active Rig Status Banner -->
+            <div id="adminFootballActiveOverrideBanner"
+              style="background:#0d0f12; border:1px dashed var(--border); border-radius:6px; padding:10px 12px; margin-bottom:12px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="font-size:11.5px; color:var(--text-dim);">
+                  🎲 <b>Outcome Status:</b> NO BIAS (Fair Random Match Simulation)
+                </div>
+                <span style="font-size:10.5px; color:var(--text-dim);">Select options below to fix outcome</span>
+              </div>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:12px;">
+              <label for="cheatFootballMatchSelect">Select Active Match</label>
+              <select id="cheatFootballMatchSelect" class="cashier-input" style="background:#0d0f12; color:#fff;" onchange="updateFootballBiasUI()">
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:12px;">
+              <label for="cheatFootballWinner">Force Winner Result (1X2)</label>
+              <select id="cheatFootballWinner" class="cashier-input" style="background:#0d0f12; color:#fff;">
+                <option value="">-- No Outcome Bias --</option>
+                <option value="home">Home Team Win</option>
+                <option value="draw">Draw</option>
+                <option value="away">Away Team Win</option>
+              </select>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:12px;">
+              <label for="cheatFootballOverUnder">Force Goals (Over/Under)</label>
+              <select id="cheatFootballOverUnder" class="cashier-input" style="background:#0d0f12; color:#fff;">
+                <option value="">-- No Goals Bias --</option>
+                <option value="over25">Over 2.5 Goals</option>
+                <option value="under25">Under 2.5 Goals</option>
+              </select>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:16px;">
+              <label for="cheatFootballRigType">Platform Auto-Rig Rule</label>
+              <select id="cheatFootballRigType" class="cashier-input" style="background:#0d0f12; color:#fff;">
+                <option value="">-- No Auto-Rig --</option>
+                <option value="platform_profit">Platform Profit (Force user loss)</option>
+                <option value="user_win">User Win (Force user win)</option>
+              </select>
+            </div>
+
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-gold" onclick="applyFootballCheat()" style="flex:1; color:#000; font-weight:700;">Apply Override</button>
+              <button class="btn" onclick="clearFootballCheat()" style="background:#242f3d; color:#fff; font-weight:700;">Clear Rig</button>
+            </div>
+
+            <!-- Last Football Result Banner -->
+            <div id="adminFootballLastResultBanner"
+              style="background:#090d14; border:1px solid var(--border); border-radius:6px; padding:10px; margin-top:12px; display:none;">
+              <div
+                style="font-size:10px; color:var(--text-dim); text-transform:uppercase; font-weight:700; margin-bottom:4px;">
+                ⚽ Recent Match Outcome</div>
+              <div id="adminFootballLastResultBody"
+                style="font-family:var(--font-mono); font-size:13px; color:#52d17c; font-weight:700;">--</div>
+            </div>
+          </div>
+
+          <!-- Mines (Mining) Bias Card -->
+          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:16px;">
+            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">💣
+              Mines (Mining) Fix Console</h4>
+
+            <div style="background:#0d0f12; padding:10px; border-radius:6px; margin-bottom:16px;">
+              <div
+                style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; font-weight:700;">
+                Live Active Mines Games</div>
+              <div id="cheatMinesActiveBets"
+                style="font-size:13px; font-family:var(--font-mono); color:#fff; max-height:100px; overflow-y:auto;">
+                Loading active games...</div>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:12px;">
+              <label for="cheatMinesNextTile">Force Next Tile Reveal</label>
+              <select id="cheatMinesNextTile" class="cashier-input" style="background:#0d0f12; color:#fff;">
+                <option value="">-- No Tile Override --</option>
+                <option value="mine">Force Mine (Boom / User Loss)</option>
+                <option value="gem">Force Gem (Safe / User Payout)</option>
+              </select>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:16px;">
+              <label for="cheatMinesRigType">Platform Auto-Rig Mode</label>
+              <select id="cheatMinesRigType" class="cashier-input" style="background:#0d0f12; color:#fff;">
+                <option value="">-- No Auto-Rig --</option>
+                <option value="platform_profit">Platform Profit (Force user loss)</option>
+                <option value="user_win">User Win (Force user payout)</option>
+              </select>
+            </div>
+
+            <button class="btn btn-gold btn-block" onclick="applyMinesCheat()"
+              style="color:#000; font-weight:700;">Apply Mines Overrides</button>
+          </div>
+        </div>
+
+        <!-- Column 2: Vimaan, Teen Patti, Cricket & Fantasy Bias -->
+        <div style="display:flex; flex-direction:column; gap:16px;">
+          <!-- Aviator (Vimaan) Professional Crash Bias Card -->
+          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:0;">
+            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">✈️
+              Vimaan (Aviator) Professional Flight Telemetry & Crash Bias</h4>
+
+            <!-- Live Vimaan Round Timer & Progress Bar (Uniform gliding like Color Prediction) -->
+            <div id="adminAviatorTimerHeader"
+              style="background:#0d0f12; padding:12px; border-radius:6px; border:1px solid #1a222d; margin-bottom:12px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                <div>
+                  <div
+                    style="font-size: 10px; color: var(--text-dim); text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px;">
+                    Vimaan Round ID</div>
+                  <div id="adminAviatorRoundId"
+                    style="font-family: var(--font-mono); font-size: 14px; font-weight: 700; color: var(--gold);">#10001
+                  </div>
+                </div>
+                <div style="text-align: right;">
+                  <div id="adminAviatorTimerLabel"
+                    style="font-size: 10px; color: var(--text-dim); text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px;">
+                    Next round in...</div>
+                  <div id="adminAviatorTimeVal"
+                    style="font-family: var(--font-mono); font-size: 18px; font-weight: 700; color: var(--gold);">5.0s
+                  </div>
+                </div>
+              </div>
+              <div
+                style="width: 100%; height: 5px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden;">
+                <div id="adminAviatorProgressBar"
+                  style="width: 100%; height: 100%; background: var(--green); transition: none;"></div>
+              </div>
+            </div>
+
+            <div
+              style="background:#0d0f12; padding:10px; border-radius:6px; margin-bottom:14px; border: 1px solid #1a222d;">
+              <div
+                style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; font-weight:700;">
+                Customer Placed Stakes</div>
+              <div id="cheatAviatorActiveBets" style="font-size:13px; font-family:var(--font-mono); color:#fff;">No bets
+                active in current lobby.</div>
+            </div>
+
+            <!-- Active Crash Override Status Banner -->
+            <div id="adminAviatorActiveOverrideBanner"
+              style="background:#0d0f12; border:1px dashed var(--border); border-radius:6px; padding:10px 12px; margin-bottom:14px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="font-size:11.5px; color:var(--text-dim);">
+                  🎲 <b>Crash Point Status:</b> UNRIGGED (Fair Random Flight Curve)
+                </div>
+                <span style="font-size:10.5px; color:var(--text-dim);">Set target multiplier below to fix crash</span>
+              </div>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:14px;">
+              <label for="cheatAviatorMultiplier">Custom Crash Multiplier (e.g. 1.05, 3.80, 50.00)</label>
+              <input type="number" id="cheatAviatorMultiplier" class="cashier-input" step="0.01" min="1.00"
+                placeholder="e.g. 1.00, 1.25, 10.00" style="background:#0d0f12; color:#fff;"
+                oninput="updateAviatorBiasUI()">
+            </div>
+
+            <button class="btn btn-gold btn-block" onclick="applyAviatorCheat()"
+              style="color:#000; font-weight:700;">Save & Apply Crash Point Override</button>
+            <button class="btn btn-block" onclick="instantCrashAviator()"
+              style="background:#c8102e; color:#fff; font-weight:800; font-size:13.5px; margin-top:8px; box-shadow:0 0 15px rgba(200,16,46,0.5); border:none; padding:10px; cursor:pointer;">💥
+              CRASH VIMAAN NOW (INSTANT MID-FLIGHT)</button>
+          </div>
+
+          <!-- Teen Patti Bias Card -->
+          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:0;">
+            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">🃏 Teen
+              Patti Deal Bias</h4>
+
+            <div style="background:#0d0f12; padding:10px; border-radius:6px; margin-bottom:16px;">
+              <div
+                style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; font-weight:700;">
+                Lobby Stakes</div>
+              <div id="cheatTeenPattiActiveBets" style="font-size:13px; font-family:var(--font-mono); color:#fff;">
+                Active Players: Aap, Raju, Vikram, Sana</div>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:12px;">
+              <label for="cheatTeenPattiWinner">Force Winning Seat (Deals highest ranked hand)</label>
+              <select id="cheatTeenPattiWinner" class="cashier-input" style="background:#0d0f12; color:#fff;">
+                <option value="">-- No Winner Bias --</option>
+                <option value="human">Aap (Human Player)</option>
+                <option value="bot0">Raju (Conservative Bot)</option>
+                <option value="bot1">Vikram (Aggressive Bot)</option>
+                <option value="bot2">Sana (Tactical Bot)</option>
+              </select>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:16px;">
+              <label for="cheatTeenPattiRigType">Platform Auto-Rig Mode</label>
+              <select id="cheatTeenPattiRigType" class="cashier-input" style="background:#0d0f12; color:#fff;">
+                <option value="">-- No Auto-Rig --</option>
+                <option value="platform_profit">Platform Profit (Force user loss)</option>
+                <option value="user_win">User Win (Force user win)</option>
+              </select>
+            </div>
+
+            <button class="btn btn-gold btn-block" onclick="applyTeenPattiCheat()"
+              style="color:#000; font-weight:700;">Apply Hand Deal Override</button>
+          </div>
+
+          <!-- Mines (Mining) Professional Fix & Matrix Rig Console -->
+          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:16px;">
+            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">💣
+              Mines (Mining) Professional Matrix Rig Console</h4>
+
+            <div style="background:#0d0f12; padding:10px; border-radius:6px; margin-bottom:12px;">
+              <div
+                style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; font-weight:700;">
+                Live Active Mines Session Wagers</div>
+              <div id="cheatMinesActiveBets"
+                style="font-size:13px; font-family:var(--font-mono); color:#fff; max-height:80px; overflow-y:auto;">
+                Loading active games...</div>
+            </div>
+
+            <!-- Active Rig Status Banner -->
+            <div id="adminMinesActiveOverrideBanner"
+              style="background:#0d0f12; border:1px dashed var(--border); border-radius:6px; padding:10px 12px; margin-bottom:14px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="font-size:11.5px; color:var(--text-dim);">
+                  🎲 <b>Mines Rig Status:</b> UNRIGGED (Fair Random Placement)
+                </div>
+                <span style="font-size:10.5px; color:var(--text-dim);">Configure 5x5 Grid below to fix tiles</span>
+              </div>
+            </div>
+
+            <!-- Interactive 5x5 Rig Matrix Selector -->
+            <label
+              style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; font-weight:bold; display:block; margin-bottom:6px;">
+              🎯 Interactive 5x5 Rig Matrix (Click tile to set: 💎 SAFE | 💣 MINE | ⚪ AUTO)
+            </label>
+
+            <div id="adminMinesGridMatrix"
+              style="display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; margin-bottom:14px; background:#0d0f12; padding:10px; border-radius:8px; border:1px solid #242f3d;">
+              <!-- 25 interactive matrix buttons populated by JS -->
+            </div>
+
+            <!-- Rig Presets & Actions -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px;">
+              <button onclick="presetMinesRig('trap_next')" class="btn"
+                style="background:rgba(239, 68, 68, 0.18); border:1px solid #ef4444; color:#ef4444; font-weight:800; font-size:11.5px; padding:8px;">
+                💥 Trap Next Click
+              </button>
+              <button onclick="presetMinesRig('safe_next')" class="btn"
+                style="background:rgba(16, 185, 129, 0.18); border:1px solid #10b981; color:#10b981; font-weight:800; font-size:11.5px; padding:8px;">
+                💎 Safe Next Click
+              </button>
+              <button onclick="presetMinesRig('center_safe')" class="btn"
+                style="background:rgba(245, 158, 11, 0.18); border:1px solid #f59e0b; color:#f59e0b; font-weight:800; font-size:11.5px; padding:8px;">
+                🏰 Center Safe
+              </button>
+              <button onclick="clearMinesMatrix()" class="btn"
+                style="background:#242f3d; color:#fff; font-weight:bold; font-size:11.5px; padding:8px;">
+                🧹 Reset Matrix
+              </button>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:14px;">
+              <label for="cheatMinesRigType">Platform Auto-Rig Rule</label>
+              <select id="cheatMinesRigType" class="cashier-input" style="background:#0d0f12; color:#fff;"
+                onchange="applyMinesCheat()">
+                <option value="">-- No Auto-Rig Rule --</option>
+                <option value="platform_profit">Platform Profit (Force immediate mine explosion)</option>
+                <option value="user_win">User Win (Force safe gems up to 5x)</option>
+              </select>
+            </div>
+
+            <button class="btn btn-gold btn-block" onclick="applyMinesCheat()" style="color:#000; font-weight:700;">Save
+              & Apply Mines Rig Configuration</button>
+          </div>
+
+          <!-- Boundary Baazi Bias Card -->
+          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:0;">
+            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">🏏
+              Boundary Baazi Cricket Bias</h4>
+
+            <div style="background:#0d0f12; padding:10px; border-radius:6px; margin-bottom:16px;">
+              <div
+                style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; font-weight:700;">
+                Active Cricket Predictions</div>
+              <div id="cheatBoundaryActiveBets"
+                style="font-size:13px; font-family:var(--font-mono); color:#fff; max-height:100px; overflow-y:auto;">
+                Loading active wagers...</div>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:12px;">
+              <label for="cheatBoundaryWinner">Force Match Outcome</label>
+              <select id="cheatBoundaryWinner" class="cashier-input" style="background:#0d0f12; color:#fff;">
+                <option value="">-- No Outcome Override --</option>
+                <option value="A">India wins</option>
+                <option value="B">Australia wins</option>
+                <option value="tie">Match ends in Tie</option>
+              </select>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:12px;">
+              <label for="cheatBoundaryPlayerSelect">Target Player to Bias</label>
+              <select id="cheatBoundaryPlayerSelect" class="cashier-input" style="background:#0d0f12; color:#fff;">
+                <option value="">-- Select Player --</option>
+                <option value="rohit_sharma">Rohit Sharma (India)</option>
+                <option value="virat_kohli">Virat Kohli (India)</option>
+                <option value="travis_head">Travis Head (Australia)</option>
+                <option value="steve_smith">Steve Smith (Australia)</option>
+                <option value="jasprit_bumrah">Jasprit Bumrah (India - Bowler)</option>
+                <option value="pat_cummins">Pat Cummins (Australia - Bowler)</option>
+              </select>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:12px;">
+              <label for="cheatBoundaryPlayerBias">Bias Type</label>
+              <select id="cheatBoundaryPlayerBias" class="cashier-input" style="background:#0d0f12; color:#fff;">
+                <option value="">-- Select Bias --</option>
+                <option value="success">Force Success (Boundaries/Wickets/Maidens)</option>
+                <option value="fail">Force Failure (Duck / High runs conceded)</option>
+              </select>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:16px;">
+              <label for="cheatBoundaryRigType">Platform Auto-Rig Mode</label>
+              <select id="cheatBoundaryRigType" class="cashier-input" style="background:#0d0f12; color:#fff;">
+                <option value="">-- No Auto-Rig --</option>
+                <option value="platform_profit">Platform Profit (Force user loss)</option>
+                <option value="user_win">User Win (Force user payout)</option>
+              </select>
+            </div>
+
+            <button class="btn btn-gold btn-block" onclick="applyBoundaryCheat()"
+              style="color:#000; font-weight:700;">Apply Cricket Overrides</button>
+          </div>
+
+          <!-- Your Eleven Fantasy Bias Card -->
+          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:0;">
+            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">🏏 Your
+              Eleven Fantasy Player Bias</h4>
+
+            <div style="background:#0d0f12; padding:10px; border-radius:6px; margin-bottom:16px;">
+              <div
+                style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; font-weight:700;">
+                Active Fantasy Wagers</div>
+              <div id="cheatYourElevenActiveBets"
+                style="font-size:13px; font-family:var(--font-mono); color:#fff; max-height:100px; overflow-y:auto;">
+                Loading active fantasy bets...</div>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:12px;">
+              <label for="cheatYourElevenPlayerSelect">Target Player to Bias</label>
+              <select id="cheatYourElevenPlayerSelect" class="cashier-input" style="background:#0d0f12; color:#fff;">
+                <option value="">-- Select Fantasy Player --</option>
+                <option value="rohit">Rohit Sharma</option>
+                <option value="virat">Virat Kohli</option>
+                <option value="travis">Travis Head</option>
+                <option value="steve">Steve Smith</option>
+                <option value="bumrah">Jasprit Bumrah</option>
+                <option value="cummins">Pat Cummins</option>
+              </select>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:12px;">
+              <label for="cheatYourElevenBias">Player Performance Bias</label>
+              <select id="cheatYourElevenBias" class="cashier-input" style="background:#0d0f12; color:#fff;">
+                <option value="">-- Select Performance --</option>
+                <option value="high">Force High Score (Huge Boundaries & Wickets)</option>
+                <option value="low">Force Low Score (Duck / Early Out)</option>
+              </select>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:16px;">
+              <label for="cheatYourElevenRigType">Platform Auto-Rig Mode</label>
+              <select id="cheatYourElevenRigType" class="cashier-input" style="background:#0d0f12; color:#fff;">
+                <option value="">-- No Auto-Rig --</option>
+                <option value="platform_profit">Platform Profit (Force user loss)</option>
+                <option value="user_win">User Win (Force 4x Payout)</option>
+              </select>
+            </div>
+
+            <button class="btn btn-gold btn-block" onclick="applyYourElevenCheat()"
+              style="color:#000; font-weight:700;">Apply Fantasy Overrides</button>
+          </div>
+        </div> <!-- End of Column 2 flex div -->
+      </div> <!-- End of grid-2 -->
+    </div> <!-- End of admin-cheats -->
+  </div> <!-- End of admin-card -->
+
+  </div>
+
+  <!-- Manage Balance Modal overlay -->
+  <div class="admin-modal-overlay" id="adminBalanceModal">
+    <div class="admin-modal-card">
+      <h3 style="margin-bottom:12px; font-size:16px;" id="modalUserTitle">Manage Balance: test</h3>
+      <div style="font-size:13px; color:var(--text-dim); margin-bottom:16px;">
+        Current Balance: <span style="font-weight:700; color:var(--gold);" id="modalUserBalance">🪙1,000.00</span>
+      </div>
+
+      <div class="cashier-input-group">
+        <label for="modalAction">Action Type</label>
+        <select id="modalAction" class="cashier-input" style="background:#0d0f12; color:#fff;">
+          <option value="add">Add Balance</option>
+          <option value="deduct">Deduct Balance</option>
+        </select>
+      </div>
+
+      <div class="cashier-input-group">
+        <label for="modalAmount">Amount</label>
+        <input type="number" id="modalAmount" class="cashier-input" placeholder="Enter amount">
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+        <button class="btn btn-ghost" onclick="closeBalanceModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="submitBalanceUpdate()" style="color:#000; font-weight:700;">Save
+          Update</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    bet1x pitch — Admin. Secure client-side state logging for demonstrating real-money operations.
+  </div>
+
+  <script src="assets/js/dummy-data.js"></script>
+  <script src="assets/js/ui-common.js"></script>
+  <script>
+    let activeEditUsername = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      localStorage.removeItem('cheat_aviator_force_crashed');
+      localStorage.removeItem('cheat_aviator_instant_crash');
+      checkAdminSession();
+    });
+
+    function checkAdminSession() {
+      if (window.isOfflineMode) {
+        const loggedIn = localStorage.getItem('bet1x_admin_logged_in') === 'true';
+        if (loggedIn) {
+          removeAdminLoginOverlay();
+          loadStats();
+          renderAllTabs();
+
+          const savedTab = localStorage.getItem('admin_active_tab') || 'cheats';
+          switchAdminTab(savedTab);
+          localStorage.removeItem('admin_active_tab');
+        } else {
+          showAdminLoginOverlay();
+        }
+        return;
+      }
+
+      fetch('api/admin.php?action=status')
+        .then(res => res.json())
+        .then(data => {
+          if (data.logged_in) {
+            removeAdminLoginOverlay();
+            loadStats();
+            renderAllTabs();
+
+            const savedTab = localStorage.getItem('admin_active_tab') || 'cheats';
+            switchAdminTab(savedTab);
+            localStorage.removeItem('admin_active_tab');
+          } else {
+            showAdminLoginOverlay();
+          }
+        })
+        .catch(() => {
+          showAdminLoginOverlay();
+        });
+    }
+
+    function showAdminLoginOverlay() {
+      if (document.getElementById('admin-login-overlay')) return;
+      const overlay = document.createElement('div');
+      overlay.id = 'admin-login-overlay';
+      overlay.style.cssText = 'position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(13,15,18,0.95); backdrop-filter:blur(8px); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px;';
+      overlay.innerHTML = `
+        <div class="admin-card" style="position:relative; width:100%; max-width:380px; margin:0; padding:28px;">
+          <button type="button" class="admin-close-btn" style="position:absolute; top:12px; right:16px; background:none; border:none; color:var(--text-dim); font-size:24px; cursor:pointer; line-height:1; padding:0; transition:color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='var(--text-dim)'">&times;</button>
+          <h2 style="font-family:var(--font-display); color:var(--gold); font-size:22px; text-align:center; margin-bottom:6px;">bet1x Admin</h2>
+          <p style="color:var(--text-dim); font-size:12px; text-align:center; margin-bottom:24px;">Enter administrator credentials to authenticate</p>
+          <form id="adminLoginForm" onsubmit="handleAdminLogin(event)">
+            <div class="cashier-input-group">
+              <label for="adminUser">Username</label>
+              <input type="text" id="adminUser" class="cashier-input" placeholder="admin" required autocomplete="username">
+            </div>
+            <div class="cashier-input-group" style="margin-top:14px;">
+              <label for="adminPass">Password</label>
+              <input type="password" id="adminPass" class="cashier-input" placeholder="••••••••" required autocomplete="current-password">
+            </div>
+            <div id="adminLoginError" style="color:var(--red); font-size:12px; margin-top:10px; display:none;">Invalid credentials.</div>
+            <button type="submit" class="btn btn-gold btn-block" style="margin-top:20px; color:#000; font-weight:700; height:45px;">Authenticate Session</button>
+          </form>
+        </div>
+      `;
+      
+      overlay.querySelector('.admin-close-btn').addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const host = window.location.host;
+        if (document.referrer && 
+            document.referrer.indexOf(host) !== -1 && 
+            document.referrer.indexOf('admin.html') === -1) {
+          window.location.href = document.referrer;
+        } else {
+          window.location.href = 'index.html';
+        }
+      });
+      
+      document.body.appendChild(overlay);
+    }
+
+    function removeAdminLoginOverlay() {
+      const el = document.getElementById('admin-login-overlay');
+      if (el) el.remove();
+    }
+
+    window.handleAdminLogin = function (e) {
+      e.preventDefault();
+      const user = document.getElementById('adminUser').value;
+      const pass = document.getElementById('adminPass').value;
+      const errEl = document.getElementById('adminLoginError');
+
+      if (window.isOfflineMode) {
+        if (user === 'admin' && pass === 'admin') {
+          removeAdminLoginOverlay();
+          localStorage.setItem('bet1x_admin_logged_in', 'true');
+          loadStats();
+          renderAllTabs();
+          showToast('Authenticated as Administrator (Demo Mode).', 'success');
+        } else {
+          errEl.textContent = 'Invalid administrator credentials (use admin/admin in offline mode).';
+          errEl.style.display = 'block';
+        }
+        return;
+      }
+
+      const body = new URLSearchParams();
+      body.append('username', user);
+      body.append('password', pass);
+
+      fetch('api/admin.php?action=login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            removeAdminLoginOverlay();
+            checkAdminSession();
+            showToast('Authenticated as Administrator.', 'success');
+          } else {
+            errEl.textContent = data.error || 'Invalid administrator credentials.';
+            errEl.style.display = 'block';
+          }
+        })
+        .catch(() => {
+          errEl.textContent = 'Server response error.';
+          errEl.style.display = 'block';
+        });
+    };
+
+    function switchAdminTab(tabId, btnEl) {
+      document.querySelectorAll('.admin-tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.admin-content').forEach(content => content.classList.remove('active'));
+
+      if (btnEl) {
+        btnEl.classList.add('active');
+      } else {
+        const targetBtn = Array.from(document.querySelectorAll('.admin-tab-btn')).find(b => b.textContent.toLowerCase().includes(tabId));
+        if (targetBtn) targetBtn.classList.add('active');
+      }
+
+      const targetContent = document.getElementById('admin-' + tabId);
+      if (targetContent) targetContent.classList.add('active');
+
+      if (tabId === 'cheats' || (btnEl && btnEl.textContent.includes('Outcome Bias'))) {
+        if (typeof pollLiveAdminGames === 'function') pollLiveAdminGames();
+        if (typeof updateAviatorBiasUI === 'function') updateAviatorBiasUI();
+      }
+    }
+
+    function loadStats() {
+      if (window.isOfflineMode) {
+        const users = getUsers();
+        const txns = JSON.parse(localStorage.getItem('bet1x_transactions') || '[]');
+        const deposits = JSON.parse(localStorage.getItem('bet1x_deposits') || '[]');
+
+        document.getElementById('statUsers').textContent = users.length;
+
+        const liability = users.reduce((acc, u) => acc + (parseFloat(u.wallet) || 0), 0);
+        document.getElementById('statLiability').textContent = '🪙' + liability.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+
+        const depositsAmt = txns.filter(t => t.type === 'Deposit' && t.status === 'Completed')
+          .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+        document.getElementById('statDeposits').textContent = '🪙' + depositsAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+
+        const pendingCount = txns.filter(t => t.type === 'Withdrawal' && t.status === 'Pending').length;
+        document.getElementById('statPending').textContent = pendingCount;
+
+        const pendingDepCount = deposits.filter(d => d.status === 'Pending').length;
+        const statDepEl = document.getElementById('statPendingDeposits');
+        if (statDepEl) statDepEl.textContent = pendingDepCount;
+        return;
+      }
+
+      fetch('api/admin.php?action=stats')
+        .then(res => res.json())
+        .then(stats => {
+          document.getElementById('statUsers').textContent = stats.total_users;
+          document.getElementById('statLiability').textContent = '🪙' + parseFloat(stats.wallet_pool).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+          document.getElementById('statDeposits').textContent = '🪙' + parseFloat(stats.total_deposited).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+          document.getElementById('statPending').textContent = stats.pending_withdrawals;
+        });
+
+      fetch('api/admin.php?action=deposits')
+        .then(res => res.json())
+        .then(deposits => {
+          if (Array.isArray(deposits)) {
+            const pendingDepCount = deposits.filter(d => d.status === 'Pending').length;
+            const statDepEl = document.getElementById('statPendingDeposits');
+            if (statDepEl) statDepEl.textContent = pendingDepCount;
+          }
+        })
+        .catch(() => { });
+    }
+
+    function renderAllTabs() {
+      renderPendingDeposits();
+      renderPendingCashouts();
+      renderUsers();
+      renderTxnHistory();
+      renderWagers();
+      if (typeof fetchAndPopulateFootballMatches === 'function') {
+        fetchAndPopulateFootballMatches();
+      }
+      if (typeof pollLiveAdminGames === 'function') {
+        pollLiveAdminGames();
+      }
+    }
+
+    // Tab: Render Pending UPI Deposits
+    function renderPendingDeposits() {
+      const tbody = document.getElementById('adminDepositsBody');
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-dim); padding:16px;">Loading pending deposits...</td></tr>';
+
+      if (window.isOfflineMode) {
+        tbody.innerHTML = '';
+        const deposits = JSON.parse(localStorage.getItem('bet1x_deposits') || '[]').filter(d => d.status === 'Pending');
+        if (deposits.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-dim); padding:16px;">No pending UPI deposit requests.</td></tr>`;
+          return;
+        }
+        deposits.forEach(d => {
+          const row = document.createElement('tr');
+          const qrSourceLabel = d.qr_type === 'custom' ? '📁 Gallery Upload' : '🖼️ Platform Default';
+          row.innerHTML = `
+            <td><code>${d.deposit_id}</code></td>
+            <td><b>${d.username}</b></td>
+            <td style="color:var(--green); font-weight:700; font-family:var(--font-mono);">+🪙${parseFloat(d.amount).toFixed(2)}</td>
+            <td>
+              <code style="font-family:var(--font-mono); font-weight:bold; color:var(--gold); background:#0d0f12; padding:2px 6px; border-radius:4px; border:1px solid var(--border);">${d.utr || 'N/A'}</code>
+              <button class="btn" style="padding:2px 6px; font-size:10px; margin-left:4px;" onclick="navigator.clipboard.writeText('${d.utr}'); showToast('UTR Copied!', 'success');">Copy</button>
+            </td>
+            <td><span style="font-size:11px; color:var(--text-dim);">${qrSourceLabel}</span></td>
+            <td><span style="font-size:11.5px; color:var(--text-dim);">${d.created_at || d.timestamp}</span></td>
+            <td>
+              <button class="btn-action approve" onclick="approveDeposit('${d.deposit_id}')">Approve & Credit Balance</button>
+              <button class="btn-action reject" onclick="rejectDeposit('${d.deposit_id}')" style="margin-left:4px;">Reject</button>
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+        return;
+      }
+
+      fetch('api/admin.php?action=deposits')
+        .then(res => res.json())
+        .then(list => {
+          tbody.innerHTML = '';
+          const pending = Array.isArray(list) ? list.filter(d => d.status === 'Pending') : [];
+          if (pending.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-dim); padding:16px;">No pending UPI deposit requests.</td></tr>`;
+            return;
+          }
+
+          pending.forEach(d => {
+            const row = document.createElement('tr');
+            const qrSourceLabel = d.qr_type === 'custom' ? '📁 Gallery Upload' : '🖼️ Platform Default';
+            const utrVal = d.utr || d.receipt || 'N/A';
+            row.innerHTML = `
+            <td><code>${d.deposit_id}</code></td>
+            <td><b>${d.username}</b></td>
+            <td style="color:var(--green); font-weight:700; font-family:var(--font-mono);">+🪙${parseFloat(d.amount).toFixed(2)}</td>
+            <td>
+              <code style="font-family:var(--font-mono); font-weight:bold; color:var(--gold); background:#0d0f12; padding:2px 6px; border-radius:4px; border:1px solid var(--border);">${utrVal}</code>
+              <button class="btn" style="padding:2px 6px; font-size:10px; margin-left:4px;" onclick="navigator.clipboard.writeText('${utrVal}'); showToast('UTR Copied!', 'success');">Copy</button>
+            </td>
+            <td><span style="font-size:11px; color:var(--text-dim);">${qrSourceLabel}</span></td>
+            <td><span style="font-size:11.5px; color:var(--text-dim);">${d.created_at}</span></td>
+            <td>
+              <button class="btn-action approve" onclick="approveDeposit('${d.deposit_id}')">Approve & Credit Balance</button>
+              <button class="btn-action reject" onclick="rejectDeposit('${d.deposit_id}')" style="margin-left:4px;">Reject</button>
+            </td>
+          `;
+            tbody.appendChild(row);
+          });
+        });
+    }
+
+    window.approveDeposit = function (depositId) {
+      if (!confirm(`Are you sure you want to APPROVE deposit request ${depositId}? This will automatically credit virtual coins to the user's wallet.`)) return;
+
+      if (window.isOfflineMode) {
+        const deposits = JSON.parse(localStorage.getItem('bet1x_deposits') || '[]');
+        const dep = deposits.find(d => d.deposit_id === depositId);
+        if (dep) {
+          dep.status = 'Completed';
+          dep.updated_at = new Date().toLocaleString();
+          localStorage.setItem('bet1x_deposits', JSON.stringify(deposits));
+
+          const users = getUsers();
+          const userObj = users.find(u => u.username.toLowerCase() === dep.username.toLowerCase());
+          if (userObj) {
+            userObj.wallet = (parseFloat(userObj.wallet) || 0) + parseFloat(dep.amount);
+            saveUsers(users);
+
+            const current = getCurrentUser();
+            if (current && current.username.toLowerCase() === userObj.username.toLowerCase()) {
+              localStorage.setItem(WALLET_KEY, userObj.wallet.toFixed(2));
+            }
+          }
+
+          const txns = JSON.parse(localStorage.getItem('bet1x_transactions') || '[]');
+          const txn = txns.find(t => t.details && t.details.includes(depositId));
+          if (txn) {
+            txn.status = 'Completed';
+            localStorage.setItem('bet1x_transactions', JSON.stringify(txns));
+          }
+
+          showToast(`Deposit ${depositId} approved! 🪙${parseFloat(dep.amount).toFixed(2)} added to ${dep.username}'s wallet.`, 'success');
+          loadStats();
+          renderAllTabs();
+        }
+        return;
+      }
+
+      const body = new URLSearchParams();
+      body.append('deposit_id', depositId);
+
+      fetch('api/admin.php?action=approve_deposit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            showToast(`Deposit ${depositId} approved and wallet balance credited!`, 'success');
+            loadStats();
+            renderAllTabs();
+          } else {
+            alert('Error: ' + data.error);
+          }
+        });
+    };
+
+    window.rejectDeposit = function (depositId) {
+      if (!confirm(`Are you sure you want to REJECT deposit request ${depositId}?`)) return;
+
+      if (window.isOfflineMode) {
+        const deposits = JSON.parse(localStorage.getItem('bet1x_deposits') || '[]');
+        const dep = deposits.find(d => d.deposit_id === depositId);
+        if (dep) {
+          dep.status = 'Rejected';
+          dep.updated_at = new Date().toLocaleString();
+          localStorage.setItem('bet1x_deposits', JSON.stringify(deposits));
+
+          const txns = JSON.parse(localStorage.getItem('bet1x_transactions') || '[]');
+          const txn = txns.find(t => t.details && t.details.includes(depositId));
+          if (txn) {
+            txn.status = 'Rejected';
+            localStorage.setItem('bet1x_transactions', JSON.stringify(txns));
+          }
+
+          showToast(`Deposit request ${depositId} rejected.`, 'info');
+          loadStats();
+          renderAllTabs();
+        }
+        return;
+      }
+
+      const body = new URLSearchParams();
+      body.append('deposit_id', depositId);
+
+      fetch('api/admin.php?action=reject_deposit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            showToast(`Deposit request ${depositId} rejected.`, 'info');
+            loadStats();
+            renderAllTabs();
+          } else {
+            alert('Error: ' + data.error);
+          }
+        });
+    };
+
+    // Tab 1: Render Pending cashouts
+    function renderPendingCashouts() {
+      const tbody = document.getElementById('adminWithdrawalsBody');
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-dim); padding:16px;">Loading...</td></tr>';
+
+      if (window.isOfflineMode) {
+        tbody.innerHTML = '';
+        const txns = JSON.parse(localStorage.getItem('bet1x_transactions') || '[]').filter(t => t.type === 'Withdrawal' && t.status === 'Pending');
+        if (txns.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-dim); padding:16px;">No pending cashout requests.</td></tr>`;
+          return;
+        }
+        txns.forEach(t => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td><code>${t.id}</code></td>
+            <td><b>${t.user}</b></td>
+            <td style="color:var(--red); font-weight:700; font-family:var(--font-mono);">-🪙${parseFloat(t.amount).toFixed(2)}</td>
+            <td>${t.details || ''}</td>
+            <td><span style="font-size:11.5px; color:var(--text-dim);">${t.timestamp}</span></td>
+            <td>
+              <button class="btn-action approve" onclick="approveWithdraw('${t.id}')">Approve</button>
+              <button class="btn-action reject" onclick="rejectWithdraw('${t.id}')" style="margin-left:4px;">Reject</button>
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+        return;
+      }
+
+      fetch('api/admin.php?action=withdrawals')
+        .then(res => res.json())
+        .then(list => {
+          tbody.innerHTML = '';
+          const pending = list.filter(w => w.status === 'Pending');
+          if (pending.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-dim); padding:16px;">No pending cashout requests.</td></tr>`;
+            return;
+          }
+
+          pending.forEach(t => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+            <td><code>${t.withdrawal_id}</code></td>
+            <td><b>${t.username}</b></td>
+            <td style="color:var(--red); font-weight:700; font-family:var(--font-mono);">-🪙${parseFloat(t.amount).toFixed(2)}</td>
+            <td>${t.details}</td>
+            <td><span style="font-size:11.5px; color:var(--text-dim);">${t.created_at}</span></td>
+            <td>
+              <button class="btn-action approve" onclick="approveWithdraw('${t.withdrawal_id}')">Approve</button>
+              <button class="btn-action reject" onclick="rejectWithdraw('${t.withdrawal_id}')" style="margin-left:4px;">Reject</button>
+            </td>
+          `;
+            tbody.appendChild(row);
+          });
+        });
+    }
+
+    // Approve cashout
+    window.approveWithdraw = function (withdrawalId) {
+      if (!confirm(`Are you sure you want to APPROVE cashout request ${withdrawalId}?`)) return;
+
+      if (window.isOfflineMode) {
+        const txns = JSON.parse(localStorage.getItem('bet1x_transactions') || '[]');
+        const txn = txns.find(t => t.id === withdrawalId);
+        if (txn) {
+          txn.status = 'Completed';
+          txn.timestamp = new Date().toLocaleString();
+          localStorage.setItem('bet1x_transactions', JSON.stringify(txns));
+          showToast(`Withdrawal request ${withdrawalId} approved!`, 'success');
+          loadStats();
+          renderAllTabs();
+        }
+        return;
+      }
+
+      const body = new URLSearchParams();
+      body.append('withdrawal_id', withdrawalId);
+
+      fetch('api/admin.php?action=approve_withdrawal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            showToast(`Withdrawal request ${withdrawalId} approved and processed!`, 'success');
+            loadStats();
+            renderAllTabs();
+          } else {
+            alert('Error: ' + data.error);
+          }
+        });
+    };
+
+    // Reject cashout
+    window.rejectWithdraw = function (withdrawalId) {
+      if (!confirm(`Are you sure you want to REJECT cashout request ${withdrawalId}?`)) return;
+
+      if (window.isOfflineMode) {
+        const txns = JSON.parse(localStorage.getItem('bet1x_transactions') || '[]');
+        const txn = txns.find(t => t.id === withdrawalId);
+        if (txn) {
+          txn.status = 'Rejected';
+          txn.timestamp = new Date().toLocaleString();
+          localStorage.setItem('bet1x_transactions', JSON.stringify(txns));
+
+          const users = getUsers();
+          const userObj = users.find(u => u.username.toLowerCase() === txn.user.toLowerCase());
+          if (userObj) {
+            userObj.wallet = (parseFloat(userObj.wallet) || 0) + parseFloat(txn.amount);
+            saveUsers(users);
+
+            const current = getCurrentUser();
+            if (current && current.username.toLowerCase() === userObj.username.toLowerCase()) {
+              localStorage.setItem(WALLET_KEY, userObj.wallet.toFixed(2));
+            }
+          }
+
+          showToast(`Withdrawal request ${withdrawalId} rejected. Funds refunded!`, 'info');
+          loadStats();
+          renderAllTabs();
+        }
+        return;
+      }
+
+      const body = new URLSearchParams();
+      body.append('withdrawal_id', withdrawalId);
+
+      fetch('api/admin.php?action=reject_withdrawal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            showToast(`Withdrawal request ${withdrawalId} rejected. Wager amount refunded!`, 'info');
+            loadStats();
+            renderAllTabs();
+          } else {
+            alert('Error: ' + data.error);
+          }
+        });
+    };
+
+    // Tab 2: Render User Accounts manager
+    function renderUsers() {
+      const tbody = document.getElementById('adminUsersBody');
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-dim); padding:16px;">Loading...</td></tr>';
+
+      if (window.isOfflineMode) {
+        tbody.innerHTML = '';
+        const users = getUsers();
+        if (users.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-dim); padding:16px;">No registered users.</td></tr>`;
+          return;
+        }
+
+        users.forEach(u => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td><b>${u.username}</b></td>
+            <td>${u.email || (u.username + '@bet1x.com')}</td>
+            <td style="color:var(--gold); font-weight:700; font-family:var(--font-mono);">🪙${(parseFloat(u.wallet) || 0).toFixed(2)}</td>
+            <td>
+              <button class="btn-action edit" onclick="openBalanceModal('${u.username}')">Adjust Balance</button>
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+        return;
+      }
+
+      fetch('api/admin.php?action=users')
+        .then(res => res.json())
+        .then(users => {
+          tbody.innerHTML = '';
+          if (users.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-dim); padding:16px;">No registered users.</td></tr>`;
+            return;
+          }
+
+          users.forEach(u => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+            <td><b>${u.username}</b></td>
+            <td>${u.email}</td>
+            <td style="color:var(--gold); font-weight:700; font-family:var(--font-mono);">🪙${(parseFloat(u.wallet_balance) || 0).toFixed(2)}</td>
+            <td>
+              <button class="btn-action edit" onclick="openBalanceModal('${u.username}')">Adjust Balance</button>
+            </td>
+          `;
+            tbody.appendChild(row);
+          });
+        });
+    }
+
+    window.openBalanceModal = function (username) {
+      activeEditUsername = username;
+      if (window.isOfflineMode) {
+        const users = getUsers();
+        const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
+        if (user) {
+          document.getElementById('modalUserTitle').textContent = `Adjust Balance: ${user.username}`;
+          document.getElementById('modalUserBalance').textContent = `🪙${(parseFloat(user.wallet) || 0).toFixed(2)}`;
+          document.getElementById('modalAmount').value = '';
+          document.getElementById('adminBalanceModal').classList.add('active');
+        }
+        return;
+      }
+
+      fetch('api/admin.php?action=users')
+        .then(res => res.json())
+        .then(users => {
+          const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
+          if (user) {
+            document.getElementById('modalUserTitle').textContent = `Adjust Balance: ${user.username}`;
+            document.getElementById('modalUserBalance').textContent = `🪙${(parseFloat(user.wallet_balance) || 0).toFixed(2)}`;
+            document.getElementById('modalAmount').value = '';
+            document.getElementById('adminBalanceModal').classList.add('active');
+          }
+        });
+    };
+
+    window.closeBalanceModal = function () {
+      document.getElementById('adminBalanceModal').classList.remove('active');
+      activeEditUsername = null;
+    };
+
+    window.submitBalanceUpdate = function () {
+      const amt = parseFloat(document.getElementById('modalAmount').value);
+      if (!amt || amt <= 0) {
+        alert('Please enter a valid amount.');
+        return;
+      }
+
+      const type = document.getElementById('modalAction').value; // 'add' or 'deduct'
+
+      if (window.isOfflineMode) {
+        const users = getUsers();
+        const userObj = users.find(u => u.username.toLowerCase() === activeEditUsername.toLowerCase());
+        if (userObj) {
+          const prevBal = parseFloat(userObj.wallet) || 0;
+          let newBal = prevBal;
+          if (type === 'add') {
+            newBal += amt;
+          } else {
+            if (prevBal < amt) {
+              alert('Cannot deduct more than user\'s current balance.');
+              return;
+            }
+            newBal -= amt;
+          }
+          userObj.wallet = newBal;
+          saveUsers(users);
+
+          const txns = JSON.parse(localStorage.getItem('bet1x_transactions') || '[]');
+          txns.unshift({
+            id: 'ADJ_' + Math.floor(100000 + Math.random() * 900000),
+            user: userObj.username,
+            type: type === 'add' ? 'Deposit' : 'Withdrawal',
+            amount: amt,
+            details: `Admin Adjustment (${type === 'add' ? 'Credited' : 'Debited'})`,
+            status: 'Completed',
+            timestamp: new Date().toLocaleString()
+          });
+          localStorage.setItem('bet1x_transactions', JSON.stringify(txns));
+
+          const current = getCurrentUser();
+          if (current && current.username.toLowerCase() === userObj.username.toLowerCase()) {
+            localStorage.setItem(WALLET_KEY, newBal.toFixed(2));
+          }
+
+          showToast(`Wallet of ${activeEditUsername} updated successfully!`, 'success');
+          closeBalanceModal();
+          loadStats();
+          renderAllTabs();
+        }
+        return;
+      }
+
+      const body = new URLSearchParams();
+      body.append('username', activeEditUsername);
+      body.append('amount', amt);
+      body.append('type', type);
+
+      fetch('api/admin.php?action=adjust_balance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            showToast(`Wallet of ${activeEditUsername} updated successfully!`, 'success');
+            closeBalanceModal();
+            loadStats();
+            renderAllTabs();
+          } else {
+            alert('Error: ' + data.error);
+          }
+        });
+    };
+
+    // Tab 3: Render All Transaction logs
+    function renderTxnHistory() {
+      const tbody = document.getElementById('adminTxnsBody');
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-dim); padding:16px;">Loading...</td></tr>';
+
+      if (window.isOfflineMode) {
+        tbody.innerHTML = '';
+        const txns = JSON.parse(localStorage.getItem('bet1x_transactions') || '[]');
+        if (txns.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-dim); padding:16px;">No transaction logs found.</td></tr>`;
+          return;
+        }
+        txns.forEach(t => {
+          let badgeCls = 'pending';
+          if (t.status.toLowerCase() === 'completed' || t.status.toLowerCase() === 'success') badgeCls = 'completed';
+          if (t.status.toLowerCase() === 'rejected' || t.status.toLowerCase() === 'failed') badgeCls = 'rejected';
+
+          let amtPrefix = t.type === 'Deposit' ? '+' : '-';
+          let amtColor = t.type === 'Deposit' ? 'var(--green)' : 'var(--red)';
+
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td><code>${t.id}</code></td>
+            <td><b>${t.user}</b></td>
+            <td>${t.type}</td>
+            <td style="color:${amtColor}; font-weight:700; font-family:var(--font-mono);">${amtPrefix}🪙${parseFloat(t.amount).toFixed(2)}</td>
+            <td>${t.details || ''}</td>
+            <td><span class="badge ${badgeCls}">${t.status}</span></td>
+            <td><span style="font-size:11.5px; color:var(--text-dim);">${t.timestamp}</span></td>
+          `;
+          tbody.appendChild(row);
+        });
+        return;
+      }
+
+      fetch('api/admin.php?action=transactions')
+        .then(res => res.json())
+        .then(txns => {
+          tbody.innerHTML = '';
+          if (txns.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-dim); padding:16px;">No transaction logs found.</td></tr>`;
+            return;
+          }
+
+          txns.reverse().forEach(t => {
+            let badgeCls = 'pending';
+            if (t.status.toLowerCase() === 'completed' || t.status.toLowerCase() === 'success') badgeCls = 'completed';
+            if (t.status.toLowerCase() === 'rejected' || t.status.toLowerCase() === 'failed') badgeCls = 'rejected';
+
+            let amtPrefix = t.type === 'Deposit' ? '+' : '-';
+            let amtColor = t.type === 'Deposit' ? 'var(--green)' : 'var(--red)';
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+            <td><code>${t.id}</code></td>
+            <td><b>${t.user}</b></td>
+            <td>${t.type}</td>
+            <td style="color:${amtColor}; font-weight:700; font-family:var(--font-mono);">${amtPrefix}🪙${parseFloat(t.amount).toFixed(2)}</td>
+            <td>${t.details}</td>
+            <td><span class="badge ${badgeCls}">${t.status}</span></td>
+            <td><span style="font-size:11.5px; color:var(--text-dim);">${t.timestamp}</span></td>
+          `;
+            tbody.appendChild(row);
+          });
+        });
+    }
+
+    // Tab 4: Render Betting History
+    function renderWagers() {
+      const tbody = document.getElementById('adminWagersBody');
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-dim); padding:16px;">Loading...</td></tr>';
+
+      if (window.isOfflineMode) {
+        tbody.innerHTML = '';
+        const txns = JSON.parse(localStorage.getItem('bet1x_transactions') || '[]');
+        const wagers = txns.filter(t => t.details && (t.details.includes('Teen Patti') || t.details.includes('Cricket') || t.details.includes('Color Room')));
+        if (wagers.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-dim); padding:16px;">No game bets logs found.</td></tr>`;
+          return;
+        }
+        wagers.forEach(t => {
+          let badgeCls = t.type === 'Deposit' ? 'completed' : 'rejected';
+          let statusText = t.type === 'Deposit' ? 'Won' : 'Placed';
+
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td><code>${t.id}</code></td>
+            <td><b>${t.user}</b></td>
+            <td>${t.details.split(':')[0]}</td>
+            <td style="font-family:var(--font-mono);">🪙${parseFloat(t.amount).toFixed(2)}</td>
+            <td><span class="badge ${badgeCls}">${statusText}</span></td>
+            <td style="font-family:var(--font-mono); color:${t.type === 'Deposit' ? 'var(--green)' : 'inherit'}; font-weight:700;">🪙${t.type === 'Deposit' ? parseFloat(t.amount).toFixed(2) : '0.00'}</td>
+            <td><span style="font-size:11.5px; color:var(--text-dim);">${t.timestamp}</span></td>
+          `;
+          tbody.appendChild(row);
+        });
+        return;
+      }
+
+      fetch('api/admin.php?action=transactions')
+        .then(res => res.json())
+        .then(txns => {
+          tbody.innerHTML = '';
+          const wagers = txns.filter(t => t.details && (t.details.includes('Teen Patti') || t.details.includes('Cricket') || t.details.includes('Color Room') || t.details.includes('Aviator') || t.details.includes('Vimaan') || t.details.includes('Wager')));
+
+          if (wagers.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-dim); padding:16px;">No game bets logs found.</td></tr>`;
+            return;
+          }
+
+          wagers.reverse().forEach(t => {
+            let badgeCls = t.type === 'Deposit' ? 'completed' : 'rejected';
+            let statusText = t.type === 'Deposit' ? 'Won' : 'Placed';
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+            <td><code>${t.id}</code></td>
+            <td><b>${t.user}</b></td>
+            <td>${t.details.split(':')[0]}</td>
+            <td style="font-family:var(--font-mono);">🪙${parseFloat(t.amount).toFixed(2)}</td>
+            <td><span class="badge ${badgeCls}">${statusText}</span></td>
+            <td style="font-family:var(--font-mono); color:${t.type === 'Deposit' ? 'var(--green)' : 'inherit'}; font-weight:700;">🪙${t.type === 'Deposit' ? parseFloat(t.amount).toFixed(2) : '0.00'}</td>
+            <td><span style="font-size:11.5px; color:var(--text-dim);">${t.timestamp}</span></td>
+          `;
+            tbody.appendChild(row);
+          });
+        });
+    }
+
+    // Cheat Console active bets live sync
+
+    window.updateCheatBoundaryBets = function () {
+      const history = JSON.parse(localStorage.getItem('bet1x_demo_history') || '[]');
+      const active = history.filter(b => b.room === 'Cricket' && b.status === 'pending');
+
+      let userText = 'User: No active wagers.';
+      if (active.length > 0) {
+        userText = active.map(b => `Bet: ${b.value} - 🪙${b.amount}`).join('<br>');
+      }
+
+      document.getElementById('cheatBoundaryActiveBets').innerHTML = userText;
+    };
+
+    window.applyColorRoomCheat = function () {
+      const roomKey = document.getElementById('cheatColorRoomSelect').value;
+      const color = document.getElementById('cheatColorSelect').value;
+      const number = document.getElementById('cheatNumberSelect').value;
+      const size = document.getElementById('cheatSizeSelect').value;
+      const rigType = document.getElementById('cheatColorRigType').value;
+
+      // Save to localStorage for fallback / offline mode
+      const overrideObj = { color, number, size, rig_type: rigType };
+      if (color || (number !== '' && number !== null && number !== undefined) || size || rigType) {
+        localStorage.setItem('cheat_color_override_' + roomKey, JSON.stringify(overrideObj));
+      } else {
+        localStorage.removeItem('cheat_color_override_' + roomKey);
+      }
+
+      const params = new URLSearchParams();
+      params.append('game', 'color_guess');
+      params.append('room', roomKey);
+      params.append('color', color);
+      params.append('number', number);
+      params.append('size', size);
+      params.append('rig_type', rigType);
+
+      fetch('api/game_sync.php?action=admin_set_override', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.error) {
+            showToast(data.error, 'error');
+          } else {
+            let summary = [];
+            if (color) summary.push(`Color: ${color}`);
+            if (number !== '') summary.push(`Number: ${number}`);
+            if (size) summary.push(`Size: ${size}`);
+            if (rigType) summary.push(`Rig: ${rigType}`);
+            showToast(`Applied color room override for ${roomKey.toUpperCase()}: ${summary.join(', ') || 'Cleared all biases'}`, 'success');
+          }
+          if (typeof pollLiveAdminGames === 'function') pollLiveAdminGames();
+        })
+        .catch(err => {
+          if (typeof pollLiveAdminGames === 'function') pollLiveAdminGames();
+        });
+    };
+
+    window.clearColorRoomCheat = function () {
+      const roomKey = document.getElementById('cheatColorRoomSelect').value;
+      document.getElementById('cheatColorSelect').value = '';
+      document.getElementById('cheatNumberSelect').value = '';
+      document.getElementById('cheatSizeSelect').value = '';
+      document.getElementById('cheatColorRigType').value = '';
+      localStorage.removeItem('cheat_color_override_' + roomKey);
+      applyColorRoomCheat();
+    };
+
+    window.presetAviatorCrash = function (mult) {
+      document.getElementById('cheatAviatorMultiplier').value = mult;
+      applyAviatorCheat();
+    };
+
+    window.clearAviatorCheat = function () {
+      document.getElementById('cheatAviatorMultiplier').value = '';
+      localStorage.removeItem('cheat_aviator_crash');
+      localStorage.removeItem('cheat_aviator_instant_crash');
+      applyAviatorCheat();
+    };
+
+    window.updateAviatorBiasUI = function () {
+      const multEl = document.getElementById('cheatAviatorMultiplier');
+      const bannerEl = document.getElementById('adminAviatorActiveOverrideBanner');
+      if (!bannerEl) return;
+
+      const val = multEl ? multEl.value : '';
+      const localVal = localStorage.getItem('cheat_aviator_crash');
+      const activeMult = val || localVal;
+
+      if (activeMult && parseFloat(activeMult) >= 1.0) {
+        bannerEl.style.display = 'block';
+        bannerEl.style.background = 'rgba(201, 160, 84, 0.14)';
+        bannerEl.style.border = '1px solid var(--gold)';
+        bannerEl.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <div>
+              <div style="font-size:10px; color:var(--gold); text-transform:uppercase; font-weight:800; letter-spacing:0.5px;">🎯 ACTIVE FIXED CRASH MULTIPLIER</div>
+              <div style="font-size:14px; font-weight:800; color:#fff; margin-top:2px;">
+                Crash Point: <b style="color:var(--gold); font-family:var(--font-mono); font-size:16px;">${parseFloat(activeMult).toFixed(2)}x</b>
+              </div>
+              <div style="font-size:11px; color:var(--text-dim); margin-top:2px;">
+                Plane will crash precisely at ${parseFloat(activeMult).toFixed(2)}x.
+              </div>
+            </div>
+            <button onclick="clearAviatorCheat()" class="btn btn-sm" style="background:rgba(231,76,60,0.15); border:1px solid #e74c3c; color:#e74c3c; font-weight:bold; padding:4px 10px; font-size:11.5px; border-radius:4px; cursor:pointer;">
+              ✕ Clear Override
+            </button>
+          </div>
+        `;
+      } else {
+        bannerEl.style.display = 'block';
+        bannerEl.style.background = '#0d0f12';
+        bannerEl.style.border = '1px dashed var(--border)';
+        bannerEl.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="font-size:11.5px; color:var(--text-dim);">
+              🎲 <b>Crash Point Status:</b> UNRIGGED (Fair Random Flight Curve)
+            </div>
+            <span style="font-size:10.5px; color:var(--text-dim);">Select options or presets to fix multiplier</span>
+          </div>
+        `;
+      }
+    };
+
+    window.applyAviatorCheat = function () {
+      const mult = document.getElementById('cheatAviatorMultiplier').value;
+      if (mult) localStorage.setItem('cheat_aviator_crash', mult);
+      else localStorage.removeItem('cheat_aviator_crash');
+
+      const params = new URLSearchParams();
+      params.append('game', 'aviator');
+      params.append('crash_point', mult);
+
+      fetch('api/game_sync.php?action=admin_set_override', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.error) {
+            showToast(data.error, 'error');
+          } else {
+            showToast(mult ? `Vimaan crash point override applied: ${parseFloat(mult).toFixed(2)}x` : 'Cleared Vimaan crash bias.', 'success');
+          }
+          updateAviatorBiasUI();
+        })
+        .catch(err => {
+          updateAviatorBiasUI();
+        });
+    };
+
+    window.instantCrashAviator = function () {
+      const now = Date.now();
+      const currentMult = window.adminAviatorServerCurrentMult || window.adminAviatorServerMult || 1.00;
+      const finalCrashMult = Math.max(1.00, parseFloat(currentMult.toFixed(2)));
+
+      // Save force-crash flags to localStorage so aviator.html and offline admin sync immediately
+      localStorage.setItem('cheat_aviator_force_crashed', 'true');
+      localStorage.setItem('cheat_aviator_instant_crash', 'true');
+      localStorage.setItem('cheat_aviator_force_crash_mult', finalCrashMult.toFixed(2));
+      localStorage.setItem('cheat_aviator_crash_time', now.toString());
+
+      // Lock local admin phase immediately
+      window.adminOfflineAviatorPhase = 'crashed';
+      window.adminOfflineAviatorStart = now;
+      window.adminOfflineAviatorCrashPoint = finalCrashMult;
+
+      window.adminAviatorServerPhase = 'crashed';
+      window.adminAviatorServerMult = finalCrashMult;
+      window.adminAviatorServerReceivedAt = now;
+
+      // Sync with server
+      const params = new URLSearchParams();
+      params.append('game', 'aviator');
+      params.append('instant_crash', 'true');
+      params.append('crash_point', finalCrashMult.toFixed(2));
+
+      fetch('api/game_sync.php?action=admin_set_override', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params
+      }).catch(() => { });
+
+      showToast(`💥 Vimaan flight forcibly crashed at ${finalCrashMult.toFixed(2)}x!`, 'error');
+      if (typeof tickAdminVisualProgress === 'function') tickAdminVisualProgress();
+    };
+
+    window.applyTeenPattiCheat = function () {
+      const winner = document.getElementById('cheatTeenPattiWinner').value;
+
+      const params = new URLSearchParams();
+      params.append('game', 'teenpatti');
+      params.append('winner', winner);
+      // Fallback for default user in lobby (DemoUser)
+      params.append('target_user', 'DemoUser');
+
+      fetch('api/game_sync.php?action=admin_set_override', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.error) {
+            showToast(data.error, 'error');
+          } else {
+            showToast(winner ? `Rigged next deal to win seat: ${winner}` : 'Cleared Teen Patti deal bias.', 'success');
+          }
+        });
+    };
+
+    window.rigTeenPattiWinner = function (username, seat) {
+      const params = new URLSearchParams();
+      params.append('game', 'teenpatti');
+      params.append('target_user', username);
+      params.append('winner', seat);
+
+      fetch('api/game_sync.php?action=admin_set_override', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.error) showToast(data.error, 'error');
+          else showToast(`Teen Patti: Forced winner seat ${seat} for ${username}`, 'success');
+        });
+    };
+
+    window.rigTeenPattiCards = function (username, seat) {
+      const params = new URLSearchParams();
+      params.append('game', 'teenpatti');
+      params.append('target_user', username);
+      params.append('player_key', seat);
+      params.append('edit_cards', 'true');
+
+      fetch('api/game_sync.php?action=admin_set_override', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.error) showToast(data.error, 'error');
+          else showToast(`Teen Patti: Rigged ${seat} cards to 3 Aces for ${username}`, 'success');
+        });
+    };
+
+    window.applyBoundaryCheat = function () {
+      const winner = document.getElementById('cheatBoundaryWinner').value;
+      const player = document.getElementById('cheatBoundaryPlayerSelect').value;
+      const bias = document.getElementById('cheatBoundaryPlayerBias').value;
+      const rigType = document.getElementById('cheatBoundaryRigType').value;
+
+      if (winner) {
+        localStorage.setItem('cheat_boundary_winner', winner);
+      } else {
+        localStorage.removeItem('cheat_boundary_winner');
+      }
+
+      if (player && bias) {
+        localStorage.setItem('cheat_boundary_player_' + player, bias);
+      } else if (player && !bias) {
+        localStorage.removeItem('cheat_boundary_player_' + player);
+      }
+
+      if (rigType) {
+        localStorage.setItem('cheat_boundary_rig_type', rigType);
+      } else {
+        localStorage.removeItem('cheat_boundary_rig_type');
+      }
+
+      let summary = [];
+      if (winner) summary.push(`Winner: ${winner === 'tie' ? 'Tie' : (winner === 'A' ? 'India' : 'Australia')}`);
+      if (player && bias) summary.push(`Player ${player}: ${bias}`);
+      if (rigType) summary.push(`Rig Type: ${rigType === 'platform_profit' ? 'Platform Profit' : 'User Win'}`);
+
+      if (summary.length === 0) {
+        showToast('Cleared Boundary Baazi biases.', 'info');
+      } else {
+        showToast(`Applied Boundary Baazi bias: ${summary.join(', ')}`, 'success');
+      }
+    };
+
+    window.applyFootballCheat = function () {
+      const matchId = document.getElementById('cheatFootballMatchSelect').value;
+      const winner = document.getElementById('cheatFootballWinner').value;
+      const ou = document.getElementById('cheatFootballOverUnder').value;
+      const rigType = document.getElementById('cheatFootballRigType').value;
+
+      if (winner) localStorage.setItem('cheat_football_winner_' + matchId, winner);
+      else localStorage.removeItem('cheat_football_winner_' + matchId);
+
+      if (ou) localStorage.setItem('cheat_football_over_under_' + matchId, ou);
+      else localStorage.removeItem('cheat_football_over_under_' + matchId);
+
+      if (rigType) localStorage.setItem('cheat_football_rig_type', rigType);
+      else localStorage.removeItem('cheat_football_rig_type');
+
+      let summary = [];
+      if (winner) summary.push(`Winner: ${winner}`);
+      if (ou) summary.push(`Goals: ${ou}`);
+      if (rigType) summary.push(`Rig: ${rigType}`);
+
+      showToast(`Applied Football Match #${matchId} override: ${summary.join(', ') || 'Cleared all biases'}`, 'success');
+      updateFootballBiasUI();
+    };
+
+    window.clearFootballCheat = function () {
+      const matchId = document.getElementById('cheatFootballMatchSelect').value;
+      document.getElementById('cheatFootballWinner').value = '';
+      document.getElementById('cheatFootballOverUnder').value = '';
+      document.getElementById('cheatFootballRigType').value = '';
+      localStorage.removeItem('cheat_football_winner_' + matchId);
+      localStorage.removeItem('cheat_football_over_under_' + matchId);
+      localStorage.removeItem('cheat_football_rig_type');
+      showToast(`Cleared Football Match #${matchId} overrides.`, 'info');
+      updateFootballBiasUI();
+    };
+
+    window.updateFootballBiasUI = function () {
+      const matchSelectEl = document.getElementById('cheatFootballMatchSelect');
+      if (!matchSelectEl) return;
+      const matchId = matchSelectEl.value;
+
+      const winner = localStorage.getItem('cheat_football_winner_' + matchId) || '';
+      const ou = localStorage.getItem('cheat_football_over_under_' + matchId) || '';
+      const rigType = localStorage.getItem('cheat_football_rig_type') || '';
+
+      const winSelectEl = document.getElementById('cheatFootballWinner');
+      const ouSelectEl = document.getElementById('cheatFootballOverUnder');
+      const rigSelectEl = document.getElementById('cheatFootballRigType');
+
+      if (winSelectEl && document.activeElement !== winSelectEl) winSelectEl.value = winner;
+      if (ouSelectEl && document.activeElement !== ouSelectEl) ouSelectEl.value = ou;
+      if (rigSelectEl && document.activeElement !== rigSelectEl) rigSelectEl.value = rigType;
+
+      const bannerEl = document.getElementById('adminFootballActiveOverrideBanner');
+      if (bannerEl) {
+        let summaryParts = [];
+        if (winner) summaryParts.push(`Winner: <b style="color:var(--gold); font-size:14px;">${winner.toUpperCase()}</b>`);
+        if (ou) summaryParts.push(`Goals: <b style="color:var(--gold); font-size:14px;">${ou.toUpperCase()}</b>`);
+        if (rigType) summaryParts.push(`Auto-Rig: <b style="color:var(--gold); font-size:14px;">${rigType}</b>`);
+
+        if (summaryParts.length > 0) {
+          bannerEl.style.display = 'block';
+          bannerEl.style.background = 'rgba(201, 160, 84, 0.14)';
+          bannerEl.style.border = '1px solid var(--gold)';
+          bannerEl.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+              <div>
+                <div style="font-size:10px; color:var(--gold); text-transform:uppercase; font-weight:800; letter-spacing:0.5px;">🎯 ACTIVE FIXED OVERRIDE (MATCH #${matchId})</div>
+                <div style="font-size:13.5px; font-weight:700; color:#fff; margin-top:2px;">
+                  ${summaryParts.join(' &nbsp;•&nbsp; ')}
+                </div>
+                <div style="font-size:11px; color:var(--text-dim); margin-top:2px;">
+                  This outcome is fixed and will settle match #${matchId} accordingly.
+                </div>
+              </div>
+              <button onclick="clearFootballCheat()" class="btn btn-sm" style="background:rgba(231,76,60,0.15); border:1px solid #e74c3c; color:#e74c3c; font-weight:bold; padding:4px 10px; font-size:11.5px; border-radius:4px; cursor:pointer;">
+                ✕ Clear Rig
+              </button>
+            </div>
+          `;
+        } else {
+          bannerEl.style.display = 'block';
+          bannerEl.style.background = '#0d0f12';
+          bannerEl.style.border = '1px dashed #242f3d';
+          bannerEl.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div style="font-size:11.5px; color:var(--text-dim);">
+                🎲 <b>Outcome Status:</b> NO BIAS (Fair Random Match Simulation)
+              </div>
+              <span style="font-size:10.5px; color:var(--text-dim);">Select options below to fix outcome</span>
+            </div>
+          `;
+        }
+      }
+    };
+
+    // --- MINES (MINING) 5X5 MATRIX RIG SYSTEM ---
+    let minesMatrixState = Array(25).fill('auto'); // 'auto', 'safe', 'mine'
+
+    window.initMinesMatrix = function () {
+      const saved = localStorage.getItem('cheat_mines_matrix');
+      if (saved) {
+        try { minesMatrixState = JSON.parse(saved); } catch (e) { }
+      }
+      renderMinesMatrixGrid();
+      updateMinesRigUI();
+    };
+
+    window.renderMinesMatrixGrid = function () {
+      const gridEl = document.getElementById('adminMinesGridMatrix');
+      if (!gridEl) return;
+      gridEl.innerHTML = '';
+
+      for (let i = 0; i < 25; i++) {
+        const state = minesMatrixState[i] || 'auto';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.style.padding = '8px 2px';
+        btn.style.borderRadius = '6px';
+        btn.style.fontSize = '11px';
+        btn.style.fontWeight = 'bold';
+        btn.style.cursor = 'pointer';
+        btn.style.display = 'flex';
+        btn.style.flexDirection = 'column';
+        btn.style.alignItems = 'center';
+        btn.style.justifyContent = 'center';
+        btn.style.transition = 'all 0.15s ease';
+
+        if (state === 'safe') {
+          btn.style.background = 'rgba(16, 185, 129, 0.25)';
+          btn.style.border = '2px solid #10b981';
+          btn.style.color = '#10b981';
+          btn.innerHTML = `<span style="font-size:14px;">💎</span><span>#${i + 1}</span>`;
+        } else if (state === 'mine') {
+          btn.style.background = 'rgba(239, 68, 68, 0.25)';
+          btn.style.border = '2px solid #ef4444';
+          btn.style.color = '#ef4444';
+          btn.innerHTML = `<span style="font-size:14px;">💣</span><span>#${i + 1}</span>`;
+        } else {
+          btn.style.background = '#151b24';
+          btn.style.border = '1px solid rgba(255,255,255,0.08)';
+          btn.style.color = 'var(--text-dim)';
+          btn.innerHTML = `<span style="font-size:14px;">⚪</span><span>#${i + 1}</span>`;
+        }
+
+        btn.onclick = () => toggleMinesMatrixTile(i);
+        gridEl.appendChild(btn);
+      }
+    };
+
+    window.toggleMinesMatrixTile = function (idx) {
+      const current = minesMatrixState[idx] || 'auto';
+      if (current === 'auto') minesMatrixState[idx] = 'safe';
+      else if (current === 'safe') minesMatrixState[idx] = 'mine';
+      else minesMatrixState[idx] = 'auto';
+
+      renderMinesMatrixGrid();
+      applyMinesCheat();
+    };
+
+    window.presetMinesRig = function (presetType) {
+      if (presetType === 'trap_next') {
+        localStorage.setItem('cheat_mines_next_tile', 'mine');
+        showToast('Set Mines: Next Click TRAPPED (Bomb explosion)!', 'warning');
+      } else if (presetType === 'safe_next') {
+        localStorage.setItem('cheat_mines_next_tile', 'gem');
+        showToast('Set Mines: Next Click SAFE (Guaranteed Gem)!', 'success');
+      } else if (presetType === 'center_safe') {
+        // Center 3x3 safe, outer border mines
+        for (let i = 0; i < 25; i++) {
+          const row = Math.floor(i / 5);
+          const col = i % 5;
+          if (row >= 1 && row <= 3 && col >= 1 && col <= 3) {
+            minesMatrixState[i] = 'safe';
+          } else {
+            minesMatrixState[i] = 'mine';
+          }
+        }
+        renderMinesMatrixGrid();
+        applyMinesCheat();
+        showToast('Applied Center 3x3 Safe Matrix preset!', 'info');
+      }
+      updateMinesRigUI();
+    };
+
+    window.clearMinesMatrix = function () {
+      minesMatrixState = Array(25).fill('auto');
+      localStorage.removeItem('cheat_mines_matrix');
+      localStorage.removeItem('cheat_mines_next_tile');
+      localStorage.removeItem('cheat_mines_rig_type');
+      const selectRig = document.getElementById('cheatMinesRigType');
+      if (selectRig) selectRig.value = '';
+      renderMinesMatrixGrid();
+      updateMinesRigUI();
+      showToast('Cleared all Mines matrix rigs & overrides.', 'info');
+    };
+
+    window.applyMinesCheat = function () {
+      localStorage.setItem('cheat_mines_matrix', JSON.stringify(minesMatrixState));
+
+      const rigTypeSelect = document.getElementById('cheatMinesRigType');
+      if (rigTypeSelect) {
+        if (rigTypeSelect.value) localStorage.setItem('cheat_mines_rig_type', rigTypeSelect.value);
+        else localStorage.removeItem('cheat_mines_rig_type');
+      }
+
+      updateMinesRigUI();
+    };
+
+    window.updateMinesRigUI = function () {
+      const bannerEl = document.getElementById('adminMinesActiveOverrideBanner');
+      if (!bannerEl) return;
+
+      const safeCount = minesMatrixState.filter(s => s === 'safe').length;
+      const mineCount = minesMatrixState.filter(s => s === 'mine').length;
+      const nextTile = localStorage.getItem('cheat_mines_next_tile');
+      const rigType = localStorage.getItem('cheat_mines_rig_type');
+
+      let parts = [];
+      if (safeCount > 0) parts.push(`Gems Fixed: <b style="color:#10b981;">${safeCount} Tiles</b>`);
+      if (mineCount > 0) parts.push(`Mines Fixed: <b style="color:#ef4444;">${mineCount} Tiles</b>`);
+      if (nextTile) parts.push(`Next Click: <b style="color:var(--gold);">${nextTile.toUpperCase()}</b>`);
+      if (rigType) parts.push(`Auto-Rig: <b style="color:var(--gold);">${rigType}</b>`);
+
+      if (parts.length > 0) {
+        bannerEl.style.display = 'block';
+        bannerEl.style.background = 'rgba(201, 160, 84, 0.14)';
+        bannerEl.style.border = '1px solid var(--gold)';
+        bannerEl.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <div>
+              <div style="font-size:10px; color:var(--gold); text-transform:uppercase; font-weight:800; letter-spacing:0.5px;">🎯 ACTIVE MINES RIG CONFIGURATION</div>
+              <div style="font-size:13px; font-weight:700; color:#fff; margin-top:2px;">
+                ${parts.join(' &nbsp;•&nbsp; ')}
+              </div>
+            </div>
+            <button onclick="clearMinesMatrix()" class="btn btn-sm" style="background:rgba(231,76,60,0.15); border:1px solid #e74c3c; color:#e74c3c; font-weight:bold; padding:4px 10px; font-size:11.5px; border-radius:4px; cursor:pointer;">
+              ✕ Reset All Rig
+            </button>
+          </div>
+        `;
+      } else {
+        bannerEl.style.display = 'block';
+        bannerEl.style.background = '#0d0f12';
+        bannerEl.style.border = '1px dashed var(--border)';
+        bannerEl.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="font-size:11.5px; color:var(--text-dim);">
+              🎲 <b>Mines Rig Status:</b> UNRIGGED (Fair Random Placement)
+            </div>
+            <span style="font-size:10.5px; color:var(--text-dim);">Click tiles below to fix matrix</span>
+          </div>
+        `;
+      }
+    };
+
+    window.applyYourElevenCheat = function () {
+      const player = document.getElementById('cheatYourElevenPlayerSelect').value;
+      const bias = document.getElementById('cheatYourElevenBias').value;
+      const rigType = document.getElementById('cheatYourElevenRigType').value;
+
+      if (player && bias) {
+        localStorage.setItem('cheat_youreleven_player_' + player, bias);
+      } else if (player) {
+        localStorage.removeItem('cheat_youreleven_player_' + player);
+      }
+
+      if (rigType) localStorage.setItem('cheat_youreleven_rig_type', rigType);
+      else localStorage.removeItem('cheat_youreleven_rig_type');
+
+      let summary = [];
+      if (player && bias) summary.push(`Player ${player}: ${bias}`);
+      if (rigType) summary.push(`Rig: ${rigType}`);
+
+      showToast(`Applied Fantasy Eleven override: ${summary.join(', ') || 'Cleared'}`, 'success');
+    };
+
+    // Dynamic Gradient Generator for Teams
+    function getGradientForTeam(name) {
+      if (!name) name = "Unknown";
+      let hash = 0;
+      for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const h = Math.abs(hash % 360);
+      return `linear-gradient(135deg, hsl(${h}, 60%, 35%), hsl(${(h + 40) % 360}, 60%, 20%))`;
+    }
+
+    // Consistent Dynamic Odds Generator seeded by match id
+    function generateOddsForMatch(match) {
+      let seed = match.id || 1;
+      const rand = (min, max) => {
+        const x = Math.sin(seed++) * 10000;
+        return min + (x - Math.floor(x)) * (max - min);
+      };
+      
+      const home = parseFloat(rand(1.3, 3.8).toFixed(2));
+      const away = parseFloat(rand(1.5, 4.2).toFixed(2));
+      const draw = parseFloat(rand(2.8, 3.9).toFixed(2));
+      const over25 = parseFloat(rand(1.5, 2.4).toFixed(2));
+      const under25 = parseFloat(rand(1.5, 2.4).toFixed(2));
+      const btts_yes = parseFloat(rand(1.4, 2.1).toFixed(2));
+      const btts_no = parseFloat(rand(1.6, 2.3).toFixed(2));
+      
+      return { home, draw, away, over25, under25, btts_yes, btts_no };
+    }
+
+    // Fetch and populate football matches in admin dropdown and localStorage
+    window.fetchAndPopulateFootballMatches = function() {
+      fetch('http://localhost:3000/api/matches')
+        .then(res => res.json())
+        .then(data => {
+          const apiMatches = data.matches || [];
+          const localMatches = JSON.parse(localStorage.getItem('bet1x_football_matches_v2') || '[]');
+          
+          const updatedMatches = apiMatches.map((m, index) => {
+            const local = localMatches.find(lm => lm.id === m.id);
+            
+            let league = 'ucl';
+            const code = m.competition?.code?.toLowerCase() || '';
+            if (code === 'pl') league = 'epl';
+            else if (code === 'pd') league = 'laliga';
+            else if (code === 'sa') league = 'seriea';
+            else if (code === 'bl1') league = 'bundesliga';
+            else if (code === 'ded') league = 'ded';
+
+            const apiStatus = m.status?.toLowerCase() === 'finished' ? 'finished' : (m.status?.toLowerCase() === 'in_play' || m.status?.toLowerCase() === 'live' ? 'live' : 'scheduled');
+            
+            const finalStatus = (local && local.status === 'finished') ? 'finished' : apiStatus;
+            const finalScore = (local && local.status === 'finished') ? local.score : (m.score?.fullTime?.home !== null && m.score?.fullTime?.home !== undefined ? [m.score.fullTime.home, m.score.fullTime.away] : null);
+
+            return {
+              id: m.id || (index + 1),
+              league: league,
+              league_label: m.competition?.name ? `🏆 ${m.competition.name}` : '🏆 UEFA Champions League',
+              home: m.homeTeam?.name || 'Home Team',
+              away: m.awayTeam?.name || 'Away Team',
+              home_bg: getGradientForTeam(m.homeTeam?.name),
+              away_bg: getGradientForTeam(m.awayTeam?.name),
+              home_code: m.homeTeam?.tla || m.homeTeam?.name?.slice(0, 3).toUpperCase() || 'HM',
+              away_code: m.awayTeam?.tla || m.awayTeam?.name?.slice(0, 3).toUpperCase() || 'AW',
+              status: finalStatus,
+              time_label: m.utcDate ? new Date(m.utcDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' UTC' : '20:00 UTC',
+              score: finalScore,
+              odds: generateOddsForMatch(m)
+            };
+          });
+
+          // Keep mock matches that are not in the api
+          const mockMatches = localMatches.filter(lm => !apiMatches.some(am => am.id === lm.id));
+          const finalMatches = [...mockMatches, ...updatedMatches];
+
+          localStorage.setItem('bet1x_football_matches_v2', JSON.stringify(finalMatches));
+
+          // Populate match select dropdown for cheats
+          const select = document.getElementById('cheatFootballMatchSelect');
+          if (select) {
+            const currentVal = select.value;
+            select.innerHTML = finalMatches.map(m => `
+              <option value="${m.id}">${m.home} vs ${m.away} (${m.league_label.replace('🏆 ', '')})</option>
+            `).join('');
+            if (currentVal && finalMatches.some(m => String(m.id) === String(currentVal))) {
+              select.value = currentVal;
+            }
+            if (typeof updateFootballBiasUI === 'function') updateFootballBiasUI();
+          }
+        })
+        .catch(err => {
+          console.error('Failed to populate football matches in admin:', err);
+        });
+    };
+
+    window.updateCheatFootballBets = function () {
+      const bets = JSON.parse(localStorage.getItem('bet1x_football_bets_v2') || localStorage.getItem('bet1x_football_bets') || '[]');
+      const el = document.getElementById('cheatFootballActiveBets');
+      if (!el) return;
+
+      if (bets.length > 0) {
+        const list = bets.slice(0, 3).map(b => {
+          if (b.legs && b.legs.length > 1) {
+            const legsStr = b.legs.map(l => `${l.label || l.selection} (${l.result.toUpperCase()})`).join(', ');
+            return `Accumulator (<b>${b.legs.length} Legs</b>) - Stake: 🪙${b.stake} | Status: <b>${b.status.toUpperCase()}</b><br><span style="font-size:11px; color:var(--text-dim); margin-left:12px;">• ${legsStr}</span>`;
+          } else {
+            const leg = b.legs ? b.legs[0] : null;
+            return `Single Bet - Stake: 🪙${b.stake} | Pick: ${leg ? (leg.label || leg.selection) : 'Match'} (${b.status.toUpperCase()})`;
+          }
+        }).join('<br>');
+        el.innerHTML = list;
+      } else {
+        el.innerHTML = 'Rahul K.: 🪙100 on Real Madrid Win<br>Priya S.: 🪙250 on Over 2.5 Goals<br>Aman***: 🪙50 on FC Barcelona';
+      }
+
+      const lastRes = JSON.parse(localStorage.getItem('cheat_football_last_result') || 'null');
+      const banner = document.getElementById('adminFootballLastResultBanner');
+      const body = document.getElementById('adminFootballLastResultBody');
+      if (lastRes && banner && body) {
+        banner.style.display = 'block';
+        body.textContent = `${lastRes.home} ${lastRes.score[0]} - ${lastRes.score[1]} ${lastRes.away} (${(lastRes.score[0] + lastRes.score[1]) >= 3 ? 'Over 2.5' : 'Under 2.5'})`;
+      }
+    };
+
+    window.updateCheatMinesBets = function () {
+      const el = document.getElementById('cheatMinesActiveBets');
+      if (el) {
+        el.innerHTML = 'Vikram P.: 🪙200 (3 Mines - 2 Gems Revealed)<br>Neha R.: 🪙500 (5 Mines - 4 Gems Revealed)<br>Rohit M.: 🪙100 (1 Mine - Active)';
+      }
+      if (typeof initMinesMatrix === 'function' && document.getElementById('adminMinesGridMatrix') && !document.getElementById('adminMinesGridMatrix').children.length) {
+        initMinesMatrix();
+      }
+    };
+
+    window.updateCheatYourElevenBets = function () {
+      const el = document.getElementById('cheatYourElevenActiveBets');
+      if (!el) return;
+      el.innerHTML = 'Suresh T.: ₹100 Contest Entry (Capt: Rohit Sharma)<br>Divya***: ₹250 Contest Entry (Capt: Virat Kohli)';
+    };
+
+    window.pollLiveAdminGames = function () {
+      if (window.isOfflineMode) {
+        const now = Date.now();
+        if (!window.adminOfflineAviatorStart) {
+          window.adminOfflineAviatorStart = now;
+          window.adminOfflineAviatorPhase = 'waiting';
+          window.adminOfflineAviatorRoundId = 10001;
+        }
+
+        const offlineElapsed = (now - window.adminOfflineAviatorStart) / 1000;
+
+        if (window.adminOfflineAviatorPhase === 'waiting') {
+          if (offlineElapsed >= 5.0) { // 5 sec countdown
+            window.adminOfflineAviatorPhase = 'running';
+            window.adminOfflineAviatorStart = now;
+          } else {
+            window.adminAviatorServerPhase = 'waiting';
+            window.adminAviatorServerTimeLeft = Math.max(0, 5.0 - offlineElapsed);
+            window.adminAviatorServerDuration = 5.0;
+            window.adminAviatorServerRoundId = window.adminOfflineAviatorRoundId;
+            window.adminAviatorServerReceivedAt = now;
+          }
+        } else if (window.adminOfflineAviatorPhase === 'running') {
+          const targetCrash = parseFloat(localStorage.getItem('cheat_aviator_crash') || '2.50');
+          const mult = Math.exp(0.06 * offlineElapsed);
+          if (localStorage.getItem('cheat_aviator_force_crashed') === 'true' || mult >= targetCrash) {
+            const crashMult = localStorage.getItem('cheat_aviator_force_crash_mult') ? parseFloat(localStorage.getItem('cheat_aviator_force_crash_mult')) : Math.min(mult, targetCrash);
+            window.adminOfflineAviatorPhase = 'crashed';
+            window.adminOfflineAviatorStart = now;
+            window.adminOfflineAviatorCrashPoint = crashMult;
+            window.adminAviatorServerPhase = 'crashed';
+            window.adminAviatorServerMult = crashMult;
+            window.adminAviatorServerReceivedAt = now;
+          } else {
+            window.adminAviatorServerPhase = 'running';
+            window.adminAviatorServerMult = mult;
+            window.adminAviatorServerRoundId = window.adminOfflineAviatorRoundId;
+            window.adminAviatorServerReceivedAt = now;
+          }
+        } else if (window.adminOfflineAviatorPhase === 'crashed') {
+          if (offlineElapsed >= 3.0) { // 3 sec pause
+            window.adminOfflineAviatorPhase = 'waiting';
+            window.adminOfflineAviatorStart = now;
+            window.adminOfflineAviatorRoundId++;
+            localStorage.removeItem('cheat_aviator_force_crashed');
+            localStorage.removeItem('cheat_aviator_instant_crash');
+            localStorage.removeItem('cheat_aviator_force_crash_mult');
+            localStorage.removeItem('cheat_aviator_crash_time');
+          } else {
+            window.adminAviatorServerPhase = 'crashed';
+            window.adminAviatorServerMult = window.adminOfflineAviatorCrashPoint || 1.00;
+            window.adminAviatorServerRoundId = window.adminOfflineAviatorRoundId;
+            window.adminAviatorServerReceivedAt = now;
+          }
+        }
+        if (typeof updateAviatorBiasUI === 'function') updateAviatorBiasUI();
+        tickAdminVisualProgress();
+        return;
+      }
+
+      fetch('api/game_sync.php?action=admin_get_live_state')
+        .then(res => res.json())
+        .then(data => {
+          if (data.aviator) {
+            if (data.aviator.phase === 'waiting') {
+              localStorage.removeItem('cheat_aviator_force_crashed');
+              localStorage.removeItem('cheat_aviator_instant_crash');
+              localStorage.removeItem('cheat_aviator_force_crash_mult');
+              localStorage.removeItem('cheat_aviator_crash_time');
+            }
+
+            const isForceCrashed = localStorage.getItem('cheat_aviator_force_crashed') === 'true';
+
+            if (isForceCrashed) {
+              window.adminAviatorServerPhase = 'crashed';
+              const savedMult = parseFloat(localStorage.getItem('cheat_aviator_force_crash_mult') || '1.00');
+              window.adminAviatorServerMult = savedMult;
+            } else {
+              window.adminAviatorServerPhase = data.aviator.phase;
+              window.adminAviatorServerMult = data.aviator.current_multiplier;
+            }
+
+            window.adminAviatorServerTimeLeft = data.aviator.time_left;
+            window.adminAviatorServerRoundId = data.aviator.round_id || 10001;
+            window.adminAviatorServerDuration = data.aviator.duration || 8.0;
+            window.adminAviatorServerReceivedAt = Date.now();
+
+            if (data.aviator.bets && data.aviator.bets.length > 0) {
+              const betsList = data.aviator.bets.slice(0, 4).map(b => `${b.username || 'Player'}: 🪙${parseFloat(b.amount || b.wagered || 50).toFixed(2)}`).join('<br>');
+              const betsEl = document.getElementById('cheatAviatorActiveBets');
+              if (betsEl) betsEl.innerHTML = betsList;
+            }
+          }
+          if (data.color_guess) {
+            const roomEl = document.getElementById('cheatColorRoomSelect');
+            const room = roomEl ? roomEl.value : 'sapre';
+            const rData = data.color_guess[room];
+            if (rData) {
+              window.adminColorRoundIdVal = rData.round_id;
+              window.adminColorServerTimeLeft = rData.time_left;
+              window.adminColorServerDuration = rData.duration;
+              window.adminColorServerReceivedAt = Date.now();
+            }
+          }
+          if (typeof updateAviatorBiasUI === 'function') updateAviatorBiasUI();
+          tickAdminVisualProgress();
+        })
+        .catch(() => {
+          tickAdminVisualProgress();
+        });
+    };
+
+    // Start continuous 60fps ticker loop for admin visual progress
+    function startAdminVisualLoop() {
+      tickAdminVisualProgress();
+      requestAnimationFrame(startAdminVisualLoop);
+    }
+    startAdminVisualLoop();
+
+    // Auto-polling live update loop for Admin matches and bets
+    setInterval(() => {
+      pollLiveAdminGames();
+      if (typeof updateCheatBoundaryBets === 'function') updateCheatBoundaryBets();
+      if (typeof updateCheatFootballBets === 'function') updateCheatFootballBets();
+      if (typeof updateCheatMinesBets === 'function') updateCheatMinesBets();
+      if (typeof updateCheatYourElevenBets === 'function') updateCheatYourElevenBets();
+    }, 1000);
+
+    // Global high-resolution progress ticker
+    function tickAdminVisualProgress() {
+      const now = Date.now();
+
+      // 1. Color Guess Progress
+      if (typeof window.adminColorServerTimeLeft !== 'undefined') {
+        const elapsed = (now - window.adminColorServerReceivedAt) / 1000;
+        const visualTimeLeft = Math.max(0, window.adminColorServerTimeLeft - elapsed);
+
+        const mins = Math.floor(visualTimeLeft / 60);
+        const secs = Math.floor(visualTimeLeft % 60);
+        const timeStr = mins.toString().padStart(2, '0') + ':' + secs.toString().padStart(2, '0');
+
+        const pct = window.adminColorServerDuration > 0 ? (visualTimeLeft / window.adminColorServerDuration) * 100 : 0;
+        const timerColor = visualTimeLeft <= 5 ? 'var(--red)' : 'var(--green)';
+
+        const roundEl = document.getElementById('adminColorRoundId');
+        if (roundEl) roundEl.textContent = '#' + window.adminColorRoundIdVal;
+
+        const timeEl = document.getElementById('adminColorTimeVal');
+        if (timeEl) {
+          timeEl.textContent = timeStr;
+          timeEl.style.color = timerColor;
+        }
+
+        const barEl = document.getElementById('adminColorProgressBar');
+        if (barEl) {
+          barEl.style.width = pct + '%';
+          barEl.style.background = timerColor;
+        }
+      }
+
+      // 2. Aviator Progress (Uniform gliding & timer countdown matching Color Prediction)
+      const isForceCrashed = localStorage.getItem('cheat_aviator_force_crashed') === 'true';
+      if (isForceCrashed) {
+        window.adminAviatorServerPhase = 'crashed';
+        const savedMult = parseFloat(localStorage.getItem('cheat_aviator_force_crash_mult') || '1.00');
+        window.adminAviatorServerMult = savedMult;
+      }
+
+      if (typeof window.adminAviatorServerPhase !== 'undefined' || isForceCrashed) {
+        const roundEl = document.getElementById('adminAviatorRoundId');
+        const labelEl = document.getElementById('adminAviatorTimerLabel');
+        const timeEl = document.getElementById('adminAviatorTimeVal');
+        const barEl = document.getElementById('adminAviatorProgressBar');
+
+        if (roundEl) roundEl.textContent = '#' + (window.adminAviatorServerRoundId || '10001');
+
+        const elapsed = (now - window.adminAviatorServerReceivedAt) / 1000;
+
+        if (window.adminAviatorServerPhase === 'crashed' || isForceCrashed) {
+          const finalMult = window.adminAviatorServerMult || parseFloat(localStorage.getItem('cheat_aviator_force_crash_mult') || '1.00');
+          if (labelEl) labelEl.textContent = 'FLEW AWAY AT';
+          if (timeEl) {
+            timeEl.textContent = finalMult.toFixed(2) + 'x';
+            timeEl.style.color = 'var(--red)';
+          }
+          if (barEl) {
+            barEl.style.width = '0%';
+            barEl.style.background = 'var(--red)';
+          }
+        } else if (window.adminAviatorServerPhase === 'running') {
+          const currentMult = window.adminAviatorServerMult * Math.exp(0.06 * elapsed);
+          window.adminAviatorServerCurrentMult = currentMult; // Store for instant crash click
+
+          const targetCrash = parseFloat(localStorage.getItem('cheat_aviator_crash') || '2.50');
+          const progRatio = Math.min(1.0, Math.max(0, (currentMult - 1.0) / Math.max(0.1, targetCrash - 1.0)));
+          const pct = Math.max(0, (1.0 - progRatio) * 100);
+
+          if (labelEl) labelEl.textContent = 'AIRBORNE MULTIPLIER';
+          if (timeEl) {
+            timeEl.textContent = currentMult.toFixed(2) + 'x';
+            timeEl.style.color = 'var(--green)';
+          }
+          if (barEl) {
+            barEl.style.width = pct + '%';
+            barEl.style.background = 'var(--green)';
+          }
+        } else {
+          // Waiting / Takeoff Countdown Phase
+          const visualTimeLeft = Math.max(0, (window.adminAviatorServerTimeLeft || 5.0) - elapsed);
+          const duration = window.adminAviatorServerDuration || 5.0;
+          const pct = Math.max(0, Math.min(100, (visualTimeLeft / duration) * 100));
+          const timerColor = visualTimeLeft <= 1.5 ? 'var(--red)' : 'var(--gold)';
+
+          if (labelEl) labelEl.textContent = 'NEXT ROUND IN...';
+          if (timeEl) {
+            timeEl.textContent = visualTimeLeft.toFixed(1) + 's';
+            timeEl.style.color = timerColor;
+          }
+          if (barEl) {
+            barEl.style.width = pct + '%';
+            barEl.style.background = timerColor;
+          }
+
+          if (visualTimeLeft <= 0 && window.isOfflineMode) {
+            window.adminOfflineAviatorPhase = 'running';
+            window.adminOfflineAviatorStart = now;
+            window.adminAviatorServerPhase = 'running';
+            window.adminAviatorServerMult = 1.00;
+          }
+        }
+      }
+    }
+    setInterval(tickAdminVisualProgress, 30);
+
+    // Render helper functions
+    function renderColorGuessUI(colorGame) {
+      let greenAmt = 0, greenCount = 0;
+      let redAmt = 0, redCount = 0;
+      let violetAmt = 0, violetCount = 0;
+      let bigAmt = 0, bigCount = 0;
+      let smallAmt = 0, smallCount = 0;
+      let numAmts = Array(10).fill(0);
+      let numCounts = Array(10).fill(0);
+
+      const roomKey = document.getElementById('cheatColorRoomSelect') ? document.getElementById('cheatColorRoomSelect').value : 'sapre';
+
+      // Auto-unselect fixed outcome when current round finishes & new round starts
+      if (!window.adminLastColorRoundId) window.adminLastColorRoundId = {};
+      if (window.adminLastColorRoundId[roomKey] && window.adminLastColorRoundId[roomKey] !== colorGame.round_id) {
+        localStorage.removeItem('cheat_color_override_' + roomKey);
+        const sColor = document.getElementById('cheatColorSelect');
+        const sNum = document.getElementById('cheatNumberSelect');
+        const sSize = document.getElementById('cheatSizeSelect');
+        const sRig = document.getElementById('cheatColorRigType');
+        if (sColor) sColor.value = '';
+        if (sNum) sNum.value = '';
+        if (sSize) sSize.value = '';
+        if (sRig) sRig.value = '';
+        if (colorGame.overrides) {
+          colorGame.overrides = { color: '', number: '', size: '', rig_type: '' };
+        }
+      }
+      window.adminLastColorRoundId[roomKey] = colorGame.round_id;
+
+      const savedOverride = JSON.parse(localStorage.getItem('cheat_color_override_' + roomKey) || '{}');
+      const activeOverrides = (colorGame.overrides && (colorGame.overrides.color || (colorGame.overrides.number !== undefined && colorGame.overrides.number !== '') || colorGame.overrides.size || colorGame.overrides.rig_type))
+        ? colorGame.overrides
+        : savedOverride;
+
+      const isColorFixed = (c) => activeOverrides.color === c;
+      const isNumberFixed = (n) => String(activeOverrides.number) === String(n);
+      const isSizeFixed = (s) => activeOverrides.size === s;
+
+      // Sync select boxes if not focused
+      const selectColorEl = document.getElementById('cheatColorSelect');
+      const selectNumEl = document.getElementById('cheatNumberSelect');
+      const selectSizeEl = document.getElementById('cheatSizeSelect');
+      const selectRigEl = document.getElementById('cheatColorRigType');
+
+      if (selectColorEl && document.activeElement !== selectColorEl) selectColorEl.value = activeOverrides.color || '';
+      if (selectNumEl && document.activeElement !== selectNumEl) selectNumEl.value = (activeOverrides.number !== undefined && activeOverrides.number !== null) ? String(activeOverrides.number) : '';
+      if (selectSizeEl && document.activeElement !== selectSizeEl) selectSizeEl.value = activeOverrides.size || '';
+      if (selectRigEl && document.activeElement !== selectRigEl) selectRigEl.value = activeOverrides.rig_type || '';
+
+      // Active Override Status Banner
+      const overrideBannerEl = document.getElementById('adminColorActiveOverrideBanner');
+      if (overrideBannerEl) {
+        let summaryParts = [];
+        if (activeOverrides.color) summaryParts.push(`Color: <b style="color:var(--gold); font-size:14px;">${activeOverrides.color}</b>`);
+        if (activeOverrides.number !== '' && activeOverrides.number !== null && activeOverrides.number !== undefined) summaryParts.push(`Number: <b style="color:var(--gold); font-size:14px;">${activeOverrides.number}</b>`);
+        if (activeOverrides.size) summaryParts.push(`Size: <b style="color:var(--gold); font-size:14px;">${activeOverrides.size}</b>`);
+        if (activeOverrides.rig_type) summaryParts.push(`Auto-Rig: <b style="color:var(--gold); font-size:14px;">${activeOverrides.rig_type}</b>`);
+
+        if (summaryParts.length > 0) {
+          overrideBannerEl.style.display = 'block';
+          overrideBannerEl.style.background = 'rgba(201, 160, 84, 0.14)';
+          overrideBannerEl.style.border = '1px solid var(--gold)';
+          overrideBannerEl.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+              <div>
+                <div style="font-size:10px; color:var(--gold); text-transform:uppercase; font-weight:800; letter-spacing:0.5px;">🎯 ACTIVE FIXED OUTCOME (ROUND #${colorGame.round_id})</div>
+                <div style="font-size:13.5px; font-weight:700; color:#fff; margin-top:2px;">
+                  ${summaryParts.join(' &nbsp;•&nbsp; ')}
+                </div>
+                <div style="font-size:11px; color:var(--text-dim); margin-top:2px;">
+                  This result is locked and will be shown to all users when timer hits 00:00.
+                </div>
+              </div>
+              <button onclick="clearColorRoomCheat()" class="btn btn-sm" style="background:rgba(231,76,60,0.15); border:1px solid #e74c3c; color:#e74c3c; font-weight:bold; padding:4px 10px; font-size:11.5px; border-radius:4px; cursor:pointer;">
+                ✕ Clear Rig
+              </button>
+            </div>
+          `;
+        } else {
+          overrideBannerEl.style.display = 'block';
+          overrideBannerEl.style.background = '#0d0f12';
+          overrideBannerEl.style.border = '1px dashed #242f3d';
+          overrideBannerEl.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div style="font-size:11.5px; color:var(--text-dim);">
+                🎲 <b>Outcome Status:</b> NO BIAS (Fair Random Settlement)
+              </div>
+              <span style="font-size:10.5px; color:var(--text-dim);">Click any color below to fix outcome</span>
+            </div>
+          `;
+        }
+      }
+
+      let userBetsHtml = '';
+      if (colorGame.bets && colorGame.bets.length > 0) {
+        colorGame.bets.forEach(b => {
+          if (b.category === 'color') {
+            if (b.value === 'Green') { greenAmt += b.amount; greenCount++; }
+            else if (b.value === 'Red') { redAmt += b.amount; redCount++; }
+            else if (b.value === 'Violet') { violetAmt += b.amount; violetCount++; }
+          } else if (b.category === 'size') {
+            if (b.value === 'Big') { bigAmt += b.amount; bigCount++; }
+            else if (b.value === 'Small') { smallAmt += b.amount; smallCount++; }
+          } else if (b.category === 'number') {
+            const numVal = parseInt(b.value);
+            if (numVal >= 0 && numVal <= 9) {
+              numAmts[numVal] += b.amount;
+              numCounts[numVal]++;
+            }
+          }
+        });
+
+        userBetsHtml = colorGame.bets.map(b => {
+          const badgeStyle = b.is_dummy ? 'background: rgba(255,255,255,0.04); color: var(--text-dim); border: 1px solid rgba(255,255,255,0.06);' : 'background: rgba(201,160,84,0.12); color: var(--gold); border: 1px solid rgba(201,160,84,0.3);';
+          const typeLabel = b.is_dummy ? 'Simulated' : 'Real User';
+
+          let selectColor = 'var(--text-light)';
+          if (b.value === 'Green') selectColor = 'var(--green)';
+          else if (b.value === 'Red') selectColor = 'var(--red)';
+          else if (b.value === 'Violet') selectColor = '#a29bfe';
+
+          return `
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; border-bottom: 1px solid #1a222d; font-size: 11.5px;">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; ${badgeStyle}">${typeLabel}</span>
+                <span style="font-weight: 700; color: ${b.is_dummy ? 'var(--text-dim)' : 'var(--text-light)'};">${b.username}</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="color: ${selectColor}; font-weight: 800;">${b.category.toUpperCase()}(${b.value})</span>
+                <span style="font-family: var(--font-mono); font-weight: bold; color: var(--gold);">🪙${b.amount}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } else {
+        userBetsHtml = '<div style="font-size: 11.5px; color: var(--text-dim); text-align: center; padding: 8px 0;">User: No pending wagers.</div>';
+      }
+
+      // Set visual ticking variables
+      window.adminColorServerTimeLeft = colorGame.time_left;
+      window.adminColorServerDuration = colorGame.duration;
+      window.adminColorServerReceivedAt = Date.now();
+      window.adminColorRoundIdVal = colorGame.round_id;
+
+      // Highlight active fixed buttons
+      const greenFixed = isColorFixed('Green');
+      const greenBtnStyle = greenFixed
+        ? 'border: 2px solid var(--green); background: rgba(46,204,113,0.22); box-shadow: 0 0 10px rgba(46,204,113,0.5);'
+        : 'border: 1px solid rgba(255,255,255,0.08);';
+      const greenFixedBadge = greenFixed ? '<span style="background:var(--green); color:#000; font-size:9px; padding:1px 4px; border-radius:3px; font-weight:900; margin-left:4px;">✓ FIXED</span>' : '';
+
+      const redFixed = isColorFixed('Red');
+      const redBtnStyle = redFixed
+        ? 'border: 2px solid var(--red); background: rgba(231,76,60,0.22); box-shadow: 0 0 10px rgba(231,76,60,0.5);'
+        : 'border: 1px solid rgba(255,255,255,0.08);';
+      const redFixedBadge = redFixed ? '<span style="background:var(--red); color:#fff; font-size:9px; padding:1px 4px; border-radius:3px; font-weight:900; margin-left:4px;">✓ FIXED</span>' : '';
+
+      const violetFixed = isColorFixed('Violet');
+      const violetBtnStyle = violetFixed
+        ? 'border: 2px solid var(--violet); background: rgba(155,89,182,0.22); box-shadow: 0 0 10px rgba(155,89,182,0.5);'
+        : 'border: 1px solid rgba(255,255,255,0.08);';
+      const violetFixedBadge = violetFixed ? '<span style="background:var(--violet); color:#fff; font-size:9px; padding:1px 4px; border-radius:3px; font-weight:900; margin-left:4px;">✓ FIXED</span>' : '';
+
+      const bigFixed = isSizeFixed('Big');
+      const bigBtnStyle = bigFixed
+        ? 'border: 2px solid var(--gold); background: rgba(201,160,84,0.22); box-shadow: 0 0 10px rgba(201,160,84,0.5);'
+        : 'border: 1px solid rgba(255,255,255,0.08);';
+      const bigFixedBadge = bigFixed ? '<span style="background:var(--gold); color:#000; font-size:9px; padding:1px 4px; border-radius:3px; font-weight:900; margin-left:4px;">✓ FIXED</span>' : '';
+
+      const smallFixed = isSizeFixed('Small');
+      const smallBtnStyle = smallFixed
+        ? 'border: 2px solid var(--gold); background: rgba(201,160,84,0.22); box-shadow: 0 0 10px rgba(201,160,84,0.5);'
+        : 'border: 1px solid rgba(255,255,255,0.08);';
+      const smallFixedBadge = smallFixed ? '<span style="background:var(--gold); color:#000; font-size:9px; padding:1px 4px; border-radius:3px; font-weight:900; margin-left:4px;">✓ FIXED</span>' : '';
+
+      document.getElementById('cheatColorRoomActiveBets').innerHTML = `
+        <div style="font-size:12px; margin-bottom:12px;">
+          <b style="color:var(--text); font-size:12.5px; display:block; margin-bottom:8px;">📊 Live Wager Distribution (Click to Rig Outcome):</b>
+          
+          <!-- Colors & Sizes Grid -->
+          <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 8px;">
+            <button onclick="document.getElementById('cheatColorSelect').value='Green'; document.getElementById('cheatNumberSelect').value=''; document.getElementById('cheatSizeSelect').value=''; applyColorRoomCheat();" 
+                    class="btn-action edit" style="padding: 6px 4px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${greenBtnStyle}">
+              <span style="font-weight: 800; font-size: 12.5px; color: var(--green);">🟢 Green${greenFixedBadge}</span>
+              <span style="font-size: 10px; color: var(--text-dim);">${greenCount} Plrs</span>
+              <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: var(--green);">🪙${greenAmt}</span>
+            </button>
+            <button onclick="document.getElementById('cheatColorSelect').value='Red'; document.getElementById('cheatNumberSelect').value=''; document.getElementById('cheatSizeSelect').value=''; applyColorRoomCheat();" 
+                    class="btn-action edit" style="padding: 6px 4px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${redBtnStyle}">
+              <span style="font-weight: 800; font-size: 12.5px; color: var(--red);">🔴 Red${redFixedBadge}</span>
+              <span style="font-size: 10px; color: var(--text-dim);">${redCount} Plrs</span>
+              <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: var(--red);">🪙${redAmt}</span>
+            </button>
+            <button onclick="document.getElementById('cheatColorSelect').value='Violet'; document.getElementById('cheatNumberSelect').value=''; document.getElementById('cheatSizeSelect').value=''; applyColorRoomCheat();" 
+                    class="btn-action edit" style="padding: 6px 4px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${violetBtnStyle}">
+              <span style="font-weight: 800; font-size: 12.5px; color: var(--violet);">🟣 Violet${violetFixedBadge}</span>
+              <span style="font-size: 10px; color: var(--text-dim);">${violetCount} Plrs</span>
+              <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: var(--violet);">🪙${violetAmt}</span>
+            </button>
+          </div>
+
+          <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 12px;">
+            <button onclick="document.getElementById('cheatColorSelect').value=''; document.getElementById('cheatNumberSelect').value=''; document.getElementById('cheatSizeSelect').value='Big'; applyColorRoomCheat();" 
+                    class="btn-action edit" style="padding: 6px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${bigBtnStyle}">
+              <span style="font-weight: 800; font-size: 12.5px;">📐 Big${bigFixedBadge}</span>
+              <span style="font-size: 10px; color: var(--text-dim);">${bigCount} Plrs</span>
+              <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: var(--gold);">🪙${bigAmt}</span>
+            </button>
+            <button onclick="document.getElementById('cheatColorSelect').value=''; document.getElementById('cheatNumberSelect').value=''; document.getElementById('cheatSizeSelect').value='Small'; applyColorRoomCheat();" 
+                    class="btn-action edit" style="padding: 6px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${smallBtnStyle}">
+              <span style="font-weight: 800; font-size: 12.5px;">📐 Small${smallFixedBadge}</span>
+              <span style="font-size: 10px; color: var(--text-dim);">${smallCount} Plrs</span>
+              <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: var(--gold);">🪙${smallAmt}</span>
+            </button>
+          </div>
+
+          <!-- Numbers Grid (0 to 9) -->
+          <b style="color:var(--text-dim); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; display:block; margin-bottom: 6px; font-weight: bold;">🔢 Numbers Distribution:</b>
+          <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 8px;">
+            ${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => {
+        const numFixed = isNumberFixed(num);
+        const numBtnStyle = numFixed
+          ? 'border: 2px solid var(--gold); background: rgba(201,160,84,0.25); box-shadow: 0 0 10px rgba(201,160,84,0.5);'
+          : 'border: 1px solid rgba(255,255,255,0.08);';
+        const numFixedBadge = numFixed ? '<span style="background:var(--gold); color:#000; font-size:8px; padding:1px 3px; border-radius:2px; font-weight:900;">✓ FIX</span>' : '';
+        const numColor = (num === 0 || num === 5) ? 'linear-gradient(135deg, #2ecc71, #9b59b6)' : (num % 2 === 0 ? 'var(--red)' : 'var(--green)');
+
+        return `
+                <button onclick="document.getElementById('cheatColorSelect').value=''; document.getElementById('cheatNumberSelect').value='${num}'; document.getElementById('cheatSizeSelect').value=''; applyColorRoomCheat();" 
+                        class="btn-action edit" style="padding: 5px 2px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 4px; gap: 2px; ${numBtnStyle}">
+                  <span style="font-weight: 800; font-size: 11px; color: #fff; background: ${numColor}; display: inline-block; width: 18px; height: 18px; line-height: 18px; border-radius: 50%; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">${num}</span>
+                  <span style="font-size: 8.5px; color: var(--text-dim);">${numCounts[num]} Plrs ${numFixedBadge}</span>
+                  <span style="font-family: var(--font-mono); font-size: 9px; font-weight: bold; color: var(--gold);">🪙${numAmts[num]}</span>
+                </button>
+              `;
+      }).join('')}
+          </div>
+        </div>
+        
+        <hr style="border-color:#242f3d; margin:6px 0;">
+        <div style="font-size:11px; color:var(--text-dim); text-transform:uppercase; margin-bottom:4px; font-weight:bold;">Detailed Wagers Log</div>
+        <div style="margin-bottom:4px; max-height:100px; overflow-y:auto; font-size:11.5px; line-height:1.4; background:#0d0f12; padding:6px; border-radius:4px;">${userBetsHtml}</div>
+        <hr style="border-color:#242f3d; margin:6px 0;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div>Total Lobby Volume: <b>🪙${colorGame.total_stake}</b></div>
+        </div>
+
+        <!-- Recent Settled Rounds & Fixed Outcomes Log -->
+        <div style="background:#0d0f12; padding:10px; border-radius:6px; border:1px solid #242f3d;">
+          <div style="font-size:11px; color:var(--text-dim); text-transform:uppercase; font-weight:bold; margin-bottom:6px;">📜 Recent Settled Rounds (Winning Colors & Numbers)</div>
+          <div style="display:flex; flex-direction:column; gap:4px; max-height:120px; overflow-y:auto;">
+            ${(colorGame.history || []).slice().reverse().map(h => {
+        let cStyle = 'color:#fff;';
+        let cIcon = '⚪';
+        if ((h.color || '').includes('Green')) { cStyle = 'color:var(--green);'; cIcon = '🟢'; }
+        else if ((h.color || '').includes('Red')) { cStyle = 'color:var(--red);'; cIcon = '🔴'; }
+        else if ((h.color || '').includes('Violet')) { cStyle = 'color:var(--violet);'; cIcon = '🟣'; }
+
+        const rigLabel = h.is_rigged
+          ? `<span style="color:var(--gold); font-weight:bold; font-size:10px;">⚡ Fixed (${h.rig_desc || 'Override'})</span>`
+          : `<span style="color:var(--text-dim); font-size:10px;">🎲 Natural</span>`;
+
+        return `
+                <div style="display:flex; align-items:center; justify-content:space-between; background:#141a22; padding:4px 8px; border-radius:4px; font-size:11px;">
+                  <span style="font-family:var(--font-mono); color:var(--text-dim);">#${h.roundNumber || h.round_id}</span>
+                  <span style="${cStyle} font-weight:800;">${cIcon} ${h.color}</span>
+                  <span style="color:var(--gold); font-weight:bold; font-family:var(--font-mono);">Num ${h.number} (${h.size})</span>
+                  ${rigLabel}
+                </div>
+              `;
+      }).join('') || '<div style="color:var(--text-dim); font-size:11px; text-align:center;">No settled rounds history.</div>'}
+          </div>
+        </div>
+      `;
+
+      // Render Last Round Fixed Outcome Banner
+      const lastBanner = document.getElementById('adminColorLastResultBanner');
+      const lastBody = document.getElementById('adminColorLastResultBody');
+      const lastTime = document.getElementById('adminColorLastResultTime');
+
+      if (lastBanner && lastBody) {
+        const lastRes = colorGame.last_result || (colorGame.history && colorGame.history.length > 0 ? colorGame.history[colorGame.history.length - 1] : null);
+        if (lastRes) {
+          lastBanner.style.display = 'block';
+          if (lastTime) lastTime.textContent = lastRes.timestamp || new Date().toLocaleTimeString();
+
+          let colStyle = 'color: var(--text-light);';
+          let colIcon = '⚪';
+          const colStr = lastRes.color || '';
+          if (colStr.includes('Green')) { colStyle = 'color: var(--green);'; colIcon = '🟢'; }
+          else if (colStr.includes('Red')) { colStyle = 'color: var(--red);'; colIcon = '🔴'; }
+          else if (colStr.includes('Violet')) { colStyle = 'color: var(--violet);'; colIcon = '🟣'; }
+
+          let rigBadge = '<span style="background: rgba(46,212,122,0.12); color: var(--green); border:1px solid rgba(46,212,122,0.3); padding:2px 6px; border-radius:4px; font-size:10.5px; font-weight:bold;">🎲 Natural Draw</span>';
+          if (lastRes.is_rigged) {
+            rigBadge = `<span style="background: rgba(201,160,84,0.18); color: var(--gold); border:1px solid var(--gold); padding:2px 6px; border-radius:4px; font-size:10.5px; font-weight:bold;">⚡ FIXED BY ADMIN: ${lastRes.rig_desc || 'Custom Override'}</span>`;
+          }
+
+          lastBody.innerHTML = `
+            <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:12px; font-weight:bold; color:var(--gold);">Round #${lastRes.roundNumber || lastRes.round_id}</span>
+                ${rigBadge}
+              </div>
+              <div style="display:flex; align-items:center; gap:12px; background:#141a22; padding:8px 10px; border-radius:4px; margin-top:2px;">
+                <div style="display:flex; align-items:center; gap:4px;">
+                  <span style="font-size:11px; color:var(--text-dim);">Winning Color:</span>
+                  <span style="font-size:13px; font-weight:800; ${colStyle}">${colIcon} ${lastRes.color}</span>
+                </div>
+                <div style="border-left:1px solid #242f3d; padding-left:10px; display:flex; align-items:center; gap:4px;">
+                  <span style="font-size:11px; color:var(--text-dim);">Winning Number:</span>
+                  <span style="font-size:13px; font-weight:800; color:var(--gold); font-family:var(--font-mono);">${lastRes.number}</span>
+                </div>
+                <div style="border-left:1px solid #242f3d; padding-left:10px; display:flex; align-items:center; gap:4px;">
+                  <span style="font-size:11px; color:var(--text-dim);">Size:</span>
+                  <span style="font-size:13px; font-weight:800; color:#fff;">${lastRes.size}</span>
+                </div>
+              </div>
+            </div>
+          `;
+        } else {
+          lastBanner.style.display = 'none';
+        }
+      }
+    }
+
+    function renderAviatorUI(av) {
+      let userBetsHtml = '';
+      if (av.bets && av.bets.length > 0) {
+        userBetsHtml = av.bets.map(b => {
+          const badgeStyle = b.is_dummy ? 'background: rgba(255,255,255,0.04); color: var(--text-dim); border: 1px solid rgba(255,255,255,0.06);' : 'background: rgba(201,160,84,0.12); color: var(--gold); border: 1px solid rgba(201,160,84,0.3);';
+          const typeLabel = b.is_dummy ? 'Simulated' : 'Real User';
+
+          let statusText = b.status.toUpperCase();
+          let statusStyle = 'color: var(--text-dim);';
+          if (b.status === 'won') {
+            statusText = `CASHED OUT @ ${b.cashed_multiplier.toFixed(2)}x`;
+            statusStyle = 'color: var(--green); font-weight: bold;';
+          } else if (b.status === 'lost') {
+            statusText = 'FLEW AWAY';
+            statusStyle = 'color: var(--red); font-weight: bold;';
+          } else if (b.status === 'pending') {
+            statusText = 'IN FLIGHT';
+            statusStyle = 'color: var(--gold);';
+          }
+
+          return `
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; border-bottom: 1px solid #1a222d; font-size: 11.5px;">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; ${badgeStyle}">${typeLabel}</span>
+                <span style="font-weight: 700; color: ${b.is_dummy ? 'var(--text-dim)' : 'var(--text-light)'};">${b.username}</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="${statusStyle}">${statusText}</span>
+                <span style="font-family: var(--font-mono); font-weight: bold; color: var(--gold);">🪙${b.amount}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } else {
+        userBetsHtml = '<div style="font-size: 11.5px; color: var(--text-dim); text-align: center; padding: 8px 0;">User: No active lobby wagers.</div>';
+      }
+
+      // Set visual ticking variables
+      window.adminAviatorServerPhase = av.phase;
+      window.adminAviatorServerTimeLeft = av.time_left;
+      window.adminAviatorServerDuration = 8.0;
+      window.adminAviatorServerReceivedAt = Date.now();
+      window.adminAviatorServerRoundId = av.round_id;
+      window.adminAviatorServerMult = av.current_multiplier;
+
+      document.getElementById('cheatAviatorActiveBets').innerHTML = `
+        <div style="margin-bottom:4px; max-height:100px; overflow-y:auto; font-size:11.5px; line-height:1.4; background:#0d0f12; padding:6px; border-radius:4px;">${userBetsHtml}</div>
+      `;
+    }
+
+    function renderTeenPattiUI(tp) {
+      let tpHtml = '';
+      if (tp && tp.length > 0) {
+        tpHtml = tp.map(game => {
+          const seats = Object.keys(game.players).map(k => {
+            const p = game.players[k];
+            const isFolded = p.folded ? ' (Folded)' : '';
+            return `${p.name}: ${p.balance} balance${isFolded}`;
+          }).join('<br>');
+
+          const showPattiTimer = game.turn === 'human' ? `
+            <span style="background: rgba(255, 75, 110, 0.12); border: 1px solid rgba(255, 75, 110, 0.3); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-weight: bold; color: var(--red); font-size: 11px; margin-left: auto;">
+              ⏰ ${game.time_left}s
+            </span>
+          ` : '';
+
+          return `
+            <div style="margin-bottom:12px; border-bottom:1px solid #242f3d; padding-bottom:8px; font-size:12.5px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; font-weight: bold; margin-bottom: 4px;">
+                <span>Player: ${game.username} | Pot: 🪙${game.pot} | Turn: ${game.turn}</span>
+                ${showPattiTimer}
+              </div>
+              <div style="font-size:12px; color:var(--text-dim); margin-top:4px;">${seats}</div>
+              <div style="margin-top:6px; display:flex; gap:6px;">
+                <button class="btn-action edit" onclick="rigTeenPattiWinner('${game.username}', 'human')">Win Aap</button>
+                <button class="btn-action reject" onclick="rigTeenPattiCards('${game.username}', 'human')">Force 3 Aces</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } else {
+        tpHtml = 'No active Teen Patti tables.';
+      }
+      document.getElementById('cheatTeenPattiActiveBets').innerHTML = tpHtml;
+    }
+
+    function generateLocalFallbackData() {
+      const roomKey = document.getElementById('cheatColorRoomSelect').value;
+      const durations = { sapre: 30, becone: 60, emred: 180, vip: 300 };
+      const dur = durations[roomKey] || 30;
+
+      const nowSec = Math.floor(Date.now() / 1000);
+      const time_left = dur - (nowSec % dur);
+      const round_id = new Date().toISOString().replace(/[-T:]/g, '').slice(0, 10) + '0' + Math.floor(nowSec / dur % 100);
+      const elapsed = dur - time_left;
+
+      if (!window.fallbackBetsCache) window.fallbackBetsCache = {};
+      if (!window.fallbackBetsCache[round_id]) {
+        const names = ['Amit_K', 'Raju_S', 'Vikram_Singh', 'Sana_Patel', 'Pooja_G', 'Sunil_R', 'Neha_V', 'Vijay_D', 'Rahul_S', 'Arjun_Sharma', 'Simran_K', 'Kunal_M', 'Deepak_P', 'Jyoti_M', 'Prakash_L', 'Preeti_R', 'Karan_S', 'Aisha_T', 'Rohan_B', 'Divya_N', 'Aravind_H', 'Shreya_D'];
+        const colors = ['Green', 'Red', 'Violet'];
+        const sizes = ['Big', 'Small'];
+        const bets = [];
+        const count = Math.floor(Math.random() * 40) + 35; // 35 to 75 players
+        for (let i = 0; i < count; i++) {
+          const user = names[Math.floor(Math.random() * names.length)];
+          const cat = ['color', 'number', 'size'][Math.floor(Math.random() * 3)];
+          let val = '';
+          if (cat === 'color') {
+            val = colors[Math.random() < 0.85 ? Math.floor(Math.random() * 2) : 2];
+          } else if (cat === 'size') {
+            val = sizes[Math.floor(Math.random() * 2)];
+          } else {
+            val = Math.floor(Math.random() * 10).toString();
+          }
+          const amount = [100, 500, 1000, 2000, 5000, 10000][Math.floor(Math.random() * 6)];
+          bets.push({
+            username: user,
+            category: cat,
+            value: val,
+            amount: amount,
+            is_dummy: true,
+            reveal_second: Math.floor(Math.random() * (dur - 5))
+          });
+        }
+        window.fallbackBetsCache[round_id] = bets;
+      }
+
+      const allBets = window.fallbackBetsCache[round_id];
+      const activeBets = allBets.filter(b => elapsed >= b.reveal_second);
+      const total_stake = activeBets.reduce((sum, b) => sum + b.amount, 0);
+
+      const savedOverride = JSON.parse(localStorage.getItem('cheat_color_override_' + roomKey) || '{}');
+      renderColorGuessUI({
+        round_id: round_id,
+        time_left: time_left,
+        duration: dur,
+        bets: activeBets,
+        total_stake: total_stake,
+        overrides: savedOverride
+      });
+
+      // Render Aviator Fallback
+      const avTime = (Date.now() / 1000) % 18;
+      let avPhase = 'waiting';
+      let avTimeLeft = 8 - avTime;
+      let avMult = 1.00;
+      if (avTime >= 8 && avTime < 14) {
+        avPhase = 'running';
+        avMult = Math.exp(0.06 * (avTime - 8));
+      } else if (avTime >= 14) {
+        avPhase = 'crashed';
+        avMult = Math.exp(0.06 * 6);
+      }
+
+      const avRound = 10000 + Math.floor(Date.now() / 18000);
+      if (!window.fallbackAviatorBets || window.fallbackAviatorBetsRound !== avRound) {
+        window.fallbackAviatorBetsRound = avRound;
+        const names = ['Amit_K', 'Raju_S', 'Vikram_Singh', 'Sana_Patel', 'Pooja_G', 'Sunil_R', 'Neha_V', 'Vijay_D', 'Rahul_S', 'Arjun_Sharma', 'Simran_K', 'Kunal_M', 'Deepak_P', 'Jyoti_M', 'Prakash_L', 'Preeti_R', 'Karan_S', 'Aisha_T', 'Rohan_B', 'Divya_N', 'Aravind_H', 'Shreya_D'];
+        const bets = [];
+        const count = Math.floor(Math.random() * 35) + 25; // 25 to 60 players
+        for (let i = 0; i < count; i++) {
+          const user = names[Math.floor(Math.random() * names.length)];
+          const amount = [100, 500, 1000, 2000, 5000, 10000][Math.floor(Math.random() * 6)];
+          bets.push({
+            username: user,
+            amount: amount,
+            status: 'pending',
+            cashed_multiplier: 0,
+            is_dummy: true,
+            target_mult: (Math.random() * 7.4) + 1.1,
+            reveal_second: Math.floor(Math.random() * 7)
+          });
+        }
+        window.fallbackAviatorBets = bets;
+      }
+
+      let activeAvBets = [];
+      if (avPhase === 'waiting') {
+        activeAvBets = window.fallbackAviatorBets.filter(b => avTime >= b.reveal_second);
+      } else {
+        activeAvBets = window.fallbackAviatorBets;
+      }
+
+      activeAvBets.forEach(b => {
+        if (avPhase === 'running') {
+          if (b.status === 'pending' && avMult >= b.target_mult) {
+            b.status = 'won';
+            b.cashed_multiplier = b.target_mult;
+          }
+        } else if (avPhase === 'crashed') {
+          if (b.status === 'pending') b.status = 'lost';
+        } else {
+          b.status = 'pending';
+          b.cashed_multiplier = 0;
+        }
+      });
+
+      renderAviatorUI({
+        round_id: avRound,
+        phase: avPhase,
+        time_left: Math.max(0, avTimeLeft),
+        current_multiplier: avMult,
+        bets: activeAvBets
+      });
+
+      // Render Teen Patti Fallback
+      renderTeenPattiUI([
+        {
+          username: 'DemoUser',
+          pot: 120,
+          turn: 'human',
+          time_left: Math.max(0, 15 - (Math.floor(Date.now() / 1000) % 15)),
+          players: {
+            human: { name: 'Aap', balance: 4500, folded: false },
+            bot0: { name: 'Raju', balance: 3200, folded: false },
+            bot1: { name: 'Vikram', balance: 5100, folded: false },
+            bot2: { name: 'Sana', balance: 1800, folded: true }
+          }
+        }
+      ]);
+    }
+
+    // Call unified games poller
+    window.pollLiveAdminGames = function () {
+      fetch('api/game_sync.php?action=admin_get_games')
+        .then(res => {
+          if (!res.ok) throw new Error("Server error");
+          return res.json();
+        })
+        .then(data => {
+          if (data.error) {
+            generateLocalFallbackData();
+            return;
+          }
+
+          // 1. Color Guess Update
+          const roomKey = document.getElementById('cheatColorRoomSelect').value;
+          const colorGame = data.color_guess[roomKey];
+          if (colorGame) {
+            renderColorGuessUI(colorGame);
+          }
+
+          // 2. Aviator Update
+          const av = data.aviator;
+          if (av) {
+            renderAviatorUI(av);
+          }
+
+          // 3. Teen Patti Update
+          const tp = data.teen_patti;
+          if (tp) {
+            renderTeenPattiUI(tp);
+          }
+        })
+        .catch(err => {
+          generateLocalFallbackData();
+        });
+    };
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>bet1x — Live Prediction Exchange</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <script>
+    if (sessionStorage.getItem('bet1x_splash_shown') === 'true') {
+      document.documentElement.classList.add('splash-skip');
+    }
+  </script>
+</head>
+<body class="exchange-theme">
+
+  <!-- Static Splash Screen to prevent layout flash on load -->
+  <div id="bet1x-splash" class="bet1x-splash-overlay">
+    <div class="splash-aurora aurora-1"></div>
+    <div class="splash-aurora aurora-2"></div>
+    <div class="splash-particles">
+      <span class="sp-particle p1"></span>
+      <span class="sp-particle p2"></span>
+      <span class="sp-particle p3"></span>
+      <span class="sp-particle p4"></span>
+      <span class="sp-particle p5"></span>
+      <span class="sp-particle p6"></span>
+      <span class="sp-particle p7"></span>
+      <span class="sp-particle p8"></span>
+    </div>
+    <div class="bet1x-splash-content">
+      <div class="splash-emblem-container">
+        <div class="splash-ring"></div>
+        <div class="splash-logo-center">
+          <span class="splash-dot-core">👑</span>
+        </div>
+      </div>
+      <div class="bet1x-splash-logo-text">
+        bet<span class="accent-text">1x</span>
+      </div>
+      <div class="splash-loader-container">
+        <div class="splash-loader-bar-modern">
+          <div class="splash-progress-modern"></div>
+        </div>
+      </div>
+      <div class="bet1x-splash-tagline" id="splash-status-text">CONNECTING TO SECURE EXCHANGE...</div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <nav class="navbar exchange-header">
+    <div style="display:flex; align-items:center; gap:12px;">
+      <button class="mobile-hamburger-btn" onclick="toggleMobileDrawer()" style="background:none; border:none; color:#ffffff; font-size:24px; cursor:pointer; padding:0; display:flex; align-items:center; justify-content:center; height:32px; width:32px;">☰</button>
+      <div class="exchange-logo-box">
+        bet1x<span>.com</span>
+      </div>
+    </div>
+    
+    <!-- Dynamic Authentication UI -->
+    <div id="headerAuthArea">
+      <!-- Local updateAuthHeaderUI() populated here -->
+    </div>
+  </nav>
+
+  <!-- Red Sub Navigation Bar moved below promo banner -->
+
+  <!-- Three Column Layout -->
+  <div class="exchange-layout">
+    
+    <!-- Left Column: Betslip Sidebar -->
+    <aside class="exchange-right-sidebar">
+      <div class="exchange-bets-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <span>Open Bets</span>
+        <button class="betslip-close-btn" onclick="toggleBetslipDrawer()" style="background:none; border:none; color:#ffffff; font-size:24px; cursor:pointer; line-height:1; display:none; padding:0; height:24px; width:24px; align-items:center; justify-content:center;">&times;</button>
+      </div>
+      <div class="exchange-bets-list" id="sidebarBetslist">
+        <div class="betslip-empty">
+          <span>No open bets.</span>
+          <span style="font-size:11px; color:#8b949e;">Place wagers inside game rooms to populate details.</span>
+        </div>
+      </div>
+      
+    </aside>
+
+    <!-- Center Column: Main Promo & Exchange Grid -->
+    <main class="exchange-main-content">
+      
+      <!-- Live Winning Ticker -->
+      <div class="ticker-wrap">
+        <div class="ticker-title">Live Wins</div>
+        <div class="ticker-container">
+          <div class="ticker-track" id="liveTickerTrack">
+            <span class="ticker-item">🏆 User <strong>r***2</strong> won 🪙4,500.00 on <strong>Vimaan</strong>!</span>
+            <span class="ticker-item">🔥 Match <strong>IND vs AUS</strong> is now live on <strong>Boundary Baazi</strong>!</span>
+            <span class="ticker-item">🎉 User <strong>p***9</strong> hit a Pure Sequence on <strong>Teen Patti</strong> (🪙12,800.00)!</span>
+            <span class="ticker-item">⚡ Sapre 30s draw starting in 12 seconds!</span>
+            <span class="ticker-item">👑 User <strong>a***7</strong> won 🪙2,400.00 on <strong>VIP Color</strong>!</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Purple Promotional Universe Casino Banner with local background image -->
+      <div class="exchange-promo-banner">
+        <div class="banner-center-text">
+          <h2 class="banner-title">bet1x</h2>
+          <h4 class="banner-subtitle">live exchange</h4>
+        </div>
+      </div>
+
+      <!-- Red Sub Navigation Bar moved here for mobile/desktop layout flow -->
+      <div class="sub-navbar" style="margin-bottom: 12px; border-radius: 4px;">
+        <ul class="sub-navbar-links">
+          <li class="sub-navbar-item"><a href="index.html" class="sub-navbar-link active">Home</a></li>
+          <li class="sub-navbar-item"><a href="aviator.html" class="sub-navbar-link">Vimaan</a></li>
+          <li class="sub-navbar-item"><a href="win.html" class="sub-navbar-link">Sapre</a></li>
+          <li class="sub-navbar-item"><a href="win1.html" class="sub-navbar-link">Becone</a></li>
+          <li class="sub-navbar-item"><a href="win2.html" class="sub-navbar-link">Emred</a></li>
+          <li class="sub-navbar-item"><a href="win3.html" class="sub-navbar-link">VIP</a></li>
+          <li class="sub-navbar-item"><a href="teenpatti.html" class="sub-navbar-link">Teen Patti</a></li>
+          <li class="sub-navbar-item"><a href="boundarybaazi.html" class="sub-navbar-link">Boundary Baazi</a></li>
+          <li class="sub-navbar-item"><a href="youreleven.html" class="sub-navbar-link">Your Eleven</a></li>
+          <li class="sub-navbar-item"><a href="football.html" class="sub-navbar-link">Football</a></li>
+          <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
+          <li class="sub-navbar-item"><a href="parity.html" class="sub-navbar-link">Admin</a></li>
+        </ul>
+      </div>
+
+      <!-- Highlights section header -->
+      <div class="exchange-section-header">
+        Highlights
+      </div>
+      
+      <!-- Tabs matching screen options -->
+      <div class="exchange-tabs-bar">
+        <button class="exchange-tab-btn active" data-category="all">All Games</button>
+        <button class="exchange-tab-btn" data-category="color-pred">Color Prediction</button>
+        <button class="exchange-tab-btn" data-category="cards-fantasy">Cards & Fantasy</button>
+      </div>
+
+      <!-- Back / Lay Outcomes table -->
+      <div class="exchange-table-container">
+        <table class="exchange-table">
+        <thead>
+          <tr>
+            <th class="event-info">Active Game / Market</th>
+            <th>1</th>
+            <th>X</th>
+            <th>2</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Row 1: Sapre Draw Room -->
+          <tr class="exchange-row color-pred">
+            <td class="event-info">
+              <span class="event-tag live">LIVE</span>
+              <a href="win.html" class="event-title">Sapre Room (Color prediction)</a>
+              <div class="event-meta">30 second speed rounds · 612 active players</div>
+            </td>
+            <td>
+              <div class="odds-container">
+                <a href="win.html" class="odds-box back"><span class="odds-val">2.00</span><span class="odds-size">G</span></a>
+                <a href="win.html" class="odds-box lay"><span class="odds-val">2.02</span><span class="odds-size">0</span></a>
+              </div>
+            </td>
+            <td>
+              <div class="odds-container">
+                <a href="win.html" class="odds-box back"><span class="odds-val">4.50</span><span class="odds-size">V</span></a>
+                <a href="win.html" class="odds-box lay"><span class="odds-val">4.60</span><span class="odds-size">0</span></a>
+              </div>
+            </td>
+            <td>
+              <div class="odds-container">
+                <a href="win.html" class="odds-box back"><span class="odds-val">2.00</span><span class="odds-size">R</span></a>
+                <a href="win.html" class="odds-box lay"><span class="odds-val">2.02</span><span class="odds-size">0</span></a>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Row 2: Becone Draw Room -->
+          <tr class="exchange-row color-pred">
+            <td class="event-info">
+              <span class="event-tag live">LIVE</span>
+              <a href="win1.html" class="event-title">Becone Room (Color prediction)</a>
+              <div class="event-meta">1 minute classic draws · 487 active players</div>
+            </td>
+            <td>
+              <div class="odds-container">
+                <a href="win1.html" class="odds-box back"><span class="odds-val">2.00</span><span class="odds-size">G</span></a>
+                <a href="win1.html" class="odds-box lay"><span class="odds-val">2.02</span><span class="odds-size">0</span></a>
+              </div>
+            </td>
+            <td>
+              <div class="odds-container">
+                <a href="win1.html" class="odds-box back"><span class="odds-val">4.50</span><span class="odds-size">V</span></a>
+                <a href="win1.html" class="odds-box lay"><span class="odds-val">4.60</span><span class="odds-size">0</span></a>
+              </div>
+            </td>
+            <td>
+              <div class="odds-container">
+                <a href="win1.html" class="odds-box back"><span class="odds-val">2.00</span><span class="odds-size">R</span></a>
+                <a href="win1.html" class="odds-box lay"><span class="odds-val">2.02</span><span class="odds-size">0</span></a>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Row 3: Emred Draw Room -->
+          <tr class="exchange-row color-pred">
+            <td class="event-info">
+              <span class="event-tag live">LIVE</span>
+              <a href="win2.html" class="event-title">Emred Room (Color prediction)</a>
+              <div class="event-meta">3 minute medium draws · 253 active players</div>
+            </td>
+            <td>
+              <div class="odds-container">
+                <a href="win2.html" class="odds-box back"><span class="odds-val">2.00</span><span class="odds-size">G</span></a>
+                <a href="win2.html" class="odds-box lay"><span class="odds-val">2.02</span><span class="odds-size">0</span></a>
+              </div>
+            </td>
+            <td>
+              <div class="odds-container">
+                <a href="win2.html" class="odds-box back"><span class="odds-val">4.50</span><span class="odds-size">V</span></a>
+                <a href="win2.html" class="odds-box lay"><span class="odds-val">4.60</span><span class="odds-size">0</span></a>
+              </div>
+            </td>
+            <td>
+              <div class="odds-container">
+                <a href="win2.html" class="odds-box back"><span class="odds-val">2.00</span><span class="odds-size">R</span></a>
+                <a href="win2.html" class="odds-box lay"><span class="odds-val">2.02</span><span class="odds-size">0</span></a>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Row 4: VIP Draw Room -->
+          <tr class="exchange-row color-pred">
+            <td class="event-info">
+              <span class="event-tag live">LIVE</span>
+              <a href="win3.html" class="event-title">VIP Room (Color prediction)</a>
+              <div class="event-meta">5 minute high-stakes draws · 96 active players</div>
+            </td>
+            <td>
+              <div class="odds-container">
+                <a href="win3.html" class="odds-box back"><span class="odds-val">2.00</span><span class="odds-size">G</span></a>
+                <a href="win3.html" class="odds-box lay"><span class="odds-val">2.02</span><span class="odds-size">0</span></a>
+              </div>
+            </td>
+            <td>
+              <div class="odds-container">
+                <a href="win3.html" class="odds-box back"><span class="odds-val">4.50</span><span class="odds-size">V</span></a>
+                <a href="win3.html" class="odds-box lay"><span class="odds-val">4.60</span><span class="odds-size">0</span></a>
+              </div>
+            </td>
+            <td>
+              <div class="odds-container">
+                <a href="win3.html" class="odds-box back"><span class="odds-val">2.00</span><span class="odds-size">R</span></a>
+                <a href="win3.html" class="odds-box lay"><span class="odds-val">2.02</span><span class="odds-size">0</span></a>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Row 5: Vimaan Flight (Aviator) -->
+          <tr class="exchange-row crash-game">
+            <td class="event-info">
+              <span class="event-tag live" style="background:var(--red)">CRASH</span>
+              <a href="aviator.html" class="event-title" style="color:var(--red); font-weight:bold;">Vimaan (Aviator Crash)</a>
+              <div class="event-meta">Cash out before the plane flies away · 3,412 active players</div>
+            </td>
+            <td>
+              <div class="odds-container">
+                <a href="aviator.html" class="odds-box back"><span class="odds-val">1.50</span><span class="odds-size">Fly</span></a>
+                <a href="aviator.html" class="odds-box lay"><span class="odds-val">1.55</span><span class="odds-size">0</span></a>
+              </div>
+            </td>
+            <td>
+              <div class="odds-container">
+                <a href="aviator.html" class="odds-box back"><span class="odds-val">2.10</span><span class="odds-size">Bust</span></a>
+                <a href="aviator.html" class="odds-box lay"><span class="odds-val">2.20</span><span class="odds-size">0</span></a>
+              </div>
+            </td>
+            <td>
+              <div class="odds-container">
+                <a href="aviator.html" class="odds-box back"><span class="odds-val">10.0</span><span class="odds-size">10x</span></a>
+                <a href="aviator.html" class="odds-box lay"><span class="odds-val">11.5</span><span class="odds-size">0</span></a>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Row 6: Teen Patti Showdown -->
+          <tr class="exchange-row cards-fantasy">
+            <td class="event-info">
+              <span class="event-tag">CARDS</span>
+              <a href="teenpatti.html" class="event-title">Teen Patti (Live Showdown)</a>
+              <div class="event-meta">Play against Raju, Vikram, and Sana · 841 active players</div>
+            </td>
+            <td>
+              <div class="odds-container">
+                <a href="teenpatti.html" class="odds-box back"><span class="odds-val">1.95</span><span class="odds-size">Raj</span></a>
+                <a href="teenpatti.html" class="odds-box lay"><span class="odds-val">1.98</span><span class="odds-size">0</span></a>
+              </div>
+            </td>
+            <td>
+              <div class="odds-container">
+                <a href="teenpatti.html" class="odds-box back"><span class="odds-val">9.50</span><span class="odds-size">Tie</span></a>
+                <a href="teenpatti.html" class="odds-box lay"><span class="odds-val">10.0</span><span class="odds-size">0</span></a>
+              </div>
+            </td>
+            <td>
+              <div class="odds-container">
+                <a href="teenpatti.html" class="odds-box back"><span class="odds-val">1.95</span><span class="odds-size">Vik</span></a>
+                <a href="teenpatti.html" class="odds-box lay"><span class="odds-val">1.98</span><span class="odds-size">0</span></a>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Row 7: Boundary Baazi Predictor -->
+          <tr class="exchange-row cards-fantasy">
+            <td class="event-info">
+              <span class="event-tag live">LIVE</span>
+              <a href="boundarybaazi.html" class="event-title">Boundary Baazi (Cricket score predictor)</a>
+              <div class="event-meta">IND vs AUS live simulation · 2,143 active players</div>
+            </td>
+            <td>
+              <div class="odds-container">
+                <a href="boundarybaazi.html" class="odds-box back"><span class="odds-val">2.18</span><span class="odds-size">IND</span></a>
+                <a href="boundarybaazi.html" class="odds-box lay"><span class="odds-val">2.22</span><span class="odds-size">0</span></a>
+              </div>
+            </td>
+            <td>
+              <div class="odds-container">
+                <a href="boundarybaazi.html" class="odds-box back"><span class="odds-val">7.92</span><span class="odds-size">Tie</span></a>
+                <a href="boundarybaazi.html" class="odds-box lay"><span class="odds-val">8.10</span><span class="odds-size">0</span></a>
+              </div>
+            </td>
+            <td>
+              <div class="odds-container">
+                <a href="boundarybaazi.html" class="odds-box back"><span class="odds-val">2.62</span><span class="odds-size">AUS</span></a>
+                <a href="boundarybaazi.html" class="odds-box lay"><span class="odds-val">2.70</span><span class="odds-size">0</span></a>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Row 8: Your Eleven Fantasy Simulator -->
+          <tr class="exchange-row cards-fantasy">
+            <td class="event-info">
+              <span class="event-tag">FANTASY</span>
+              <a href="youreleven.html" class="event-title">Your Eleven (Fantasy Cricket league)</a>
+              <div class="event-meta">Build team & simulate matchups · 1,289 active players</div>
+            </td>
+            <td>
+              <div class="odds-container">
+                <a href="youreleven.html" class="odds-box back"><span class="odds-val">1.90</span><span class="odds-size">T1</span></a>
+                <a href="youreleven.html" class="odds-box lay"><span class="odds-val">1.95</span><span class="odds-size">0</span></a>
+              </div>
+            </td>
+            <td>
+              <div class="odds-container">
+                <a href="youreleven.html" class="odds-box back"><span class="odds-val">8.00</span><span class="odds-size">Tie</span></a>
+                <a href="youreleven.html" class="odds-box lay"><span class="odds-val">8.50</span><span class="odds-size">0</span></a>
+              </div>
+            </td>
+            <td>
+              <div class="odds-container">
+                <a href="youreleven.html" class="odds-box back"><span class="odds-val">2.10</span><span class="odds-size">T2</span></a>
+                <a href="youreleven.html" class="odds-box lay"><span class="odds-val">2.15</span><span class="odds-size">0</span></a>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <!-- Bottom simulated activity stats -->
+      <div class="card" style="margin-top:20px; color:var(--text); background:var(--surface); border:1px solid var(--border); padding:16px; border-radius:4px;">
+        <h3 style="color:#ffffff; margin-top:0;">Global Exchange Stats</h3>
+        <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-top:12px;">
+          <div>Active Players: <strong style="color:#2ed47a">14,812</strong></div>
+          <div>Bets Placed Today: <strong style="color:#ffd700">345,129</strong></div>
+          <div>Total Volume: <strong style="color:#a855f7">PTS 4,812,050.00</strong></div>
+          <div>Average Payout: <strong>97.2%</strong></div>
+        </div>
+      </div>
+
+      <!-- Secondary red navbar before Game Cards -->
+      <div class="exchange-section-header" style="background: linear-gradient(to right, #b51212, #c8102e); margin-top: 24px; margin-bottom: 0;">
+        Universe Games
+      </div>
+      <div class="exchange-tabs-bar" style="background:var(--surface); border:1px solid var(--border); border-top:none;">
+        <button class="exchange-tab-btn active">Popular</button>
+        <button class="exchange-tab-btn">Universe Live</button>
+        <button class="exchange-tab-btn">Universe Original</button>
+      </div>
+      
+      <!-- Grid of Game Cards -->
+      <div class="games-cards-grid">
+        <!-- Card 1: Vimaan -->
+        <a href="aviator.html" class="game-card-item">
+          <div class="game-card-img" style="background-image: url('assets/aviator_bg.png'); background-position: center; background-size: cover;"></div>
+          <div class="game-card-title">Vimaan (Aviator)</div>
+        </a>
+        <!-- Card 2: Teen Patti -->
+        <a href="teenpatti.html" class="game-card-item">
+          <div class="game-card-img" style="background-image: url('assets/teenpatti_bg.jpg'); background-position: center; background-size: cover;"></div>
+          <div class="game-card-title">20-20 Teen Patti</div>
+        </a>
+        <!-- Card 3: Sapre Color -->
+        <a href="win.html" class="game-card-item">
+          <div class="game-card-img" style="background-image: url('assets/sapre_bg.png'); background-position: center; background-size: cover;"></div>
+          <div class="game-card-title">Sapre Color</div>
+        </a>
+        <!-- Card 4: Becone Color -->
+        <a href="win1.html" class="game-card-item">
+          <div class="game-card-img" style="background-image: url('assets/becone_bg.png'); background-position: center; background-size: cover;"></div>
+          <div class="game-card-title">Becone Color</div>
+        </a>
+        <!-- Card 5: Boundary Baazi -->
+        <a href="boundarybaazi.html" class="game-card-item">
+          <div class="game-card-img" style="background-image: url('assets/boundarybaazi_bg.png'); background-position: center; background-size: cover;"></div>
+          <div class="game-card-title">Boundary Baazi</div>
+        </a>
+        <!-- Card 6: Your Eleven -->
+        <a href="youreleven.html" class="game-card-item">
+          <div class="game-card-img" style="background-image: url('assets/youreleven_bg.jpg'); background-position: center; background-size: cover;"></div>
+          <div class="game-card-title">Your Eleven</div>
+        </a>
+        <!-- Card 7: Football Betting -->
+        <a href="football.html" class="game-card-item">
+          <div class="game-card-img" style="background-image: url('assets/football_bg.png'); background-position: center; background-size: cover;"></div>
+          <div class="game-card-title">Football Betting</div>
+        </a>
+        <!-- Card 8: Mines Mining -->
+        <a href="mining.html" class="game-card-item">
+          <div class="game-card-img" style="background-image: url('assets/mines_bg.png'); background-position: center; background-size: cover;"></div>
+          <div class="game-card-title">Mines Game</div>
+        </a>
+      </div>
+    </main>
+
+    <!-- Right Column: Games Directory Sidebar Menu -->
+    <aside class="exchange-left-sidebar">
+      <div class="exchange-menu-header">
+        <span>Games Directory</span>
+        <span>☰</span>
+      </div>
+      <ul class="exchange-menu-list">
+        <li class="exchange-menu-item" style="background: rgba(201,160,84,0.12); border: 1px solid var(--gold); border-radius:4px; margin-bottom:6px;"><a href="cashier.html" style="color:var(--gold); font-weight:800;">💰 Wallet & Deposit <span class="exchange-menu-chevron" style="color:var(--gold);">›</span></a></li>
+        <li class="exchange-menu-item"><a href="aviator.html" style="color:var(--red);">Vimaan (Aviator) <span class="exchange-menu-chevron">›</span></a></li>
+        <li class="exchange-menu-item"><a href="win.html">Sapre (30s Color) <span class="exchange-menu-chevron">›</span></a></li>
+        <li class="exchange-menu-item"><a href="win1.html">Becone (1m Color) <span class="exchange-menu-chevron">›</span></a></li>
+        <li class="exchange-menu-item"><a href="win2.html">Emred (3m Color) <span class="exchange-menu-chevron">›</span></a></li>
+        <li class="exchange-menu-item"><a href="win3.html">VIP (5m Color) <span class="exchange-menu-chevron">›</span></a></li>
+        <li class="exchange-menu-item"><a href="teenpatti.html">Teen Patti <span class="exchange-menu-chevron">›</span></a></li>
+        <li class="exchange-menu-item"><a href="boundarybaazi.html">Boundary Baazi <span class="exchange-menu-chevron">›</span></a></li>
+        <li class="exchange-menu-item"><a href="youreleven.html">Your Eleven <span class="exchange-menu-chevron">›</span></a></li>
+        <li class="exchange-menu-item"><a href="football.html" style="color:#52d17c;">Football Betting <span class="exchange-menu-chevron" style="color:#52d17c;">›</span></a></li>
+        <li class="exchange-menu-item"><a href="mining.html" style="color:#ffb020;">Mines Game <span class="exchange-menu-chevron" style="color:#ffb020;">›</span></a></li>
+        <li class="exchange-menu-item"><a href="parity.html">Admin Monitor <span class="exchange-menu-chevron">›</span></a></li>
+      </ul>
+
+      <!-- Simulated Live Chat Box -->
+      <div class="card live-chat-card" style="margin-top: 16px; border: 1px solid var(--border); padding: 0 !important; overflow: hidden; background: var(--surface);">
+        <div class="exchange-menu-header" style="border-radius: 0; background: #1a222d; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center;">
+          <span>💬 Platform Live Chat</span>
+          <span style="font-size:11px; color:#2ed47a;" id="chatOnlineCount">842 online</span>
+        </div>
+        <div class="live-chat-messages" id="liveChatMessages" style="height: 180px; overflow-y: auto; padding: 12px; font-size: 12px; display: flex; flex-direction: column; gap: 8px; background: #0f1325; border-bottom: 1px solid var(--border); text-align: left;">
+          <!-- Chat messages will roll here -->
+        </div>
+        <div class="live-chat-input-wrap" style="display:flex; padding: 8px; background: var(--surface);">
+          <input type="text" id="liveChatInput" placeholder="Join the chat..." disabled style="flex:1; background:#0f1325; border:1px solid var(--border); color:#ffffff; font-size:12px; padding: 6px 10px; border-radius: 4px;">
+          <button type="button" style="background:var(--green); border:none; color:#000000; font-weight:700; font-size:11px; padding: 0 10px; border-radius:4px; margin-left:6px; cursor:pointer;" onclick="alert('Please login to send chat messages!')">Send</button>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+  <div class="footer">
+    bet1x — all data on this page is simulated for presentation purposes. No real users, funds, or wagers are involved.
+    <br><a href="#" onclick="resetDemo(); return false;" style="color:#00e676;">Reset virtual balance</a>
+  </div>
+
+  <script src="assets/js/dummy-data.js"></script>
+  <script src="assets/js/ui-common.js"></script>
+  <script>
+    // Header Authentication handlers
+    function updateAuthHeaderUI() {
+      const authArea = document.getElementById('headerAuthArea');
+      const user = getCurrentUser();
+      
+      if (user) {
+        // User logged in
+        authArea.innerHTML = `
+          <div style="display:flex; align-items:center; gap:10px; color:#ffffff; font-size:13.5px; flex-wrap:wrap; justify-content:flex-end;">
+            <span>Welcome, <strong style="color:var(--gold);">${user.username}</strong></span>
+            <span class="wallet-chip" data-wallet-chip style="margin:0;">🪙 ${getWallet().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            <a href="cashier.html" style="background:var(--gold); color:#000; font-weight:800; font-size:12px; padding:4px 10px; border-radius:4px; text-decoration:none; display:inline-flex; align-items:center; gap:4px; box-shadow:0 0 12px rgba(201,160,84,0.5);">💰 Deposit</a>
+            <a href="#" onclick="handleHeaderLogout(event)" style="color:#ff5d5d; font-weight:700; text-decoration:none; font-size:12.5px; border-left:1px solid rgba(255,255,255,0.2); padding-left:10px;">Logout ⎋</a>
+          </div>
+        `;
+      } else {
+        // Guest mode
+        authArea.innerHTML = `
+          <div class="header-guest-wrap" style="display:flex; align-items:center;">
+            <button type="button" class="header-login-btn mobile-login-btn" onclick="openAuthModal('login')" style="background:#c8102e; color:#fff; font-weight:700; border:none; border-radius:4px; padding:0 14px; height:32px; font-size:13px; cursor:pointer;">Login / Sign Up</button>
+            <form class="header-login-form desktop-only" id="headerLoginForm" onsubmit="handleHeaderLogin(event)">
+              <input type="text" class="header-login-input" id="loginUsername" placeholder="Username" required>
+              <input type="password" class="header-login-input" id="loginPassword" placeholder="Password">
+              <button type="submit" class="header-login-btn">Login ➜</button>
+            </form>
+          </div>
+        `;
+      }
+      renderWalletChips();
+    }
+
+    function handleHeaderLogin(e) {
+      e.preventDefault();
+      const userField = document.getElementById('loginUsername');
+      const username = userField.value.trim() || 'DemoUser';
+      
+      localStorage.setItem('bet1x_current_user', JSON.stringify({ username: username }));
+      // Guarantee starting wallet balance exists
+      if (localStorage.getItem('bet1x_demo_wallet') === null) {
+        localStorage.setItem('bet1x_demo_wallet', '1000.00');
+      }
+      
+      updateAuthHeaderUI();
+      loadSidebarBetslip();
+    }
+
+    function handleHeaderLogout(e) {
+      e.preventDefault();
+      localStorage.removeItem('bet1x_current_user');
+      localStorage.removeItem('bet1x_demo_wallet');
+      localStorage.removeItem('bet1x_demo_history');
+      location.reload();
+    }
+
+    // Load active/recent bet history into right side panel
+    function loadSidebarBetslip() {
+      const container = document.getElementById('sidebarBetslist');
+      const history = getHistory();
+      
+      if (!history || history.length === 0) {
+        container.innerHTML = `
+          <div class="betslip-empty">
+            <span>No open bets.</span>
+            <span style="font-size:11px; color:#999;">Place wagers inside game rooms to populate details.</span>
+          </div>
+        `;
+        return;
+      }
+      
+      container.innerHTML = '';
+      history.slice(0, 5).forEach(bet => {
+        const item = document.createElement('div');
+        item.className = 'betslip-item';
+        
+        let payoutHTML = '';
+        if (bet.status === 'won') {
+          payoutHTML = `<span style="color:var(--green)">+🪙${bet.payout.toFixed(2)}</span>`;
+        } else if (bet.status === 'lost') {
+          payoutHTML = `<span style="color:var(--red)">Lost</span>`;
+        } else {
+          payoutHTML = `<span style="color:var(--gold)">Pending</span>`;
+        }
+        
+        item.innerHTML = `
+          <div>
+            <div class="title">${bet.room || 'Game Room'}</div>
+            <div style="font-size:10px; color:#888;">${bet.timestamp || 'Recent'}</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="odds">🪙${bet.amount.toFixed(2)}</div>
+            <div style="font-size:11px;">${payoutHTML}</div>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    // Highlights table tab switching
+    const tabBtns = document.querySelectorAll('.exchange-tab-btn');
+    const rows = document.querySelectorAll('.exchange-row');
+    
+    tabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        tabBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        const cat = btn.dataset.category;
+        rows.forEach(row => {
+          if (cat === 'all' || row.classList.contains(cat)) {
+            row.style.display = '';
+          } else {
+            row.style.display = 'none';
+          }
+        });
+      });
+    });
+
+    // Mobile Drawer Toggles
+    window.toggleMobileDrawer = function() {
+      const drawer = document.getElementById('mobileGamesDrawer');
+      const overlay = document.getElementById('mobileDrawerOverlay');
+      if (drawer && overlay) {
+        drawer.classList.toggle('active');
+        overlay.classList.toggle('active');
+      }
+    };
+    
+    window.toggleBetslipDrawer = function() {
+      const betslip = document.querySelector('.exchange-right-sidebar');
+      if (betslip) {
+        betslip.classList.toggle('active');
+      }
+    };
+
+    // Initialize UI on page load
+    updateAuthHeaderUI();
+    loadSidebarBetslip();
+
+    // Live Odds Feed Flashing Simulator
+    setInterval(() => {
+      const boxes = document.querySelectorAll('.odds-box');
+      if (boxes.length === 0) return;
+      
+      const count = Math.random() > 0.5 ? 2 : 1;
+      for (let i = 0; i < count; i++) {
+        const randomBox = boxes[Math.floor(Math.random() * boxes.length)];
+        if (randomBox.classList.contains('flash-up') || randomBox.classList.contains('flash-down')) continue;
+        
+        const isUp = Math.random() > 0.5;
+        const flashClass = isUp ? 'flash-up' : 'flash-down';
+        
+        const valSpan = randomBox.querySelector('.odds-val');
+        if (valSpan) {
+          let val = parseFloat(valSpan.textContent);
+          if (!isNaN(val) && val > 1.05 && val < 50) {
+            const change = (Math.random() * 0.08 - 0.04);
+            val = Math.max(1.01, val + change);
+            valSpan.textContent = val.toFixed(2);
+          }
+        }
+        
+        randomBox.classList.add(flashClass);
+        setTimeout(() => {
+          randomBox.classList.remove(flashClass);
+        }, 1000);
+      }
+    }, 2500);
+
+    // Simulated Live Chat Roll
+    const CHAT_USERS = ["Rahul_88", "Vikram_Play", "Neha_Verma", "Amit_007", "BetKing", "Siddharth", "Pooja_Sharma", "Vikas_Stakes", "Karan_Casino", "Sanjay_BB"];
+    const CHAT_PHRASES = [
+      "Vimaan me flight crash kab hoga? 1.50x par exit kar liya! 👍",
+      "Teen Patti table 2 me Raju bohot blind chaal khel raha hai.",
+      "Sapre green select karo next draw me, confirmed winning pattern hai 🟢",
+      "Aaj Boundary Baazi me IND clean sweep karega! 🇮🇳🏏",
+      "Vimaan went 18.5x last round, missed it by milliseconds! 😭",
+      "Becone color me violet aane ke chances hai kya next?",
+      "Raju bhai, seen card show mat karna directly double bet lagao.",
+      "Just got 🪙3,500 cashout in Vimaan! Loving the response speed.",
+      "Mera balance zero ho gaya, lobby reset option footer me hai.",
+      "Sapre Room 30s is too fast, I prefer VIP 5m classic draw.",
+      "Becone draw 412 is red, check chart! 🔴",
+      "Sana and Raju are folding cards too quickly, play seen game!"
+    ];
+
+    const chatMessagesEl = document.getElementById('liveChatMessages');
+
+    function appendSimulatedChatMessage() {
+      if (!chatMessagesEl) return;
+      const user = CHAT_USERS[Math.floor(Math.random() * CHAT_USERS.length)];
+      const msg = CHAT_PHRASES[Math.floor(Math.random() * CHAT_PHRASES.length)];
+      const item = document.createElement('div');
+      item.style.marginBottom = '4px';
+      item.innerHTML = `<span style="color: var(--violet); font-weight:700;">${user}:</span> <span style="color: #c9d1d9;">${msg}</span>`;
+      chatMessagesEl.appendChild(item);
+      
+      while (chatMessagesEl.children.length > 25) {
+        chatMessagesEl.removeChild(chatMessagesEl.firstChild);
+      }
+      
+      chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+    }
+
+    // Populate initial chat
+    for (let i = 0; i < 6; i++) {
+      appendSimulatedChatMessage();
+    }
+    
+    // Add messages periodically
+    setInterval(appendSimulatedChatMessage, 3500);
+
+    // Live Win Ticker updates
+    const TICKER_WINS = [
+      "🏆 User <strong>r***2</strong> won 🪙4,500.00 on <strong>Vimaan</strong>!",
+      "🔥 Match <strong>IND vs AUS</strong> is now live on <strong>Boundary Baazi</strong>!",
+      "🎉 User <strong>p***9</strong> hit a Pure Sequence on <strong>Teen Patti</strong> (🪙12,800.00)!",
+      "⚡ Sapre 30s draw starting in 12 seconds!",
+      "👑 User <strong>a***7</strong> won 🪙2,400.00 on <strong>VIP Color</strong>!",
+      "💎 User <strong>m***8</strong> just cashed out 🪙9,150.00 at <strong>4.80x</strong> on <strong>Vimaan</strong>!",
+      "🎖️ User <strong>k***4</strong> won 🪙5,000.00 on <strong>Becone Color</strong>!",
+      "🏏 User <strong>v***1</strong> made a successful call on <strong>Your Eleven</strong>!"
+    ];
+
+    const tickerTrackEl = document.getElementById('liveTickerTrack');
+    setInterval(() => {
+      if (!tickerTrackEl) return;
+      const items = tickerTrackEl.querySelectorAll('.ticker-item');
+      if (items.length > 0) {
+        const targetIdx = Math.floor(Math.random() * items.length);
+        const newItemText = TICKER_WINS[Math.floor(Math.random() * TICKER_WINS.length)];
+        items[targetIdx].innerHTML = newItemText;
+      }
+    }, 8000);
+  </script>
+
+  <!-- Fixed Bottom Navigation Bar for Mobile -->
+  <div class="mobile-bottom-nav">
+    <a href="index.html" class="mobile-bottom-nav-item active">
+      <span class="nav-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="display:block; margin:0 auto;"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></span>
+      <span class="nav-label">Home</span>
+    </a>
+    <a href="aviator.html" class="mobile-bottom-nav-item">
+      <span class="nav-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="display:block; margin:0 auto;"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></span>
+      <span class="nav-label">Vimaan</span>
+    </a>
+    <a href="win.html" class="mobile-bottom-nav-item">
+      <span class="nav-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="display:block; margin:0 auto;"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zm.5 11H11V7h1.5v4.5h2.5V13z"/></svg></span>
+      <span class="nav-label">Sapre</span>
+    </a>
+    <a href="teenpatti.html" class="mobile-bottom-nav-item">
+      <span class="nav-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="display:block; margin:0 auto;"><path d="M12 2C9 5.4 6 7.8 6 10c0 3 2 4.5 4.5 4.5.8 0 1.5-.2 2.2-.6l-.7 2.1c-.8 2.5-2.8 4-5.3 4h10.6c-2.5 0-4.5-1.5-5.3-4l-.7-2.1c.7.4 1.4.6 2.2.6 2.5 0 4.5-1.5 4.5-4.5 0-2.2-3-4.6-6-8z"/></svg></span>
+      <span class="nav-label">Cards</span>
+    </a>
+    <a href="#" onclick="toggleBetslipDrawer(); return false;" class="mobile-bottom-nav-item">
+      <span class="nav-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="display:block; margin:0 auto;"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></span>
+      <span class="nav-label">Betslip</span>
+    </a>
+  </div>
+
+  <!-- Mobile Sidebar Drawer Overlay -->
+  <div class="mobile-drawer-overlay" id="mobileDrawerOverlay" onclick="toggleMobileDrawer()"></div>
+
+  <!-- Mobile Sidebar Drawer -->
+  <div class="mobile-games-drawer" id="mobileGamesDrawer">
+    <div class="exchange-menu-header" style="justify-content: space-between; border-radius:0;">
+      <span>Games Directory</span>
+      <button onclick="toggleMobileDrawer()" style="background:none; border:none; color:#ffffff; font-size:24px; cursor:pointer; line-height:1;">&times;</button>
+    </div>
+    <ul class="exchange-menu-list" style="flex:1; overflow-y:auto; margin:0; border:none; border-radius:0; background:var(--surface);">
+      <li class="exchange-menu-item"><a href="aviator.html" style="color:var(--red);">Vimaan (Aviator) <span class="exchange-menu-chevron">›</span></a></li>
+      <li class="exchange-menu-item"><a href="win.html">Sapre (30s Color) <span class="exchange-menu-chevron">›</span></a></li>
+      <li class="exchange-menu-item"><a href="win1.html">Becone (1m Color) <span class="exchange-menu-chevron">›</span></a></li>
+      <li class="exchange-menu-item"><a href="win2.html">Emred (3m Color) <span class="exchange-menu-chevron">›</span></a></li>
+      <li class="exchange-menu-item"><a href="win3.html">VIP (5m Color) <span class="exchange-menu-chevron">›</span></a></li>
+      <li class="exchange-menu-item"><a href="teenpatti.html">Teen Patti <span class="exchange-menu-chevron">›</span></a></li>
+      <li class="exchange-menu-item"><a href="boundarybaazi.html">Boundary Baazi <span class="exchange-menu-chevron">›</span></a></li>
+      <li class="exchange-menu-item"><a href="youreleven.html">Your Eleven <span class="exchange-menu-chevron">›</span></a></li>
+      <li class="exchange-menu-item"><a href="parity.html">Admin Monitor <span class="exchange-menu-chevron">›</span></a></li>
+    </ul>
+  </div>
+</body>
+</html>

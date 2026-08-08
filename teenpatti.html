@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teen Patti — bet1x</title>
+<link rel="stylesheet" href="assets/css/style.css">
+<style>
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .game-container {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 32px 24px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-size: 32px;
+    color: var(--gold);
+    margin: 10px 0 5px;
+    text-align: center;
+    letter-spacing: -0.02em;
+  }
+  .subtitle {
+    color: var(--text-dim);
+    margin-bottom: 24px;
+    font-size: 14px;
+    text-align: center;
+  }
+  .table {
+    background: none;
+    border: none;
+    box-shadow: none;
+    width: 100%;
+    max-width: 840px;
+    padding: 0;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: visible;
+  }
+  .circular-table-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 660px;
+    height: 480px;
+    margin: 40px auto 100px;
+  }
+  .circular-felt {
+    position: absolute;
+    top: 60px;
+    left: 40px;
+    right: 40px;
+    bottom: 60px;
+    background: radial-gradient(circle at center, #0e5c34 20%, #062b18 90%);
+    border: 8px solid #4a2c14;
+    border-radius: 50%;
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.8), var(--shadow-card);
+    z-index: 1;
+  }
+  .pot-badge-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .pot-badge {
+    display: inline-block;
+    background: var(--gold-soft);
+    color: var(--gold);
+    border: 1px solid rgba(255, 197, 61, 0.35);
+    font-weight: 700;
+    padding: 6px 18px;
+    border-radius: 30px;
+    font-size: 15px;
+    font-family: var(--font-mono);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  }
+  .players {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .player-card {
+    background: rgba(11, 14, 29, 0.85);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 8px;
+    text-align: center;
+    transition: all 0.25s;
+    backdrop-filter: blur(5px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+  }
+  .player-card.turn {
+    border-color: var(--gold);
+    box-shadow: 0 0 20px rgba(255, 197, 61, 0.4);
+    background: rgba(26, 32, 64, 0.9);
+  }
+  .player-card.folded {
+    opacity: 0.4;
+  }
+
+  /* Flying coins */
+  @keyframes flyCoin {
+    0% {
+      transform: translate(var(--sx), var(--sy)) scale(1) rotate(0deg);
+      opacity: 1;
+    }
+    100% {
+      transform: translate(var(--ex), var(--ey)) scale(0.6) rotate(360deg);
+      opacity: 0.8;
+    }
+  }
+  .flying-coin {
+    position: absolute;
+    pointer-events: none;
+    font-size: 20px;
+    z-index: 100;
+    animation: flyCoin 0.85s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  }
+
+  @media (max-width: 540px) {
+    .circular-table-wrapper {
+      height: 420px;
+      margin: 30px auto 80px;
+    }
+    .circular-felt {
+      top: 55px;
+      left: 30px;
+      right: 30px;
+      bottom: 55px;
+    }
+    .player-card {
+      padding: 6px 4px;
+    }
+    .card-wrapper {
+      width: 38px;
+      height: 55px;
+    }
+    .card-face {
+      font-size: 11px;
+    }
+    /* Seat position overrides for mobile */
+    #playersArea > div[id="seat-bot0"] {
+      top: 50px !important;
+      left: -5px !important;
+      width: 120px !important;
+    }
+    #playersArea > div[id="seat-bot1"] {
+      top: -50px !important;
+      width: 120px !important;
+    }
+    #playersArea > div[id="seat-bot2"] {
+      top: 50px !important;
+      right: -5px !important;
+      width: 120px !important;
+    }
+    #playersArea > div[id="seat-human"] {
+      bottom: -70px !important;
+      width: 120px !important;
+    }
+  }
+  @keyframes winnerGlow {
+    0% { border-color: var(--green); box-shadow: 0 0 10px rgba(46, 212, 122, 0.3); }
+    50% { border-color: var(--green); box-shadow: 0 0 25px rgba(46, 212, 122, 0.7), 0 0 12px rgba(46, 212, 122, 0.4); }
+    100% { border-color: var(--green); box-shadow: 0 0 10px rgba(46, 212, 122, 0.3); }
+  }
+  .player-card.winner {
+    animation: winnerGlow 1.5s infinite ease-in-out;
+    background: rgba(46, 212, 122, 0.08);
+  }
+  .player-name {
+    font-weight: 600;
+    font-size: 15px;
+    margin-bottom: 6px;
+    font-family: var(--font-display);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .player-badge-seen {
+    font-size: 9px;
+    background: var(--gold-soft);
+    color: var(--gold);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+  .player-badge-blind {
+    font-size: 9px;
+    background: var(--text-faint);
+    color: var(--text-dim);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+  .player-balance {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    font-family: var(--font-mono);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  /* 3D Cards */
+  .cards-row {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    min-height: 72px;
+    perspective: 1000px;
+  }
+  .card-wrapper {
+    width: 48px;
+    height: 70px;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    margin: 0 -6px;
+  }
+  .card-wrapper.flipped {
+    transform: rotateY(180deg);
+  }
+  .card-face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    border-radius: var(--radius-sm);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 4px;
+    font-size: 14px;
+    font-weight: 700;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    font-family: var(--font-mono);
+    border: 1px solid rgba(0,0,0,0.1);
+  }
+  .card-back {
+    background: repeating-linear-gradient(45deg, #1f2544, #1f2544 4px, #12162b 4px, #12162b 8px);
+    border: 2px solid var(--gold);
+    color: transparent;
+  }
+  .card-back::after {
+    content: "♣";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: rgba(255, 197, 61, 0.3);
+    font-size: 20px;
+  }
+  .card-front {
+    background: #ffffff;
+    color: #1a1d2e;
+    transform: rotateY(180deg);
+  }
+  .card-front.red {
+    color: var(--red);
+  }
+  .card-front span {
+    font-size: 15px;
+    line-height: 1;
+  }
+  
+  .hand-label {
+    font-size: 12px;
+    margin-top: 10px;
+    color: var(--gold);
+    font-weight: 500;
+    min-height: 18px;
+    font-family: var(--font-display);
+  }
+  
+  /* Chat Bubbles */
+  .chat-bubble-container {
+    position: absolute;
+    bottom: 105%;
+    left: 50%;
+    transform: translateX(-50%) translateY(5px);
+    z-index: 50;
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+  }
+  .chat-bubble-container.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  .chat-bubble {
+    background: var(--gold);
+    color: #0b0e1d;
+    padding: 8px 14px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+    position: relative;
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+  .chat-bubble::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: var(--gold);
+  }
+  
+  /* Stepper Stake Selector */
+  .wager-controller {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 16px;
+    gap: 12px;
+    width: 100%;
+    max-width: 320px;
+  }
+  .stepper-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+  .stepper-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+  }
+  .btn-step {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: bold;
+  }
+  .stepper-val {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--gold);
+    min-width: 80px;
+    text-align: center;
+  }
+
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+  .log-box {
+    max-width: 840px;
+    width: 100%;
+    margin-top: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    font-size: 13px;
+    max-height: 140px;
+    overflow-y: auto;
+    box-shadow: var(--shadow-card);
+    font-family: var(--font-mono);
+    color: var(--text-dim);
+  }
+  .log-box div {
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    opacity: 0.9;
+  }
+  .log-box div:last-child {
+    border-bottom: none;
+  }
+  .status-msg {
+    text-align: center;
+    font-size: 15px;
+    margin: 12px 0;
+    min-height: 22px;
+    color: var(--gold);
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<nav class="navbar exchange-header">
+  <div class="exchange-logo-box">
+    bet1x<span>.com</span>
+  </div>
+  <div id="headerAuthArea">
+    <!-- Loaded dynamically by ui-common.js -->
+  </div>
+</nav>
+
+<div class="sub-navbar">
+  <ul class="sub-navbar-links">
+    <li class="sub-navbar-item"><a href="index.html" class="sub-navbar-link">Home</a></li>
+    <li class="sub-navbar-item"><a href="aviator.html" class="sub-navbar-link">Vimaan</a></li>
+    <li class="sub-navbar-item"><a href="win.html" class="sub-navbar-link">Sapre</a></li>
+    <li class="sub-navbar-item"><a href="win1.html" class="sub-navbar-link">Becone</a></li>
+    <li class="sub-navbar-item"><a href="win2.html" class="sub-navbar-link">Emred</a></li>
+    <li class="sub-navbar-item"><a href="win3.html" class="sub-navbar-link">VIP</a></li>
+    <li class="sub-navbar-item"><a href="teenpatti.html" class="sub-navbar-link active">Teen Patti</a></li>
+    <li class="sub-navbar-item"><a href="boundarybaazi.html" class="sub-navbar-link">Boundary Baazi</a></li>
+    <li class="sub-navbar-item"><a href="youreleven.html" class="sub-navbar-link">Your Eleven</a></li>
+    <li class="sub-navbar-item"><a href="football.html" class="sub-navbar-link">Football</a></li>
+    <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
+    <li class="sub-navbar-item"><a href="parity.html" class="sub-navbar-link">Admin</a></li>
+  </ul>
+</div>
+
+<div class="game-container">
+  <h1>♠ TEEN PATTI ♦</h1>
+  <div class="subtitle">Ante Boot: 🪙10 | Raju (Conservative), Vikram (Aggressive), Sana (Tactical)</div>
+
+  <div class="table">
+    <div class="circular-table-wrapper">
+      <div class="circular-felt">
+        <div class="pot-badge-center">
+          <span class="pot-badge" id="potBadge">Pot: 🪙0</span>
+          <div id="tablePotCoins" style="position: relative; width: 40px; height: 35px; margin-top: 5px; font-size: 28px; line-height: 1; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.45));">🪙</div>
+        </div>
+      </div>
+      <div class="players" id="playersArea"></div>
+    </div>
+    
+    <div class="status-msg" id="statusMsg"></div>
+    
+    <div style="display:flex; flex-direction:column; align-items:center;">
+      <div class="wager-controller" id="wagerSelector" style="display:none;">
+        <span class="stepper-label">Select Stake</span>
+        <div class="stepper-row">
+          <button class="btn btn-ghost btn-step" id="btnMinus" onclick="adjustWagerMultiplier(-1)">-</button>
+          <span class="stepper-val" id="stepperVal">🪙20</span>
+          <button class="btn btn-ghost btn-step" id="btnPlus" onclick="adjustWagerMultiplier(1)">+</button>
+        </div>
+      </div>
+      <div class="controls" id="controls"></div>
+    </div>
+  </div>
+
+  <div class="log-box" id="logBox"></div>
+</div>
+
+<div class="footer">
+  bet1x — Teen Patti. All players, cards, and results shown are simulated for presentation purposes.
+</div>
+
+<script src="assets/js/dummy-data.js"></script>
+<script src="assets/js/ui-common.js"></script>
+<script>
+function animateCoins(fromEl, toEl, count = 5) {
+  const container = document.querySelector('.circular-table-wrapper');
+  if (!container || !fromEl || !toEl) return;
+
+  const containerRect = container.getBoundingClientRect();
+  const fromRect = fromEl.getBoundingClientRect();
+  const toRect = toEl.getBoundingClientRect();
+
+  const startX = fromRect.left - containerRect.left + fromRect.width / 2;
+  const startY = fromRect.top - containerRect.top + fromRect.height / 2;
+  const endX = toRect.left - containerRect.left + toRect.width / 2;
+  const endY = toRect.top - containerRect.top + toRect.height / 2;
+
+  for (let i = 0; i < count; i++) {
+    setTimeout(() => {
+      const coin = document.createElement('div');
+      coin.className = 'flying-coin';
+      coin.textContent = '🪙';
+      coin.style.left = startX + 'px';
+      coin.style.top = startY + 'px';
+
+      const dx = endX - startX + (Math.random() - 0.5) * 20;
+      const dy = endY - startY + (Math.random() - 0.5) * 20;
+
+      coin.style.setProperty('--sx', '0px');
+      coin.style.setProperty('--sy', '0px');
+      coin.style.setProperty('--ex', dx + 'px');
+      coin.style.setProperty('--ey', dy + 'px');
+
+      container.appendChild(coin);
+      setTimeout(() => coin.remove(), 850);
+    }, i * 80);
+  }
+}
+
+const BOOT_AMOUNT = 10;
+const BOT_NAMES = ['Raju', 'Vikram', 'Sana'];
+
+// Bot personalities dialogues
+const DIALOGUES = {
+  Raju: { // conservative
+    chaal: ["Safe khel raha hoon.", "Chaal chalta hoon.", "Theek thak cards hain."],
+    fold: ["Risk nahi lena, main pack ho raha hoon.", "Cards acche nahi hain, pack!", "Raju pack hota hai."],
+    seen: ["Raju apne cards dekhega...", "Dekhne do kya cards hain."]
+  },
+  Vikram: { // aggressive
+    chaal: ["Bada bet! Bhaago sab!", "Mera hand unbeatable hai!", "Double bet, Chalo!", "Chaal! Vikram bluff kar raha hai kya?"],
+    fold: ["Kismat kharab hai, main pack.", "Agli baar dikhata hoon, fold."],
+    seen: ["Vikram cards dekhega, chalo...", "Let's open! Seen!"]
+  },
+  Sana: { // tactical
+    chaal: ["Game on! Chaal.", "Dheere dheere chalte hain.", "Chaal. Cards acche hain."],
+    fold: ["Mathematic calculation... Fold is right.", "Pack! Risk zyada hai.", "Sana pack hoti hai."],
+    seen: ["Cards check karne ki baari.", "Cards dekh lete hain pehle."]
+  }
+};
+
+// Deck management
+function createShuffledDeck() {
+  const suits = ['S', 'H', 'C', 'D'];
+  const deck = [];
+  for (let r = 2; r <= 14; r++) {
+    suits.forEach(s => {
+      deck.push({ r, s });
+    });
+  }
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck;
+}
+
+function rankLabel(r) {
+  const labels = { 11: 'J', 12: 'Q', 13: 'K', 14: 'A' };
+  return labels[r] || String(r);
+}
+
+function suitSymbol(s) {
+  const map = { 'S': '&spades;', 'H': '&hearts;', 'C': '&clubs;', 'D': '&diams;' };
+  return map[s] || s;
+}
+
+function suitRank(s) {
+  const order = { 'S': 4, 'H': 3, 'C': 2, 'D': 1 };
+  return order[s] || 0;
+}
+
+// Hand evaluation
+function evaluateHand(cards) {
+  const ranks = cards.map(c => c.r);
+  const suits = cards.map(c => c.s);
+  ranks.sort((a, b) => b - a);
+
+  const isColor = new Set(suits).size === 1;
+
+  let isSeq = false;
+  let seqTiebreak = [...ranks];
+  if (ranks[0] - ranks[1] === 1 && ranks[1] - ranks[2] === 1) {
+    isSeq = true;
+  } else if (ranks[0] === 14 && ranks[1] === 3 && ranks[2] === 2) {
+    isSeq = true;
+    seqTiebreak = [3, 2, 1];
+  }
+
+  const bestSuit = Math.max(...suits.map(suitRank));
+
+  if (ranks[0] === ranks[1] && ranks[1] === ranks[2]) {
+    return [6, [ranks[0]], bestSuit];
+  }
+  if (isSeq && isColor) {
+    return [5, seqTiebreak, bestSuit];
+  }
+  if (isSeq) {
+    return [4, seqTiebreak, bestSuit];
+  }
+  if (isColor) {
+    return [3, ranks, bestSuit];
+  }
+  if (ranks[0] === ranks[1]) {
+    return [2, [ranks[0], ranks[2]], bestSuit];
+  }
+  if (ranks[1] === ranks[2]) {
+    return [2, [ranks[1], ranks[0]], bestSuit];
+  }
+  return [1, ranks, bestSuit];
+}
+
+function handLabel(category) {
+  const labels = {
+    6: 'Trail (Set)', 5: 'Pure Sequence', 4: 'Sequence',
+    3: 'Color', 2: 'Pair', 1: 'High Card'
+  };
+  return labels[category] || 'Unknown';
+}
+
+function handWins(handA, handB) {
+  if (handA[0] !== handB[0]) return handA[0] > handB[0];
+  const tA = handA[1];
+  const tB = handB[1];
+  for (let i = 0; i < tA.length; i++) {
+    if ((tA[i] || 0) !== (tB[i] || 0)) return (tA[i] || 0) > (tB[i] || 0);
+  }
+  return handA[2] > handB[2];
+}
+
+let gameState = null;
+let playerWagerMultiplier = 1; // 1 = Chaal (Min), 2 = Raise (Double)
+
+function showChatBubble(key, text) {
+  const el = document.getElementById(`bubble-${key}`);
+  if (!el) return;
+  el.querySelector('.chat-bubble').textContent = text;
+  el.classList.add('show');
+  setTimeout(() => {
+    el.classList.remove('show');
+  }, 2200);
+}
+
+function triggerCoinShower() {
+  triggerWinShower(document.querySelector('.table'));
+}
+
+function newGame() {
+  const balance = getWallet();
+  if (balance < BOOT_AMOUNT) {
+    setWallet(1000);
+  }
+  const deck = createShuffledDeck();
+  
+  // Deal initial hands
+  const initialHands = {
+    human: [deck.shift(), deck.shift(), deck.shift()],
+    bot0: [deck.shift(), deck.shift(), deck.shift()],
+    bot1: [deck.shift(), deck.shift(), deck.shift()],
+    bot2: [deck.shift(), deck.shift(), deck.shift()]
+  };
+
+  // Check for admin override bias
+  const cheatWinner = localStorage.getItem('cheat_teenpatti_winner');
+  const tpRigType = localStorage.getItem('cheat_teenpatti_rig_type');
+  
+  if (cheatWinner && cheatWinner !== 'none' && cheatWinner !== '') {
+    const keys = ['human', 'bot0', 'bot1', 'bot2'];
+    let bestKey = keys[0];
+    for (let i = 1; i < keys.length; i++) {
+      const hBest = evaluateHand(initialHands[bestKey]);
+      const hCurr = evaluateHand(initialHands[keys[i]]);
+      if (handWins(hCurr, hBest)) {
+        bestKey = keys[i];
+      }
+    }
+    
+    // Swap hands if needed
+    if (bestKey !== cheatWinner && initialHands[cheatWinner]) {
+      const temp = initialHands[cheatWinner];
+      initialHands[cheatWinner] = initialHands[bestKey];
+      initialHands[bestKey] = temp;
+    }
+    
+    // Consume cheat key
+    localStorage.removeItem('cheat_teenpatti_winner');
+  } else if (tpRigType && tpRigType !== 'none' && tpRigType !== '') {
+    const keys = ['human', 'bot0', 'bot1', 'bot2'];
+    // Find the best and worst hand among all players
+    let bestKey = keys[0];
+    let worstKey = keys[0];
+    for (let i = 1; i < keys.length; i++) {
+      const hBest = evaluateHand(initialHands[bestKey]);
+      const hWorst = evaluateHand(initialHands[worstKey]);
+      const hCurr = evaluateHand(initialHands[keys[i]]);
+      if (handWins(hCurr, hBest)) bestKey = keys[i];
+      if (!handWins(hCurr, hWorst)) worstKey = keys[i];
+    }
+
+    if (tpRigType === 'platform_profit') {
+      // Give human the worst hand, give the worst-hand bot the human's hand
+      if (worstKey !== 'human') {
+        const temp = initialHands['human'];
+        initialHands['human'] = initialHands[worstKey];
+        initialHands[worstKey] = temp;
+      }
+      // Also ensure a bot has the best hand (swap if human somehow ended up with it)
+      if (bestKey === 'human') {
+        const botTarget = keys.filter(k => k !== 'human')[0];
+        const temp2 = initialHands['human'];
+        initialHands['human'] = initialHands[botTarget];
+        initialHands[botTarget] = temp2;
+      }
+    } else if (tpRigType === 'user_win') {
+      // Give human the best hand
+      if (bestKey !== 'human') {
+        const temp = initialHands['human'];
+        initialHands['human'] = initialHands[bestKey];
+        initialHands[bestKey] = temp;
+      }
+    }
+    
+    localStorage.removeItem('cheat_teenpatti_rig_type');
+  }
+
+  const players = {
+    human: {
+      name: 'Aap',
+      is_bot: false,
+      cards: initialHands.human,
+      folded: false,
+      balance: getWallet() - BOOT_AMOUNT,
+      seen: false
+    }
+  };
+  
+  BOT_NAMES.forEach((bname, idx) => {
+    const key = 'bot' + idx;
+    players[key] = {
+      name: bname,
+      is_bot: true,
+      cards: initialHands[key],
+      folded: false,
+      balance: 1000 - BOOT_AMOUNT,
+      seen: false
+    };
+  });
+  
+  const pot = BOOT_AMOUNT * 4;
+  adjustWallet(-BOOT_AMOUNT);
+  
+  const roundId = 'TP-' + Math.floor(100000 + Math.random() * 900000);
+  
+  gameState = {
+    roundId,
+    players,
+    order: ['human', 'bot0', 'bot1', 'bot2'],
+    turn_index: 0,
+    pot,
+    current_stake: BOOT_AMOUNT,
+    status: 'playing',
+    winner: null,
+    log: [`Naya game shuru! Sabne boot 🪙${BOOT_AMOUNT} laga diya. Pot: 🪙${pot}`]
+  };
+  
+  pushHistory({
+    room: 'Teen Patti',
+    roundNumber: roundId,
+    category: 'Chaal',
+    value: 'Play',
+    amount: BOOT_AMOUNT,
+    status: 'pending'
+  });
+  
+  playerWagerMultiplier = 1;
+  render();
+  
+  // Animate starting boot wagers from all seats to the center pot
+  setTimeout(() => {
+    gameState.order.forEach(k => {
+      animateCoins(document.getElementById('seat-' + k), document.getElementById('tablePotCoins'), 3);
+    });
+  }, 150);
+}
+
+function activePlayersCount() {
+  return gameState.order.filter(k => !gameState.players[k].folded).length;
+}
+
+function nextTurn() {
+  const n = gameState.order.length;
+  for (let i = 1; i <= n; i++) {
+    const idx = (gameState.turn_index + i) % n;
+    const key = gameState.order[idx];
+    if (!gameState.players[key].folded) {
+      gameState.turn_index = idx;
+      return;
+    }
+  }
+}
+
+function currentPlayerKey() {
+  return gameState.order[gameState.turn_index];
+}
+
+function addLog(msg) {
+  gameState.log.push(msg);
+  if (gameState.log.length > 25) gameState.log.shift();
+}
+
+function checkGameEnd() {
+  const activeKeys = gameState.order.filter(k => !gameState.players[k].folded);
+  if (activeKeys.length === 1) {
+    endGame(activeKeys[0], false);
+    return true;
+  }
+  return false;
+}
+
+function endGame(winnerKey, wasShow) {
+  gameState.status = 'finished';
+  gameState.winner = winnerKey;
+  
+  // Force see cards of all players to show down
+  gameState.order.forEach(k => {
+    gameState.players[k].seen = true;
+  });
+  
+  gameState.players[winnerKey].balance += gameState.pot;
+  if (winnerKey === 'human') {
+    adjustWallet(gameState.pot);
+  }
+
+  // Settle the pending wager log in history
+  const hist = getHistory();
+  const entry = hist.find(h => h.room === 'Teen Patti' && h.roundNumber === gameState.roundId && h.status === 'pending');
+  if (entry) {
+    entry.status = winnerKey === 'human' ? 'won' : 'lost';
+    entry.payout = winnerKey === 'human' ? gameState.pot : 0;
+    localStorage.setItem('bet1x_demo_history', JSON.stringify(hist));
+  }
+  
+  const name = gameState.players[winnerKey].name;
+  if (wasShow) {
+    addLog(`${name} ne SHOW jeeta! Pot (🪙${gameState.pot}) mila.`);
+  } else {
+    addLog(`Baaki sab pack ho gaye. ${name} jeet gaya! Pot (🪙${gameState.pot}) mila.`);
+  }
+  
+  // Animate pot distribution to the winner's seat
+  animateCoins(document.getElementById('tablePotCoins'), document.getElementById('seat-' + winnerKey), 18);
+  if (winnerKey === 'human') {
+    triggerCoinShower();
+  }
+}
+
+function seeCards() {
+  if (!gameState || gameState.players.human.seen || gameState.status !== 'playing') return;
+  gameState.players.human.seen = true;
+  addLog("Aapne apne cards dekhe (SEEN). Chaal bet double ho gayi hai!");
+  showChatBubble('human', "Dekh liya! Chalo ab bet lagate hain.");
+  playerWagerMultiplier = 1; // reset selection to min
+  render();
+}
+
+function adjustWagerMultiplier(delta) {
+  const newVal = playerWagerMultiplier + delta;
+  if (newVal >= 1 && newVal <= 2) {
+    playerWagerMultiplier = newVal;
+    render();
+  }
+}
+
+function playerChaal(key, amount, raised) {
+  gameState.players[key].balance -= amount;
+  gameState.pot += amount;
+  if (key === 'human') {
+    adjustWallet(-amount);
+    
+    // Update the pending wager log in history
+    const hist = getHistory();
+    const entry = hist.find(h => h.room === 'Teen Patti' && h.roundNumber === gameState.roundId && h.status === 'pending');
+    if (entry) {
+      entry.amount += amount;
+      localStorage.setItem('bet1x_demo_history', JSON.stringify(hist));
+    }
+  }
+  
+  // Animate wagers from the active seat to the center pot
+  animateCoins(document.getElementById('seat-' + key), document.getElementById('tablePotCoins'), 5);
+  
+  const mode = gameState.players[key].seen ? 'Seen' : 'Blind';
+  if (raised) {
+    gameState.current_stake *= 2;
+    addLog(`${gameState.players[key].name} (${mode}) ne Double Bet/Raise kiya: 🪙${amount}! Min Stake ab: 🪙${gameState.current_stake}`);
+  } else {
+    addLog(`${gameState.players[key].name} (${mode}) ne Chaal khela: 🪙${amount}`);
+  }
+}
+
+function playerFold(key) {
+  gameState.players[key].folded = true;
+  addLog(`${gameState.players[key].name} pack ho gaya.`);
+  
+  if (key === 'human') {
+    const hist = getHistory();
+    const entry = hist.find(h => h.room === 'Teen Patti' && h.roundNumber === gameState.roundId && h.status === 'pending');
+    if (entry) {
+      entry.status = 'lost';
+      entry.payout = 0;
+      localStorage.setItem('bet1x_demo_history', JSON.stringify(hist));
+    }
+  }
+}
+
+// Advanced Bot AI Decisions
+function botPlayTurn(key) {
+  const bot = gameState.players[key];
+  const hand = evaluateHand(bot.cards);
+  const category = hand[0];
+  const name = bot.name;
+  
+  // Decide to look at cards (Seen)
+  // Vikram looks easily, Raju looks cautiously, Sana looks strategically
+  if (!bot.seen) {
+    const lookChance = (key === 'bot1' ? 70 : (key === 'bot2' ? 50 : 35)); // Vikram > Sana > Raju
+    const shouldLook = (category >= 3 || Math.floor(Math.random() * 100) < lookChance);
+    if (shouldLook) {
+      bot.seen = true;
+      const seenQuotes = DIALOGUES[name].seen;
+      showChatBubble(key, seenQuotes[Math.floor(Math.random() * seenQuotes.length)]);
+      addLog(`${name} ne apne cards dekhe (SEEN).`);
+    }
+  }
+
+  const multiplier = bot.seen ? 2 : 1;
+  const minChaal = gameState.current_stake * multiplier;
+  const raiseBet = minChaal * 2;
+
+  // Decide move based on hand strength and personality
+  let decision = 'chaal'; // chaal | raise | fold
+  const rand = Math.floor(Math.random() * 100) + 1;
+
+  if (category >= 5) {
+    // Very strong (Trail/Pure Sequence)
+    decision = (rand < 65 && bot.balance >= raiseBet) ? 'raise' : 'chaal';
+  } else if (category === 4) {
+    // Sequence
+    if (rand < 25 && bot.balance >= raiseBet) decision = 'raise';
+    else if (rand > 95) decision = 'fold';
+    else decision = 'chaal';
+  } else if (category === 3) {
+    // Color
+    if (key === 'bot1' && rand < 30 && bot.balance >= raiseBet) decision = 'raise'; // Vikram loves raising
+    else if (rand > 85) decision = 'fold';
+    else decision = 'chaal';
+  } else if (category === 2) {
+    // Pair
+    if (rand > 60) decision = 'fold';
+    else decision = 'chaal';
+  } else {
+    // High card (weak)
+    // Vikram bluffs 25% of the time, others bluff less
+    const bluffLimit = (key === 'bot1') ? 25 : 8;
+    if (rand < bluffLimit) {
+      decision = 'chaal';
+    } else {
+      decision = 'fold';
+    }
+  }
+
+  // Handle lack of balance
+  if (decision === 'raise' && bot.balance < raiseBet) {
+    decision = 'chaal';
+  }
+  if (decision === 'chaal' && bot.balance < minChaal) {
+    decision = 'fold';
+  }
+
+  // Execute
+  if (decision === 'raise') {
+    playerChaal(key, raiseBet, true);
+    const chaalQuotes = DIALOGUES[name].chaal;
+    showChatBubble(key, chaalQuotes[Math.floor(Math.random() * chaalQuotes.length)]);
+  } else if (decision === 'chaal') {
+    playerChaal(key, minChaal, false);
+    const chaalQuotes = DIALOGUES[name].chaal;
+    showChatBubble(key, chaalQuotes[Math.floor(Math.random() * chaalQuotes.length)]);
+  } else {
+    playerFold(key);
+    const foldQuotes = DIALOGUES[name].fold;
+    showChatBubble(key, foldQuotes[Math.floor(Math.random() * foldQuotes.length)]);
+  }
+}
+
+async function processBotTurns() {
+  while (gameState.status === 'playing') {
+    const key = currentPlayerKey();
+    const player = gameState.players[key];
+    if (!player.is_bot) {
+      break;
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, 1400));
+    
+    botPlayTurn(key);
+    
+    if (checkGameEnd()) {
+      render();
+      return;
+    }
+    nextTurn();
+    render();
+  }
+}
+
+async function doChaalAction() {
+  if (gameState.status !== 'playing') return;
+  const currentKey = currentPlayerKey();
+  if (currentKey !== 'human') return;
+
+  const modeMultiplier = gameState.players.human.seen ? 2 : 1;
+  const betCost = gameState.current_stake * modeMultiplier * playerWagerMultiplier;
+  
+  if (getWallet() < betCost) {
+    alert("Balance kam hai chaal khelne ke liye.");
+    return;
+  }
+
+  const isRaise = (playerWagerMultiplier === 2);
+  playerChaal('human', betCost, isRaise);
+  
+  if (checkGameEnd()) {
+    render();
+    return;
+  }
+  nextTurn();
+  render();
+  
+  await processBotTurns();
+}
+
+async function doFold() {
+  if (gameState.status !== 'playing') return;
+  const currentKey = currentPlayerKey();
+  if (currentKey !== 'human') return;
+  
+  playerFold('human');
+  if (checkGameEnd()) {
+    render();
+    return;
+  }
+  nextTurn();
+  render();
+  
+  await processBotTurns();
+}
+
+async function doShow() {
+  if (gameState.status !== 'playing') return;
+  const activeKeys = gameState.order.filter(k => !gameState.players[k].folded);
+  if (activeKeys.length !== 2) {
+    alert("Show sirf 2 players bachne par ho sakta hai.");
+    return;
+  }
+  
+  const modeMultiplier = gameState.players.human.seen ? 2 : 1;
+  const showCost = gameState.current_stake * modeMultiplier;
+  
+  if (getWallet() < showCost) {
+    alert("Balance kam hai show ke liye.");
+    return;
+  }
+  
+  // Pay show cost
+  gameState.players.human.balance -= showCost;
+  gameState.pot += showCost;
+  adjustWallet(-showCost);
+  
+  // Animate show wager from player seat to center pot
+  animateCoins(document.getElementById('seat-human'), document.getElementById('tablePotCoins'), 5);
+  
+  // Show evaluates cards (apply mid-game cheats if set)
+  const cheatWinner = localStorage.getItem('cheat_teenpatti_winner');
+  const tpRigType = localStorage.getItem('cheat_teenpatti_rig_type');
+
+  if (cheatWinner && activeKeys.includes(cheatWinner)) {
+    const otherKey = activeKeys.find(k => k !== cheatWinner);
+    const hCheat = evaluateHand(gameState.players[cheatWinner].cards);
+    const hOther = evaluateHand(gameState.players[otherKey].cards);
+    if (handWins(hOther, hCheat)) {
+      const temp = gameState.players[cheatWinner].cards;
+      gameState.players[cheatWinner].cards = gameState.players[otherKey].cards;
+      gameState.players[otherKey].cards = temp;
+    }
+    localStorage.removeItem('cheat_teenpatti_winner');
+  } else if (tpRigType && tpRigType !== 'none' && tpRigType !== '') {
+    if (activeKeys.includes('human')) {
+      const botKey = activeKeys.find(k => k !== 'human');
+      const hHuman = evaluateHand(gameState.players.human.cards);
+      const hBot = evaluateHand(gameState.players[botKey].cards);
+      
+      if (tpRigType === 'platform_profit' && handWins(hHuman, hBot)) {
+        const temp = gameState.players.human.cards;
+        gameState.players.human.cards = gameState.players[botKey].cards;
+        gameState.players[botKey].cards = temp;
+      } else if (tpRigType === 'user_win' && handWins(hBot, hHuman)) {
+        const temp = gameState.players.human.cards;
+        gameState.players.human.cards = gameState.players[botKey].cards;
+        gameState.players[botKey].cards = temp;
+      }
+    }
+    localStorage.removeItem('cheat_teenpatti_rig_type');
+  }
+
+  const h1 = evaluateHand(gameState.players[activeKeys[0]].cards);
+  const h2 = evaluateHand(gameState.players[activeKeys[1]].cards);
+  
+  const winnerKey = handWins(h1, h2) ? activeKeys[0] : activeKeys[1];
+  endGame(winnerKey, true);
+  render();
+}
+
+function cardWrapperHtml(card, index, isFlipped) {
+  const revealClass = isFlipped ? 'flipped' : '';
+  if (!card) {
+    return `
+      <div class="card-wrapper ${revealClass}" style="transition-delay: ${index * 0.15}s">
+        <div class="card-face card-back"></div>
+        <div class="card-face card-front" style="color:transparent;"></div>
+      </div>`;
+  }
+  const label = rankLabel(card.r);
+  const symbol = suitSymbol(card.s);
+  const redClass = ['H', 'D'].includes(card.s) ? 'red' : '';
+  return `
+    <div class="card-wrapper ${revealClass}" style="transition-delay: ${index * 0.15}s">
+      <div class="card-face card-back"></div>
+      <div class="card-face card-front ${redClass}">
+        ${label}<span>${symbol}</span>
+      </div>
+    </div>`;
+}
+
+function render() {
+  if (!gameState) {
+    document.getElementById('playersArea').innerHTML = '';
+    document.getElementById('wagerSelector').style.display = 'none';
+    document.getElementById('controls').innerHTML =
+      '<button class="btn btn-primary" onclick="newGame()">Naya Game Shuru Karein</button>';
+    document.getElementById('statusMsg').textContent = 'Khelna shuru karne ke liye button dabayein.';
+    return;
+  }
+
+  document.getElementById('potBadge').textContent = 'Pot: 🪙' + gameState.pot.toLocaleString('en-IN');
+
+  const revealAll = (gameState.status === 'finished');
+  let html = '';
+  
+  const avatars = {
+    bot0: '🧔',
+    bot1: '👨‍💼',
+    bot2: '👩',
+    human: '🧑'
+  };
+
+  const positionStyles = {
+    bot0: 'position: absolute; top: 45px; left: 1%; width: 145px; pointer-events: auto;',
+    bot1: 'position: absolute; top: -55px; left: 50%; transform: translateX(-50%); width: 145px; pointer-events: auto;',
+    bot2: 'position: absolute; top: 45px; right: 1%; width: 145px; pointer-events: auto;',
+    human: 'position: absolute; bottom: -85px; left: 50%; transform: translateX(-50%); width: 145px; pointer-events: auto;'
+  };
+
+  gameState.order.forEach(key => {
+    const p = gameState.players[key];
+    const isTurn = gameState.turn_index === gameState.order.indexOf(key) && gameState.status === 'playing';
+    const isWinner = gameState.status === 'finished' && gameState.winner === key;
+    
+    // Check if player has looked at cards
+    const shouldRevealCards = (key === 'human' && p.seen) || revealAll;
+    
+    let cardsHtml = '';
+    p.cards.forEach((card, idx) => {
+      cardsHtml += cardWrapperHtml(card, idx, shouldRevealCards);
+    });
+    
+    const badgeHtml = p.seen 
+      ? '<span class="player-badge-seen">Seen</span>'
+      : '<span class="player-badge-blind">Blind</span>';
+      
+    let label = '';
+    if (p.folded) {
+      label = 'Pack';
+    } else if (shouldRevealCards) {
+      label = handLabel(evaluateHand(p.cards)[0]);
+    } else {
+      label = 'Playing Blind';
+    }
+    
+    html += `
+      <div class="player-card ${isTurn ? 'turn' : ''} ${p.folded ? 'folded' : ''} ${isWinner ? 'winner' : ''}" 
+           id="seat-${key}"
+           style="${positionStyles[key]}">
+        <div class="chat-bubble-container" id="bubble-${key}">
+          <div class="chat-bubble">Hello!</div>
+        </div>
+        <div class="player-avatar" style="font-size: 24px; line-height: 1; margin: 2px 0 6px;">${avatars[key] || '🧑'}</div>
+        <div class="player-name">${p.name} ${p.is_bot ? '(Bot)' : ''} ${p.folded ? '' : badgeHtml}</div>
+        <div class="player-balance">Balance: 🪙${p.balance.toLocaleString('en-IN')}</div>
+        <div class="cards-row">${cardsHtml}</div>
+        ${(key === 'human' && !p.seen && !p.folded && gameState.status === 'playing') 
+          ? `<button class="btn btn-gold" style="padding: 4px 10px; font-size:11px; margin-top:10px; font-weight:700;" onclick="seeCards()">See Cards</button>` 
+          : ''}
+        <div class="hand-label">${label}</div>
+      </div>`;
+  });
+  
+  document.getElementById('playersArea').innerHTML = html;
+  
+  document.getElementById('logBox').innerHTML = gameState.log.map(l => `<div>&bull; ${l}</div>`).join('');
+  document.getElementById('logBox').scrollTop = document.getElementById('logBox').scrollHeight;
+
+  const controls = document.getElementById('controls');
+  const statusMsg = document.getElementById('statusMsg');
+  const wagerSelector = document.getElementById('wagerSelector');
+
+  if (gameState.status === 'finished') {
+    wagerSelector.style.display = 'none';
+    statusMsg.innerHTML = `<span style="color:var(--green)">${gameState.players[gameState.winner].name} JEET GAYA! 🎉</span>`;
+    controls.innerHTML = '<button class="btn btn-gold" onclick="newGame()">Agla Game Khelein</button>';
+    return;
+  }
+
+  const isHumanTurn = (currentPlayerKey() === 'human');
+  if (isHumanTurn) {
+    const pSeen = gameState.players.human.seen;
+    const modeMultiplier = pSeen ? 2 : 1;
+    const baseChaal = gameState.current_stake * modeMultiplier;
+    const currentBetAmount = baseChaal * playerWagerMultiplier;
+    
+    // Update wager selector text
+    wagerSelector.style.display = 'flex';
+    document.getElementById('stepperVal').textContent = '🪙' + currentBetAmount.toLocaleString('en-IN');
+    
+    // Stepper button disabled states
+    document.getElementById('btnMinus').disabled = (playerWagerMultiplier === 1);
+    document.getElementById('btnPlus').disabled = (playerWagerMultiplier === 2);
+
+    const activeCount = activePlayersCount();
+    statusMsg.textContent = `Aapki baari hai — Wager: 🪙${currentBetAmount} (${pSeen ? 'Seen' : 'Blind'})`;
+    
+    const btnLabel = (playerWagerMultiplier === 2) ? `Raise (🪙${currentBetAmount})` : `Chaal (🪙${currentBetAmount})`;
+    controls.innerHTML = `
+      <button class="btn btn-primary" onclick="doChaalAction()">${btnLabel}</button>
+      <button class="btn btn-ghost" style="color:var(--red);border-color:rgba(255,75,110,0.4)" onclick="doFold()">Pack (Fold)</button>
+      ${activeCount === 2 ? `<button class="btn btn-gold" onclick="doShow()">Show (🪙${baseChaal})</button>` : ''}
+    `;
+  } else {
+    wagerSelector.style.display = 'none';
+    statusMsg.textContent = `${gameState.players[currentPlayerKey()].name} (Bot) ki baari hai...`;
+    controls.innerHTML = `
+      <button class="btn btn-primary" disabled>Chaal</button>
+      <button class="btn btn-ghost" disabled>Pack (Fold)</button>
+    `;
+  }
+}
+
+// Initial state load
+render();
+</script>
+</body>
+</html>

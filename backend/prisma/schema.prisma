@@ -1,0 +1,66 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id             Int      @id @default(autoincrement())
+  username       String   @unique
+  email          String
+  password       String
+  wallet_balance Float    @default(1000.0)
+  created_at     DateTime @default(now())
+}
+
+model Transaction {
+  id        String   @id
+  user      String
+  type      String
+  amount    Float
+  details   String
+  status    String
+  timestamp DateTime @default(now())
+}
+
+model Deposit {
+  deposit_id     String   @id
+  order_id       String?  @unique
+  username       String
+  amount         Float
+  utr            String?
+  qr_type        String?
+  custom_qr_data String?
+  status         String
+  gateway        String?
+  gateway_id     String?
+  created_at     DateTime @default(now())
+  updated_at     DateTime @default(now())
+}
+
+model Withdrawal {
+  withdrawal_id String   @id
+  username      String
+  amount        Float
+  method        String
+  details       String
+  status        String
+  created_at    DateTime @default(now())
+  updated_at    DateTime @default(now())
+}
+
+model PaymentLog {
+  id        String   @id
+  payload   Json
+  signature String?
+  timestamp DateTime @default(now())
+}
+
+model GameState {
+  key       String   @id
+  data      Json
+  updatedAt DateTime @updatedAt
+}
