@@ -605,42 +605,6 @@
                 style="font-family:var(--font-mono); font-size:13px; color:#52d17c; font-weight:700;">--</div>
             </div>
           </div>
-
-          <!-- Mines (Mining) Bias Card -->
-          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:16px;">
-            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">💣
-              Mines (Mining) Fix Console</h4>
-
-            <div style="background:#0d0f12; padding:10px; border-radius:6px; margin-bottom:16px;">
-              <div
-                style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; font-weight:700;">
-                Live Active Mines Games</div>
-              <div id="cheatMinesActiveBets"
-                style="font-size:13px; font-family:var(--font-mono); color:#fff; max-height:100px; overflow-y:auto;">
-                Loading active games...</div>
-            </div>
-
-            <div class="cashier-input-group" style="margin-bottom:12px;">
-              <label for="cheatMinesNextTile">Force Next Tile Reveal</label>
-              <select id="cheatMinesNextTile" class="cashier-input" style="background:#0d0f12; color:#fff;">
-                <option value="">-- No Tile Override --</option>
-                <option value="mine">Force Mine (Boom / User Loss)</option>
-                <option value="gem">Force Gem (Safe / User Payout)</option>
-              </select>
-            </div>
-
-            <div class="cashier-input-group" style="margin-bottom:16px;">
-              <label for="cheatMinesRigType">Platform Auto-Rig Mode</label>
-              <select id="cheatMinesRigType" class="cashier-input" style="background:#0d0f12; color:#fff;">
-                <option value="">-- No Auto-Rig --</option>
-                <option value="platform_profit">Platform Profit (Force user loss)</option>
-                <option value="user_win">User Win (Force user payout)</option>
-              </select>
-            </div>
-
-            <button class="btn btn-gold btn-block" onclick="applyMinesCheat()"
-              style="color:#000; font-weight:700;">Apply Mines Overrides</button>
-          </div>
         </div>
 
         <!-- Column 2: Vimaan & Teen Patti Side-by-Side Grid -->
@@ -752,76 +716,6 @@
           </div>
         </div>
 
-          <!-- Mines (Mining) Professional Fix & Matrix Rig Console -->
-          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:16px;">
-            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">💣
-              Mines (Mining) Professional Matrix Rig Console</h4>
-
-            <div style="background:#0d0f12; padding:10px; border-radius:6px; margin-bottom:12px;">
-              <div
-                style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; font-weight:700;">
-                Live Active Mines Session Wagers</div>
-              <div id="cheatMinesActiveBets"
-                style="font-size:13px; font-family:var(--font-mono); color:#fff; max-height:80px; overflow-y:auto;">
-                Loading active games...</div>
-            </div>
-
-            <!-- Active Rig Status Banner -->
-            <div id="adminMinesActiveOverrideBanner"
-              style="background:#0d0f12; border:1px dashed var(--border); border-radius:6px; padding:10px 12px; margin-bottom:14px;">
-              <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div style="font-size:11.5px; color:var(--text-dim);">
-                  🎲 <b>Mines Rig Status:</b> UNRIGGED (Fair Random Placement)
-                </div>
-                <span style="font-size:10.5px; color:var(--text-dim);">Configure 5x5 Grid below to fix tiles</span>
-              </div>
-            </div>
-
-            <!-- Interactive 5x5 Rig Matrix Selector -->
-            <label
-              style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; font-weight:bold; display:block; margin-bottom:6px;">
-              Interactive 5x5 Rig Matrix (Click tile to set: 💎 SAFE | 💣 MINE | ⚪ AUTO)
-            </label>
-
-            <div id="adminMinesGridMatrix"
-              style="display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; margin-bottom:14px; background:#0d0f12; padding:10px; border-radius:8px; border:1px solid #242f3d;">
-              <!-- 25 interactive matrix buttons populated by JS -->
-            </div>
-
-            <!-- Rig Presets & Actions -->
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px;">
-              <button onclick="presetMinesRig('trap_next')" class="btn"
-                style="background:rgba(239, 68, 68, 0.18); border:1px solid #ef4444; color:#ef4444; font-weight:800; font-size:11.5px; padding:8px;">
-                💥 Trap Next Click
-              </button>
-              <button onclick="presetMinesRig('safe_next')" class="btn"
-                style="background:rgba(16, 185, 129, 0.18); border:1px solid #10b981; color:#10b981; font-weight:800; font-size:11.5px; padding:8px;">
-                💎 Safe Next Click
-              </button>
-              <button onclick="presetMinesRig('center_safe')" class="btn"
-                style="background:rgba(245, 158, 11, 0.18); border:1px solid #f59e0b; color:#f59e0b; font-weight:800; font-size:11.5px; padding:8px;">
-                🏰 Center Safe
-              </button>
-              <button onclick="clearMinesMatrix()" class="btn"
-                style="background:#242f3d; color:#fff; font-weight:bold; font-size:11.5px; padding:8px;">
-                🧹 Reset Matrix
-              </button>
-            </div>
-
-            <div class="cashier-input-group" style="margin-bottom:14px;">
-              <label for="cheatMinesRigType">Platform Auto-Rig Rule</label>
-              <select id="cheatMinesRigType" class="cashier-input" style="background:#0d0f12; color:#fff;"
-                onchange="applyMinesCheat()">
-                <option value="">-- No Auto-Rig Rule --</option>
-                <option value="platform_profit">Platform Profit (Force immediate mine explosion)</option>
-                <option value="user_win">User Win (Force safe gems up to 5x)</option>
-              </select>
-            </div>
-
-            <button class="btn btn-gold btn-block" onclick="applyMinesCheat()" style="color:#000; font-weight:700;">Save
-              & Apply Mines Rig Configuration</button>
-          </div>
-
           <!-- Boundary Baazi Bias Card -->
           <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:0;">
             <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">🏏
@@ -929,8 +823,79 @@
             <button class="btn btn-gold btn-block" onclick="applyYourElevenCheat()"
               style="color:#000; font-weight:700;">Apply Fantasy Overrides</button>
           </div>
-        </div> <!-- End of Column 2 flex div -->
       </div> <!-- End of grid-2 -->
+
+      <!-- Mines Game Rigging & Matrix Console (Side-by-Side Grid) -->
+      <div style="margin-top:16px; border-top:1px solid #242f3d; padding-top:16px;">
+        <h4 style="margin:0 0 12px; color:var(--gold); text-transform:uppercase; letter-spacing:0.5px; font-size:13.5px; display:flex; align-items:center; gap:6px;">
+          <span>💣 Mines Game Rigging & Matrix Control Consoles</span>
+        </h4>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:12px; align-items:start;">
+          
+          <!-- Card 1: Normal Mines Fix Console -->
+          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:0; width:100%;">
+            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">💣 Mines Fix Console</h4>
+            <div style="background:#0d0f12; padding:10px; border-radius:6px; margin-bottom:16px;">
+              <div style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; font-weight:700;">Live Active Mines Games</div>
+              <div id="cheatMinesActiveBets" style="font-size:13px; font-family:var(--font-mono); color:#fff; max-height:100px; overflow-y:auto;">Loading active games...</div>
+            </div>
+            <div class="cashier-input-group" style="margin-bottom:12px;">
+              <label for="cheatMinesNextTile" style="font-size:11.5px;">Force Next Tile Reveal</label>
+              <select id="cheatMinesNextTile" class="cashier-input" style="background:#0d0f12; color:#fff;">
+                <option value="">-- No Tile Override --</option>
+                <option value="mine">Force Mine (Boom / User Loss)</option>
+                <option value="gem">Force Gem (Safe / User Payout)</option>
+              </select>
+            </div>
+            <div class="cashier-input-group" style="margin-bottom:16px;">
+              <label for="cheatMinesRigType" style="font-size:11.5px;">Platform Auto-Rig Mode</label>
+              <select id="cheatMinesRigType" class="cashier-input" style="background:#0d0f12; color:#fff;" onchange="syncMinesRigSelects(this)">
+                <option value="">-- No Auto-Rig --</option>
+                <option value="platform_profit">Platform Profit (Force user loss)</option>
+                <option value="user_win">User Win (Force user payout)</option>
+              </select>
+            </div>
+            <button class="btn btn-gold btn-block" onclick="applyMinesCheat()" style="color:#000; font-weight:700;">Apply Mines Overrides</button>
+          </div>
+
+          <!-- Card 2: Mines Professional Matrix Rig Console -->
+          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:0; width:100%;">
+            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">💣 Mines Professional Matrix Rig Console</h4>
+            <div style="background:#0d0f12; padding:10px; border-radius:6px; margin-bottom:12px;">
+              <div style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; font-weight:700;">Live Active Mines Session Wagers</div>
+              <div id="cheatMinesActiveBets2" style="font-size:13px; font-family:var(--font-mono); color:#fff; max-height:80px; overflow-y:auto;">Loading active games...</div>
+            </div>
+            <div id="adminMinesActiveOverrideBanner" style="background:#0d0f12; border:1px dashed var(--border); border-radius:6px; padding:10px 12px; margin-bottom:14px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="font-size:11.5px; color:var(--text-dim);">
+                  🎲 <b>Mines Rig Status:</b> UNRIGGED (Fair Random Placement)
+                </div>
+                <span style="font-size:10.5px; color:var(--text-dim);">Configure 5x5 Grid below to fix tiles</span>
+              </div>
+            </div>
+            <label style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; font-weight:bold; display:block; margin-bottom:6px;">Interactive 5x5 Rig Matrix (Click tile: 💎 SAFE | 💣 MINE | ⚪ AUTO)</label>
+            <div id="adminMinesGridMatrix" style="display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; margin-bottom:14px; background:#0d0f12; padding:10px; border-radius:8px; border:1px solid #242f3d;">
+              <!-- 25 interactive matrix buttons populated by JS -->
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px;">
+              <button onclick="presetMinesRig('trap_next')" class="btn" style="background:rgba(239, 68, 68, 0.18); border:1px solid #ef4444; color:#ef4444; font-weight:800; font-size:11.5px; padding:8px;">💥 Trap Next Click</button>
+              <button onclick="presetMinesRig('safe_next')" class="btn" style="background:rgba(16, 185, 129, 0.18); border:1px solid #10b981; color:#10b981; font-weight:800; font-size:11.5px; padding:8px;">💎 Safe Next Click</button>
+              <button onclick="presetMinesRig('center_safe')" class="btn" style="background:rgba(245, 158, 11, 0.18); border:1px solid #f59e0b; color:#f59e0b; font-weight:800; font-size:11.5px; padding:8px;">🏰 Center Safe</button>
+              <button onclick="clearMinesMatrix()" class="btn" style="background:#242f3d; color:#fff; font-weight:bold; font-size:11.5px; padding:8px;">🧹 Reset Matrix</button>
+            </div>
+            <div class="cashier-input-group" style="margin-bottom:14px;">
+              <label for="cheatMinesRigTypeMatrix" style="font-size:11.5px;">Platform Auto-Rig Rule</label>
+              <select id="cheatMinesRigTypeMatrix" class="cashier-input" style="background:#0d0f12; color:#fff;" onchange="syncMinesRigSelects(this)">
+                <option value="">-- No Auto-Rig Rule --</option>
+                <option value="platform_profit">Platform Profit (Force immediate mine explosion)</option>
+                <option value="user_win">User Win (Force safe gems up to 5x)</option>
+              </select>
+            </div>
+            <button class="btn btn-gold btn-block" onclick="applyMinesCheat()" style="color:#000; font-weight:700;">Save & Apply Mines Rig Configuration</button>
+          </div>
+          
+        </div>
+      </div>
     </div> <!-- End of admin-cheats -->
   </div> <!-- End of admin-card -->
 
@@ -2353,8 +2318,10 @@
       localStorage.removeItem('cheat_mines_matrix');
       localStorage.removeItem('cheat_mines_next_tile');
       localStorage.removeItem('cheat_mines_rig_type');
-      const selectRig = document.getElementById('cheatMinesRigType');
-      if (selectRig) selectRig.value = '';
+      const select1 = document.getElementById('cheatMinesRigType');
+      const select2 = document.getElementById('cheatMinesRigTypeMatrix');
+      if (select1) select1.value = '';
+      if (select2) select2.value = '';
       renderMinesMatrixGrid();
       updateMinesRigUI();
       showToast('Cleared all Mines matrix rigs & overrides.', 'info');
@@ -2363,13 +2330,26 @@
     window.applyMinesCheat = function () {
       localStorage.setItem('cheat_mines_matrix', JSON.stringify(minesMatrixState));
 
-      const rigTypeSelect = document.getElementById('cheatMinesRigType');
-      if (rigTypeSelect) {
-        if (rigTypeSelect.value) localStorage.setItem('cheat_mines_rig_type', rigTypeSelect.value);
-        else localStorage.removeItem('cheat_mines_rig_type');
-      }
+      const rigTypeSelect1 = document.getElementById('cheatMinesRigType');
+      const rigTypeSelect2 = document.getElementById('cheatMinesRigTypeMatrix');
+      const val = (rigTypeSelect1 ? rigTypeSelect1.value : '') || (rigTypeSelect2 ? rigTypeSelect2.value : '');
+
+      if (val) localStorage.setItem('cheat_mines_rig_type', val);
+      else localStorage.removeItem('cheat_mines_rig_type');
+
+      if (rigTypeSelect1 && rigTypeSelect1.value !== val) rigTypeSelect1.value = val;
+      if (rigTypeSelect2 && rigTypeSelect2.value !== val) rigTypeSelect2.value = val;
 
       updateMinesRigUI();
+    };
+
+    window.syncMinesRigSelects = function(caller) {
+      const val = caller.value;
+      const select1 = document.getElementById('cheatMinesRigType');
+      const select2 = document.getElementById('cheatMinesRigTypeMatrix');
+      if (select1 && select1 !== caller) select1.value = val;
+      if (select2 && select2 !== caller) select2.value = val;
+      applyMinesCheat();
     };
 
     window.updateMinesRigUI = function () {
@@ -2568,6 +2548,10 @@
       const el = document.getElementById('cheatMinesActiveBets');
       if (el) {
         el.innerHTML = 'Vikram P.: ₹200 (3 Mines - 2 Gems Revealed)<br>Neha R.: ₹500 (5 Mines - 4 Gems Revealed)<br>Rohit M.: ₹100 (1 Mine - Active)';
+      }
+      const el2 = document.getElementById('cheatMinesActiveBets2');
+      if (el2) {
+        el2.innerHTML = 'Vikram P.: ₹200 (3 Mines - 2 Gems Revealed)<br>Neha R.: ₹500 (5 Mines - 4 Gems Revealed)<br>Rohit M.: ₹100 (1 Mine - Active)';
       }
       if (typeof initMinesMatrix === 'function' && document.getElementById('adminMinesGridMatrix') && !document.getElementById('adminMinesGridMatrix').children.length) {
         initMinesMatrix();
