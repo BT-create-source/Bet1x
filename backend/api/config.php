@@ -13,7 +13,7 @@ define('RAZORPAY_KEY_SECRET', 'kY8H3lK9h2jS9lZ8Xm2B9zN3');
 define('RAZORPAY_WEBHOOK_SECRET', 'bet1x_secure_webhook_secret_2026');
 
 // Starting balance for new signups
-define('STARTING_BALANCE', 1000.00);
+define('STARTING_BALANCE', 2000.00);
 
 // Admin Credentials
 define('ADMIN_USER', 'admin');

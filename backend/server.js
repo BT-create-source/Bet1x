@@ -24,10 +24,10 @@ async function getOrCreateUser(username) {
           username: username,
           email: `${username.toLowerCase()}@demo.com`,
           password: bcrypt.hashSync('password', 10),
-          wallet_balance: 1000.00
+          wallet_balance: 2000.00
         }
       });
-      console.log(`[bet1x-backend] Auto-created user record for "${username}" with starting balance of ₹1000.00`);
+      console.log(`[bet1x-backend] Auto-created user record for "${username}" with starting balance of ₹2000.00`);
     } catch (e) {
       console.error(`Error auto-creating user ${username}:`, e);
     }
