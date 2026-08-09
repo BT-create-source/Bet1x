@@ -285,9 +285,28 @@ let phase = 'waiting'; // waiting | running | crashed
 let phaseStart = Date.now();
 let currentMultiplier = 1.00;
 let crashPoint = 1.85;
-let roundId = Math.floor(100000 + Math.random() * 900000);
+let roundId = (typeof getOfflineAviatorRoundId === 'function') ? getOfflineAviatorRoundId() : 99246958;
 let serverSeed = '';
 let seedHash = '';
+
+// Sync initial state with localStorage if active shared round exists
+(function initAviatorSyncState() {
+  try {
+    const liveRaw = localStorage.getItem('bet1x_live_aviator_state');
+    if (liveRaw) {
+      const parsed = JSON.parse(liveRaw);
+      const now = Date.now();
+      if (now - (parsed.timestamp || 0) < 6000 && parsed.phase_start) {
+        phase = parsed.phase || 'waiting';
+        phaseStart = parsed.phase_start;
+        roundId = parsed.round_id || roundId;
+        crashPoint = parsed.crash_point || crashPoint;
+        currentMultiplier = parsed.current_multiplier || 1.00;
+      }
+    }
+  } catch(e){}
+})();
+
 
 // Bets State
 const bets = {
@@ -753,169 +772,46 @@ document.querySelectorAll('.bet-console').forEach((c, idx) => {
 
 const growthRate = 0.06;
 const waitingWindow = 5000; // 5 seconds countdown
-const crashPause = 3000;    // 3 seconds crashed display pause
+const crashPause = 4000;    // 4 seconds crashed display pause
 
 function syncAviator() {
-  if (window.isOfflineMode) {
-    return;
-  }
-
-  // If the admin force-crashed this round, skip all syncing until next round
-  if (localStorage.getItem('cheat_aviator_force_crashed') === 'true') {
-    // Only listen for 'waiting' phase to know next round started
+  if (typeof getWallet === 'function' && !window.isOfflineMode) {
     fetch('api/game_sync.php?action=aviator_get_state')
     .then(res => res.json())
     .then(data => {
-      if (data.error) return;
-      if (data.phase === 'waiting') {
-        localStorage.removeItem('cheat_aviator_force_crashed');
-        phase = 'waiting';
-        phaseStart = Date.now() - (data.time_elapsed * 1000);
-        crashPoint = data.crash_point;
-        roundId = data.round_id;
-        generateNewSeed();
-        generateMockBets();
-        // Reset console buttons for next lobby
-        for (let i = 1; i <= 2; i++) {
-          const b = bets[i];
-          if (b.status !== 'wagered') {
-            b.status = 'none';
-            const actionBtn = document.getElementById(`actionBtn${i}`);
-            actionBtn.disabled = false;
-            actionBtn.className = 'big-bet-btn bet';
-            const input = document.getElementById(`betAmount${i}`);
-            actionBtn.querySelector('.sub-label').textContent = '₹' + parseFloat(input.value).toFixed(2);
-          }
-        }
+      if (!data || data.error) return;
+      if (data.wallet_balance !== undefined && typeof setWallet === 'function') {
+        setWallet(data.wallet_balance);
       }
-      // Update balance
-      if (data.wallet_balance !== undefined) setWallet(data.wallet_balance);
-      if (data.history) {
-        historyLog = data.history;
-        renderHistory();
+      if (data.phase && data.time_elapsed !== undefined) {
+        const now = Date.now();
+        const serverPhaseStart = now - (data.time_elapsed * 1000);
+        if (phase !== data.phase || roundId !== data.round_id || Math.abs(phaseStart - serverPhaseStart) > 500) {
+          phase = data.phase;
+          phaseStart = serverPhaseStart;
+          roundId = data.round_id || roundId;
+          crashPoint = data.crash_point || crashPoint;
+          if (data.current_multiplier) currentMultiplier = data.current_multiplier;
+        }
       }
     })
-    .catch(() => {
-      window.isOfflineMode = true;
-    });
-    return;
+    .catch(() => {});
   }
-
-  fetch('api/game_sync.php?action=aviator_get_state')
-  .then(res => res.json())
-  .then(data => {
-    if (data.error) return;
-    
-    // Sync phase and clocks
-    if (phase !== data.phase) {
-      phase = data.phase;
-      phaseStart = Date.now() - (data.time_elapsed * 1000);
-      crashPoint = data.crash_point;
-      roundId = data.round_id;
-      
-      if (phase === 'running') {
-        resetConsolesForNewRound();
-        disableBetPlacementsDuringFlight();
-      } else if (phase === 'crashed') {
-        playSound('crash');
-        handleRoundLosses();
-        revealRemainingMockBets();
-      } else if (phase === 'waiting') {
-        localStorage.removeItem('cheat_aviator_force_crashed');
-        // Reset console buttons for next lobby
-        for (let i = 1; i <= 2; i++) {
-          const b = bets[i];
-          if (b.status !== 'wagered') {
-            b.status = 'none';
-            const actionBtn = document.getElementById(`actionBtn${i}`);
-            actionBtn.disabled = false;
-            actionBtn.className = 'big-bet-btn bet';
-            const input = document.getElementById(`betAmount${i}`);
-            actionBtn.querySelector('.sub-label').textContent = '₹' + parseFloat(input.value).toFixed(2);
-          }
-        }
-      }
-    }
-    
-    // Update balance
-    setWallet(data.wallet_balance);
-    
-    // Sync wagers
-    if (data.my_wagers) {
-      data.my_wagers.forEach((mw) => {
-        const consoleId = parseInt(mw.console_id) || 1;
-        if (consoleId <= 2) {
-          const b = bets[consoleId];
-          if (mw.status === 'won') {
-            b.status = 'none';
-            const actionBtn = document.getElementById(`actionBtn${consoleId}`);
-            actionBtn.disabled = true;
-            actionBtn.className = 'big-bet-btn bet';
-            actionBtn.innerHTML = `
-              <span class="label">Cashed Out</span>
-              <span class="sub-label" style="color:var(--green)">+₹${(b.wagered * mw.cashed_multiplier).toFixed(2)}</span>
-            `;
-          } else if (mw.status === 'lost') {
-            b.status = 'none';
-            const actionBtn = document.getElementById(`actionBtn${consoleId}`);
-            actionBtn.className = 'big-bet-btn bet';
-            actionBtn.disabled = true;
-            actionBtn.innerHTML = `
-              <span class="label">Busted</span>
-              <span class="sub-label" style="color:var(--red)">Lost ₹${b.wagered.toFixed(2)}</span>
-            `;
-          } else if (mw.status === 'pending' && phase === 'running' && b.status !== 'active') {
-            b.status = 'active';
-            b.wagered = mw.amount;
-            const actionBtn = document.getElementById(`actionBtn${consoleId}`);
-            actionBtn.className = 'big-bet-btn cashout';
-            actionBtn.disabled = false;
-            actionBtn.innerHTML = `
-              <span class="label">Cash Out</span>
-              <span class="sub-label" id="cashoutVal${consoleId}">₹${(b.wagered * 1.0).toFixed(2)}</span>
-            `;
-          }
-        }
-      });
-    }
-
-    // History sync
-    if (data.history) {
-      historyLog = data.history;
-      renderHistory();
-    }
-  })
-  .catch(err => {
-    console.error("Aviator sync error:", err);
-    window.isOfflineMode = true;
-  });
 }
-
-// Start API polling every 500ms
-setInterval(syncAviator, 500);
+setInterval(syncAviator, 1000);
 
 function gameTick() {
-  const now = Date.now();
-  const elapsed = now - phaseStart;
+  try {
+    const now = Date.now();
+    const elapsed = now - phaseStart;
 
-  // Check for admin force-crash BEFORE any phase logic
-  if (phase === 'running') {
-    const instantCrashSignal = localStorage.getItem('cheat_aviator_instant_crash');
-    if (instantCrashSignal === 'true') {
-      localStorage.removeItem('cheat_aviator_instant_crash');
-      localStorage.setItem('cheat_aviator_force_crashed', 'true');
-      crashPoint = currentMultiplier > 1 ? currentMultiplier : 1.00;
-      phase = 'crashed';
-      phaseStart = Date.now();
-      stopEngineSound();
-      playSound('crash');
-      handleRoundLosses();
-      revealRemainingMockBets();
-      addHistoryPill(crashPoint);
-    } else if (localStorage.getItem('cheat_aviator_force_crashed') === 'true') {
-      if (phase !== 'crashed') {
-        const savedMult = parseFloat(localStorage.getItem('cheat_aviator_force_crash_mult') || currentMultiplier || 1.00);
-        crashPoint = Math.max(1.00, savedMult);
+    // Check for admin force-crash ONLY during active flight
+    if (phase === 'running') {
+      const instantCrashSignal = localStorage.getItem('cheat_aviator_instant_crash');
+      if (instantCrashSignal === 'true') {
+        localStorage.removeItem('cheat_aviator_instant_crash');
+        localStorage.removeItem('cheat_aviator_force_crashed');
+        crashPoint = currentMultiplier > 1.00 ? parseFloat(currentMultiplier.toFixed(2)) : 1.00;
         phase = 'crashed';
         phaseStart = Date.now();
         stopEngineSound();
@@ -925,91 +821,108 @@ function gameTick() {
         addHistoryPill(crashPoint);
       }
     }
-  }
 
-  // Now render based on current phase (which may have just been changed above)
-  if (phase === 'waiting') {
-    const remaining = Math.max(0, (waitingWindow - elapsed) / 1000);
-    overlay.className = 'aviator-overlay waiting';
-    overlayDisplay.textContent = '✈️ TAKING OFF SOON';
-    overlaySubDisplay.textContent = `Next round in ${remaining.toFixed(1)}s`;
-    
-    // Draw canvas in waiting stage: show countdown loading ring
-    drawWaitingCanvas(elapsed / waitingWindow);
-
-    if (elapsed >= waitingWindow && window.isOfflineMode) {
-      phase = 'running';
-      phaseStart = Date.now();
-      // check local storage admin bias first!
-      const cheatCrash = localStorage.getItem('cheat_aviator_crash');
-      if (cheatCrash !== null && cheatCrash !== 'none' && cheatCrash !== '') {
-        crashPoint = parseFloat(cheatCrash);
-        localStorage.removeItem('cheat_aviator_crash');
-      } else {
-        const e = 2 ** 52;
-        const intVal = Math.floor(Math.random() * e);
-        if (intVal % 33 === 0) {
-          crashPoint = 1.00;
-        } else {
-          const crash = Math.floor((100 * e - intVal) / (e - intVal)) / 100;
-          crashPoint = Math.max(1.00, crash);
-        }
-      }
-      resetConsolesForNewRound();
-      disableBetPlacementsDuringFlight();
-    }
-  } else if (phase === 'running') {
-    const flightTime = (now - phaseStart) / 1000;
-    const computedMult = Math.exp(growthRate * flightTime);
-
-    if (window.isOfflineMode && computedMult >= crashPoint) {
-      currentMultiplier = crashPoint;
-      phase = 'crashed';
-      phaseStart = Date.now();
-      stopEngineSound();
-      playSound('crash');
-      handleRoundLosses();
-      revealRemainingMockBets();
-      addHistoryPill(crashPoint);
-    } else {
-      currentMultiplier = Math.min(crashPoint, computedMult);
+    // Now render based on current phase
+    if (phase === 'waiting') {
+      const remaining = Math.max(0, (waitingWindow - elapsed) / 1000);
+      overlay.className = 'aviator-overlay waiting';
+      overlayDisplay.textContent = 'TAKING OFF SOON';
+      overlaySubDisplay.textContent = `Next round in ${remaining.toFixed(1)}s`;
       
-      overlay.className = 'aviator-overlay running';
-      overlayDisplay.textContent = currentMultiplier.toFixed(2) + 'x';
-      overlaySubDisplay.textContent = '';
-    
-    // Draw dynamic curve
-    drawFlightCanvas(currentMultiplier);
-    
-    // Handle Auto cashouts + value updates
-    updateConsoleCashoutValues(currentMultiplier);
-    handleAutoCashouts(currentMultiplier);
-    updateMockBets(currentMultiplier);
-    
-    // Engine sound pitch
-    startEngineSound(currentMultiplier);
-    }
-  } else if (phase === 'crashed') {
-    overlay.className = 'aviator-overlay crashed';
-    overlayDisplay.textContent = 'FLEW AWAY';
-    overlaySubDisplay.textContent = `@ ${crashPoint.toFixed(2)}x`;
-    
-    // Draw crash state
-    drawCrashedCanvas();
-    stopEngineSound();
+      // Draw canvas in waiting stage
+      drawWaitingCanvas(elapsed / waitingWindow);
 
-    // Auto-transition to next round lobby after 3 seconds pause (only in offline mode)
-    if (elapsed >= crashPause && window.isOfflineMode) {
-      localStorage.removeItem('cheat_aviator_force_crashed');
-      phase = 'waiting';
-      phaseStart = Date.now();
-      generateNewSeed();
-      generateMockBets();
-      resetConsolesForNewRound();
+      if (elapsed >= waitingWindow) {
+        phase = 'running';
+        phaseStart = Date.now();
+        // check local storage admin bias first!
+        const cheatCrash = localStorage.getItem('cheat_aviator_crash');
+        if (cheatCrash !== null && cheatCrash !== 'none' && cheatCrash !== '') {
+          crashPoint = parseFloat(cheatCrash);
+          localStorage.removeItem('cheat_aviator_crash');
+        } else {
+          const p = (Math.floor(Math.random() * 99) + 1) / 100.0;
+          if (Math.floor(Math.random() * 33) === 0) {
+            crashPoint = 1.00;
+          } else {
+            const crash = 0.99 / (1.0 - p);
+            crashPoint = Math.max(1.00, Math.min(50.0, Math.floor(crash * 100) / 100));
+          }
+        }
+        resetConsolesForNewRound();
+        disableBetPlacementsDuringFlight();
+      }
+    } else if (phase === 'running') {
+      const flightTime = (now - phaseStart) / 1000;
+      const computedMult = Math.exp(growthRate * flightTime);
+
+      if (computedMult >= crashPoint) {
+        currentMultiplier = crashPoint;
+        phase = 'crashed';
+        phaseStart = Date.now();
+        stopEngineSound();
+        playSound('crash');
+        handleRoundLosses();
+        revealRemainingMockBets();
+        addHistoryPill(crashPoint);
+      } else {
+        currentMultiplier = Math.min(crashPoint, computedMult);
+        
+        overlay.className = 'aviator-overlay running';
+        overlayDisplay.textContent = currentMultiplier.toFixed(2) + 'x';
+        overlaySubDisplay.textContent = '';
+      
+        // Draw dynamic curve
+        drawFlightCanvas(currentMultiplier);
+        
+        // Handle Auto cashouts + value updates
+        updateConsoleCashoutValues(currentMultiplier);
+        handleAutoCashouts(currentMultiplier);
+        updateMockBets(currentMultiplier);
+        
+        // Engine sound pitch
+        startEngineSound(currentMultiplier);
+      }
+    } else if (phase === 'crashed') {
+      overlay.className = 'aviator-overlay crashed';
+      overlayDisplay.textContent = 'FLEW AWAY';
+      overlaySubDisplay.textContent = `FLIGHT CRASHED @ ${crashPoint.toFixed(2)}x`;
+      
+      // Draw crash state
+      drawCrashedCanvas();
+      stopEngineSound();
+
+      // Auto-transition to next round lobby after 4 seconds pause
+      if (elapsed >= crashPause) {
+        localStorage.removeItem('cheat_aviator_force_crashed');
+        localStorage.removeItem('cheat_aviator_instant_crash');
+        localStorage.removeItem('cheat_aviator_force_crash_mult');
+        phase = 'waiting';
+        phaseStart = Date.now();
+        roundId = (typeof incrementOfflineAviatorRoundId === 'function') ? incrementOfflineAviatorRoundId() : (roundId + 1);
+        if (typeof saveAviatorCurrentBets === 'function') saveAviatorCurrentBets([]);
+        generateNewSeed();
+        generateMockBets();
+        resetConsolesForNewRound();
+      }
     }
+
+    localStorage.setItem('bet1x_live_aviator_state', JSON.stringify({
+      round_id: roundId,
+      phase: phase,
+      phase_start: phaseStart,
+      duration: 5.0,
+      time_left: phase === 'waiting' ? Math.max(0, (waitingWindow - elapsed) / 1000) : 0,
+      current_multiplier: currentMultiplier,
+      crash_point: crashPoint,
+      bets: (typeof getAviatorCurrentBets === 'function') ? getAviatorCurrentBets() : [],
+      timestamp: now
+    }));
+  } catch (err) {
+    console.error("Aviator gameTick error:", err);
+  } finally {
+    requestAnimationFrame(gameTick);
   }
-  
-  requestAnimationFrame(gameTick);
 }
 
 // Canvas rendering helper functions
@@ -1027,12 +940,21 @@ function drawWaitingCanvas(progress) {
   
   ctx.fillStyle = 'rgba(255,255,255,0.06)';
   ctx.beginPath();
-  ctx.roundRect(barX, barY, barW, barH, 6);
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(barX, barY, barW, barH, 6);
+  } else {
+    ctx.rect(barX, barY, barW, barH);
+  }
   ctx.fill();
   
-  ctx.fillStyle = 'var(--gold)';
+  ctx.fillStyle = '#f1c40f';
   ctx.beginPath();
-  ctx.roundRect(barX, barY, barW * progress, barH, 6);
+  const fillW = Math.max(0, Math.min(barW, barW * progress));
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(barX, barY, fillW, barH, 6);
+  } else {
+    ctx.rect(barX, barY, fillW, barH);
+  }
   ctx.fill();
   
   // Reset particles

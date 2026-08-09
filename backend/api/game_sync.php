@@ -105,9 +105,10 @@ function progress_aviator_state(array &$state, float $now): bool {
             $state_changed = true;
         }
     } elseif ($state['phase'] === 'crashed') {
-        if ($elapsed >= 3.0) {
+        if ($elapsed >= 4.0) {
             $state['phase'] = 'waiting';
             $state['phase_start'] = $now;
+            $state['duration'] = 5.0;
             $state['round_id']++;
             $state['bets'] = [];
             $state_changed = true;
@@ -449,7 +450,7 @@ switch ($action) {
             'round_id' => 10001,
             'phase' => 'waiting',
             'phase_start' => microtime(true),
-            'duration' => 8.0,
+            'duration' => 5.0,
             'crash_point' => 1.85,
             'bets' => [],
             'history' => [1.25, 4.80, 1.05, 2.10, 1.62]
@@ -674,7 +675,8 @@ switch ($action) {
         break;
     }
 
-    case 'admin_get_games': {
+    case 'admin_get_games':
+    case 'admin_get_live_state': {
         if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
             echo json_encode(['error' => 'Unauthorized admin access.']);
             exit;
@@ -735,7 +737,7 @@ switch ($action) {
             'round_id' => 10001,
             'phase' => 'waiting',
             'phase_start' => microtime(true),
-            'duration' => 8.0,
+            'duration' => 5.0,
             'crash_point' => 1.85,
             'bets' => []
         ]);

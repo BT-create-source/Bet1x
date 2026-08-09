@@ -2022,6 +2022,20 @@
       localStorage.setItem('cheat_aviator_force_crash_mult', finalCrashMult.toFixed(2));
       localStorage.setItem('cheat_aviator_crash_time', now.toString());
 
+      // Update live aviator state object in localStorage
+      const liveAvRaw = localStorage.getItem('bet1x_live_aviator_state');
+      if (liveAvRaw) {
+        try {
+          const state = JSON.parse(liveAvRaw);
+          state.phase = 'crashed';
+          state.phase_start = now;
+          state.crash_point = finalCrashMult;
+          state.current_multiplier = finalCrashMult;
+          state.timestamp = now;
+          localStorage.setItem('bet1x_live_aviator_state', JSON.stringify(state));
+        } catch(e){}
+      }
+
       // Lock local admin phase immediately
       window.adminOfflineAviatorPhase = 'crashed';
       window.adminOfflineAviatorStart = now;
@@ -2029,6 +2043,8 @@
 
       window.adminAviatorServerPhase = 'crashed';
       window.adminAviatorServerMult = finalCrashMult;
+      window.adminAviatorServerCrashPoint = finalCrashMult;
+      window.adminAviatorServerPhaseStart = now;
       window.adminAviatorServerReceivedAt = now;
 
       // Sync with server
@@ -2564,10 +2580,22 @@
     window.pollLiveAdminGames = function () {
       if (window.isOfflineMode) {
         const now = Date.now();
-        if (!window.adminOfflineAviatorStart) {
+        const liveAvRaw = localStorage.getItem('bet1x_live_aviator_state');
+        let liveAv = null;
+        if (liveAvRaw) {
+          try { liveAv = JSON.parse(liveAvRaw); } catch(e){}
+        }
+
+        if (liveAv && liveAv.phase_start) {
+          window.adminOfflineAviatorStart = liveAv.phase_start;
+          window.adminOfflineAviatorPhase = liveAv.phase;
+          window.adminOfflineAviatorRoundId = liveAv.round_id;
+          window.adminOfflineAviatorCrashPoint = liveAv.crash_point;
+        } else if (!window.adminOfflineAviatorStart) {
           window.adminOfflineAviatorStart = now;
           window.adminOfflineAviatorPhase = 'waiting';
-          window.adminOfflineAviatorRoundId = 10001;
+          window.adminOfflineAviatorRoundId = (typeof getOfflineAviatorRoundId === 'function') ? getOfflineAviatorRoundId() : 99246958;
+          window.adminOfflineAviatorCrashPoint = parseFloat(localStorage.getItem('cheat_aviator_crash') || '1.85');
         }
 
         const offlineElapsed = (now - window.adminOfflineAviatorStart) / 1000;
@@ -2576,46 +2604,59 @@
           if (offlineElapsed >= 5.0) { // 5 sec countdown
             window.adminOfflineAviatorPhase = 'running';
             window.adminOfflineAviatorStart = now;
-          } else {
-            window.adminAviatorServerPhase = 'waiting';
-            window.adminAviatorServerTimeLeft = Math.max(0, 5.0 - offlineElapsed);
-            window.adminAviatorServerDuration = 5.0;
-            window.adminAviatorServerRoundId = window.adminOfflineAviatorRoundId;
-            window.adminAviatorServerReceivedAt = now;
+            const cheatCrash = localStorage.getItem('cheat_aviator_crash');
+            if (cheatCrash && parseFloat(cheatCrash) >= 1.0) {
+              window.adminOfflineAviatorCrashPoint = parseFloat(cheatCrash);
+            }
           }
         } else if (window.adminOfflineAviatorPhase === 'running') {
-          const targetCrash = parseFloat(localStorage.getItem('cheat_aviator_crash') || '2.50');
+          const targetCrash = window.adminOfflineAviatorCrashPoint || 1.85;
           const mult = Math.exp(0.06 * offlineElapsed);
           if (localStorage.getItem('cheat_aviator_force_crashed') === 'true' || mult >= targetCrash) {
             const crashMult = localStorage.getItem('cheat_aviator_force_crash_mult') ? parseFloat(localStorage.getItem('cheat_aviator_force_crash_mult')) : Math.min(mult, targetCrash);
             window.adminOfflineAviatorPhase = 'crashed';
             window.adminOfflineAviatorStart = now;
             window.adminOfflineAviatorCrashPoint = crashMult;
-            window.adminAviatorServerPhase = 'crashed';
-            window.adminAviatorServerMult = crashMult;
-            window.adminAviatorServerReceivedAt = now;
-          } else {
-            window.adminAviatorServerPhase = 'running';
-            window.adminAviatorServerMult = mult;
-            window.adminAviatorServerRoundId = window.adminOfflineAviatorRoundId;
-            window.adminAviatorServerReceivedAt = now;
           }
         } else if (window.adminOfflineAviatorPhase === 'crashed') {
-          if (offlineElapsed >= 3.0) { // 3 sec pause
+          if (offlineElapsed >= 4.0) { // 4 sec pause matching aviator.html
             window.adminOfflineAviatorPhase = 'waiting';
             window.adminOfflineAviatorStart = now;
-            window.adminOfflineAviatorRoundId++;
+            window.adminOfflineAviatorRoundId = (typeof incrementOfflineAviatorRoundId === 'function') ? incrementOfflineAviatorRoundId() : (window.adminOfflineAviatorRoundId + 1);
             localStorage.removeItem('cheat_aviator_force_crashed');
             localStorage.removeItem('cheat_aviator_instant_crash');
             localStorage.removeItem('cheat_aviator_force_crash_mult');
             localStorage.removeItem('cheat_aviator_crash_time');
-          } else {
-            window.adminAviatorServerPhase = 'crashed';
-            window.adminAviatorServerMult = window.adminOfflineAviatorCrashPoint || 1.00;
-            window.adminAviatorServerRoundId = window.adminOfflineAviatorRoundId;
-            window.adminAviatorServerReceivedAt = now;
           }
         }
+
+        const currentElapsed = (now - window.adminOfflineAviatorStart) / 1000;
+        const currentMult = (window.adminOfflineAviatorPhase === 'running') ? Math.exp(0.06 * currentElapsed) : (window.adminOfflineAviatorPhase === 'crashed' ? window.adminOfflineAviatorCrashPoint : 1.00);
+
+        window.adminAviatorServerPhase = window.adminOfflineAviatorPhase;
+        window.adminAviatorServerRoundId = window.adminOfflineAviatorRoundId;
+        window.adminAviatorServerPhaseStart = window.adminOfflineAviatorStart;
+        window.adminAviatorServerMult = currentMult;
+        window.adminAviatorServerCrashPoint = window.adminOfflineAviatorCrashPoint;
+        window.adminAviatorServerTimeLeft = window.adminOfflineAviatorPhase === 'waiting' ? Math.max(0, 5.0 - currentElapsed) : 0;
+        window.adminAviatorServerDuration = 5.0;
+        window.adminAviatorServerReceivedAt = now;
+
+        // Persist unified offline state in localStorage if not updated recently by aviator.html
+        if (!liveAvRaw || (now - (liveAv?.timestamp || 0) > 2000)) {
+          localStorage.setItem('bet1x_live_aviator_state', JSON.stringify({
+            round_id: window.adminOfflineAviatorRoundId,
+            phase: window.adminOfflineAviatorPhase,
+            phase_start: window.adminOfflineAviatorStart,
+            duration: 5.0,
+            time_left: window.adminAviatorServerTimeLeft,
+            current_multiplier: currentMult,
+            crash_point: window.adminOfflineAviatorCrashPoint,
+            bets: (typeof getAviatorCurrentBets === 'function') ? getAviatorCurrentBets() : [],
+            timestamp: now
+          }));
+        }
+
         if (typeof updateAviatorBiasUI === 'function') updateAviatorBiasUI();
         tickAdminVisualProgress();
         return;
@@ -2625,30 +2666,46 @@
         .then(res => res.json())
         .then(data => {
           if (data.aviator) {
-            if (data.aviator.phase === 'waiting') {
-              localStorage.removeItem('cheat_aviator_force_crashed');
-              localStorage.removeItem('cheat_aviator_instant_crash');
-              localStorage.removeItem('cheat_aviator_force_crash_mult');
-              localStorage.removeItem('cheat_aviator_crash_time');
+            const liveAvRaw = localStorage.getItem('bet1x_live_aviator_state');
+            let hasLiveAv = false;
+            if (liveAvRaw) {
+              try {
+                const parsed = JSON.parse(liveAvRaw);
+                if (Date.now() - parsed.timestamp < 3500) {
+                  hasLiveAv = true;
+                }
+              } catch(e){}
             }
 
-            const isForceCrashed = localStorage.getItem('cheat_aviator_force_crashed') === 'true';
+            if (!hasLiveAv) {
+              if (data.aviator.phase === 'waiting') {
+                localStorage.removeItem('cheat_aviator_force_crashed');
+                localStorage.removeItem('cheat_aviator_instant_crash');
+                localStorage.removeItem('cheat_aviator_force_crash_mult');
+                localStorage.removeItem('cheat_aviator_crash_time');
+              }
 
-            if (isForceCrashed) {
-              window.adminAviatorServerPhase = 'crashed';
-              const savedMult = parseFloat(localStorage.getItem('cheat_aviator_force_crash_mult') || '1.00');
-              window.adminAviatorServerMult = savedMult;
-            } else {
-              window.adminAviatorServerPhase = data.aviator.phase;
-              window.adminAviatorServerMult = data.aviator.current_multiplier;
+              const isForceCrashed = localStorage.getItem('cheat_aviator_force_crashed') === 'true';
+
+              if (isForceCrashed) {
+                window.adminAviatorServerPhase = 'crashed';
+                const savedMult = parseFloat(localStorage.getItem('cheat_aviator_force_crash_mult') || '1.00');
+                window.adminAviatorServerMult = savedMult;
+              } else {
+                window.adminAviatorServerPhase = data.aviator.phase;
+                window.adminAviatorServerMult = data.aviator.current_multiplier;
+              }
+
+              window.adminAviatorServerTimeLeft = data.aviator.time_left;
+              window.adminAviatorServerRoundId = data.aviator.round_id || 99246958;
+              window.adminAviatorServerDuration = data.aviator.duration || 5.0;
+              window.adminAviatorServerReceivedAt = Date.now();
+              if (data.aviator.phase_start) {
+                window.adminAviatorServerPhaseStart = data.aviator.phase_start;
+              }
             }
 
-            window.adminAviatorServerTimeLeft = data.aviator.time_left;
-            window.adminAviatorServerRoundId = data.aviator.round_id || 10001;
-            window.adminAviatorServerDuration = data.aviator.duration || 8.0;
-            window.adminAviatorServerReceivedAt = Date.now();
-
-            if (data.aviator.bets && data.aviator.bets.length > 0) {
+            if (data.aviator.bets && data.aviator.bets.length > 0 && !hasLiveAv) {
               const betsList = data.aviator.bets.slice(0, 4).map(b => `${b.username || 'Player'}: ₹${parseFloat(b.amount || b.wagered || 50).toFixed(2)}`).join('<br>');
               const betsEl = document.getElementById('cheatAviatorActiveBets');
               if (betsEl) betsEl.innerHTML = betsList;
@@ -2721,75 +2778,76 @@
         }
       }
 
-      // 2. Aviator Progress (Uniform gliding & timer countdown matching Color Prediction)
-      const isForceCrashed = localStorage.getItem('cheat_aviator_force_crashed') === 'true';
-      if (isForceCrashed) {
-        window.adminAviatorServerPhase = 'crashed';
-        const savedMult = parseFloat(localStorage.getItem('cheat_aviator_force_crash_mult') || '1.00');
-        window.adminAviatorServerMult = savedMult;
+      // 2. Aviator Progress (Read live state first for 0ms sync)
+      const liveAvRaw = localStorage.getItem('bet1x_live_aviator_state');
+      let liveAv = null;
+      if (liveAvRaw) {
+        try {
+          const parsed = JSON.parse(liveAvRaw);
+          if (now - parsed.timestamp < 5000) {
+            liveAv = parsed;
+          }
+        } catch(e){}
       }
 
-      if (typeof window.adminAviatorServerPhase !== 'undefined' || isForceCrashed) {
-        const roundEl = document.getElementById('adminAviatorRoundId');
-        const labelEl = document.getElementById('adminAviatorTimerLabel');
-        const timeEl = document.getElementById('adminAviatorTimeVal');
-        const barEl = document.getElementById('adminAviatorProgressBar');
+      if (liveAv) {
+        window.adminAviatorServerPhase = liveAv.phase;
+        window.adminAviatorServerRoundId = liveAv.round_id;
+        window.adminAviatorServerMult = liveAv.current_multiplier;
+        window.adminAviatorServerCrashPoint = liveAv.crash_point;
+        window.adminAviatorServerPhaseStart = liveAv.phase_start;
+        window.adminAviatorServerTimeLeft = liveAv.time_left;
+        window.adminAviatorServerReceivedAt = now;
+      }
 
-        if (roundEl) roundEl.textContent = '#' + (window.adminAviatorServerRoundId || '10001');
+      const isForceCrashed = localStorage.getItem('cheat_aviator_force_crashed') === 'true';
+      const effectivePhase = isForceCrashed ? 'crashed' : (window.adminAviatorServerPhase || 'waiting');
 
-        const elapsed = (now - window.adminAviatorServerReceivedAt) / 1000;
+      const roundEl = document.getElementById('adminAviatorRoundId');
+      const labelEl = document.getElementById('adminAviatorTimerLabel');
+      const timeEl = document.getElementById('adminAviatorTimeVal');
+      const barEl = document.getElementById('adminAviatorProgressBar');
 
-        if (window.adminAviatorServerPhase === 'crashed' || isForceCrashed) {
-          const finalMult = window.adminAviatorServerMult || parseFloat(localStorage.getItem('cheat_aviator_force_crash_mult') || '1.00');
-          if (labelEl) labelEl.textContent = 'FLEW AWAY AT';
-          if (timeEl) {
-            timeEl.textContent = finalMult.toFixed(2) + 'x';
-            timeEl.style.color = 'var(--red)';
-          }
-          if (barEl) {
-            barEl.style.width = '0%';
-            barEl.style.background = 'var(--red)';
-          }
-        } else if (window.adminAviatorServerPhase === 'running') {
-          const currentMult = window.adminAviatorServerMult * Math.exp(0.06 * elapsed);
-          window.adminAviatorServerCurrentMult = currentMult; // Store for instant crash click
+      if (roundEl) roundEl.textContent = '#' + (window.adminAviatorServerRoundId || '99246958');
 
-          const targetCrash = parseFloat(localStorage.getItem('cheat_aviator_crash') || '2.50');
-          const progRatio = Math.min(1.0, Math.max(0, (currentMult - 1.0) / Math.max(0.1, targetCrash - 1.0)));
-          const pct = Math.max(0, (1.0 - progRatio) * 100);
+      if (effectivePhase === 'crashed') {
+        const crashMult = window.adminAviatorServerCrashPoint || window.adminAviatorServerMult || parseFloat(localStorage.getItem('cheat_aviator_force_crash_mult') || '1.00');
+        if (labelEl) labelEl.textContent = 'FLIGHT CRASHED';
+        if (timeEl) {
+          timeEl.textContent = `@ ${crashMult.toFixed(2)}x`;
+          timeEl.style.color = 'var(--red)';
+        }
+        if (barEl && barEl.parentElement) {
+          barEl.parentElement.style.display = 'none';
+        }
+      } else if (effectivePhase === 'running') {
+        const pStart = window.adminAviatorServerPhaseStart || now;
+        const flightSecs = (now - pStart) / 1000;
+        const mult = window.adminAviatorServerMult || Math.exp(0.06 * flightSecs);
+        if (labelEl) labelEl.textContent = 'LIVE MULTIPLIER';
+        if (timeEl) {
+          timeEl.textContent = `${mult.toFixed(2)}x`;
+          timeEl.style.color = 'var(--green)';
+        }
+        if (barEl && barEl.parentElement) {
+          barEl.parentElement.style.display = 'none';
+        }
+      } else {
+        // waiting
+        const pStart = window.adminAviatorServerPhaseStart || (now - ((5.0 - (window.adminAviatorServerTimeLeft || 5.0)) * 1000));
+        const visualTimeLeft = Math.max(0, (5000 - (now - pStart)) / 1000);
+        const duration = 5.0;
+        const pct = Math.max(0, Math.min(100, (visualTimeLeft / duration) * 100));
 
-          if (labelEl) labelEl.textContent = 'AIRBORNE MULTIPLIER';
-          if (timeEl) {
-            timeEl.textContent = currentMult.toFixed(2) + 'x';
-            timeEl.style.color = 'var(--green)';
-          }
-          if (barEl) {
-            barEl.style.width = pct + '%';
-            barEl.style.background = 'var(--green)';
-          }
-        } else {
-          // Waiting / Takeoff Countdown Phase
-          const visualTimeLeft = Math.max(0, (window.adminAviatorServerTimeLeft || 5.0) - elapsed);
-          const duration = window.adminAviatorServerDuration || 5.0;
-          const pct = Math.max(0, Math.min(100, (visualTimeLeft / duration) * 100));
-          const timerColor = visualTimeLeft <= 1.5 ? 'var(--red)' : 'var(--gold)';
-
-          if (labelEl) labelEl.textContent = 'NEXT ROUND IN...';
-          if (timeEl) {
-            timeEl.textContent = visualTimeLeft.toFixed(1) + 's';
-            timeEl.style.color = timerColor;
-          }
-          if (barEl) {
-            barEl.style.width = pct + '%';
-            barEl.style.background = timerColor;
-          }
-
-          if (visualTimeLeft <= 0 && window.isOfflineMode) {
-            window.adminOfflineAviatorPhase = 'running';
-            window.adminOfflineAviatorStart = now;
-            window.adminAviatorServerPhase = 'running';
-            window.adminAviatorServerMult = 1.00;
-          }
+        if (labelEl) labelEl.textContent = 'NEXT ROUND IN...';
+        if (timeEl) {
+          timeEl.textContent = visualTimeLeft.toFixed(1) + 's';
+          timeEl.style.color = visualTimeLeft <= 1.5 ? 'var(--red)' : 'var(--gold)';
+        }
+        if (barEl && barEl.parentElement) {
+          barEl.parentElement.style.display = 'block';
+          barEl.style.width = pct + '%';
+          barEl.style.background = visualTimeLeft <= 1.5 ? 'var(--red)' : 'var(--gold)';
         }
       }
     }
@@ -3162,7 +3220,7 @@
       // Set visual ticking variables
       window.adminAviatorServerPhase = av.phase;
       window.adminAviatorServerTimeLeft = av.time_left;
-      window.adminAviatorServerDuration = 8.0;
+      window.adminAviatorServerDuration = 5.0;
       window.adminAviatorServerReceivedAt = Date.now();
       window.adminAviatorServerRoundId = av.round_id;
       window.adminAviatorServerMult = av.current_multiplier;

@@ -1008,7 +1008,38 @@ function initializeExchangeHeader() {
   }
 }
 
+function getOfflineAviatorRoundId() {
+  let rid = localStorage.getItem('bet1x_aviator_round_id');
+  if (!rid) {
+    rid = '99246958';
+    localStorage.setItem('bet1x_aviator_round_id', rid);
+  }
+  return parseInt(rid, 10);
+}
+
+function incrementOfflineAviatorRoundId() {
+  let nextId = getOfflineAviatorRoundId() + 1;
+  localStorage.setItem('bet1x_aviator_round_id', nextId.toString());
+  return nextId;
+}
+
+function getAviatorCurrentBets() {
+  try {
+    const raw = localStorage.getItem('bet1x_aviator_current_bets');
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveAviatorCurrentBets(betsArray) {
+  try {
+    localStorage.setItem('bet1x_aviator_current_bets', JSON.stringify(betsArray || []));
+  } catch (e) {}
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   initializeExchangeHeader();
   renderWalletChips();
 });
+
