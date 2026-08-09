@@ -322,7 +322,16 @@ function updateBetButtonsSummary(aggs) {
 let serverTimeLeft = ROOM_DURATION;
 let serverReceivedAt = Date.now();
 let isOffline = false;
-let localRoundId = Math.floor(100000 + Math.random() * 900000);
+
+function getLocalOfflineRoundId() {
+  const dur = ROOM_DURATION;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const dateStr = new Date().toISOString().replace(/[-T:]/g, '').slice(0, 10);
+  const bucket = Math.floor((nowSec / dur) % 100);
+  return dateStr + '0' + bucket;
+}
+
+let localRoundId = getLocalOfflineRoundId();
 if (!lastRoundId) { lastRoundId = localRoundId; roundIdEl.textContent = localRoundId; }
 
 if (ringFg) {
@@ -330,8 +339,22 @@ if (ringFg) {
 }
 
 function tickVisualProgress() {
-  const elapsed = (Date.now() - serverReceivedAt) / 1000;
-  const visualTimeLeft = Math.max(0, serverTimeLeft - elapsed);
+  let visualTimeLeft;
+  if (isOffline) {
+    const nowSec = Math.floor(Date.now() / 1000);
+    visualTimeLeft = ROOM_DURATION - (nowSec % ROOM_DURATION);
+    const offlineRoundId = getLocalOfflineRoundId();
+    if (lastRoundId !== offlineRoundId) {
+      if (lastRoundId) {
+        settleRoundLocally();
+      }
+      lastRoundId = offlineRoundId;
+      roundIdEl.textContent = offlineRoundId;
+    }
+  } else {
+    const elapsed = (Date.now() - serverReceivedAt) / 1000;
+    visualTimeLeft = Math.max(0, serverTimeLeft - elapsed);
+  }
   
   current_time_left = visualTimeLeft;
   ringTime.textContent = formatTime(visualTimeLeft);
@@ -390,18 +413,7 @@ function settleRoundLocally() {
   document.getElementById('amountInput').value = '';
 }
 
-setInterval(() => {
-  if (!isOffline) return;
-  const elapsed = (Date.now() - serverReceivedAt) / 1000;
-  if (elapsed >= ROOM_DURATION) {
-    settleRoundLocally();
-    localRoundId++;
-    lastRoundId = localRoundId;
-    roundIdEl.textContent = localRoundId;
-    serverTimeLeft = ROOM_DURATION;
-    serverReceivedAt = Date.now();
-  }
-}, 1000);
+// Local countdown fallback interval removed (handled dynamically inside visual progress clock)
 
 function syncState() {
   fetch(`api/game_sync.php?action=color_get_state&room=${ROOM_KEY}`)
