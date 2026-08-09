@@ -56,8 +56,6 @@
     </div>
   </div>
 
-  <div id="alertBox"></div>
-
   <div class="grid-2">
     <div>
       <div class="card">
@@ -89,6 +87,7 @@
         <input type="number" id="amountInput" min="1" placeholder="Or enter custom amount">
 
         <button class="btn btn-gold btn-block" id="placeBetBtn" disabled>Select an option first</button>
+        <div id="alertBox" style="margin-top: 10px;"></div>
       </div>
 
       <div class="card">
@@ -221,23 +220,6 @@ function showAlert(msg, type) {
   document.getElementById('alertBox').innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
   setTimeout(() => { document.getElementById('alertBox').innerHTML = ''; }, 3500);
 }
-
-placeBetBtn.addEventListener('click', () => {
-  const balance = getWallet();
-  if (selectedAmount > balance) {
-    showAlert('Insufficient virtual coin balance.', 'error');
-    return;
-  }
-  adjustWallet(-selectedAmount);
-  myBetsThisRound.push({ category: selectedCat, value: selectedVal, amount: selectedAmount });
-  renderMyBets();
-  showAlert(`Bet placed: ${selectedCat.toUpperCase()} · ${selectedVal} for 🪙${selectedAmount.toFixed(2)}`, 'success');
-
-  pushHistory({
-    room: 'Sapre', roundNumber: document.getElementById('roundId').textContent,
-    category: selectedCat, value: selectedVal, amount: selectedAmount, status: 'pending'
-  });
-});
 
 // Server synchronization loop for Color Guess
 const ringFg = document.getElementById('ringFg');

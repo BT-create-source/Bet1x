@@ -359,27 +359,13 @@ function generateNewSeed() {
 }
 
 // Dynamic Mock Players
-const firstNames = ['Amit', 'Raj', 'Raju', 'Vikram', 'Sana', 'Pooja', 'Sunil', 'Neha', 'Vijay', 'Rahul', 'Arjun', 'Simran', 'Kunal', 'Deepak', 'Sanjay', 'Preeti'];
-const lastNames = ['Kumar', 'Singh', 'Sharma', 'Verma', 'Patel', 'Das', 'Joshi', 'Gupta', 'Mehta', 'Reddy'];
+const firstNames = [];
+const lastNames = [];
 let mockPlayers = [];
 
 function generateMockBets() {
   mockPlayers = [];
-  const count = Math.floor(Math.random() * 12 + 8);
-  for (let i = 0; i < count; i++) {
-    const name = firstNames[Math.floor(Math.random() * firstNames.length)] + ' ' + lastNames[Math.floor(Math.random() * lastNames.length)].charAt(0) + '.';
-    const amount = Math.floor(Math.random() * 9 + 1) * (Math.random() > 0.5 ? 50 : 10);
-    // cashout threshold target
-    const target = Math.random() > 0.15 ? (Math.random() * 4 + 1.1) : 0; // 0 means crash
-    mockPlayers.push({
-      name: name,
-      amount: amount,
-      targetMult: target,
-      status: 'pending', // pending | won | lost
-      cashedMultiplier: 0
-    });
-  }
-  document.getElementById('livePlayersCount').textContent = `${mockPlayers.length + 80} playing`;
+  document.getElementById('livePlayersCount').textContent = '0 playing';
   renderLiveBets();
 }
 

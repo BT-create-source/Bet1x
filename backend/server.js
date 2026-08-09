@@ -482,6 +482,62 @@ app.post('/api/db/state/:key', async (req, res) => {
   }
 });
 
+// Fetch Recent Results for a room
+app.get('/api/db/recent-results', async (req, res) => {
+  const { room } = req.query;
+  try {
+    const results = await prisma.recentResult.findMany({
+      where: room ? { room } : {},
+      orderBy: { id: 'desc' },
+      take: 20
+    });
+    // Format timestamp as time string for compatibility with frontend if needed
+    const formatted = results.map(r => ({
+      roundNumber: r.roundNumber,
+      number: r.number,
+      color: r.color,
+      dotClass: r.dotClass,
+      size: r.size,
+      timestamp: new Date(r.timestamp).toLocaleTimeString('en-US', { hour12: false })
+    }));
+    res.json(formatted);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Create/Upsert Recent Result
+app.post('/api/db/recent-results', async (req, res) => {
+  const { room, roundNumber, number, color, dotClass, size } = req.body;
+  try {
+    const result = await prisma.recentResult.upsert({
+      where: {
+        room_roundNumber: {
+          room,
+          roundNumber: String(roundNumber)
+        }
+      },
+      update: {
+        number: parseInt(number),
+        color,
+        dotClass,
+        size
+      },
+      create: {
+        room,
+        roundNumber: String(roundNumber),
+        number: parseInt(number),
+        color,
+        dotClass,
+        size
+      }
+    });
+    res.json({ success: true, result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Sync full table data back from PHP db_transaction callback edits
 app.post('/api/db/:table/sync', async (req, res) => {
   const { table } = req.params;

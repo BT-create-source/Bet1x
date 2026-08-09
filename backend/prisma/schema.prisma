@@ -64,3 +64,16 @@ model GameState {
   data      Json
   updatedAt DateTime @updatedAt
 }
+
+model RecentResult {
+  id          Int      @id @default(autoincrement())
+  room        String
+  roundNumber String
+  number      Int
+  color       String
+  dotClass    String
+  size        String
+  timestamp   DateTime @default(now())
+
+  @@unique([room, roundNumber])
+}

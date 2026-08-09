@@ -255,6 +255,9 @@ function startCountdownRing(opts) {
 function startActivityFeed(container, { intervalMs = 2200, maxItems = 12 } = {}) {
   function addEvent() {
     const ev = generateFakeActivityEvent();
+    if (!ev || !ev.user) {
+      return; // Do not render empty dummy events
+    }
     const item = document.createElement('div');
     item.className = 'activity-item';
     const label = ev.category === 'color'
@@ -272,7 +275,6 @@ function startActivityFeed(container, { intervalMs = 2200, maxItems = 12 } = {})
       container.removeChild(container.lastChild);
     }
   }
-  addEvent();
   return setInterval(addEvent, intervalMs);
 }
 

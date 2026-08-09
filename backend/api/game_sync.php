@@ -37,62 +37,15 @@ $colorDurations = ['sapre' => 30, 'becone' => 60, 'emred' => 180, 'vip' => 300];
 
 // --- Helper: Ensure Dummy Bets for Color Guess ---
 function ensure_dummy_bets(string $room, string $round_id, array &$state): void {
-    global $colorDurations;
     if (!isset($state[$room]['bets'][$round_id])) {
         $state[$room]['bets'][$round_id] = [];
-    }
-    
-    if (empty($state[$room]['bets'][$round_id])) {
-        $names = ['Amit_K', 'Raju_S', 'Vikram_Singh', 'Sana_Patel', 'Pooja_G', 'Sunil_R', 'Neha_V', 'Vijay_D', 'Rahul_S', 'Arjun_Sharma', 'Simran_K', 'Kunal_M', 'Deepak_P', 'Jyoti_M', 'Prakash_L', 'Preeti_R', 'Karan_S', 'Aisha_T', 'Rohan_B', 'Divya_N', 'Aravind_H', 'Shreya_D'];
-        $colors = ['Green', 'Red', 'Violet'];
-        $sizes = ['Big', 'Small'];
-        
-        $count = rand(35, 75);
-        $duration = $colorDurations[$room] ?? 30;
-        for ($i = 0; $i < $count; $i++) {
-            $user = $names[array_rand($names)];
-            $cat = ['color', 'number', 'size'][rand(0, 2)];
-            $val = '';
-            if ($cat === 'color') {
-                $val = $colors[rand(0, 100) < 85 ? rand(0, 1) : 2];
-            } elseif ($cat === 'size') {
-                $val = $sizes[rand(0, 1)];
-            } else {
-                $val = (string)rand(0, 9);
-            }
-            $amount = [100, 500, 1000, 2000, 5000, 10000][rand(0, 5)];
-            
-            $state[$room]['bets'][$round_id][] = [
-                'username' => $user,
-                'category' => $cat,
-                'value' => $val,
-                'amount' => $amount,
-                'timestamp' => date('Y-m-d H:i:s'),
-                'is_dummy' => true,
-                'reveal_second' => rand(0, max(1, $duration - 6))
-            ];
-        }
     }
 }
 
 // --- Helper: Ensure Dummy Bets for Aviator ---
 function ensure_aviator_dummy_bets(array &$state): void {
-    if (empty($state['bets'])) {
-        $names = ['Amit_K', 'Raju_S', 'Vikram_Singh', 'Sana_Patel', 'Pooja_G', 'Sunil_R', 'Neha_V', 'Vijay_D', 'Rahul_S', 'Arjun_Sharma', 'Simran_K', 'Kunal_M', 'Deepak_P', 'Jyoti_M', 'Prakash_L', 'Preeti_R', 'Karan_S', 'Aisha_T', 'Rohan_B', 'Divya_N', 'Aravind_H', 'Shreya_D'];
-        $count = rand(25, 60);
-        for ($i = 0; $i < $count; $i++) {
-            $user = $names[array_rand($names)];
-            $amount = [100, 500, 1000, 2000, 5000, 10000][rand(0, 5)];
-            $state['bets'][] = [
-                'username' => $user,
-                'amount' => $amount,
-                'status' => 'pending',
-                'cashed_multiplier' => 0,
-                'is_dummy' => true,
-                'target_mult' => rand(110, 850) / 100.0,
-                'reveal_second' => rand(0, 7)
-            ];
-        }
+    if (!isset($state['bets']) || !is_array($state['bets'])) {
+        $state['bets'] = [];
     }
 }
 
@@ -308,6 +261,16 @@ function settle_color_room(string $room, string $target_round, array &$state): v
     $state[$room]['history'][] = $result_entry;
     $state[$room]['last_result'] = $result_entry;
 
+    // Save to PostgreSQL via Express API
+    db_api_request('POST', '/api/db/recent-results', [
+        'room' => $room,
+        'roundNumber' => $target_round,
+        'number' => $num,
+        'color' => $resolved['color'],
+        'dotClass' => $resolved['dotClass'],
+        'size' => $resolved['size']
+    ]);
+
     if (count($state[$room]['history']) > 20) {
         array_shift($state[$room]['history']);
     }
@@ -404,6 +367,12 @@ switch ($action) {
                 $bal = (float)$u['wallet_balance'];
                 break;
             }
+        }
+
+        // Fetch history from PostgreSQL database
+        $db_history = db_api_request('GET', '/api/db/recent-results?room=' . $room);
+        if (is_array($db_history) && !empty($db_history)) {
+            $state[$room]['history'] = array_reverse($db_history);
         }
 
         echo json_encode([
