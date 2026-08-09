@@ -18,7 +18,7 @@ const STARTING_BALANCE = 1000;
 const USERS_KEY = 'bet1x_users';
 const CURRENT_USER_KEY = 'bet1x_current_user';
 
-window.isOfflineMode = (window.location.protocol === 'file:');
+window.isOfflineMode = false;
 
 function getUsers() {
   const stored = localStorage.getItem(USERS_KEY);

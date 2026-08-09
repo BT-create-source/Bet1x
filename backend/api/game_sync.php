@@ -327,31 +327,47 @@ switch ($action) {
         $current_round_id = get_color_round_id($room, $now);
         $time_left = $duration - ($now % $duration);
 
-        ensure_dummy_bets($room, $current_round_id, $state);
-
-        // Fetch history from PostgreSQL database first to check for settled round list
-        $db_history = db_api_request('GET', '/api/db/recent-results?room=' . $room);
-        
-        $already_settled = false;
-        if (is_array($db_history)) {
-            foreach ($db_history as $h) {
-                if (strval($h['roundNumber']) === strval($prev_round_id)) {
-                    $already_settled = true;
-                    break;
-                }
-            }
-        }
+        $last_settled = $state[$room]['last_settled_round'] ?? '';
+        $prev_round_time = floor($now / $duration) * $duration - $duration;
+        $prev_round_id = get_color_round_id($room, $prev_round_time);
 
         $state_changed = false;
         if ($last_settled !== $prev_round_id) {
-            if (!$already_settled) {
-                settle_color_room($room, $prev_round_id, $state);
-                $state_changed = true;
-            } else {
-                $state[$room]['last_settled_round'] = $prev_round_id;
-                $state_changed = true;
+            $lockFile = DATA_DIR . '/color_settle_' . $room . '.lock';
+            $lock_fp = fopen($lockFile, 'w');
+            if ($lock_fp) {
+                flock($lock_fp, LOCK_EX); // Acquire exclusive lock (blocks until acquired)
+                
+                // Reload state inside the lock to ensure we have the latest data
+                $state = load_sync_state(COLOR_STATE_FILE, $state);
+                $last_settled = $state[$room]['last_settled_round'] ?? '';
+                
+                if ($last_settled !== $prev_round_id) {
+                    $db_history = db_api_request('GET', '/api/db/recent-results?room=' . $room);
+                    $already_settled = false;
+                    if (is_array($db_history)) {
+                        foreach ($db_history as $h) {
+                            if (strval($h['roundNumber']) === strval($prev_round_id)) {
+                                $already_settled = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!$already_settled) {
+                        settle_color_room($room, $prev_round_id, $state);
+                    } else {
+                        $state[$room]['last_settled_round'] = $prev_round_id;
+                    }
+                    save_sync_state(COLOR_STATE_FILE, $state);
+                }
+                
+                flock($lock_fp, LOCK_UN);
+                fclose($lock_fp);
             }
         }
+
+        // Fetch history list to send to client
+        $db_history = db_api_request('GET', '/api/db/recent-results?room=' . $room);
 
         if (!isset($state[$room]['bets'][$current_round_id])) {
             ensure_dummy_bets($room, $current_round_id, $state);
@@ -755,25 +771,39 @@ switch ($action) {
             $prev_round_time = floor($now / $dur) * $dur - $dur;
             $prev_round_id = get_color_round_id($room, $prev_round_time);
 
-            // Fetch history from PostgreSQL to avoid double settlement race conditions
-            $db_history = db_api_request('GET', '/api/db/recent-results?room=' . $room);
-            $already_settled = false;
-            if (is_array($db_history)) {
-                foreach ($db_history as $h) {
-                    if (strval($h['roundNumber']) === strval($prev_round_id)) {
-                        $already_settled = true;
-                        break;
-                    }
-                }
-            }
-
             if ($last_settled !== $prev_round_id) {
-                if (!$already_settled) {
-                    settle_color_room($room, $prev_round_id, $colors);
-                    $colors_changed = true;
-                } else {
-                    $colors[$room]['last_settled_round'] = $prev_round_id;
-                    $colors_changed = true;
+                $lockFile = DATA_DIR . '/color_settle_' . $room . '.lock';
+                $lock_fp = fopen($lockFile, 'w');
+                if ($lock_fp) {
+                    flock($lock_fp, LOCK_EX); // Acquire exclusive lock
+                    
+                    // Reload state inside lock
+                    $colors = load_sync_state(COLOR_STATE_FILE, $colors);
+                    $last_settled = $colors[$room]['last_settled_round'] ?? '';
+                    
+                    if ($last_settled !== $prev_round_id) {
+                        $db_history = db_api_request('GET', '/api/db/recent-results?room=' . $room);
+                        $already_settled = false;
+                        if (is_array($db_history)) {
+                            foreach ($db_history as $h) {
+                                if (strval($h['roundNumber']) === strval($prev_round_id)) {
+                                    $already_settled = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!$already_settled) {
+                            settle_color_room($room, $prev_round_id, $colors);
+                            $colors_changed = true;
+                        } else {
+                            $colors[$room]['last_settled_round'] = $prev_round_id;
+                            $colors_changed = true;
+                        }
+                        save_sync_state(COLOR_STATE_FILE, $colors);
+                    }
+                    
+                    flock($lock_fp, LOCK_UN);
+                    fclose($lock_fp);
                 }
             }
 
