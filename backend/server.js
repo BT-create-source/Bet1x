@@ -869,6 +869,54 @@ app.get('/api/game_sync.php', async (req, res) => {
         history: aviatorState.history,
         wallet_balance: balance
       });
+    } else if (action === 'admin_get_live_state' || action === 'admin_get_games') {
+      // Unified admin live state endpoint
+      const now = Date.now();
+      const avElapsed = (now - aviatorState.phase_start) / 1000;
+
+      // Color guess state for all rooms
+      const colorGuess = {};
+      const rooms = ['sapre', 'becone', 'emred', 'vip'];
+      const durations = { sapre: 30, becone: 60, emred: 180, vip: 300 };
+      const nowSec = Math.floor(now / 1000);
+      const state = await loadColorState();
+
+      for (const room of rooms) {
+        const duration = durations[room] || 30;
+        const time_left = duration - (nowSec % duration);
+        const dateStr = new Date().toISOString().replace(/[-T:]/g, '').slice(0, 10);
+        const bucket = Math.floor((nowSec / duration) % 100);
+        const round_id = dateStr + '0' + bucket;
+
+        const activeBets = (state[room].bets && state[room].bets[round_id]) ? state[room].bets[round_id] : [];
+        const overridesRecord = await prisma.gameState.findUnique({ where: { key: `color_guess_overrides_${room}` } });
+
+        colorGuess[room] = {
+          round_id,
+          time_left,
+          duration,
+          history: state[room].history || [],
+          bets: activeBets,
+          overrides: overridesRecord ? overridesRecord.data : {}
+        };
+      }
+
+      res.json({
+        aviator: {
+          round_id: aviatorState.round_id,
+          phase: aviatorState.phase,
+          time_elapsed: avElapsed,
+          phase_start: aviatorState.phase_start,
+          time_left: aviatorState.phase === 'waiting' ? Math.max(0, aviatorState.duration - avElapsed) : 0,
+          duration: aviatorState.duration || 5.0,
+          current_multiplier: aviatorState.current_multiplier,
+          crash_point: aviatorState.crash_point,
+          bets: aviatorState.bets,
+          history: aviatorState.history
+        },
+        color_guess: colorGuess,
+        teen_patti: []
+      });
     } else {
       res.status(400).json({ error: 'Unsupported GET action' });
     }

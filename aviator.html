@@ -848,8 +848,6 @@ function syncAviator() {
       }
       if (data.phase && data.time_elapsed !== undefined) {
         // Enforce minimum crash display duration:
-        // If client is currently showing 'crashed' phase, and 4 seconds have not passed,
-        // do not allow server sync to pull it back into 'waiting' lobby.
         if (phase === 'crashed' && data.phase === 'waiting') {
           const clientElapsed = Date.now() - phaseStart;
           if (clientElapsed < crashPause) {
@@ -866,6 +864,80 @@ function syncAviator() {
           crashPoint = data.crash_point || crashPoint;
           if (data.current_multiplier) currentMultiplier = data.current_multiplier;
         }
+
+        // Synchronize local bet console status with server wagers
+        const currentUser = localStorage.getItem('bet1x_current_user');
+        let loggedInUsername = '';
+        if (currentUser) {
+          try {
+            const userObj = JSON.parse(currentUser);
+            if (userObj && userObj.username) {
+              loggedInUsername = userObj.username;
+            }
+          } catch(e){}
+        }
+
+        if (data.bets && loggedInUsername) {
+          const activeConsoles = {};
+          data.bets.forEach(b => {
+            if (b.username.toLowerCase() === loggedInUsername.toLowerCase()) {
+              activeConsoles[b.console_id] = b;
+            }
+          });
+
+          for (let i = 1; i <= 2; i++) {
+            const serverBet = activeConsoles[i];
+            const actionBtn = document.getElementById(`actionBtn${i}`);
+            const input = document.getElementById(`betAmount${i}`);
+            const amount = parseFloat(input.value || 50);
+
+            if (serverBet) {
+              if (serverBet.status === 'pending') {
+                if (bets[i].status !== 'active') {
+                  bets[i].status = 'active';
+                  bets[i].wagered = serverBet.amount;
+                  actionBtn.disabled = false;
+                  actionBtn.className = 'big-bet-btn cashout';
+                  actionBtn.innerHTML = `
+                    <span class="label">Cash Out</span>
+                    <span class="sub-label" id="cashoutVal${i}">₹${(serverBet.amount * currentMultiplier).toFixed(2)}</span>
+                  `;
+                }
+              } else if (serverBet.status === 'won') {
+                if (bets[i].status !== 'none' || !actionBtn.innerHTML.includes('Cashed Out')) {
+                  bets[i].status = 'none';
+                  actionBtn.className = 'big-bet-btn bet';
+                  actionBtn.disabled = true;
+                  actionBtn.innerHTML = `
+                    <span class="label">Cashed Out</span>
+                    <span class="sub-label" style="color:var(--green)">+₹${(serverBet.amount * serverBet.cashed_multiplier).toFixed(2)}</span>
+                  `;
+                }
+              } else if (serverBet.status === 'lost') {
+                if (bets[i].status !== 'none' || !actionBtn.innerHTML.includes('Busted')) {
+                  bets[i].status = 'none';
+                  actionBtn.className = 'big-bet-btn bet';
+                  actionBtn.disabled = true;
+                  actionBtn.innerHTML = `
+                    <span class="label">Busted</span>
+                    <span class="sub-label" style="color:var(--red)">Lost ₹${serverBet.amount.toFixed(2)}</span>
+                  `;
+                }
+              }
+            } else {
+              // If the console locally shows active/wagered but server has no record (e.g. after a crash/reset), reset it
+              if (bets[i].status === 'active' || bets[i].status === 'wagered') {
+                bets[i].status = 'none';
+                actionBtn.disabled = (data.phase === 'running');
+                actionBtn.className = 'big-bet-btn bet';
+                actionBtn.innerHTML = `
+                  <span class="label">Place Bet</span>
+                  <span class="sub-label">₹${amount.toFixed(2)}</span>
+                `;
+              }
+            }
+          }
+        }
       }
     })
     .catch(() => {});
@@ -873,124 +945,83 @@ function syncAviator() {
 }
 setInterval(syncAviator, 250);
 
+// Track last known phase for transition effects
+let lastRenderedPhase = phase;
+let lastRenderedRoundId = null;
+let crashSoundPlayed = false;
+let roundLossesHandled = false;
+let consolesResetForFlight = false;
+
 function gameTick() {
   try {
     const now = Date.now();
     const elapsed = now - phaseStart;
 
-    // Check for admin force-crash ONLY during active flight
-    if (phase === 'running') {
-      const instantCrashSignal = localStorage.getItem('cheat_aviator_instant_crash');
-      if (instantCrashSignal === 'true') {
-        localStorage.removeItem('cheat_aviator_instant_crash');
-        localStorage.removeItem('cheat_aviator_force_crashed');
-        crashPoint = currentMultiplier > 1.00 ? parseFloat(currentMultiplier.toFixed(2)) : 1.00;
-        phase = 'crashed';
-        phaseStart = Date.now();
-        stopEngineSound();
-        playSound('crash');
-        handleRoundLosses();
-        revealRemainingMockBets();
-        addHistoryPill(crashPoint);
+    // Detect phase transitions driven by server sync
+    if (lastRenderedPhase !== phase || lastRenderedRoundId !== roundId) {
+      if (phase === 'crashed') {
+        // Server says we just crashed
+        if (!crashSoundPlayed) {
+          stopEngineSound();
+          playSound('crash');
+          handleRoundLosses();
+          revealRemainingMockBets();
+          addHistoryPill(crashPoint);
+          crashSoundPlayed = true;
+          roundLossesHandled = true;
+        }
+      } else if (phase === 'running') {
+        // Server says we just started flying
+        if (!consolesResetForFlight) {
+          resetConsolesForNewRound();
+          disableBetPlacementsDuringFlight();
+          consolesResetForFlight = true;
+        }
+        crashSoundPlayed = false;
+        roundLossesHandled = false;
+      } else if (phase === 'waiting') {
+        // Server says new round lobby started
+        resetConsolesForNewRound();
+        consolesResetForFlight = false;
+        crashSoundPlayed = false;
+        roundLossesHandled = false;
       }
+      lastRenderedPhase = phase;
+      lastRenderedRoundId = roundId;
     }
 
-    // Now render based on current phase
+    // Pure rendering based on current server-driven phase
     if (phase === 'waiting') {
       const remaining = Math.max(0, (waitingWindow - elapsed) / 1000);
       overlay.className = 'aviator-overlay waiting';
       overlayDisplay.textContent = 'TAKING OFF SOON';
       overlaySubDisplay.textContent = `Next round in ${remaining.toFixed(1)}s`;
-      
-      // Draw canvas in waiting stage
       drawWaitingCanvas(elapsed / waitingWindow);
 
-      if (elapsed >= waitingWindow) {
-        phase = 'running';
-        phaseStart = Date.now();
-        // check local storage admin bias first!
-        const cheatCrash = localStorage.getItem('cheat_aviator_crash');
-        if (cheatCrash !== null && cheatCrash !== 'none' && cheatCrash !== '') {
-          crashPoint = parseFloat(cheatCrash);
-          localStorage.removeItem('cheat_aviator_crash');
-        } else {
-          const p = (Math.floor(Math.random() * 99) + 1) / 100.0;
-          if (Math.floor(Math.random() * 33) === 0) {
-            crashPoint = 1.00;
-          } else {
-            const crash = 0.99 / (1.0 - p);
-            crashPoint = Math.max(1.00, Math.min(50.0, Math.floor(crash * 100) / 100));
-          }
-        }
-        resetConsolesForNewRound();
-        disableBetPlacementsDuringFlight();
-      }
     } else if (phase === 'running') {
+      // Compute multiplier locally for smooth 60fps animation, but clamp to server crashPoint
       const flightTime = (now - phaseStart) / 1000;
       const computedMult = Math.exp(growthRate * flightTime);
+      currentMultiplier = Math.min(crashPoint, computedMult);
 
-      if (computedMult >= crashPoint) {
-        currentMultiplier = crashPoint;
-        phase = 'crashed';
-        phaseStart = Date.now();
-        stopEngineSound();
-        playSound('crash');
-        handleRoundLosses();
-        revealRemainingMockBets();
-        addHistoryPill(crashPoint);
-      } else {
-        currentMultiplier = Math.min(crashPoint, computedMult);
-        
-        overlay.className = 'aviator-overlay running';
-        overlayDisplay.textContent = currentMultiplier.toFixed(2) + 'x';
-        overlaySubDisplay.textContent = '';
-      
-        // Draw dynamic curve
-        drawFlightCanvas(currentMultiplier);
-        
-        // Handle Auto cashouts + value updates
-        updateConsoleCashoutValues(currentMultiplier);
-        handleAutoCashouts(currentMultiplier);
-        updateMockBets(currentMultiplier);
-        
-        // Engine sound pitch
-        startEngineSound(currentMultiplier);
-      }
+      overlay.className = 'aviator-overlay running';
+      overlayDisplay.textContent = currentMultiplier.toFixed(2) + 'x';
+      overlaySubDisplay.textContent = '';
+
+      drawFlightCanvas(currentMultiplier);
+      updateConsoleCashoutValues(currentMultiplier);
+      handleAutoCashouts(currentMultiplier);
+      updateMockBets(currentMultiplier);
+      startEngineSound(currentMultiplier);
+
     } else if (phase === 'crashed') {
       overlay.className = 'aviator-overlay crashed';
       overlayDisplay.textContent = 'FLEW AWAY';
       overlaySubDisplay.textContent = `FLIGHT CRASHED @ ${crashPoint.toFixed(2)}x`;
-      
-      // Draw crash state
       drawCrashedCanvas();
       stopEngineSound();
-
-      // Auto-transition to next round lobby after 4 seconds pause
-      if (elapsed >= crashPause) {
-        localStorage.removeItem('cheat_aviator_force_crashed');
-        localStorage.removeItem('cheat_aviator_instant_crash');
-        localStorage.removeItem('cheat_aviator_force_crash_mult');
-        phase = 'waiting';
-        phaseStart = Date.now();
-        roundId = (typeof incrementOfflineAviatorRoundId === 'function') ? incrementOfflineAviatorRoundId() : (roundId + 1);
-        if (typeof saveAviatorCurrentBets === 'function') saveAviatorCurrentBets([]);
-        generateNewSeed();
-        generateMockBets();
-        resetConsolesForNewRound();
-      }
     }
 
-    localStorage.setItem('bet1x_live_aviator_state', JSON.stringify({
-      round_id: roundId,
-      phase: phase,
-      phase_start: phaseStart,
-      duration: 5.0,
-      time_left: phase === 'waiting' ? Math.max(0, (waitingWindow - elapsed) / 1000) : 0,
-      current_multiplier: currentMultiplier,
-      crash_point: crashPoint,
-      bets: getUserAviatorWagers(),
-      timestamp: now
-    }));
   } catch (err) {
     console.error("Aviator gameTick error:", err);
   } finally {
