@@ -375,7 +375,7 @@ function resolveColorNumber(num) {
 
 function settleRoundLocally() {
   // Read local overrides from localStorage (enables seamless offline rigging)
-  const savedOverride = JSON.parse(localStorage.getItem('cheat_color_override_' + ROOM_KEY) || '{}');
+  const savedOverride = JSON.parse(localStorage.getItem('cheat_color_override_' + ROOM_KEY + '_' + lastRoundId) || '{}');
   
   let winningNum = null;
   if (savedOverride.number !== undefined && savedOverride.number !== null && savedOverride.number !== '') {
@@ -403,7 +403,7 @@ function settleRoundLocally() {
     if (possible.length > 0) {
       winningNum = possible[Math.floor(Math.random() * possible.length)];
     } else {
-      winningNum = Math.floor(Math.random() * 10);
+      winningNum = Math.floor(Date.now() / 10) % 10;
     }
     resolved = resolveColorNumber(winningNum);
   }
@@ -420,7 +420,7 @@ function settleRoundLocally() {
   }
   
   // Clear offline overrides for the next round
-  localStorage.removeItem('cheat_color_override_' + ROOM_KEY);
+  localStorage.removeItem('cheat_color_override_' + ROOM_KEY + '_' + lastRoundId);
 
   const newResult = { roundNumber: lastRoundId, number: winningNum, color: resolved.color, dotClass: resolved.dotClass, size: resolved.size };
   const tr = document.createElement('tr');

@@ -1773,10 +1773,19 @@
 
       // Save to localStorage for fallback / offline mode
       const overrideObj = { color, number, size, rig_type: rigType };
+      const currentRoundId = window.adminColorRoundIdVal || (function() {
+        const durations = { sapre: 30, becone: 60, emred: 180, vip: 300 };
+        const dur = durations[roomKey] || 30;
+        const nowSec = Math.floor(Date.now() / 1000);
+        const dateStr = new Date().toISOString().replace(/[-T:]/g, '').slice(0, 10);
+        const bucket = Math.floor((nowSec / dur) % 100);
+        return dateStr + '0' + bucket;
+      })();
+
       if (color || (number !== '' && number !== null && number !== undefined) || size || rigType) {
-        localStorage.setItem('cheat_color_override_' + roomKey, JSON.stringify(overrideObj));
+        localStorage.setItem('cheat_color_override_' + roomKey + '_' + currentRoundId, JSON.stringify(overrideObj));
       } else {
-        localStorage.removeItem('cheat_color_override_' + roomKey);
+        localStorage.removeItem('cheat_color_override_' + roomKey + '_' + currentRoundId);
       }
 
       const params = new URLSearchParams();
@@ -1817,7 +1826,16 @@
       document.getElementById('cheatNumberSelect').value = '';
       document.getElementById('cheatSizeSelect').value = '';
       document.getElementById('cheatColorRigType').value = '';
-      localStorage.removeItem('cheat_color_override_' + roomKey);
+      
+      const currentRoundId = window.adminColorRoundIdVal || (function() {
+        const durations = { sapre: 30, becone: 60, emred: 180, vip: 300 };
+        const dur = durations[roomKey] || 30;
+        const nowSec = Math.floor(Date.now() / 1000);
+        const dateStr = new Date().toISOString().replace(/[-T:]/g, '').slice(0, 10);
+        const bucket = Math.floor((nowSec / dur) % 100);
+        return dateStr + '0' + bucket;
+      })();
+      localStorage.removeItem('cheat_color_override_' + roomKey + '_' + currentRoundId);
       applyColorRoomCheat();
     };
 
@@ -3021,7 +3039,7 @@
       // Auto-unselect fixed outcome when current round finishes & new round starts
       if (!window.adminLastColorRoundId) window.adminLastColorRoundId = {};
       if (window.adminLastColorRoundId[roomKey] && window.adminLastColorRoundId[roomKey] !== colorGame.round_id) {
-        localStorage.removeItem('cheat_color_override_' + roomKey);
+        localStorage.removeItem('cheat_color_override_' + roomKey + '_' + window.adminLastColorRoundId[roomKey]);
         const sColor = document.getElementById('cheatColorSelect');
         const sNum = document.getElementById('cheatNumberSelect');
         const sSize = document.getElementById('cheatSizeSelect');
@@ -3035,8 +3053,9 @@
         }
       }
       window.adminLastColorRoundId[roomKey] = colorGame.round_id;
+      window.adminColorRoundIdVal = colorGame.round_id;
 
-      const savedOverride = JSON.parse(localStorage.getItem('cheat_color_override_' + roomKey) || '{}');
+      const savedOverride = JSON.parse(localStorage.getItem('cheat_color_override_' + roomKey + '_' + colorGame.round_id) || '{}');
       const activeOverrides = (colorGame.overrides && (colorGame.overrides.color || (colorGame.overrides.number !== undefined && colorGame.overrides.number !== '') || colorGame.overrides.size || colorGame.overrides.rig_type))
         ? colorGame.overrides
         : savedOverride;
