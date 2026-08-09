@@ -344,7 +344,7 @@
       <a href="boundarybaazi.html">Boundary Baazi</a>
       <a href="aviator.html">Aviator</a>
       <a href="parity.html">Admin</a>
-      <span class="wallet-chip" data-wallet-chip>🪙 0.00</span>
+      <span class="wallet-chip" data-wallet-chip>₹ 0.00</span>
     </div>
   </nav>
 
@@ -353,7 +353,7 @@
     <div class="balance-banner">
       <div>
         <div class="balance-label">Total Wallet Balance</div>
-        <div class="balance-value" id="cashierWalletDisplay">🪙 1,000.00</div>
+        <div class="balance-value" id="cashierWalletDisplay">₹ 1,000.00</div>
       </div>
       <div style="text-align: right;">
         <span class="badge completed" style="font-size: 11px;">Simulated Account</span>
@@ -363,8 +363,8 @@
     <div class="cashier-card">
       <div class="cashier-tabs">
         <button class="cashier-tab-btn active" onclick="switchCashierTab('deposit')">💰 Deposit</button>
-        <button class="cashier-tab-btn" onclick="switchCashierTab('withdraw')">💸 Withdraw</button>
-        <button class="cashier-tab-btn" onclick="switchCashierTab('history')">📜 History</button>
+        <button class="cashier-tab-btn" onclick="switchCashierTab('withdraw')">Withdraw</button>
+        <button class="cashier-tab-btn" onclick="switchCashierTab('history')">History</button>
       </div>
 
       <!-- Tab 1: Deposit -->
@@ -372,12 +372,12 @@
         <h3 style="margin-bottom:12px; font-size:16px;">Add Funds to Wallet</h3>
         
         <div class="amount-grid">
-          <button class="amount-btn" onclick="selectDepositAmount(100)">🪙 100</button>
-          <button class="amount-btn" onclick="selectDepositAmount(500)">🪙 500</button>
-          <button class="amount-btn active" onclick="selectDepositAmount(1000)">🪙 1,000</button>
-          <button class="amount-btn" onclick="selectDepositAmount(2000)">🪙 2,000</button>
-          <button class="amount-btn" onclick="selectDepositAmount(5000)">🪙 5,000</button>
-          <button class="amount-btn" onclick="selectDepositAmount(10000)">🪙 10,000</button>
+          <button class="amount-btn" onclick="selectDepositAmount(100)">₹ 100</button>
+          <button class="amount-btn" onclick="selectDepositAmount(500)">₹ 500</button>
+          <button class="amount-btn active" onclick="selectDepositAmount(1000)">₹ 1,000</button>
+          <button class="amount-btn" onclick="selectDepositAmount(2000)">₹ 2,000</button>
+          <button class="amount-btn" onclick="selectDepositAmount(5000)">₹ 5,000</button>
+          <button class="amount-btn" onclick="selectDepositAmount(10000)">₹ 10,000</button>
         </div>
 
         <div class="cashier-input-group">
@@ -488,7 +488,7 @@
         <div style="background:#1d232b; padding:12px 16px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border:1px solid var(--border);">
           <div>
             <span style="font-size:11px; color:var(--text-dim); text-transform:uppercase; font-weight:700;">Deposit Amount</span>
-            <div id="upiPayableAmt" style="font-size:20px; font-weight:800; color:var(--gold); font-family:var(--font-mono);">🪙 1,000.00</div>
+            <div id="upiPayableAmt" style="font-size:20px; font-weight:800; color:var(--gold); font-family:var(--font-mono);">₹ 1,000.00</div>
           </div>
           <div class="countdown-banner" style="margin-bottom:0; padding:4px 10px; font-size:12px;">
             Timer: <span id="qrTimer">05:00</span>
@@ -513,7 +513,7 @@
               <div class="qr-corner-box" style="transform: rotate(270deg);"></div>
             </div>
             <div style="position: absolute; width: 34px; height: 34px; background:#0d0f12; border:2px solid var(--gold); border-radius:6px; display:flex; align-items:center; justify-content:center;">
-              <span style="font-size:16px;">🪙</span>
+              <span style="font-size:16px;">₹</span>
             </div>
           </div>
 
@@ -559,7 +559,7 @@
           <input type="text" id="qrUtrInput" class="cashier-input" placeholder="e.g. 627192840582" maxlength="16">
         </div>
 
-        <button class="btn btn-primary btn-block" style="color:#000; font-weight:700; padding:12px;" onclick="submitUpiDepositWithUtr()">🚀 Submit UTR & Complete Deposit</button>
+        <button class="btn btn-primary btn-block" style="color:#000; font-weight:700; padding:12px;" onclick="submitUpiDepositWithUtr()">Submit UTR & Complete Deposit</button>
       </div>
 
       <div class="holo-loading-overlay" id="qr-loading-body">
@@ -639,7 +639,7 @@
 
     function refreshCashierWallet() {
       const balance = getWallet();
-      document.getElementById('cashierWalletDisplay').textContent = '🪙 ' + balance.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+      document.getElementById('cashierWalletDisplay').textContent = '₹ ' + balance.toLocaleString('en-IN', { minimumFractionDigits: 2 });
       renderWalletChips();
     }
 
@@ -681,7 +681,7 @@
           row.innerHTML = `
             <td><code>${c.id}</code></td>
             <td><b>${c.type}</b></td>
-            <td style="color:${amtColor}; font-weight:700; font-family:var(--font-mono);">${amtPrefix}🪙${parseFloat(c.amount).toFixed(2)}</td>
+            <td style="color:${amtColor}; font-weight:700; font-family:var(--font-mono);">${amtPrefix}₹${parseFloat(c.amount).toFixed(2)}</td>
             <td>${c.details || ''}</td>
             <td><span class="badge ${badgeCls}">${c.status || 'Completed'}</span></td>
             <td><span style="font-size:11.5px; color:var(--text-dim);">${c.timestamp}</span></td>
@@ -719,7 +719,7 @@
           row.innerHTML = `
             <td><code>${c.id}</code></td>
             <td><b>${c.type}</b></td>
-            <td style="color:${amtColor}; font-weight:700; font-family:var(--font-mono);">${amtPrefix}🪙${parseFloat(c.amount).toFixed(2)}</td>
+            <td style="color:${amtColor}; font-weight:700; font-family:var(--font-mono);">${amtPrefix}₹${parseFloat(c.amount).toFixed(2)}</td>
             <td>${c.details}</td>
             <td><span class="badge ${badgeCls}">${c.status}</span></td>
             <td><span style="font-size:11.5px; color:var(--text-dim);">${c.timestamp}</span></td>
@@ -786,11 +786,11 @@
     function initiateDeposit() {
       const amt = parseFloat(document.getElementById('customAmount').value);
       if (!amt || amt < 100) {
-        alert('Minimum deposit amount is 🪙100.');
+        alert('Minimum deposit amount is ₹100.');
         return;
       }
       if (amt > 50000) {
-        alert('Maximum deposit amount is 🪙50,000.');
+        alert('Maximum deposit amount is ₹50,000.');
         return;
       }
       
@@ -800,7 +800,7 @@
 
     function openUpiQrGateway() {
       document.getElementById('qrUtrInput').value = '';
-      document.getElementById('upiPayableAmt').textContent = '🪙 ' + selectedDepositAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+      document.getElementById('upiPayableAmt').textContent = '₹ ' + selectedDepositAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 });
       document.getElementById('qr-main-body').style.display = 'block';
       document.getElementById('qr-loading-body').classList.remove('active');
       document.getElementById('gateway-qr-overlay').classList.add('active');
@@ -840,7 +840,7 @@
       const descEl = document.getElementById('qrLoaderDesc');
       
       titleEl.textContent = 'Processing Deposit...';
-      descEl.textContent = `Verifying UTR #${utr} for amount 🪙${selectedDepositAmt.toFixed(2)} under your account.`;
+      descEl.textContent = `Verifying UTR #${utr} for amount ₹${selectedDepositAmt.toFixed(2)} under your account.`;
 
       const currentUser = getCurrentUser();
 
@@ -879,7 +879,7 @@
           adjustWallet(selectedDepositAmt, `UPI Deposit: UTR #${utr} - ID: ${depId}`);
 
           closeGateway('qr');
-          showToast(`Deposit successful! 🪙${selectedDepositAmt.toFixed(2)} has been credited to your wallet.`, 'success');
+          showToast(`Deposit successful! ₹${selectedDepositAmt.toFixed(2)} has been credited to your wallet.`, 'success');
           refreshCashierWallet();
           renderTransactions();
         }, 1200);
@@ -908,7 +908,7 @@
         }
 
         closeGateway('qr');
-        showToast(`Deposit successful! 🪙${selectedDepositAmt.toFixed(2)} has been credited to your wallet.`, 'success');
+        showToast(`Deposit successful! ₹${selectedDepositAmt.toFixed(2)} has been credited to your wallet.`, 'success');
         refreshCashierWallet();
         renderTransactions();
       })
@@ -935,11 +935,11 @@
     function submitWithdrawal() {
       const amt = parseFloat(document.getElementById('withdrawAmount').value);
       if (!amt || amt < 200) {
-        alert('Minimum withdrawal amount is 🪙200.');
+        alert('Minimum withdrawal amount is ₹200.');
         return;
       }
       if (amt > 50000) {
-        alert('Maximum withdrawal amount is 🪙50,000.');
+        alert('Maximum withdrawal amount is ₹50,000.');
         return;
       }
       
@@ -989,7 +989,7 @@
         document.getElementById('bankIfsc').value = '';
         document.getElementById('bankName').value = '';
         
-        showToast(`Withdrawal request of 🪙${amt.toFixed(2)} submitted. Status: Pending Admin Approval.`, 'info');
+        showToast(`Withdrawal request of ₹${amt.toFixed(2)} submitted. Status: Pending Admin Approval.`, 'info');
         refreshCashierWallet();
         renderTransactions();
         return;
@@ -1037,7 +1037,7 @@
         document.getElementById('bankIfsc').value = '';
         document.getElementById('bankName').value = '';
         
-        showToast(`Withdrawal request of 🪙${amt.toFixed(2)} submitted! Status: Pending Admin Approval.`, 'info');
+        showToast(`Withdrawal request of ₹${amt.toFixed(2)} submitted! Status: Pending Admin Approval.`, 'info');
         
         syncSessionAndBalance();
         setTimeout(refreshCashierWallet, 800);

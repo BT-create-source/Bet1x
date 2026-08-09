@@ -80,10 +80,10 @@
 
         <label>Bet Amount</label>
         <div class="amount-row">
-          <button type="button" class="chip-amt" data-amt="10">🪙10</button>
-          <button type="button" class="chip-amt" data-amt="50">🪙50</button>
-          <button type="button" class="chip-amt" data-amt="100">🪙100</button>
-          <button type="button" class="chip-amt" data-amt="500">🪙500</button>
+          <button type="button" class="chip-amt" data-amt="10">₹10</button>
+          <button type="button" class="chip-amt" data-amt="50">₹50</button>
+          <button type="button" class="chip-amt" data-amt="100">₹100</button>
+          <button type="button" class="chip-amt" data-amt="500">₹500</button>
         </div>
         <input type="number" id="amountInput" min="1" placeholder="Or enter custom amount">
 
@@ -192,7 +192,7 @@ function updateSubmitState() {
   }
   if (selectedCat && selectedVal !== null && selectedAmount > 0) {
     placeBetBtn.disabled = false;
-    placeBetBtn.textContent = `Place Bet: ${selectedCat.toUpperCase()} · ${selectedVal} · 🪙${selectedAmount}`;
+    placeBetBtn.textContent = `Place Bet: ${selectedCat.toUpperCase()} · ${selectedVal} · ₹${selectedAmount}`;
   } else {
     placeBetBtn.disabled = true;
     placeBetBtn.textContent = 'Select an option first';
@@ -211,7 +211,7 @@ function renderMyBets() {
     <tr>
       <td>${b.category[0].toUpperCase() + b.category.slice(1)}</td>
       <td>${b.value}</td>
-      <td>🪙${b.amount.toFixed(2)}</td>
+      <td>₹${b.amount.toFixed(2)}</td>
       <td><span class="badge pending">Pending</span></td>
     </tr>
   `).join('');
@@ -256,7 +256,7 @@ function updateBetButtonsSummary(aggs) {
     btnGreen.innerHTML = `
       <span style="font-size: 15px; font-weight: 800; display: block; letter-spacing: 0.5px;">Green <span style="font-family: var(--font-mono); font-size: 11px; opacity: 0.85;">×2.0</span></span>
       <div style="font-family: var(--font-mono); font-size: 10.5px; background: rgba(0,0,0,0.22); padding: 4px 6px; border-radius: 6px; margin-top: 5px; font-weight: 700; display: inline-block; width: 100%; box-sizing: border-box; line-height: 1.2; text-align: center;">
-        👥 ${aggs.Green.count} plrs · 🪙${aggs.Green.amount.toLocaleString()}
+        ${aggs.Green.count} players · ₹${aggs.Green.amount.toLocaleString()}
       </div>
     `;
   }
@@ -265,7 +265,7 @@ function updateBetButtonsSummary(aggs) {
     btnViolet.innerHTML = `
       <span style="font-size: 15px; font-weight: 800; display: block; letter-spacing: 0.5px;">Violet <span style="font-family: var(--font-mono); font-size: 11px; opacity: 0.85;">×4.5</span></span>
       <div style="font-family: var(--font-mono); font-size: 10.5px; background: rgba(0,0,0,0.22); padding: 4px 6px; border-radius: 6px; margin-top: 5px; font-weight: 700; display: inline-block; width: 100%; box-sizing: border-box; line-height: 1.2; text-align: center;">
-        👥 ${aggs.Violet.count} plrs · 🪙${aggs.Violet.amount.toLocaleString()}
+        ${aggs.Violet.count} players · ₹${aggs.Violet.amount.toLocaleString()}
       </div>
     `;
   }
@@ -274,7 +274,7 @@ function updateBetButtonsSummary(aggs) {
     btnRed.innerHTML = `
       <span style="font-size: 15px; font-weight: 800; display: block; letter-spacing: 0.5px;">Red <span style="font-family: var(--font-mono); font-size: 11px; opacity: 0.85;">×2.0</span></span>
       <div style="font-family: var(--font-mono); font-size: 10.5px; background: rgba(0,0,0,0.22); padding: 4px 6px; border-radius: 6px; margin-top: 5px; font-weight: 700; display: inline-block; width: 100%; box-sizing: border-box; line-height: 1.2; text-align: center;">
-        👥 ${aggs.Red.count} plrs · 🪙${aggs.Red.amount.toLocaleString()}
+        ${aggs.Red.count} players · ₹${aggs.Red.amount.toLocaleString()}
       </div>
     `;
   }
@@ -285,7 +285,7 @@ function updateBetButtonsSummary(aggs) {
     btnSmall.innerHTML = `
       <span style="font-size: 15px; font-weight: 800; display: block; letter-spacing: 0.5px;">Small (0–4) <span style="font-family: var(--font-mono); font-size: 11px; opacity: 0.85;">×2</span></span>
       <div style="font-family: var(--font-mono); font-size: 10.5px; background: rgba(0,0,0,0.22); padding: 4px 6px; border-radius: 6px; margin-top: 5px; font-weight: 700; display: inline-block; width: 100%; box-sizing: border-box; line-height: 1.2; text-align: center;">
-        👥 ${aggs.Small.count} plrs · 🪙${aggs.Small.amount.toLocaleString()}
+        ${aggs.Small.count} players · ₹${aggs.Small.amount.toLocaleString()}
       </div>
     `;
   }
@@ -294,7 +294,7 @@ function updateBetButtonsSummary(aggs) {
     btnBig.innerHTML = `
       <span style="font-size: 15px; font-weight: 800; display: block; letter-spacing: 0.5px;">Big (5–9) <span style="font-family: var(--font-mono); font-size: 11px; opacity: 0.85;">×2</span></span>
       <div style="font-family: var(--font-mono); font-size: 10.5px; background: rgba(0,0,0,0.22); padding: 4px 6px; border-radius: 6px; margin-top: 5px; font-weight: 700; display: inline-block; width: 100%; box-sizing: border-box; line-height: 1.2; text-align: center;">
-        👥 ${aggs.Big.count} plrs · 🪙${aggs.Big.amount.toLocaleString()}
+        ${aggs.Big.count} players · ₹${aggs.Big.amount.toLocaleString()}
       </div>
     `;
   }
@@ -311,8 +311,8 @@ function updateBetButtonsSummary(aggs) {
       btnNum.innerHTML = `
         <span style="font-size: 16px; font-weight: 800; display: block; line-height: 1; margin-bottom: 4px;">${i}</span>
         <div style="font-family: var(--font-mono); font-size: 9px; line-height: 1.25; background: rgba(0,0,0,0.18); border-radius: 4px; padding: 2px 0; margin-top: 2px;">
-          👥 ${info.count}<br>
-          🪙${info.amount.toLocaleString()}
+          ${info.count}<br>
+          ₹${info.amount.toLocaleString()}
         </div>
       `;
     }
@@ -379,7 +379,7 @@ function settleRoundLocally() {
   });
   if (totalPayout > 0) {
     adjustWallet(totalPayout, `Color Guess Win: Room ${ROOM_KEY.charAt(0).toUpperCase() + ROOM_KEY.slice(1)} Round #${lastRoundId} Payout`);
-    showSettlementAlert(`Round settled! Result: ${winningNum} (${newResult.color}, ${newResult.size}) — you won 🪙${totalPayout.toFixed(2)}`, 'success');
+    showSettlementAlert(`Round settled! Result: ${winningNum} (${newResult.color}, ${newResult.size}) — you won ₹${totalPayout.toFixed(2)}`, 'success');
     triggerWinShower(document.querySelector('.card'));
   } else if (hasBets) {
     showSettlementAlert(`Round settled. Result: ${winningNum} (${newResult.color}, ${newResult.size}) — no win this round.`, 'error');
@@ -445,7 +445,7 @@ function syncState() {
           if (won) totalPayout += b.amount * mult;
         });
         if (totalPayout > 0) {
-          showSettlementAlert(`Round settled! Result: ${lastResult.number} (${lastResult.color}, ${lastResult.size}) — you won 🪙${totalPayout.toFixed(2)}`, 'success');
+          showSettlementAlert(`Round settled! Result: ${lastResult.number} (${lastResult.color}, ${lastResult.size}) — you won ₹${totalPayout.toFixed(2)}`, 'success');
           triggerWinShower(document.querySelector('.card'));
         } else if (hasBets) {
           showSettlementAlert(`Round settled. Result: ${lastResult.number} (${lastResult.color}, ${lastResult.size}) — no win this round.`, 'error');
@@ -489,7 +489,7 @@ placeBetBtn.addEventListener('click', () => {
     adjustWallet(-selectedAmount, `Color Guess Wager: Room ${ROOM_KEY.charAt(0).toUpperCase() + ROOM_KEY.slice(1)} Round #${lastRoundId} Selection: ${selectedCat} (${selectedVal})`);
     myBetsThisRound.push({ category: selectedCat, value: selectedVal, amount: selectedAmount });
     renderMyBets();
-    showAlert(`Bet placed: ${selectedCat.toUpperCase()} · ${selectedVal} for 🪙${selectedAmount.toFixed(2)}`, 'success');
+    showAlert(`Bet placed: ${selectedCat.toUpperCase()} · ${selectedVal} for ₹${selectedAmount.toFixed(2)}`, 'success');
     if (typeof pushHistory === 'function') {
       pushHistory({ room: ROOM_KEY.toUpperCase(), roundNumber: lastRoundId, category: selectedCat, value: selectedVal, amount: selectedAmount, status: 'pending' });
     }
@@ -515,7 +515,7 @@ placeBetBtn.addEventListener('click', () => {
       myBetsThisRound.push({ category: selectedCat, value: selectedVal, amount: selectedAmount });
       renderMyBets();
       setWallet(data.new_balance);
-      showAlert(`Bet placed: ${selectedCat.toUpperCase()} · ${selectedVal} for 🪙${selectedAmount.toFixed(2)}`, 'success');
+      showAlert(`Bet placed: ${selectedCat.toUpperCase()} · ${selectedVal} for ₹${selectedAmount.toFixed(2)}`, 'success');
       if (typeof pushHistory === 'function') {
         pushHistory({ room: ROOM_KEY.toUpperCase(), roundNumber: lastRoundId, category: selectedCat, value: selectedVal, amount: selectedAmount, status: 'pending' });
       }

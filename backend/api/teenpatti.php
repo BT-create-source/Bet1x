@@ -65,7 +65,7 @@ if ($game && $game['status'] === 'playing' && currentPlayerKey($game) === 'human
 switch ($action) {
     case 'new_game': {
         if ($dbBalance < BOOT_AMOUNT) {
-            echo json_encode(['error' => 'Insufficient wallet balance. Minimum Boot is 🪙' . BOOT_AMOUNT]);
+            echo json_encode(['error' => 'Insufficient wallet balance. Minimum Boot is ₹' . BOOT_AMOUNT]);
             exit;
         }
         

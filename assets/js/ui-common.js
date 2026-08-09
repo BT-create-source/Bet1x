@@ -125,7 +125,7 @@ function pushHistory(entry) {
 function renderWalletChips() {
   const prefix = getApiPrefix();
   document.querySelectorAll('[data-wallet-chip]').forEach(el => {
-    el.textContent = '🪙 ' + getWallet().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    el.textContent = '₹ ' + getWallet().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     el.style.cursor = 'pointer';
     el.title = 'Click to Deposit / Manage Wallet';
     el.onclick = () => {
@@ -144,7 +144,7 @@ function updateAuthHeaderUI() {
     authArea.innerHTML = `
       <div style="display:flex; align-items:center; gap:10px; color:#ffffff; font-size:13.5px; flex-wrap:wrap; justify-content:flex-end;">
         <span>Welcome, <strong style="color:var(--gold);">${user.username}</strong></span>
-        <span class="wallet-chip" data-wallet-chip style="margin:0;">🪙 ${getWallet().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+        <span class="wallet-chip" data-wallet-chip style="margin:0;">₹ ${getWallet().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         <a href="${prefix}cashier.html" style="background:var(--gold); color:#000; font-weight:800; font-size:12px; padding:4px 10px; border-radius:4px; text-decoration:none; display:inline-flex; align-items:center; gap:4px; box-shadow:0 0 12px rgba(201,160,84,0.5);">💰 Deposit</a>
         <a href="#" onclick="handleHeaderLogout(event)" style="color:#ff5d5d; font-weight:700; text-decoration:none; font-size:12.5px; border-left:1px solid rgba(255,255,255,0.2); padding-left:10px;">Logout ⎋</a>
       </div>
@@ -180,7 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
       
       const fbLi = document.createElement('li');
       fbLi.className = 'sub-navbar-item';
-      fbLi.innerHTML = `<a href="${prefix}football.html" class="sub-navbar-link">⚽ Football</a>`;
+      fbLi.innerHTML = `<a href="${prefix}football.html" class="sub-navbar-link">Football</a>`;
       
       const mineLi = document.createElement('li');
       mineLi.className = 'sub-navbar-item';
@@ -268,7 +268,7 @@ function startActivityFeed(container, { intervalMs = 2200, maxItems = 12 } = {})
     const cls = ev.category === 'color' ? ev.value.toLowerCase() : '';
     item.innerHTML = `
       <span class="user">${ev.user} · ${ev.room}</span>
-      <span class="action ${cls}">🪙${ev.amount} on ${label}</span>
+      <span class="action ${cls}">₹${ev.amount} on ${label}</span>
     `;
     container.prepend(item);
     while (container.children.length > maxItems) {
@@ -301,7 +301,7 @@ function triggerWinShower(container) {
     container.style.position = 'relative';
   }
   
-  const emojis = ['🪙', '🪙', '✨', '⭐', '🎉'];
+  const emojis = ['₹', '₹', '✨', '⭐', '🎉'];
   for (let i = 0; i < 35; i++) {
     const p = document.createElement('div');
     p.className = 'coin-particle';
@@ -597,7 +597,7 @@ window.logoutUser = function() {
 window.resetDemoWallet = function() {
   if (window.isOfflineMode) {
     localStorage.setItem(WALLET_KEY, STARTING_BALANCE.toFixed(2));
-    showToast('Virtual balance reset to 🪙' + STARTING_BALANCE.toLocaleString('en-IN', { minimumFractionDigits: 2 }), 'success');
+    showToast('Virtual balance reset to ₹' + STARTING_BALANCE.toLocaleString('en-IN', { minimumFractionDigits: 2 }), 'success');
     renderWalletChips();
     return;
   }
@@ -611,7 +611,7 @@ window.resetDemoWallet = function() {
   .then(data => {
     if (data.success) {
       localStorage.setItem(WALLET_KEY, parseFloat(data.balance).toFixed(2));
-      showToast('Virtual balance reset to 🪙' + parseFloat(data.balance).toLocaleString('en-IN', { minimumFractionDigits: 2 }), 'success');
+      showToast('Virtual balance reset to ₹' + parseFloat(data.balance).toLocaleString('en-IN', { minimumFractionDigits: 2 }), 'success');
       renderWalletChips();
     } else {
       resetDemo();
@@ -690,7 +690,7 @@ function updateNavbarAuth() {
           userContainer = document.createElement('div');
           userContainer.className = 'nav-user-container';
           userContainer.innerHTML = `
-            <span class="wallet-chip" data-wallet-chip>🪙 ${getWallet().toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+            <span class="wallet-chip" data-wallet-chip>₹ ${getWallet().toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
             <div class="user-dropdown-wrapper">
               <button class="nav-user-btn" onclick="toggleUserDropdown(event)">
                 <span class="user-avatar-dot"></span>
@@ -704,7 +704,7 @@ function updateNavbarAuth() {
                 </div>
                 <div class="dropdown-divider"></div>
                 <a href="cashier.html" class="dropdown-item">💰 Deposit & Withdraw</a>
-                <a href="admin.html" class="dropdown-item">🔧 Admin Dashboard</a>
+                <a href="admin.html" class="dropdown-item">Admin Dashboard</a>
                 <div class="dropdown-divider"></div>
                 <a href="#" class="dropdown-item" onclick="resetDemoWallet(); return false;">Reset Wallet</a>
                 <a href="#" class="dropdown-item logout" onclick="logoutUser(); return false;">Log Out</a>
@@ -717,7 +717,7 @@ function updateNavbarAuth() {
       
       const topbar = chip.closest('.topbar');
       if (topbar) {
-        chip.textContent = '🪙 ' + getWallet().toLocaleString('en-IN', { minimumFractionDigits: 2 });
+        chip.textContent = '₹ ' + getWallet().toLocaleString('en-IN', { minimumFractionDigits: 2 });
       }
     });
   } else {
@@ -788,7 +788,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="splash-emblem-container">
             <div class="splash-ring"></div>
             <div class="splash-logo-center">
-              <span class="splash-dot-core">👑</span>
+              <span class="splash-dot-core"></span>
             </div>
           </div>
           

@@ -95,7 +95,7 @@ async function api(action, params = {}) {
 }
 
 function topbar() {
-  return `<div class="topbar"><div>🏏 Exhibition Match</div><div class="coin-badge">🪙 ${state.coins} coins</div></div>`;
+  return `<div class="topbar"><div>🏏 Exhibition Match</div><div class="coin-badge">₹ ${state.coins} coins</div></div>`;
 }
 
 function groupMarkets() {
@@ -113,7 +113,7 @@ function marketRow(m, errors) {
   if (existingBet) {
     return `<div class="market-row has-bet">
       <div class="market-label">${m.label} <span class="odds-tag">${m.odds}x</span></div>
-      <div>Staked: ${existingBet.stake} 🪙</div>
+      <div>Staked: ${existingBet.stake} ₹</div>
       <button class="cancel-btn" onclick="cancelBet('${m.key}')">Cancel</button>
     </div>`;
   }
@@ -136,7 +136,7 @@ function renderBetting(errors = []) {
   });
 
   const totalStaked = state.bets.reduce((s, b) => s + b.stake, 0);
-  html += `<div class="my-bets"><b>Aapke Bets (${state.bets.length}):</b> Total staked: ${totalStaked} 🪙</div>`;
+  html += `<div class="my-bets"><b>Aapke Bets (${state.bets.length}):</b> Total staked: ${totalStaked} ₹</div>`;
   if (errors.length) html += `<div class="errors">${errors.map(e => '&bull; ' + e).join('<br>')}</div>`;
   html += `<button class="lock-btn" onclick="lockAndStart()">🔒 Bets Lock Karein &amp; Match Shuru Karein</button>`;
   document.getElementById('app').innerHTML = html;
@@ -180,7 +180,7 @@ function renderLive() {
     <div class="players-line">
       ${playerChip(cur.striker, '🏏 Striker')}
       ${cur.non_striker ? `<div class="player-chip">Non-striker: <b>${cur.non_striker.name}</b> ${cur.non_striker.stats.runs}(${cur.non_striker.stats.balls}b)</div>` : ''}
-      <div class="player-chip">🎯 Bowler: <b>${cur.bowler.name}</b> ${cur.bowler.stats.overs}ov, ${cur.bowler.stats.runs}r, ${cur.bowler.stats.wickets}w</div>
+      <div class="player-chip">Bowler: <b>${cur.bowler.name}</b> ${cur.bowler.stats.overs}ov, ${cur.bowler.stats.runs}r, ${cur.bowler.stats.wickets}w</div>
     </div>
   </div>`;
 
@@ -226,7 +226,7 @@ function renderFinished() {
   }
   state.bets.forEach(b => {
     html += `<div class="bet-result-row ${b.result}">
-      <div>${b.label} <br><span style="opacity:.7">Stake: ${b.stake} 🪙 @ ${b.odds}x</span></div>
+      <div>${b.label} <br><span style="opacity:.7">Stake: ${b.stake} ₹ @ ${b.odds}x</span></div>
       <div class="result-tag ${b.result}">${b.result === 'won' ? '✅ WON +' + b.payout : b.result === 'push' ? '↩ PUSH (refunded)' : '❌ LOST'}</div>
     </div>`;
   });

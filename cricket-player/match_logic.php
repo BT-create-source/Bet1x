@@ -124,7 +124,7 @@ function simulateOneOver(array &$match): void {
         $bs['overs']++;
         if ($bs['runs_this_over'] === 0) {
             $bs['maidens']++;
-            addCommentary($match, "$bowlerName ne maiden over dala! 🎯");
+            addCommentary($match, "$bowlerName ne maiden over dala! ");
         }
         unset($bs);
         // over end par strike swap hoti hai

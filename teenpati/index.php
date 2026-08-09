@@ -225,10 +225,10 @@ require_once __DIR__ . '/game_logic.php';
 
 <div class="game-container">
   <h1>♠ TEEN PATTI ♦</h1>
-  <div class="subtitle">Boot: 🪙<?php echo BOOT_AMOUNT; ?> | Play against Raju, Vikram, and Sana</div>
+  <div class="subtitle">Boot: ₹<?php echo BOOT_AMOUNT; ?> | Play against Raju, Vikram, and Sana</div>
 
   <div class="table">
-    <div class="pot-row"><span class="pot-badge" id="potBadge">Pot: 🪙0</span></div>
+    <div class="pot-row"><span class="pot-badge" id="potBadge">Pot: ₹0</span></div>
     <div class="players" id="playersArea"></div>
     <div class="status-msg" id="statusMsg"></div>
     <div class="controls" id="controls"></div>
@@ -294,7 +294,7 @@ function render(data) {
     setWallet(data.players.human.balance);
   }
 
-  document.getElementById('potBadge').textContent = 'Pot: 🪙' + data.pot.toLocaleString('en-IN');
+  document.getElementById('potBadge').textContent = 'Pot: ₹' + data.pot.toLocaleString('en-IN');
 
   let html = '';
   data.order.forEach(key => {
@@ -320,7 +320,7 @@ function render(data) {
     html += `
       <div class="player-card ${isTurn ? 'turn' : ''} ${p.folded ? 'folded' : ''} ${isWinner ? 'winner' : ''}">
         <div class="player-name">${p.name} ${p.is_bot ? '(Bot)' : ''}</div>
-        <div class="player-balance">Balance: 🪙${p.balance.toLocaleString('en-IN')}</div>
+        <div class="player-balance">Balance: ₹${p.balance.toLocaleString('en-IN')}</div>
         <div class="cards-row">${cardsHtml}</div>
         <div class="hand-label">${p.hand_label ?? (p.folded ? 'Pack' : '')}</div>
         ${timerHtml}
@@ -370,9 +370,9 @@ function render(data) {
 
   const activeCount = data.order.filter(k => !data.players[k].folded).length;
   if (data.turn === 'human') {
-    statusMsg.textContent = 'Aapki baari hai — Stake: 🪙' + data.current_stake;
+    statusMsg.textContent = 'Aapki baari hai — Stake: ₹' + data.current_stake;
     controls.innerHTML = `
-      <button class="btn btn-primary" onclick="doAction('chaal')">Chaal (🪙${data.current_stake})</button>
+      <button class="btn btn-primary" onclick="doAction('chaal')">Chaal (₹${data.current_stake})</button>
       <button class="btn btn-ghost" style="color:var(--red);border-color:rgba(255,75,110,0.4)" onclick="doAction('fold')">Pack (Fold)</button>
       ${activeCount === 2 ? '<button class="btn btn-gold" onclick="doAction(\'show\')">Show</button>' : ''}
     `;

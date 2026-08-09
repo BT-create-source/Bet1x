@@ -100,7 +100,7 @@ session_start();
           <div class="console-right" style="width: 220px;">
             <button class="big-bet-btn bet" id="actionBtn" onclick="handleBtnClick()">
               <span class="label">Place Bet</span>
-              <span class="sub-label">🪙50.00</span>
+              <span class="sub-label">₹50.00</span>
             </button>
           </div>
         </div>
@@ -339,18 +339,18 @@ function renderLiveBets() {
     if (p.status === 'won') {
       item.classList.add('won');
       const payout = p.amount * p.cashedMultiplier;
-      resultHTML = `<div class="amount-payout" style="color:var(--green)">🪙${payout.toFixed(2)}<span class="payout-mult">${p.cashedMultiplier.toFixed(2)}x</span></div>`;
+      resultHTML = `<div class="amount-payout" style="color:var(--green)">₹${payout.toFixed(2)}<span class="payout-mult">${p.cashedMultiplier.toFixed(2)}x</span></div>`;
     } else if (p.status === 'lost') {
       item.classList.add('crashed');
       resultHTML = `<div class="amount-payout" style="color:var(--red); font-weight:normal;">Busted</div>`;
     } else {
-      resultHTML = `<div class="amount-payout" style="color:var(--text-dim)">🪙${p.amount.toFixed(0)}</div>`;
+      resultHTML = `<div class="amount-payout" style="color:var(--text-dim)">₹${p.amount.toFixed(0)}</div>`;
     }
     
     item.innerHTML = `
       <div class="user">
         <span>${p.name}</span>
-        <span class="user-meta">Bet: 🪙${p.amount.toFixed(0)}</span>
+        <span class="user-meta">Bet: ₹${p.amount.toFixed(0)}</span>
       </div>
       ${resultHTML}
     `;
@@ -379,7 +379,7 @@ function updateBtnLabels() {
   const input = document.getElementById('betAmount');
   const actionBtn = document.getElementById('actionBtn');
   if (!serverState.bet) {
-    actionBtn.querySelector('.sub-label').textContent = '🪙' + parseFloat(input.value).toFixed(2);
+    actionBtn.querySelector('.sub-label').textContent = '₹' + parseFloat(input.value).toFixed(2);
   }
 }
 
@@ -448,7 +448,7 @@ function checkAutoCashout(mult) {
 function updateUI() {
   // Sync Wallet Chip
   document.querySelectorAll('[data-wallet-chip]').forEach(el => {
-    el.textContent = '🪙 ' + serverState.balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    el.textContent = '₹ ' + serverState.balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   });
 
   const actionBtn = document.getElementById('actionBtn');
@@ -478,7 +478,7 @@ function updateUI() {
       actionBtn.className = 'big-bet-btn bet';
       actionBtn.innerHTML = `
         <span class="label">Place Bet</span>
-        <span class="sub-label">🪙${amount.toFixed(2)}</span>
+        <span class="sub-label">₹${amount.toFixed(2)}</span>
       `;
     }
   } else if (serverState.phase === 'running') {
@@ -488,14 +488,14 @@ function updateUI() {
         actionBtn.disabled = true;
         actionBtn.innerHTML = `
           <span class="label">Cashed Out</span>
-          <span class="sub-label" style="color:var(--green)">+🪙${(serverState.bet.amount * serverState.bet.cashout_multiplier).toFixed(2)}</span>
+          <span class="sub-label" style="color:var(--green)">+₹${(serverState.bet.amount * serverState.bet.cashout_multiplier).toFixed(2)}</span>
         `;
       } else {
         actionBtn.disabled = false;
         actionBtn.className = 'big-bet-btn cashout';
         actionBtn.innerHTML = `
           <span class="label">Cash Out</span>
-          <span class="sub-label" id="cashoutVal">🪙${(serverState.bet.amount * currentMultiplier).toFixed(2)}</span>
+          <span class="sub-label" id="cashoutVal">₹${(serverState.bet.amount * currentMultiplier).toFixed(2)}</span>
         `;
       }
     } else {
@@ -514,12 +514,12 @@ function updateUI() {
       if (serverState.bet.cashed_out) {
         actionBtn.innerHTML = `
           <span class="label">Won</span>
-          <span class="sub-label" style="color:var(--green)">+🪙${(serverState.bet.amount * serverState.bet.cashout_multiplier).toFixed(2)}</span>
+          <span class="sub-label" style="color:var(--green)">+₹${(serverState.bet.amount * serverState.bet.cashout_multiplier).toFixed(2)}</span>
         `;
       } else {
         actionBtn.innerHTML = `
           <span class="label">Busted</span>
-          <span class="sub-label" style="color:var(--red)">Lost 🪙${serverState.bet.amount.toFixed(2)}</span>
+          <span class="sub-label" style="color:var(--red)">Lost ₹${serverState.bet.amount.toFixed(2)}</span>
         `;
       }
     } else {
@@ -637,7 +637,7 @@ function gameTick() {
     // Update live bet console values
     const cashoutVal = document.getElementById('cashoutVal');
     if (cashoutVal && serverState.bet && !serverState.bet.cashed_out) {
-      cashoutVal.textContent = '🪙' + (serverState.bet.amount * currentMultiplier).toFixed(2);
+      cashoutVal.textContent = '₹' + (serverState.bet.amount * currentMultiplier).toFixed(2);
     }
     
     // Auto cashout checks

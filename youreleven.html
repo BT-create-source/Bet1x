@@ -1222,9 +1222,9 @@ function render() {
     const activeContest = contests.find(c => c.id === gameState.selectedContest);
     let payoutMsg = '';
     if (gameState.payoutAwarded > activeContest.fee) {
-      payoutMsg = `<span style="color:var(--green)">Congratulations! Payout mila: 🪙${gameState.payoutAwarded.toFixed(2)}</span>`;
+      payoutMsg = `<span style="color:var(--green)">Congratulations! Payout mila: ₹${gameState.payoutAwarded.toFixed(2)}</span>`;
     } else if (gameState.payoutAwarded === activeContest.fee) {
-      payoutMsg = `<span style="color:var(--gold)">Money Back! Aapko 🪙${gameState.payoutAwarded.toFixed(2)} wapas mile.</span>`;
+      payoutMsg = `<span style="color:var(--gold)">Money Back! Aapko ₹${gameState.payoutAwarded.toFixed(2)} wapas mile.</span>`;
     } else {
       payoutMsg = `<span style="color:var(--red)">No Win. Apni strategy badlein aur fir se khelein!</span>`;
     }
@@ -1291,8 +1291,8 @@ function render() {
     contestHtml += `
       <div class="contest-card ${gameState.selectedContest === c.id ? 'selected' : ''}" onclick="gameState.selectedContest='${c.id}'; render();">
         <div class="contest-title">${c.title}</div>
-        <div class="contest-fee">🪙${c.fee}</div>
-        <div class="contest-winnings">Max: 🪙${(c.fee * 4).toFixed(0)}</div>
+        <div class="contest-fee">₹${c.fee}</div>
+        <div class="contest-winnings">Max: ₹${(c.fee * 4).toFixed(0)}</div>
       </div>`;
   });
 

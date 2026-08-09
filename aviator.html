@@ -98,7 +98,7 @@
             <div class="console-right">
               <button class="big-bet-btn bet" id="actionBtn1" onclick="handleBtnClick(1)">
                 <span class="label">Place Bet</span>
-                <span class="sub-label">🪙50.00</span>
+                <span class="sub-label">₹50.00</span>
               </button>
             </div>
           </div>
@@ -135,7 +135,7 @@
             <div class="console-right">
               <button class="big-bet-btn bet" id="actionBtn2" onclick="handleBtnClick(2)">
                 <span class="label">Place Bet</span>
-                <span class="sub-label">🪙100.00</span>
+                <span class="sub-label">₹100.00</span>
               </button>
             </div>
           </div>
@@ -404,18 +404,18 @@ function renderLiveBets() {
     if (p.status === 'won') {
       item.classList.add('won');
       const payout = p.amount * p.cashedMultiplier;
-      resultHTML = `<div class="amount-payout" style="color:var(--green)">🪙${payout.toFixed(2)}<span class="payout-mult">${p.cashedMultiplier.toFixed(2)}x</span></div>`;
+      resultHTML = `<div class="amount-payout" style="color:var(--green)">₹${payout.toFixed(2)}<span class="payout-mult">${p.cashedMultiplier.toFixed(2)}x</span></div>`;
     } else if (p.status === 'lost') {
       item.classList.add('crashed');
       resultHTML = `<div class="amount-payout" style="color:var(--red); font-weight:normal;">Busted</div>`;
     } else {
-      resultHTML = `<div class="amount-payout" style="color:var(--text-dim)">🪙${p.amount.toFixed(0)}</div>`;
+      resultHTML = `<div class="amount-payout" style="color:var(--text-dim)">₹${p.amount.toFixed(0)}</div>`;
     }
     
     item.innerHTML = `
       <div class="user">
         <span>${p.name}</span>
-        <span class="user-meta">Bet: 🪙${p.amount.toFixed(0)}</span>
+        <span class="user-meta">Bet: ₹${p.amount.toFixed(0)}</span>
       </div>
       ${resultHTML}
     `;
@@ -445,7 +445,7 @@ function updateBtnLabels(consoleId) {
   const actionBtn = document.getElementById(`actionBtn${consoleId}`);
   const b = bets[consoleId];
   if (b.status === 'none') {
-    actionBtn.querySelector('.sub-label').textContent = '🪙' + parseFloat(input.value).toFixed(2);
+    actionBtn.querySelector('.sub-label').textContent = '₹' + parseFloat(input.value).toFixed(2);
   }
 }
 
@@ -482,7 +482,7 @@ window.handleBtnClick = function(consoleId) {
           category: 'Crash', value: 'Bet', amount: amount, status: 'pending'
         });
       }
-      showAlert('success', `Bet placed: 🪙${amount.toFixed(2)}`);
+      showAlert('success', `Bet placed: ₹${amount.toFixed(2)}`);
       return;
     }
     
@@ -519,7 +519,7 @@ window.handleBtnClick = function(consoleId) {
             category: 'Crash', value: 'Bet', amount: amount, status: 'pending'
           });
         }
-        showAlert('success', `Bet placed: 🪙${amount.toFixed(2)}`);
+        showAlert('success', `Bet placed: ₹${amount.toFixed(2)}`);
       }
     })
     .catch(err => {
@@ -545,7 +545,7 @@ window.handleBtnClick = function(consoleId) {
     actionBtn.className = 'big-bet-btn bet';
     actionBtn.innerHTML = `
       <span class="label">Place Bet</span>
-      <span class="sub-label">🪙${amount.toFixed(2)}</span>
+      <span class="sub-label">₹${amount.toFixed(2)}</span>
     `;
   } else if (b.status === 'active') {
     // Cashout!
@@ -572,10 +572,10 @@ window.handleBtnClick = function(consoleId) {
       actionBtn.className = 'big-bet-btn bet';
       actionBtn.innerHTML = `
         <span class="label">Cashed Out</span>
-        <span class="sub-label" style="color:var(--green)">+🪙${payout.toFixed(2)}</span>
+        <span class="sub-label" style="color:var(--green)">+₹${payout.toFixed(2)}</span>
       `;
       
-      showAlert('success', `Cashed out at ${currentMultiplier.toFixed(2)}x (+🪙${payout.toFixed(2)})!`);
+      showAlert('success', `Cashed out at ${currentMultiplier.toFixed(2)}x (+₹${payout.toFixed(2)})!`);
       triggerWinShower(document.querySelector('.aviator-stage'));
       return;
     }
@@ -612,10 +612,10 @@ window.handleBtnClick = function(consoleId) {
         actionBtn.className = 'big-bet-btn bet';
         actionBtn.innerHTML = `
           <span class="label">Cashed Out</span>
-          <span class="sub-label" style="color:var(--green)">+🪙${data.payout.toFixed(2)}</span>
+          <span class="sub-label" style="color:var(--green)">+₹${data.payout.toFixed(2)}</span>
         `;
         
-        showAlert('success', `Cashed out at ${data.multiplier.toFixed(2)}x (+🪙${data.payout.toFixed(2)})!`);
+        showAlert('success', `Cashed out at ${data.multiplier.toFixed(2)}x (+₹${data.payout.toFixed(2)})!`);
         triggerWinShower(document.querySelector('.aviator-stage'));
       }
     })
@@ -641,14 +641,14 @@ function resetConsolesForNewRound() {
       actionBtn.className = 'big-bet-btn cashout';
       actionBtn.innerHTML = `
         <span class="label">Cash Out</span>
-        <span class="sub-label" id="cashoutVal${i}">🪙${(b.wagered * 1.0).toFixed(2)}</span>
+        <span class="sub-label" id="cashoutVal${i}">₹${(b.wagered * 1.0).toFixed(2)}</span>
       `;
     } else {
       b.status = 'none';
       actionBtn.className = 'big-bet-btn bet';
       actionBtn.innerHTML = `
         <span class="label">Place Bet</span>
-        <span class="sub-label">🪙${amount.toFixed(2)}</span>
+        <span class="sub-label">₹${amount.toFixed(2)}</span>
       `;
     }
   }
@@ -673,7 +673,7 @@ function updateConsoleCashoutValues(mult) {
     if (b.status === 'active') {
       const lbl = document.getElementById(`cashoutVal${i}`);
       if (lbl) {
-        lbl.textContent = '🪙' + (b.wagered * mult).toFixed(2);
+        lbl.textContent = '₹' + (b.wagered * mult).toFixed(2);
       }
     }
   }
@@ -710,7 +710,7 @@ function handleRoundLosses() {
       actionBtn.disabled = true;
       actionBtn.innerHTML = `
         <span class="label">Busted</span>
-        <span class="sub-label" style="color:var(--red)">Lost 🪙${b.wagered.toFixed(2)}</span>
+        <span class="sub-label" style="color:var(--red)">Lost ₹${b.wagered.toFixed(2)}</span>
       `;
     }
   }
@@ -784,7 +784,7 @@ function syncAviator() {
             actionBtn.disabled = false;
             actionBtn.className = 'big-bet-btn bet';
             const input = document.getElementById(`betAmount${i}`);
-            actionBtn.querySelector('.sub-label').textContent = '🪙' + parseFloat(input.value).toFixed(2);
+            actionBtn.querySelector('.sub-label').textContent = '₹' + parseFloat(input.value).toFixed(2);
           }
         }
       }
@@ -831,7 +831,7 @@ function syncAviator() {
             actionBtn.disabled = false;
             actionBtn.className = 'big-bet-btn bet';
             const input = document.getElementById(`betAmount${i}`);
-            actionBtn.querySelector('.sub-label').textContent = '🪙' + parseFloat(input.value).toFixed(2);
+            actionBtn.querySelector('.sub-label').textContent = '₹' + parseFloat(input.value).toFixed(2);
           }
         }
       }
@@ -853,7 +853,7 @@ function syncAviator() {
             actionBtn.className = 'big-bet-btn bet';
             actionBtn.innerHTML = `
               <span class="label">Cashed Out</span>
-              <span class="sub-label" style="color:var(--green)">+🪙${(b.wagered * mw.cashed_multiplier).toFixed(2)}</span>
+              <span class="sub-label" style="color:var(--green)">+₹${(b.wagered * mw.cashed_multiplier).toFixed(2)}</span>
             `;
           } else if (mw.status === 'lost') {
             b.status = 'none';
@@ -862,7 +862,7 @@ function syncAviator() {
             actionBtn.disabled = true;
             actionBtn.innerHTML = `
               <span class="label">Busted</span>
-              <span class="sub-label" style="color:var(--red)">Lost 🪙${b.wagered.toFixed(2)}</span>
+              <span class="sub-label" style="color:var(--red)">Lost ₹${b.wagered.toFixed(2)}</span>
             `;
           } else if (mw.status === 'pending' && phase === 'running' && b.status !== 'active') {
             b.status = 'active';
@@ -872,7 +872,7 @@ function syncAviator() {
             actionBtn.disabled = false;
             actionBtn.innerHTML = `
               <span class="label">Cash Out</span>
-              <span class="sub-label" id="cashoutVal${consoleId}">🪙${(b.wagered * 1.0).toFixed(2)}</span>
+              <span class="sub-label" id="cashoutVal${consoleId}">₹${(b.wagered * 1.0).toFixed(2)}</span>
             `;
           }
         }

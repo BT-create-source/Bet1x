@@ -30,7 +30,7 @@ $action = $_POST['action'] ?? $_GET['action'] ?? '';
 switch ($action) {
     case 'new_match': {
         if ($_SESSION['coins'] < MIN_STAKE) {
-            echo json_encode(['error' => 'Balance kam hai Predictor khelne ke liye. Minimum bet 🪙' . MIN_STAKE]);
+            echo json_encode(['error' => 'Balance kam hai Predictor khelne ke liye. Minimum bet ₹' . MIN_STAKE]);
             exit;
         }
         $match = createNewMatch();

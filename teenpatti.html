@@ -444,14 +444,14 @@
 
 <div class="game-container">
   <h1>♠ TEEN PATTI ♦</h1>
-  <div class="subtitle">Ante Boot: 🪙10 | Raju (Conservative), Vikram (Aggressive), Sana (Tactical)</div>
+  <div class="subtitle">Ante Boot: ₹10 | Raju (Conservative), Vikram (Aggressive), Sana (Tactical)</div>
 
   <div class="table">
     <div class="circular-table-wrapper">
       <div class="circular-felt">
         <div class="pot-badge-center">
-          <span class="pot-badge" id="potBadge">Pot: 🪙0</span>
-          <div id="tablePotCoins" style="position: relative; width: 40px; height: 35px; margin-top: 5px; font-size: 28px; line-height: 1; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.45));">🪙</div>
+          <span class="pot-badge" id="potBadge">Pot: ₹0</span>
+          <div id="tablePotCoins" style="position: relative; width: 40px; height: 35px; margin-top: 5px; font-size: 28px; line-height: 1; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.45));">₹</div>
         </div>
       </div>
       <div class="players" id="playersArea"></div>
@@ -464,7 +464,7 @@
         <span class="stepper-label">Select Stake</span>
         <div class="stepper-row">
           <button class="btn btn-ghost btn-step" id="btnMinus" onclick="adjustWagerMultiplier(-1)">-</button>
-          <span class="stepper-val" id="stepperVal">🪙20</span>
+          <span class="stepper-val" id="stepperVal">₹20</span>
           <button class="btn btn-ghost btn-step" id="btnPlus" onclick="adjustWagerMultiplier(1)">+</button>
         </div>
       </div>
@@ -499,7 +499,7 @@ function animateCoins(fromEl, toEl, count = 5) {
     setTimeout(() => {
       const coin = document.createElement('div');
       coin.className = 'flying-coin';
-      coin.textContent = '🪙';
+      coin.textContent = '₹';
       coin.style.left = startX + 'px';
       coin.style.top = startY + 'px';
 
@@ -760,7 +760,7 @@ function newGame() {
     current_stake: BOOT_AMOUNT,
     status: 'playing',
     winner: null,
-    log: [`Naya game shuru! Sabne boot 🪙${BOOT_AMOUNT} laga diya. Pot: 🪙${pot}`]
+    log: [`Naya game shuru! Sabne boot ₹${BOOT_AMOUNT} laga diya. Pot: ₹${pot}`]
   };
   
   pushHistory({
@@ -842,9 +842,9 @@ function endGame(winnerKey, wasShow) {
   
   const name = gameState.players[winnerKey].name;
   if (wasShow) {
-    addLog(`${name} ne SHOW jeeta! Pot (🪙${gameState.pot}) mila.`);
+    addLog(`${name} ne SHOW jeeta! Pot (₹${gameState.pot}) mila.`);
   } else {
-    addLog(`Baaki sab pack ho gaye. ${name} jeet gaya! Pot (🪙${gameState.pot}) mila.`);
+    addLog(`Baaki sab pack ho gaye. ${name} jeet gaya! Pot (₹${gameState.pot}) mila.`);
   }
   
   // Animate pot distribution to the winner's seat
@@ -892,9 +892,9 @@ function playerChaal(key, amount, raised) {
   const mode = gameState.players[key].seen ? 'Seen' : 'Blind';
   if (raised) {
     gameState.current_stake *= 2;
-    addLog(`${gameState.players[key].name} (${mode}) ne Double Bet/Raise kiya: 🪙${amount}! Min Stake ab: 🪙${gameState.current_stake}`);
+    addLog(`${gameState.players[key].name} (${mode}) ne Double Bet/Raise kiya: ₹${amount}! Min Stake ab: ₹${gameState.current_stake}`);
   } else {
-    addLog(`${gameState.players[key].name} (${mode}) ne Chaal khela: 🪙${amount}`);
+    addLog(`${gameState.players[key].name} (${mode}) ne Chaal khela: ₹${amount}`);
   }
 }
 
@@ -1152,7 +1152,7 @@ function render() {
     return;
   }
 
-  document.getElementById('potBadge').textContent = 'Pot: 🪙' + gameState.pot.toLocaleString('en-IN');
+  document.getElementById('potBadge').textContent = 'Pot: ₹' + gameState.pot.toLocaleString('en-IN');
 
   const revealAll = (gameState.status === 'finished');
   let html = '';
@@ -1206,7 +1206,7 @@ function render() {
         </div>
         <div class="player-avatar" style="font-size: 24px; line-height: 1; margin: 2px 0 6px;">${avatars[key] || '🧑'}</div>
         <div class="player-name">${p.name} ${p.is_bot ? '(Bot)' : ''} ${p.folded ? '' : badgeHtml}</div>
-        <div class="player-balance">Balance: 🪙${p.balance.toLocaleString('en-IN')}</div>
+        <div class="player-balance">Balance: ₹${p.balance.toLocaleString('en-IN')}</div>
         <div class="cards-row">${cardsHtml}</div>
         ${(key === 'human' && !p.seen && !p.folded && gameState.status === 'playing') 
           ? `<button class="btn btn-gold" style="padding: 4px 10px; font-size:11px; margin-top:10px; font-weight:700;" onclick="seeCards()">See Cards</button>` 
@@ -1240,20 +1240,20 @@ function render() {
     
     // Update wager selector text
     wagerSelector.style.display = 'flex';
-    document.getElementById('stepperVal').textContent = '🪙' + currentBetAmount.toLocaleString('en-IN');
+    document.getElementById('stepperVal').textContent = '₹' + currentBetAmount.toLocaleString('en-IN');
     
     // Stepper button disabled states
     document.getElementById('btnMinus').disabled = (playerWagerMultiplier === 1);
     document.getElementById('btnPlus').disabled = (playerWagerMultiplier === 2);
 
     const activeCount = activePlayersCount();
-    statusMsg.textContent = `Aapki baari hai — Wager: 🪙${currentBetAmount} (${pSeen ? 'Seen' : 'Blind'})`;
+    statusMsg.textContent = `Aapki baari hai — Wager: ₹${currentBetAmount} (${pSeen ? 'Seen' : 'Blind'})`;
     
-    const btnLabel = (playerWagerMultiplier === 2) ? `Raise (🪙${currentBetAmount})` : `Chaal (🪙${currentBetAmount})`;
+    const btnLabel = (playerWagerMultiplier === 2) ? `Raise (₹${currentBetAmount})` : `Chaal (₹${currentBetAmount})`;
     controls.innerHTML = `
       <button class="btn btn-primary" onclick="doChaalAction()">${btnLabel}</button>
       <button class="btn btn-ghost" style="color:var(--red);border-color:rgba(255,75,110,0.4)" onclick="doFold()">Pack (Fold)</button>
-      ${activeCount === 2 ? `<button class="btn btn-gold" onclick="doShow()">Show (🪙${baseChaal})</button>` : ''}
+      ${activeCount === 2 ? `<button class="btn btn-gold" onclick="doShow()">Show (₹${baseChaal})</button>` : ''}
     `;
   } else {
     wagerSelector.style.display = 'none';

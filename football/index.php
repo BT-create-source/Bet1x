@@ -623,7 +623,7 @@
       <li class="sub-navbar-item"><a href="../teenpatti.html" class="sub-navbar-link">Teen Patti</a></li>
       <li class="sub-navbar-item"><a href="../boundarybaazi.html" class="sub-navbar-link">Boundary Baazi</a></li>
       <li class="sub-navbar-item"><a href="../youreleven.html" class="sub-navbar-link">Your Eleven</a></li>
-      <li class="sub-navbar-item"><a href="index.php" class="sub-navbar-link active">⚽ Football</a></li>
+      <li class="sub-navbar-item"><a href="index.php" class="sub-navbar-link active">Football</a></li>
       <li class="sub-navbar-item"><a href="../mining.html" class="sub-navbar-link">💣 Mines</a></li>
       <li class="sub-navbar-item"><a href="../parity.html" class="sub-navbar-link">Admin</a></li>
     </ul>
@@ -694,7 +694,7 @@
 
         <!-- Bet History & Settled Wagers Section -->
         <div style="margin-top:24px; background:var(--fb-card); border:1px solid var(--fb-border); border-radius:12px; padding:16px;">
-          <h3 style="margin:0 0 12px; font-size:15px; color:#fff;">📜 Bet History & Settled Wagers</h3>
+          <h3 style="margin:0 0 12px; font-size:15px; color:#fff;">Bet History & Settled Wagers</h3>
           <div id="fbBetHistory"></div>
         </div>
       </div>
@@ -721,7 +721,7 @@
 
         <!-- Stake Input & Presets -->
         <div style="margin-top:12px;">
-          <label style="font-size:11px; color:var(--fb-text-dim); font-weight:700; text-transform:uppercase; display:block; margin-bottom:4px;">Stake Amount (🪙)</label>
+          <label style="font-size:11px; color:var(--fb-text-dim); font-weight:700; text-transform:uppercase; display:block; margin-bottom:4px;">Stake Amount (₹)</label>
           <div class="fb-stake-presets">
             <button class="fb-preset-btn" onclick="setStakePreset(100)">+100</button>
             <button class="fb-preset-btn" onclick="setStakePreset(500)">+500</button>
@@ -739,7 +739,7 @@
           </div>
           <div class="fb-summary-row total">
             <span>Potential Payout:</span>
-            <strong id="fbPotentialPayoutVal" style="color:var(--fb-green); font-family:var(--font-mono);">🪙0.00</strong>
+            <strong id="fbPotentialPayoutVal" style="color:var(--fb-green); font-family:var(--font-mono);">₹0.00</strong>
           </div>
         </div>
 
@@ -753,7 +753,7 @@
   <div id="fbSimModal" class="fb-modal-overlay">
     <div class="fb-modal-card">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-        <div style="font-size:14px; font-weight:800; color:var(--fb-gold);">⚽ LIVE MATCH ARENA SIMULATION</div>
+        <div style="font-size:14px; font-weight:800; color:var(--fb-gold);">LIVE MATCH ARENA SIMULATION</div>
         <button onclick="closeSimModal()" style="background:none; border:none; color:#fff; font-size:18px; cursor:pointer;">✕</button>
       </div>
 
@@ -1000,7 +1000,7 @@ function renderMatchesList() {
           ${isFinished ? '⚡ Result Settled & Verified' : '🔒 Verified Fair Simulation'}
         </div>
         ${!isFinished
-          ? `<button class="fb-sim-trigger" onclick="openSimulateArena(${m.id})">⚽ Kickoff Simulation</button>`
+          ? `<button class="fb-sim-trigger" onclick="openSimulateArena(${m.id})">Kickoff Simulation</button>`
           : `<span style="color:var(--fb-green); font-weight:800; font-size:12px;">✅ SETTLED</span>`}
       </div>
     `;
@@ -1042,7 +1042,7 @@ function renderSlip() {
   if (slipPicks.length === 0) {
     emptyMsg.style.display = 'block';
     totalOddsEl.textContent = '1.00x';
-    potentialPayoutEl.textContent = '🪙0.00';
+    potentialPayoutEl.textContent = '₹0.00';
     placeBtn.textContent = 'PLACE BET';
     placeBtn.disabled = true;
     return;
@@ -1076,13 +1076,13 @@ function renderSlip() {
 
   if (activeSlipTab === 'single') {
     totalOddsEl.textContent = 'N/A';
-    potentialPayoutEl.textContent = '🪙' + totalSinglePayout.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    placeBtn.textContent = `PLACE ${slipPicks.length} SINGLE BETS (Total: 🪙${(stake * slipPicks.length).toFixed(2)})`;
+    potentialPayoutEl.textContent = '₹' + totalSinglePayout.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    placeBtn.textContent = `PLACE ${slipPicks.length} SINGLE BETS (Total: ₹${(stake * slipPicks.length).toFixed(2)})`;
     placeBtn.disabled = (stake <= 0 || (stake * slipPicks.length) > getWallet());
   } else {
     const payout = stake * totalOdds;
     totalOddsEl.textContent = totalOdds.toFixed(2) + 'x';
-    potentialPayoutEl.textContent = '🪙' + payout.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    potentialPayoutEl.textContent = '₹' + payout.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     placeBtn.textContent = 'PLACE ACCUMULATOR BET';
     placeBtn.disabled = (stake <= 0 || stake > getWallet());
   }
@@ -1212,10 +1212,10 @@ function openSimulateArena(matchId) {
       status.textContent = `Second Half ${currentMin}'`;
       if (curH < h && Math.random() < 0.6) {
         curH++;
-        feed.insertAdjacentHTML('afterbegin', `<div class="fb-comm-item goal">⚽ GOAL (${currentMin}')! ${match.home} score a brilliant team goal!</div>`);
+        feed.insertAdjacentHTML('afterbegin', `<div class="fb-comm-item goal">GOAL (${currentMin}')! ${match.home} score a brilliant team goal!</div>`);
       } else if (curA < a && Math.random() < 0.6) {
         curA++;
-        feed.insertAdjacentHTML('afterbegin', `<div class="fb-comm-item goal">⚽ GOAL (${currentMin}')! ${match.away} equalize on the counter attack!</div>`);
+        feed.insertAdjacentHTML('afterbegin', `<div class="fb-comm-item goal">GOAL (${currentMin}')! ${match.away} equalize on the counter attack!</div>`);
       } else {
         feed.insertAdjacentHTML('afterbegin', `<div class="fb-comm-item">📌 (${currentMin}') Tactical battle in midfield. Possession back and forth.</div>`);
       }
@@ -1302,7 +1302,7 @@ function renderBetHistory() {
     let borderStyle = 'border-left: 4px solid #374151;';
 
     if (b.status === 'won') {
-      statusBadge = `<span style="background:rgba(16, 185, 129, 0.2); color:var(--fb-green); border:1px solid var(--fb-green); padding:2px 8px; border-radius:4px; font-weight:800; font-size:10px;">WON 🪙${b.potential_payout.toFixed(2)}</span>`;
+      statusBadge = `<span style="background:rgba(16, 185, 129, 0.2); color:var(--fb-green); border:1px solid var(--fb-green); padding:2px 8px; border-radius:4px; font-weight:800; font-size:10px;">WON ₹${b.potential_payout.toFixed(2)}</span>`;
       borderStyle = 'border-left: 4px solid var(--fb-green);';
     } else if (b.status === 'lost') {
       statusBadge = '<span style="background:rgba(239, 68, 68, 0.2); color:var(--fb-red); border:1px solid var(--fb-red); padding:2px 8px; border-radius:4px; font-weight:800; font-size:10px;">LOST</span>';
@@ -1323,7 +1323,7 @@ function renderBetHistory() {
         </div>
         ${legsHtml}
         <div style="display:flex; justify-content:space-between; margin-top:8px; font-size:11.5px; border-top:1px solid rgba(255,255,255,0.05); padding-top:6px;">
-          <span>Stake: <b>🪙${b.stake}</b></span>
+          <span>Stake: <b>₹${b.stake}</b></span>
           <span>Total Odds: <b>${b.total_odds.toFixed(2)}x</b></span>
         </div>
       </div>

@@ -229,7 +229,7 @@
       <a href="boundarybaazi.html">Boundary Baazi</a>
       <a href="aviator.html">Aviator</a>
       <a href="parity.html" class="active">Admin</a>
-      <span class="wallet-chip" data-wallet-chip>🪙 0.00</span>
+      <span class="wallet-chip" data-wallet-chip>₹ 0.00</span>
     </div>
   </nav>
 
@@ -237,15 +237,15 @@
 
     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px;">
       <div>
-        <h1 style="margin:0;">🔧 Admin Control Panel</h1>
+        <h1 style="margin:0;">Admin Control Panel</h1>
         <div style="font-size:12.5px; color:var(--text-dim);">Manage withdraw approvals, user wallets, deposits and
           betting history.</div>
       </div>
       <div style="display:flex; gap:10px;">
         <a href="parity.html" class="btn btn-ghost"
-          style="padding:6px 12px; font-size:12.5px; text-decoration:none; display:flex; align-items:center;">📊 Parity
+          style="padding:6px 12px; font-size:12.5px; text-decoration:none; display:flex; align-items:center;">Parity
           Monitor</a>
-        <button class="btn btn-ghost" style="padding:6px 12px; font-size:12.5px;" onclick="location.reload()">🔄 Refresh
+        <button class="btn btn-ghost" style="padding:6px 12px; font-size:12.5px;" onclick="location.reload()">Refresh
           Logs</button>
       </div>
     </div>
@@ -258,11 +258,11 @@
       </div>
       <div class="admin-stat-card">
         <div class="admin-stat-lbl">Total Deposits</div>
-        <div class="admin-stat-val" id="statDeposits">🪙0.00</div>
+        <div class="admin-stat-val" id="statDeposits">₹0.00</div>
       </div>
       <div class="admin-stat-card">
         <div class="admin-stat-lbl">Wallet Liability</div>
-        <div class="admin-stat-val" id="statLiability">🪙0.00</div>
+        <div class="admin-stat-val" id="statLiability">₹0.00</div>
       </div>
       <div class="admin-stat-card">
         <div class="admin-stat-lbl">Pending Cashouts</div>
@@ -276,17 +276,17 @@
 
     <div class="admin-card">
       <div class="admin-tabs">
-        <button class="admin-tab-btn" onclick="switchAdminTab('withdrawals', this)">💸 Pending Cashouts</button>
-        <button class="admin-tab-btn" onclick="switchAdminTab('deposits', this)">📥 Pending UPI Deposits</button>
-        <button class="admin-tab-btn" onclick="switchAdminTab('users', this)">👥 User Accounts</button>
-        <button class="admin-tab-btn" onclick="switchAdminTab('transactions', this)">📜 All Transaction Logs</button>
-        <button class="admin-tab-btn" onclick="switchAdminTab('wagers', this)">🎯 Game Betting History</button>
-        <button class="admin-tab-btn active" onclick="switchAdminTab('cheats', this)">🔧 Outcome Bias Console</button>
+        <button class="admin-tab-btn" onclick="switchAdminTab('withdrawals', this)">Pending Cashouts</button>
+        <button class="admin-tab-btn" onclick="switchAdminTab('deposits', this)">Pending UPI Deposits</button>
+        <button class="admin-tab-btn" onclick="switchAdminTab('users', this)">User Accounts</button>
+        <button class="admin-tab-btn" onclick="switchAdminTab('transactions', this)">All Transaction Logs</button>
+        <button class="admin-tab-btn" onclick="switchAdminTab('wagers', this)">Game Betting History</button>
+        <button class="admin-tab-btn active" onclick="switchAdminTab('cheats', this)">Outcome Bias Console</button>
       </div>
 
       <!-- Tab: Pending UPI Deposits -->
       <div id="admin-deposits" class="admin-content">
-        <h3 style="margin-bottom:12px; font-size:16px;">📥 Pending UPI Deposit Verification Queue</h3>
+        <h3 style="margin-bottom:12px; font-size:16px;">Pending UPI Deposit Verification Queue</h3>
         <p style="font-size:12.5px; color:var(--text-dim); margin-bottom:20px;">Verify customer-submitted UTR numbers
           and QR receipts. Approving a deposit automatically adds virtual coins to the user's wallet balance.</p>
         <div style="overflow-x:auto;">
@@ -400,15 +400,14 @@
 
       <!-- Tab 5: Outcome Bias Control (Cheating Dashboard) -->
       <div id="admin-cheats" class="admin-content active">
-        <h3 style="margin-bottom:12px; font-size:16px;">🔧 Administrative Results Bias Console</h3>
+        <h3 style="margin-bottom:12px; font-size:16px;">Administrative Results Bias Console</h3>
         <p style="font-size:12.5px; color:var(--text-dim); margin-bottom:20px;">Use this panel to rig or override
           outcomes for active customer bets across Color Drawing rooms, Vimaan (Aviator), and Teen Patti showdowns.</p>
 
         <div class="grid-2">
           <!-- Column 1: Color Rooms Bias -->
           <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:0;">
-            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">🎨
-              Color Prediction Bias Control</h4>
+            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">Color Prediction Bias Control</h4>
 
             <div class="cashier-input-group" style="margin-bottom:12px;">
               <label for="cheatColorRoomSelect">Select Target Game Room</label>
@@ -465,7 +464,7 @@
               style="background:#090d14; border:1px solid var(--border); border-radius:6px; padding:12px; margin-top:12px; margin-bottom:12px; display:none;">
               <div
                 style="font-size:10px; color:var(--text-dim); text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
-                <span>🏆 Last Round Settled Result</span>
+                <span>Last Round Settled Result</span>
                 <span id="adminColorLastResultTime" style="color:var(--text-dim); font-size:10px;">--:--:--</span>
               </div>
               <div id="adminColorLastResultBody"
@@ -534,8 +533,7 @@
 
           <!-- Football Betting Rig & Live Monitor Card -->
           <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:16px;">
-            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">⚽
-              Football Betting Rig & Live Monitor</h4>
+            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">Football Betting Rig & Live Monitor</h4>
 
             <div style="background:#0d0f12; padding:10px; border-radius:6px; margin-bottom:12px;">
               <div
@@ -602,7 +600,7 @@
               style="background:#090d14; border:1px solid var(--border); border-radius:6px; padding:10px; margin-top:12px; display:none;">
               <div
                 style="font-size:10px; color:var(--text-dim); text-transform:uppercase; font-weight:700; margin-bottom:4px;">
-                ⚽ Recent Match Outcome</div>
+                Recent Match Outcome</div>
               <div id="adminFootballLastResultBody"
                 style="font-family:var(--font-mono); font-size:13px; color:#52d17c; font-weight:700;">--</div>
             </div>
@@ -716,7 +714,7 @@
 
           <!-- Teen Patti Bias Card -->
           <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:0;">
-            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">🃏 Teen
+            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">Teen
               Patti Deal Bias</h4>
 
             <div style="background:#0d0f12; padding:10px; border-radius:6px; margin-bottom:16px;">
@@ -779,7 +777,7 @@
             <!-- Interactive 5x5 Rig Matrix Selector -->
             <label
               style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; font-weight:bold; display:block; margin-bottom:6px;">
-              🎯 Interactive 5x5 Rig Matrix (Click tile to set: 💎 SAFE | 💣 MINE | ⚪ AUTO)
+              Interactive 5x5 Rig Matrix (Click tile to set: 💎 SAFE | 💣 MINE | ⚪ AUTO)
             </label>
 
             <div id="adminMinesGridMatrix"
@@ -940,7 +938,7 @@
     <div class="admin-modal-card">
       <h3 style="margin-bottom:12px; font-size:16px;" id="modalUserTitle">Manage Balance: test</h3>
       <div style="font-size:13px; color:var(--text-dim); margin-bottom:16px;">
-        Current Balance: <span style="font-weight:700; color:var(--gold);" id="modalUserBalance">🪙1,000.00</span>
+        Current Balance: <span style="font-weight:700; color:var(--gold);" id="modalUserBalance">₹1,000.00</span>
       </div>
 
       <div class="cashier-input-group">
@@ -1138,11 +1136,11 @@
         document.getElementById('statUsers').textContent = users.length;
 
         const liability = users.reduce((acc, u) => acc + (parseFloat(u.wallet) || 0), 0);
-        document.getElementById('statLiability').textContent = '🪙' + liability.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+        document.getElementById('statLiability').textContent = '₹' + liability.toLocaleString('en-IN', { minimumFractionDigits: 2 });
 
         const depositsAmt = txns.filter(t => t.type === 'Deposit' && t.status === 'Completed')
           .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-        document.getElementById('statDeposits').textContent = '🪙' + depositsAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+        document.getElementById('statDeposits').textContent = '₹' + depositsAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 });
 
         const pendingCount = txns.filter(t => t.type === 'Withdrawal' && t.status === 'Pending').length;
         document.getElementById('statPending').textContent = pendingCount;
@@ -1157,8 +1155,8 @@
         .then(res => res.json())
         .then(stats => {
           document.getElementById('statUsers').textContent = stats.total_users;
-          document.getElementById('statLiability').textContent = '🪙' + parseFloat(stats.wallet_pool).toLocaleString('en-IN', { minimumFractionDigits: 2 });
-          document.getElementById('statDeposits').textContent = '🪙' + parseFloat(stats.total_deposited).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+          document.getElementById('statLiability').textContent = '₹' + parseFloat(stats.wallet_pool).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+          document.getElementById('statDeposits').textContent = '₹' + parseFloat(stats.total_deposited).toLocaleString('en-IN', { minimumFractionDigits: 2 });
           document.getElementById('statPending').textContent = stats.pending_withdrawals;
         });
 
@@ -1207,7 +1205,7 @@
           row.innerHTML = `
             <td><code>${d.deposit_id}</code></td>
             <td><b>${d.username}</b></td>
-            <td style="color:var(--green); font-weight:700; font-family:var(--font-mono);">+🪙${parseFloat(d.amount).toFixed(2)}</td>
+            <td style="color:var(--green); font-weight:700; font-family:var(--font-mono);">+₹${parseFloat(d.amount).toFixed(2)}</td>
             <td>
               <code style="font-family:var(--font-mono); font-weight:bold; color:var(--gold); background:#0d0f12; padding:2px 6px; border-radius:4px; border:1px solid var(--border);">${d.utr || 'N/A'}</code>
               <button class="btn" style="padding:2px 6px; font-size:10px; margin-left:4px;" onclick="navigator.clipboard.writeText('${d.utr}'); showToast('UTR Copied!', 'success');">Copy</button>
@@ -1241,7 +1239,7 @@
             row.innerHTML = `
             <td><code>${d.deposit_id}</code></td>
             <td><b>${d.username}</b></td>
-            <td style="color:var(--green); font-weight:700; font-family:var(--font-mono);">+🪙${parseFloat(d.amount).toFixed(2)}</td>
+            <td style="color:var(--green); font-weight:700; font-family:var(--font-mono);">+₹${parseFloat(d.amount).toFixed(2)}</td>
             <td>
               <code style="font-family:var(--font-mono); font-weight:bold; color:var(--gold); background:#0d0f12; padding:2px 6px; border-radius:4px; border:1px solid var(--border);">${utrVal}</code>
               <button class="btn" style="padding:2px 6px; font-size:10px; margin-left:4px;" onclick="navigator.clipboard.writeText('${utrVal}'); showToast('UTR Copied!', 'success');">Copy</button>
@@ -1288,7 +1286,7 @@
             localStorage.setItem('bet1x_transactions', JSON.stringify(txns));
           }
 
-          showToast(`Deposit ${depositId} approved! 🪙${parseFloat(dep.amount).toFixed(2)} added to ${dep.username}'s wallet.`, 'success');
+          showToast(`Deposit ${depositId} approved! ₹${parseFloat(dep.amount).toFixed(2)} added to ${dep.username}'s wallet.`, 'success');
           loadStats();
           renderAllTabs();
         }
@@ -1377,7 +1375,7 @@
           row.innerHTML = `
             <td><code>${t.id}</code></td>
             <td><b>${t.user}</b></td>
-            <td style="color:var(--red); font-weight:700; font-family:var(--font-mono);">-🪙${parseFloat(t.amount).toFixed(2)}</td>
+            <td style="color:var(--red); font-weight:700; font-family:var(--font-mono);">-₹${parseFloat(t.amount).toFixed(2)}</td>
             <td>${t.details || ''}</td>
             <td><span style="font-size:11.5px; color:var(--text-dim);">${t.timestamp}</span></td>
             <td>
@@ -1405,7 +1403,7 @@
             row.innerHTML = `
             <td><code>${t.withdrawal_id}</code></td>
             <td><b>${t.username}</b></td>
-            <td style="color:var(--red); font-weight:700; font-family:var(--font-mono);">-🪙${parseFloat(t.amount).toFixed(2)}</td>
+            <td style="color:var(--red); font-weight:700; font-family:var(--font-mono);">-₹${parseFloat(t.amount).toFixed(2)}</td>
             <td>${t.details}</td>
             <td><span style="font-size:11.5px; color:var(--text-dim);">${t.created_at}</span></td>
             <td>
@@ -1525,7 +1523,7 @@
           row.innerHTML = `
             <td><b>${u.username}</b></td>
             <td>${u.email || (u.username + '@bet1x.com')}</td>
-            <td style="color:var(--gold); font-weight:700; font-family:var(--font-mono);">🪙${(parseFloat(u.wallet) || 0).toFixed(2)}</td>
+            <td style="color:var(--gold); font-weight:700; font-family:var(--font-mono);">₹${(parseFloat(u.wallet) || 0).toFixed(2)}</td>
             <td>
               <button class="btn-action edit" onclick="openBalanceModal('${u.username}')">Adjust Balance</button>
             </td>
@@ -1549,7 +1547,7 @@
             row.innerHTML = `
             <td><b>${u.username}</b></td>
             <td>${u.email}</td>
-            <td style="color:var(--gold); font-weight:700; font-family:var(--font-mono);">🪙${(parseFloat(u.wallet_balance) || 0).toFixed(2)}</td>
+            <td style="color:var(--gold); font-weight:700; font-family:var(--font-mono);">₹${(parseFloat(u.wallet_balance) || 0).toFixed(2)}</td>
             <td>
               <button class="btn-action edit" onclick="openBalanceModal('${u.username}')">Adjust Balance</button>
             </td>
@@ -1566,7 +1564,7 @@
         const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
         if (user) {
           document.getElementById('modalUserTitle').textContent = `Adjust Balance: ${user.username}`;
-          document.getElementById('modalUserBalance').textContent = `🪙${(parseFloat(user.wallet) || 0).toFixed(2)}`;
+          document.getElementById('modalUserBalance').textContent = `₹${(parseFloat(user.wallet) || 0).toFixed(2)}`;
           document.getElementById('modalAmount').value = '';
           document.getElementById('adminBalanceModal').classList.add('active');
         }
@@ -1579,7 +1577,7 @@
           const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
           if (user) {
             document.getElementById('modalUserTitle').textContent = `Adjust Balance: ${user.username}`;
-            document.getElementById('modalUserBalance').textContent = `🪙${(parseFloat(user.wallet_balance) || 0).toFixed(2)}`;
+            document.getElementById('modalUserBalance').textContent = `₹${(parseFloat(user.wallet_balance) || 0).toFixed(2)}`;
             document.getElementById('modalAmount').value = '';
             document.getElementById('adminBalanceModal').classList.add('active');
           }
@@ -1691,7 +1689,7 @@
             <td><code>${t.id}</code></td>
             <td><b>${t.user}</b></td>
             <td>${t.type}</td>
-            <td style="color:${amtColor}; font-weight:700; font-family:var(--font-mono);">${amtPrefix}🪙${parseFloat(t.amount).toFixed(2)}</td>
+            <td style="color:${amtColor}; font-weight:700; font-family:var(--font-mono);">${amtPrefix}₹${parseFloat(t.amount).toFixed(2)}</td>
             <td>${t.details || ''}</td>
             <td><span class="badge ${badgeCls}">${t.status}</span></td>
             <td><span style="font-size:11.5px; color:var(--text-dim);">${t.timestamp}</span></td>
@@ -1723,7 +1721,7 @@
             <td><code>${t.id}</code></td>
             <td><b>${t.user}</b></td>
             <td>${t.type}</td>
-            <td style="color:${amtColor}; font-weight:700; font-family:var(--font-mono);">${amtPrefix}🪙${parseFloat(t.amount).toFixed(2)}</td>
+            <td style="color:${amtColor}; font-weight:700; font-family:var(--font-mono);">${amtPrefix}₹${parseFloat(t.amount).toFixed(2)}</td>
             <td>${t.details}</td>
             <td><span class="badge ${badgeCls}">${t.status}</span></td>
             <td><span style="font-size:11.5px; color:var(--text-dim);">${t.timestamp}</span></td>
@@ -1816,9 +1814,9 @@
             <td><code>${parsed.roundId}</code></td>
             <td>${parsed.gameType}</td>
             <td><span class="badge pending" style="background:#1e293b; color:#fff; border:1px solid #475569;">${parsed.selection}</span></td>
-            <td style="font-family:var(--font-mono);">🪙${parseFloat(t.amount).toFixed(2)}</td>
+            <td style="font-family:var(--font-mono);">₹${parseFloat(t.amount).toFixed(2)}</td>
             <td><span class="badge ${badgeCls}">${statusText}</span></td>
-            <td style="font-family:var(--font-mono); color:${t.type === 'Deposit' ? 'var(--green)' : 'inherit'}; font-weight:700;">🪙${t.type === 'Deposit' ? parseFloat(t.amount).toFixed(2) : '0.00'}</td>
+            <td style="font-family:var(--font-mono); color:${t.type === 'Deposit' ? 'var(--green)' : 'inherit'}; font-weight:700;">₹${t.type === 'Deposit' ? parseFloat(t.amount).toFixed(2) : '0.00'}</td>
             <td><span style="font-size:11.5px; color:var(--text-dim);">${t.timestamp}</span></td>
           `;
           tbody.appendChild(row);
@@ -1848,9 +1846,9 @@
             <td><code>${parsed.roundId}</code></td>
             <td>${parsed.gameType}</td>
             <td><span class="badge pending" style="background:#1e293b; color:#fff; border:1px solid #475569;">${parsed.selection}</span></td>
-            <td style="font-family:var(--font-mono);">🪙${parseFloat(t.amount).toFixed(2)}</td>
+            <td style="font-family:var(--font-mono);">₹${parseFloat(t.amount).toFixed(2)}</td>
             <td><span class="badge ${badgeCls}">${statusText}</span></td>
-            <td style="font-family:var(--font-mono); color:${t.type === 'Deposit' ? 'var(--green)' : 'inherit'}; font-weight:700;">🪙${t.type === 'Deposit' ? parseFloat(t.amount).toFixed(2) : '0.00'}</td>
+            <td style="font-family:var(--font-mono); color:${t.type === 'Deposit' ? 'var(--green)' : 'inherit'}; font-weight:700;">₹${t.type === 'Deposit' ? parseFloat(t.amount).toFixed(2) : '0.00'}</td>
             <td><span style="font-size:11.5px; color:var(--text-dim);">${t.timestamp}</span></td>
           `;
             tbody.appendChild(row);
@@ -1866,7 +1864,7 @@
 
       let userText = 'User: No active wagers.';
       if (active.length > 0) {
-        userText = active.map(b => `Bet: ${b.value} - 🪙${b.amount}`).join('<br>');
+        userText = active.map(b => `Bet: ${b.value} - ₹${b.amount}`).join('<br>');
       }
 
       document.getElementById('cheatBoundaryActiveBets').innerHTML = userText;
@@ -1957,7 +1955,7 @@
         bannerEl.innerHTML = `
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
             <div>
-              <div style="font-size:10px; color:var(--gold); text-transform:uppercase; font-weight:800; letter-spacing:0.5px;">🎯 ACTIVE FIXED CRASH MULTIPLIER</div>
+              <div style="font-size:10px; color:var(--gold); text-transform:uppercase; font-weight:800; letter-spacing:0.5px;">ACTIVE FIXED CRASH MULTIPLIER</div>
               <div style="font-size:14px; font-weight:800; color:#fff; margin-top:2px;">
                 Crash Point: <b style="color:var(--gold); font-family:var(--font-mono); font-size:16px;">${parseFloat(activeMult).toFixed(2)}x</b>
               </div>
@@ -2213,7 +2211,7 @@
           bannerEl.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
               <div>
-                <div style="font-size:10px; color:var(--gold); text-transform:uppercase; font-weight:800; letter-spacing:0.5px;">🎯 ACTIVE FIXED OVERRIDE (MATCH #${matchId})</div>
+                <div style="font-size:10px; color:var(--gold); text-transform:uppercase; font-weight:800; letter-spacing:0.5px;">ACTIVE FIXED OVERRIDE (MATCH #${matchId})</div>
                 <div style="font-size:13.5px; font-weight:700; color:#fff; margin-top:2px;">
                   ${summaryParts.join(' &nbsp;•&nbsp; ')}
                 </div>
@@ -2377,7 +2375,7 @@
         bannerEl.innerHTML = `
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
             <div>
-              <div style="font-size:10px; color:var(--gold); text-transform:uppercase; font-weight:800; letter-spacing:0.5px;">🎯 ACTIVE MINES RIG CONFIGURATION</div>
+              <div style="font-size:10px; color:var(--gold); text-transform:uppercase; font-weight:800; letter-spacing:0.5px;">ACTIVE MINES RIG CONFIGURATION</div>
               <div style="font-size:13px; font-weight:700; color:#fff; margin-top:2px;">
                 ${parts.join(' &nbsp;•&nbsp; ')}
               </div>
@@ -2480,7 +2478,7 @@
             return {
               id: m.id || (index + 1),
               league: league,
-              league_label: m.competition?.name ? `🏆 ${m.competition.name}` : '🏆 UEFA Champions League',
+              league_label: m.competition?.name ? `${m.competition.name}` : 'UEFA Champions League',
               home: m.homeTeam?.name || 'Home Team',
               away: m.awayTeam?.name || 'Away Team',
               home_bg: getGradientForTeam(m.homeTeam?.name),
@@ -2505,7 +2503,7 @@
           if (select) {
             const currentVal = select.value;
             select.innerHTML = finalMatches.map(m => `
-              <option value="${m.id}">${m.home} vs ${m.away} (${m.league_label.replace('🏆 ', '')})</option>
+              <option value="${m.id}">${m.home} vs ${m.away} (${m.league_label.replace('', '')})</option>
             `).join('');
             if (currentVal && finalMatches.some(m => String(m.id) === String(currentVal))) {
               select.value = currentVal;
@@ -2527,15 +2525,15 @@
         const list = bets.slice(0, 3).map(b => {
           if (b.legs && b.legs.length > 1) {
             const legsStr = b.legs.map(l => `${l.label || l.selection} (${l.result.toUpperCase()})`).join(', ');
-            return `Accumulator (<b>${b.legs.length} Legs</b>) - Stake: 🪙${b.stake} | Status: <b>${b.status.toUpperCase()}</b><br><span style="font-size:11px; color:var(--text-dim); margin-left:12px;">• ${legsStr}</span>`;
+            return `Accumulator (<b>${b.legs.length} Legs</b>) - Stake: ₹${b.stake} | Status: <b>${b.status.toUpperCase()}</b><br><span style="font-size:11px; color:var(--text-dim); margin-left:12px;">• ${legsStr}</span>`;
           } else {
             const leg = b.legs ? b.legs[0] : null;
-            return `Single Bet - Stake: 🪙${b.stake} | Pick: ${leg ? (leg.label || leg.selection) : 'Match'} (${b.status.toUpperCase()})`;
+            return `Single Bet - Stake: ₹${b.stake} | Pick: ${leg ? (leg.label || leg.selection) : 'Match'} (${b.status.toUpperCase()})`;
           }
         }).join('<br>');
         el.innerHTML = list;
       } else {
-        el.innerHTML = 'Rahul K.: 🪙100 on Real Madrid Win<br>Priya S.: 🪙250 on Over 2.5 Goals<br>Aman***: 🪙50 on FC Barcelona';
+        el.innerHTML = 'Rahul K.: ₹100 on Real Madrid Win<br>Priya S.: ₹250 on Over 2.5 Goals<br>Aman***: ₹50 on FC Barcelona';
       }
 
       const lastRes = JSON.parse(localStorage.getItem('cheat_football_last_result') || 'null');
@@ -2550,7 +2548,7 @@
     window.updateCheatMinesBets = function () {
       const el = document.getElementById('cheatMinesActiveBets');
       if (el) {
-        el.innerHTML = 'Vikram P.: 🪙200 (3 Mines - 2 Gems Revealed)<br>Neha R.: 🪙500 (5 Mines - 4 Gems Revealed)<br>Rohit M.: 🪙100 (1 Mine - Active)';
+        el.innerHTML = 'Vikram P.: ₹200 (3 Mines - 2 Gems Revealed)<br>Neha R.: ₹500 (5 Mines - 4 Gems Revealed)<br>Rohit M.: ₹100 (1 Mine - Active)';
       }
       if (typeof initMinesMatrix === 'function' && document.getElementById('adminMinesGridMatrix') && !document.getElementById('adminMinesGridMatrix').children.length) {
         initMinesMatrix();
@@ -2651,7 +2649,7 @@
             window.adminAviatorServerReceivedAt = Date.now();
 
             if (data.aviator.bets && data.aviator.bets.length > 0) {
-              const betsList = data.aviator.bets.slice(0, 4).map(b => `${b.username || 'Player'}: 🪙${parseFloat(b.amount || b.wagered || 50).toFixed(2)}`).join('<br>');
+              const betsList = data.aviator.bets.slice(0, 4).map(b => `${b.username || 'Player'}: ₹${parseFloat(b.amount || b.wagered || 50).toFixed(2)}`).join('<br>');
               const betsEl = document.getElementById('cheatAviatorActiveBets');
               if (betsEl) betsEl.innerHTML = betsList;
             }
@@ -2863,7 +2861,7 @@
           overrideBannerEl.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
               <div>
-                <div style="font-size:10px; color:var(--gold); text-transform:uppercase; font-weight:800; letter-spacing:0.5px;">🎯 ACTIVE FIXED OUTCOME (ROUND #${colorGame.round_id})</div>
+                <div style="font-size:10px; color:var(--gold); text-transform:uppercase; font-weight:800; letter-spacing:0.5px;">ACTIVE FIXED OUTCOME (ROUND #${colorGame.round_id})</div>
                 <div style="font-size:13.5px; font-weight:700; color:#fff; margin-top:2px;">
                   ${summaryParts.join(' &nbsp;•&nbsp; ')}
                 </div>
@@ -2927,7 +2925,7 @@
               </div>
               <div style="display: flex; align-items: center; gap: 12px;">
                 <span style="color: ${selectColor}; font-weight: 800;">${b.category.toUpperCase()}(${b.value})</span>
-                <span style="font-family: var(--font-mono); font-weight: bold; color: var(--gold);">🪙${b.amount}</span>
+                <span style="font-family: var(--font-mono); font-weight: bold; color: var(--gold);">₹${b.amount}</span>
               </div>
             </div>
           `;
@@ -2975,7 +2973,7 @@
 
       document.getElementById('cheatColorRoomActiveBets').innerHTML = `
         <div style="font-size:12px; margin-bottom:12px;">
-          <b style="color:var(--text); font-size:12.5px; display:block; margin-bottom:8px;">📊 Live Wager Distribution (Click to Rig Outcome):</b>
+          <b style="color:var(--text); font-size:12.5px; display:block; margin-bottom:8px;">Live Wager Distribution (Click to Rig Outcome):</b>
           
           <!-- Colors & Sizes Grid -->
           <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 8px;">
@@ -2983,19 +2981,19 @@
                     class="btn-action edit" style="padding: 6px 4px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${greenBtnStyle}">
               <span style="font-weight: 800; font-size: 12.5px; color: var(--green);">🟢 Green${greenFixedBadge}</span>
               <span style="font-size: 10px; color: var(--text-dim);">${greenCount} Plrs</span>
-              <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: var(--green);">🪙${greenAmt}</span>
+              <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: var(--green);">₹${greenAmt}</span>
             </button>
             <button onclick="document.getElementById('cheatColorSelect').value='Red'; document.getElementById('cheatNumberSelect').value=''; document.getElementById('cheatSizeSelect').value=''; applyColorRoomCheat();" 
                     class="btn-action edit" style="padding: 6px 4px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${redBtnStyle}">
               <span style="font-weight: 800; font-size: 12.5px; color: var(--red);">🔴 Red${redFixedBadge}</span>
               <span style="font-size: 10px; color: var(--text-dim);">${redCount} Plrs</span>
-              <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: var(--red);">🪙${redAmt}</span>
+              <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: var(--red);">₹${redAmt}</span>
             </button>
             <button onclick="document.getElementById('cheatColorSelect').value='Violet'; document.getElementById('cheatNumberSelect').value=''; document.getElementById('cheatSizeSelect').value=''; applyColorRoomCheat();" 
                     class="btn-action edit" style="padding: 6px 4px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${violetBtnStyle}">
               <span style="font-weight: 800; font-size: 12.5px; color: var(--violet);">🟣 Violet${violetFixedBadge}</span>
               <span style="font-size: 10px; color: var(--text-dim);">${violetCount} Plrs</span>
-              <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: var(--violet);">🪙${violetAmt}</span>
+              <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: var(--violet);">₹${violetAmt}</span>
             </button>
           </div>
 
@@ -3004,13 +3002,13 @@
                     class="btn-action edit" style="padding: 6px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${bigBtnStyle}">
               <span style="font-weight: 800; font-size: 12.5px;">📐 Big${bigFixedBadge}</span>
               <span style="font-size: 10px; color: var(--text-dim);">${bigCount} Plrs</span>
-              <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: var(--gold);">🪙${bigAmt}</span>
+              <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: var(--gold);">₹${bigAmt}</span>
             </button>
             <button onclick="document.getElementById('cheatColorSelect').value=''; document.getElementById('cheatNumberSelect').value=''; document.getElementById('cheatSizeSelect').value='Small'; applyColorRoomCheat();" 
                     class="btn-action edit" style="padding: 6px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${smallBtnStyle}">
               <span style="font-weight: 800; font-size: 12.5px;">📐 Small${smallFixedBadge}</span>
               <span style="font-size: 10px; color: var(--text-dim);">${smallCount} Plrs</span>
-              <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: var(--gold);">🪙${smallAmt}</span>
+              <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: var(--gold);">₹${smallAmt}</span>
             </button>
           </div>
 
@@ -3030,7 +3028,7 @@
                         class="btn-action edit" style="padding: 5px 2px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 4px; gap: 2px; ${numBtnStyle}">
                   <span style="font-weight: 800; font-size: 11px; color: #fff; background: ${numColor}; display: inline-block; width: 18px; height: 18px; line-height: 18px; border-radius: 50%; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">${num}</span>
                   <span style="font-size: 8.5px; color: var(--text-dim);">${numCounts[num]} Plrs ${numFixedBadge}</span>
-                  <span style="font-family: var(--font-mono); font-size: 9px; font-weight: bold; color: var(--gold);">🪙${numAmts[num]}</span>
+                  <span style="font-family: var(--font-mono); font-size: 9px; font-weight: bold; color: var(--gold);">₹${numAmts[num]}</span>
                 </button>
               `;
       }).join('')}
@@ -3042,12 +3040,12 @@
         <div style="margin-bottom:4px; max-height:100px; overflow-y:auto; font-size:11.5px; line-height:1.4; background:#0d0f12; padding:6px; border-radius:4px;">${userBetsHtml}</div>
         <hr style="border-color:#242f3d; margin:6px 0;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-          <div>Total Lobby Volume: <b>🪙${colorGame.total_stake}</b></div>
+          <div>Total Lobby Volume: <b>₹${colorGame.total_stake}</b></div>
         </div>
 
         <!-- Recent Settled Rounds & Fixed Outcomes Log -->
         <div style="background:#0d0f12; padding:10px; border-radius:6px; border:1px solid #242f3d;">
-          <div style="font-size:11px; color:var(--text-dim); text-transform:uppercase; font-weight:bold; margin-bottom:6px;">📜 Recent Settled Rounds (Winning Colors & Numbers)</div>
+          <div style="font-size:11px; color:var(--text-dim); text-transform:uppercase; font-weight:bold; margin-bottom:6px;">Recent Settled Rounds (Winning Colors & Numbers)</div>
           <div style="display:flex; flex-direction:column; gap:4px; max-height:120px; overflow-y:auto;">
             ${(colorGame.history || []).slice().reverse().map(h => {
         let cStyle = 'color:#fff;';
@@ -3152,7 +3150,7 @@
               </div>
               <div style="display: flex; align-items: center; gap: 12px;">
                 <span style="${statusStyle}">${statusText}</span>
-                <span style="font-family: var(--font-mono); font-weight: bold; color: var(--gold);">🪙${b.amount}</span>
+                <span style="font-family: var(--font-mono); font-weight: bold; color: var(--gold);">₹${b.amount}</span>
               </div>
             </div>
           `;
@@ -3193,7 +3191,7 @@
           return `
             <div style="margin-bottom:12px; border-bottom:1px solid #242f3d; padding-bottom:8px; font-size:12.5px;">
               <div style="display: flex; align-items: center; justify-content: space-between; font-weight: bold; margin-bottom: 4px;">
-                <span>Player: ${game.username} | Pot: 🪙${game.pot} | Turn: ${game.turn}</span>
+                <span>Player: ${game.username} | Pot: ₹${game.pot} | Turn: ${game.turn}</span>
                 ${showPattiTimer}
               </div>
               <div style="font-size:12px; color:var(--text-dim); margin-top:4px;">${seats}</div>

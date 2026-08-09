@@ -33,7 +33,7 @@
       <div class="splash-emblem-container">
         <div class="splash-ring"></div>
         <div class="splash-logo-center">
-          <span class="splash-dot-core">👑</span>
+          <span class="splash-dot-core"></span>
         </div>
       </div>
       <div class="bet1x-splash-logo-text">
@@ -543,7 +543,7 @@
         style="margin-top: 16px; border: 1px solid var(--border); padding: 0 !important; overflow: hidden; background: var(--surface);">
         <div class="exchange-menu-header"
           style="border-radius: 0; background: #1a222d; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center;">
-          <span>💬 Platform Live Chat</span>
+          <span>Platform Live Chat</span>
           <span style="font-size:11px; color:#2ed47a;" id="chatOnlineCount">842 online</span>
         </div>
         <div class="live-chat-messages" id="liveChatMessages"
@@ -579,7 +579,7 @@
         authArea.innerHTML = `
           <div style="display:flex; align-items:center; gap:10px; color:#ffffff; font-size:13.5px; flex-wrap:wrap; justify-content:flex-end;">
             <span>Welcome, <strong style="color:var(--gold);">${user.username}</strong></span>
-            <span class="wallet-chip" data-wallet-chip style="margin:0;">🪙 ${getWallet().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            <span class="wallet-chip" data-wallet-chip style="margin:0;">₹ ${getWallet().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             <a href="cashier.html" style="background:var(--gold); color:#000; font-weight:800; font-size:12px; padding:4px 10px; border-radius:4px; text-decoration:none; display:inline-flex; align-items:center; gap:4px; box-shadow:0 0 12px rgba(201,160,84,0.5);">💰 Deposit</a>
             <a href="#" onclick="handleHeaderLogout(event)" style="color:#ff5d5d; font-weight:700; text-decoration:none; font-size:12.5px; border-left:1px solid rgba(255,255,255,0.2); padding-left:10px;">Logout ⎋</a>
           </div>
@@ -645,7 +645,7 @@
 
         let payoutHTML = '';
         if (bet.status === 'won') {
-          payoutHTML = `<span style="color:var(--green)">+🪙${bet.payout.toFixed(2)}</span>`;
+          payoutHTML = `<span style="color:var(--green)">+₹${bet.payout.toFixed(2)}</span>`;
         } else if (bet.status === 'lost') {
           payoutHTML = `<span style="color:var(--red)">Lost</span>`;
         } else {
@@ -658,7 +658,7 @@
             <div style="font-size:10px; color:#888;">${bet.timestamp || 'Recent'}</div>
           </div>
           <div style="text-align:right;">
-            <div class="odds">🪙${bet.amount.toFixed(2)}</div>
+            <div class="odds">₹${bet.amount.toFixed(2)}</div>
             <div style="font-size:11px;">${payoutHTML}</div>
           </div>
         `;

@@ -84,7 +84,7 @@
       <li class="sub-navbar-item"><a href="../teenpatti.html" class="sub-navbar-link">Teen Patti</a></li>
       <li class="sub-navbar-item"><a href="../boundarybaazi.html" class="sub-navbar-link">Boundary Baazi</a></li>
       <li class="sub-navbar-item"><a href="../youreleven.html" class="sub-navbar-link">Your Eleven</a></li>
-      <li class="sub-navbar-item"><a href="../football/index.php" class="sub-navbar-link">⚽ Football</a></li>
+      <li class="sub-navbar-item"><a href="../football/index.php" class="sub-navbar-link">Football</a></li>
       <li class="sub-navbar-item"><a href="index.php" class="sub-navbar-link active">💣 Mines</a></li>
       <li class="sub-navbar-item"><a href="../parity.html" class="sub-navbar-link">Admin</a></li>
     </ul>

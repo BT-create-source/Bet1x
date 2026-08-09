@@ -709,7 +709,7 @@
 
         <!-- Bet History & Settled Wagers Section -->
         <div style="margin-top:24px; background:var(--fb-card); border:1px solid var(--fb-border); border-radius:12px; padding:16px;">
-          <h3 style="margin:0 0 12px; font-size:15px; color:#fff;">📜 Bet History & Settled Wagers</h3>
+          <h3 style="margin:0 0 12px; font-size:15px; color:#fff;">Bet History & Settled Wagers</h3>
           <div id="fbBetHistory"></div>
         </div>
       </div>
@@ -736,7 +736,7 @@
 
         <!-- Stake Input & Presets -->
         <div style="margin-top:12px;">
-          <label style="font-size:11px; color:var(--fb-text-dim); font-weight:700; text-transform:uppercase; display:block; margin-bottom:4px;">Stake Amount (🪙)</label>
+          <label style="font-size:11px; color:var(--fb-text-dim); font-weight:700; text-transform:uppercase; display:block; margin-bottom:4px;">Stake Amount (₹)</label>
           <div class="fb-stake-presets">
             <button class="fb-preset-btn" onclick="setStakePreset(100)">+100</button>
             <button class="fb-preset-btn" onclick="setStakePreset(500)">+500</button>
@@ -754,7 +754,7 @@
           </div>
           <div class="fb-summary-row total">
             <span>Potential Payout:</span>
-            <strong id="fbPotentialPayoutVal" style="color:var(--fb-green); font-family:var(--font-mono);">🪙0.00</strong>
+            <strong id="fbPotentialPayoutVal" style="color:var(--fb-green); font-family:var(--font-mono);">₹0.00</strong>
           </div>
         </div>
 
@@ -1390,7 +1390,7 @@ function renderSlip() {
   if (slipPicks.length === 0) {
     emptyMsg.style.display = 'block';
     totalOddsEl.textContent = '1.00x';
-    potentialPayoutEl.textContent = '🪙0.00';
+    potentialPayoutEl.textContent = '₹0.00';
     placeBtn.textContent = 'PLACE BET';
     placeBtn.disabled = true;
     return;
@@ -1424,13 +1424,13 @@ function renderSlip() {
 
   if (activeSlipTab === 'single') {
     totalOddsEl.textContent = 'N/A';
-    potentialPayoutEl.textContent = '🪙' + totalSinglePayout.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    placeBtn.textContent = `PLACE ${slipPicks.length} SINGLE BETS (Total: 🪙${(stake * slipPicks.length).toFixed(2)})`;
+    potentialPayoutEl.textContent = '₹' + totalSinglePayout.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    placeBtn.textContent = `PLACE ${slipPicks.length} SINGLE BETS (Total: ₹${(stake * slipPicks.length).toFixed(2)})`;
     placeBtn.disabled = (stake <= 0 || (stake * slipPicks.length) > getWallet());
   } else {
     const payout = stake * totalOdds;
     totalOddsEl.textContent = totalOdds.toFixed(2) + 'x';
-    potentialPayoutEl.textContent = '🪙' + payout.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    potentialPayoutEl.textContent = '₹' + payout.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     placeBtn.textContent = 'PLACE ACCUMULATOR BET';
     placeBtn.disabled = (stake <= 0 || stake > getWallet());
   }
@@ -1602,7 +1602,7 @@ function renderBetHistory() {
     let borderStyle = 'border-left: 4px solid #374151;';
 
     if (b.status === 'won') {
-      statusBadge = `<span style="background:rgba(16, 185, 129, 0.2); color:var(--fb-green); border:1px solid var(--fb-green); padding:2px 8px; border-radius:4px; font-weight:800; font-size:10px;">WON 🪙${b.potential_payout.toFixed(2)}</span>`;
+      statusBadge = `<span style="background:rgba(16, 185, 129, 0.2); color:var(--fb-green); border:1px solid var(--fb-green); padding:2px 8px; border-radius:4px; font-weight:800; font-size:10px;">WON ₹${b.potential_payout.toFixed(2)}</span>`;
       borderStyle = 'border-left: 4px solid var(--fb-green);';
     } else if (b.status === 'lost') {
       statusBadge = '<span style="background:rgba(239, 68, 68, 0.2); color:var(--fb-red); border:1px solid var(--fb-red); padding:2px 8px; border-radius:4px; font-weight:800; font-size:10px;">LOST</span>';
@@ -1623,7 +1623,7 @@ function renderBetHistory() {
         </div>
         ${legsHtml}
         <div style="display:flex; justify-content:space-between; margin-top:8px; font-size:11.5px; border-top:1px solid rgba(255,255,255,0.05); padding-top:6px;">
-          <span>Stake: <b>🪙${b.stake}</b></span>
+          <span>Stake: <b>₹${b.stake}</b></span>
           <span>Total Odds: <b>${b.total_odds.toFixed(2)}x</b></span>
         </div>
       </div>

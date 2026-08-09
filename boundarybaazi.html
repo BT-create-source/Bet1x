@@ -454,7 +454,7 @@ function placeWager(marketKey) {
   const stake = parseFloat(input.value);
 
   if (!stake || stake < MIN_STAKE) {
-    alert(`Minimum stake 🪙${MIN_STAKE} coins hai.`);
+    alert(`Minimum stake ₹${MIN_STAKE} coins hai.`);
     return;
   }
   if (getWallet() < stake) {
@@ -649,7 +649,7 @@ function simulateBall(bowlerName) {
     }
 
     if (bs.runs >= 100 && (bs.runs - outcome) < 100) {
-      addCommentary(`🏆 CENTURY! ${strikerName} ne 100 pura kiya!`);
+      addCommentary(`CENTURY! ${strikerName} ne 100 pura kiya!`);
     } else if (bs.runs >= 50 && (bs.runs - outcome) < 50) {
       addCommentary(`🎉 FIFTY! ${strikerName} ne 50 pura kiya!`);
     }
@@ -692,7 +692,7 @@ function simulateOneOver() {
     bs.overs++;
     if (bs.runs_this_over === 0) {
       bs.maidens++;
-      addCommentary(`${bowlerName} ne maiden over dala! 🎯`);
+      addCommentary(`${bowlerName} ne maiden over dala! `);
     }
     // swap strike at end of over
     const tmp = cur.strikerIdx;
@@ -911,14 +911,14 @@ function render() {
 
     let marketsHtml = '';
     
-    marketsHtml += `<div class="section-title">🏆 Match Winner</div>`;
+    marketsHtml += `<div class="section-title">Match Winner</div>`;
     winnerMarkets.forEach(m => {
       const placed = matchState.bets.find(b => b.marketKey === m.key);
       if (placed) {
         marketsHtml += `
           <div class="market-row has-bet">
             <div class="market-label">${m.label} <span class="odds-tag">${m.odds}x</span></div>
-            <div style="font-size:12px; margin-right: 8px;">Staked: 🪙${placed.stake}</div>
+            <div style="font-size:12px; margin-right: 8px;">Staked: ₹${placed.stake}</div>
             <button class="cancel-btn" onclick="cancelWager('${m.key}')">Cancel</button>
           </div>`;
       } else {
@@ -939,7 +939,7 @@ function render() {
           marketsHtml += `
             <div class="market-row has-bet">
               <div class="market-label">${m.label} <span class="odds-tag">${m.odds}x</span></div>
-              <div style="font-size:12px; margin-right: 8px;">Staked: 🪙${placed.stake}</div>
+              <div style="font-size:12px; margin-right: 8px;">Staked: ₹${placed.stake}</div>
               <button class="cancel-btn" onclick="cancelWager('${m.key}')">Cancel</button>
             </div>`;
         } else {
@@ -961,7 +961,7 @@ function render() {
       <div class="markets-container">${marketsHtml}</div>
       
       <div class="my-bets-summary">
-        <b>Active Predictions:</b> ${matchState.bets.length} wagers placed | Total: 🪙${totalStaked}
+        <b>Active Predictions:</b> ${matchState.bets.length} wagers placed | Total: ₹${totalStaked}
       </div>
       
       <button class="btn btn-gold btn-block" style="margin-top:16px; padding:12px 14px; font-weight:700;" onclick="lockAndStartMatch()">
@@ -998,7 +998,7 @@ function render() {
             <b>${nonStriker}</b>: ${nsStats.runs} runs (${nsStats.balls}b)
           </div>
           <div class="player-chip">
-            🎯 Bowler: <b>${bowlerName}</b>: ${bStats.overs} ov, ${bStats.runs}r, ${bStats.wickets}w
+            Bowler: <b>${bowlerName}</b>: ${bStats.overs} ov, ${bStats.runs}r, ${bStats.wickets}w
           </div>
         </div>
       </div>
@@ -1028,7 +1028,7 @@ function render() {
   }
 
   if (matchState.status === 'finished') {
-    const winnerName = matchState.winner === 'tie' ? '🤝 Match TIE ho gaya!' : `🏆 ${teams[matchState.winner].name} jeet gayi!`;
+    const winnerName = matchState.winner === 'tie' ? '🤝 Match TIE ho gaya!' : `${teams[matchState.winner].name} jeet gayi!`;
     let betsHtml = '';
 
     if (matchState.bets.length === 0) {
@@ -1039,10 +1039,10 @@ function render() {
           <div class="bet-result-row ${b.result}">
             <div>
               <b>${b.label}</b>
-              <div style="font-size:11px; opacity:0.75; margin-top:2px;">Stake: 🪙${b.stake} @ ${b.odds}x</div>
+              <div style="font-size:11px; opacity:0.75; margin-top:2px;">Stake: ₹${b.stake} @ ${b.odds}x</div>
             </div>
             <div class="result-tag ${b.result}">
-              ${b.result === 'won' ? `✅ WON +🪙${b.payout}` : b.result === 'push' ? `↩ PUSH (refunded)` : `❌ LOST`}
+              ${b.result === 'won' ? `✅ WON +₹${b.payout}` : b.result === 'push' ? `↩ PUSH (refunded)` : `❌ LOST`}
             </div>
           </div>`;
       });
@@ -1066,7 +1066,7 @@ function topbar() {
   return `
     <div class="topbar">
       <div class="topbar-title">🏏 Live Cricket Predictor</div>
-      <span class="wallet-chip" data-wallet-chip>🪙 ${getWallet().toLocaleString('en-IN')}</span>
+      <span class="wallet-chip" data-wallet-chip>₹ ${getWallet().toLocaleString('en-IN')}</span>
     </div>`;
 }
 
