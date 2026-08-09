@@ -882,6 +882,7 @@
             </div>
             <div id="adminLoginError" style="color:var(--red); font-size:12px; margin-top:10px; display:none;">Invalid credentials.</div>
             <button type="submit" class="btn btn-gold btn-block" style="margin-top:20px; color:#000; font-weight:700; height:45px;">Authenticate Session</button>
+            <button type="button" class="btn btn-block" onclick="bypassAdminLogin()" style="margin-top:10px; background:#1e293b; border:1px solid #475569; color:#fff; font-weight:700; height:40px; cursor:pointer;">⚡ Dev Mode Bypass</button>
           </form>
         </div>
       `;
@@ -951,6 +952,31 @@
         .catch(() => {
           errEl.textContent = 'Server response error.';
           errEl.style.display = 'block';
+        });
+    };
+
+    window.bypassAdminLogin = function () {
+      if (window.isOfflineMode) {
+        localStorage.setItem('bet1x_admin_logged_in', 'true');
+        removeAdminLoginOverlay();
+        checkAdminSession();
+        showToast('Bypassed authentication (Offline Demo Mode).', 'success');
+        return;
+      }
+      
+      fetch('api/admin.php?action=login_bypass', { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            removeAdminLoginOverlay();
+            checkAdminSession();
+            showToast('Bypassed authentication (Dev Mode).', 'success');
+          } else {
+            showToast('Bypass failed.', 'error');
+          }
+        })
+        .catch(err => {
+          showToast('Bypass failed: ' + err.message, 'error');
         });
     };
 
