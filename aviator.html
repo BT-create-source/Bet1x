@@ -847,6 +847,16 @@ function syncAviator() {
         setWallet(data.wallet_balance);
       }
       if (data.phase && data.time_elapsed !== undefined) {
+        // Enforce minimum crash display duration:
+        // If client is currently showing 'crashed' phase, and 4 seconds have not passed,
+        // do not allow server sync to pull it back into 'waiting' lobby.
+        if (phase === 'crashed' && data.phase === 'waiting') {
+          const clientElapsed = Date.now() - phaseStart;
+          if (clientElapsed < crashPause) {
+            return; // Wait for local crash display duration to complete
+          }
+        }
+
         const now = Date.now();
         const serverPhaseStart = now - (data.time_elapsed * 1000);
         if (phase !== data.phase || roundId !== data.round_id || Math.abs(phaseStart - serverPhaseStart) > 500) {
