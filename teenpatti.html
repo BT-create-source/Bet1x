@@ -49,16 +49,16 @@
   .circular-table-wrapper {
     position: relative;
     width: 100%;
-    max-width: 660px;
-    height: 480px;
-    margin: 40px auto 100px;
+    max-width: 580px;
+    height: 320px;
+    margin: 20px auto 60px;
   }
   .circular-felt {
     position: absolute;
-    top: 60px;
-    left: 40px;
-    right: 40px;
-    bottom: 60px;
+    top: 30px;
+    left: 20px;
+    right: 20px;
+    bottom: 30px;
     background: radial-gradient(circle at center, #0e5c34 20%, #062b18 90%);
     border: 8px solid #4a2c14;
     border-radius: 50%;
@@ -134,14 +134,14 @@
 
   @media (max-width: 540px) {
     .circular-table-wrapper {
-      height: 420px;
-      margin: 30px auto 80px;
+      height: 280px;
+      margin: 20px auto 55px;
     }
     .circular-felt {
-      top: 55px;
-      left: 30px;
-      right: 30px;
-      bottom: 55px;
+      top: 25px;
+      left: 15px;
+      right: 15px;
+      bottom: 25px;
     }
     .player-card {
       padding: 6px 4px;
@@ -156,20 +156,20 @@
     /* Seat position overrides for mobile */
     #playersArea > div[id="seat-bot0"] {
       top: 50px !important;
-      left: -5px !important;
+      left: -20px !important;
       width: 120px !important;
     }
     #playersArea > div[id="seat-bot1"] {
-      top: -50px !important;
+      top: -45px !important;
       width: 120px !important;
     }
     #playersArea > div[id="seat-bot2"] {
       top: 50px !important;
-      right: -5px !important;
+      right: -20px !important;
       width: 120px !important;
     }
     #playersArea > div[id="seat-human"] {
-      bottom: -70px !important;
+      bottom: -50px !important;
       width: 120px !important;
     }
   }
@@ -1165,10 +1165,10 @@ function render() {
   };
 
   const positionStyles = {
-    bot0: 'position: absolute; top: 45px; left: 1%; width: 145px; pointer-events: auto;',
-    bot1: 'position: absolute; top: -55px; left: 50%; transform: translateX(-50%); width: 145px; pointer-events: auto;',
-    bot2: 'position: absolute; top: 45px; right: 1%; width: 145px; pointer-events: auto;',
-    human: 'position: absolute; bottom: -85px; left: 50%; transform: translateX(-50%); width: 145px; pointer-events: auto;'
+    bot0: 'position: absolute; top: 55px; left: -25px; width: 145px; pointer-events: auto;',
+    bot1: 'position: absolute; top: -45px; left: 50%; transform: translateX(-50%); width: 145px; pointer-events: auto;',
+    bot2: 'position: absolute; top: 55px; right: -25px; width: 145px; pointer-events: auto;',
+    human: 'position: absolute; bottom: -55px; left: 50%; transform: translateX(-50%); width: 145px; pointer-events: auto;'
   };
 
   gameState.order.forEach(key => {
