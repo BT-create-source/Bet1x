@@ -3144,27 +3144,30 @@
       function getHeatmapBox(amt, isFixed) {
         if (isFixed) {
           return {
-            style: 'border: 2px solid var(--gold); background: rgba(201,160,84,0.25); box-shadow: 0 0 12px rgba(201,160,84,0.5);',
+            style: 'position: relative; border: 2.5px solid var(--gold); background: rgba(201,160,84,0.18); box-shadow: inset 0 0 8px rgba(201,160,84,0.4);',
             titleColor: '#ffffff',
-            badge: '<span style="background:var(--gold); color:#000; font-size:8px; padding:1px 4px; border-radius:2px; font-weight:900; margin-left:3px;">✓ FIXED</span>'
+            badge: '',
+            fixedBadge: '<span style="position: absolute; top: -1px; right: -1px; background: var(--gold); color: #000; font-size: 8px; line-height: 1; padding: 2px 4px; border-radius: 0 4px 0 4px; font-weight: 900; box-shadow: -1px 1px 4px rgba(0,0,0,0.5);">✓ FIXED</span>'
           };
         }
         if (!amt || amt <= 0 || maxBetAmt <= 0) {
           return {
-            style: 'border: 1px solid rgba(255,255,255,0.08); background: #13171f;',
+            style: 'position: relative; border: 1px solid rgba(255,255,255,0.08); background: #13171f;',
             titleColor: 'var(--text-light)',
-            badge: ''
+            badge: '',
+            fixedBadge: ''
           };
         }
         const ratio = amt / maxBetAmt;
         const bgAlpha = (0.10 + 0.40 * ratio).toFixed(2);
         const borderAlpha = (0.30 + 0.70 * ratio).toFixed(2);
         const glow = ratio >= 0.7 ? `box-shadow: 0 0 ${Math.round(ratio * 12)}px rgba(46, 204, 113, ${(ratio * 0.7).toFixed(2)});` : '';
-        const topBadge = ratio === 1 ? '<span style="background:var(--green); color:#000; font-size:8px; padding:1px 4px; border-radius:2px; font-weight:900; margin-left:3px;">TOP</span>' : '';
+        const topBadge = ratio === 1 ? '<span style="position: absolute; top: -1px; right: -1px; background: var(--green); color: #000; font-size: 8px; line-height: 1; padding: 2px 4px; border-radius: 0 4px 0 4px; font-weight: 900; box-shadow: -1px 1px 4px rgba(0,0,0,0.5);">TOP</span>' : '';
         return {
-          style: `border: 1.5px solid rgba(46, 204, 113, ${borderAlpha}); background: rgba(46, 204, 113, ${bgAlpha}); ${glow}`,
+          style: `position: relative; border: 1.5px solid rgba(46, 204, 113, ${borderAlpha}); background: rgba(46, 204, 113, ${bgAlpha}); ${glow}`,
           titleColor: '#ffffff',
-          badge: topBadge
+          badge: '',
+          fixedBadge: topBadge
         };
       }
 
@@ -3180,36 +3183,41 @@
           
           <!-- Colors & Sizes Grid -->
           <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 8px;">
-            <button onclick="document.getElementById('cheatColorSelect').value='Green'; document.getElementById('cheatNumberSelect').value=''; document.getElementById('cheatSizeSelect').value=''; applyColorRoomCheat();" 
+            <button onclick="const el=document.getElementById('cheatColorSelect'); el.value=(el.value==='Green')?'':'Green'; applyColorRoomCheat();" 
                     class="btn-action edit" style="padding: 6px 4px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${greenBox.style}">
-              <span style="font-weight: 800; font-size: 12.5px; color: ${greenBox.titleColor};">Green${greenBox.badge}</span>
+              ${greenBox.fixedBadge}
+              <span style="font-weight: 800; font-size: 12.5px; color: ${greenBox.titleColor};">Green</span>
               <span style="font-size: 10px; color: var(--text-dim);">${greenCount} players</span>
               <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: ${greenAmt > 0 ? 'var(--green)' : 'var(--text-dim)'};">₹${greenAmt}</span>
             </button>
-            <button onclick="document.getElementById('cheatColorSelect').value='Red'; document.getElementById('cheatNumberSelect').value=''; document.getElementById('cheatSizeSelect').value=''; applyColorRoomCheat();" 
+            <button onclick="const el=document.getElementById('cheatColorSelect'); el.value=(el.value==='Red')?'':'Red'; applyColorRoomCheat();" 
                     class="btn-action edit" style="padding: 6px 4px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${redBox.style}">
-              <span style="font-weight: 800; font-size: 12.5px; color: ${redBox.titleColor};">Red${redBox.badge}</span>
+              ${redBox.fixedBadge}
+              <span style="font-weight: 800; font-size: 12.5px; color: ${redBox.titleColor};">Red</span>
               <span style="font-size: 10px; color: var(--text-dim);">${redCount} players</span>
               <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: ${redAmt > 0 ? 'var(--green)' : 'var(--text-dim)'};">₹${redAmt}</span>
             </button>
-            <button onclick="document.getElementById('cheatColorSelect').value='Violet'; document.getElementById('cheatNumberSelect').value=''; document.getElementById('cheatSizeSelect').value=''; applyColorRoomCheat();" 
+            <button onclick="const el=document.getElementById('cheatColorSelect'); el.value=(el.value==='Violet')?'':'Violet'; applyColorRoomCheat();" 
                     class="btn-action edit" style="padding: 6px 4px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${violetBox.style}">
-              <span style="font-weight: 800; font-size: 12.5px; color: ${violetBox.titleColor};">Violet${violetBox.badge}</span>
+              ${violetBox.fixedBadge}
+              <span style="font-weight: 800; font-size: 12.5px; color: ${violetBox.titleColor};">Violet</span>
               <span style="font-size: 10px; color: var(--text-dim);">${violetCount} players</span>
               <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: ${violetAmt > 0 ? 'var(--green)' : 'var(--text-dim)'};">₹${violetAmt}</span>
             </button>
           </div>
 
           <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 12px;">
-            <button onclick="document.getElementById('cheatColorSelect').value=''; document.getElementById('cheatNumberSelect').value=''; document.getElementById('cheatSizeSelect').value='Big'; applyColorRoomCheat();" 
+            <button onclick="const el=document.getElementById('cheatSizeSelect'); el.value=(el.value==='Big')?'':'Big'; applyColorRoomCheat();" 
                     class="btn-action edit" style="padding: 6px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${bigBox.style}">
-              <span style="font-weight: 800; font-size: 12.5px; color: ${bigBox.titleColor};">Big${bigBox.badge}</span>
+              ${bigBox.fixedBadge}
+              <span style="font-weight: 800; font-size: 12.5px; color: ${bigBox.titleColor};">Big</span>
               <span style="font-size: 10px; color: var(--text-dim);">${bigCount} players</span>
               <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: ${bigAmt > 0 ? 'var(--green)' : 'var(--text-dim)'};">₹${bigAmt}</span>
             </button>
-            <button onclick="document.getElementById('cheatColorSelect').value=''; document.getElementById('cheatNumberSelect').value=''; document.getElementById('cheatSizeSelect').value='Small'; applyColorRoomCheat();" 
+            <button onclick="const el=document.getElementById('cheatSizeSelect'); el.value=(el.value==='Small')?'':'Small'; applyColorRoomCheat();" 
                     class="btn-action edit" style="padding: 6px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${smallBox.style}">
-              <span style="font-weight: 800; font-size: 12.5px; color: ${smallBox.titleColor};">Small${smallBox.badge}</span>
+              ${smallBox.fixedBadge}
+              <span style="font-weight: 800; font-size: 12.5px; color: ${smallBox.titleColor};">Small</span>
               <span style="font-size: 10px; color: var(--text-dim);">${smallCount} players</span>
               <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: ${smallAmt > 0 ? 'var(--green)' : 'var(--text-dim)'};">₹${smallAmt}</span>
             </button>
@@ -3219,16 +3227,17 @@
           <b style="color:var(--text-dim); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; display:block; margin-bottom: 6px; font-weight: bold;">Numbers Distribution:</b>
           <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 8px;">
             ${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => {
-        const numBox = getHeatmapBox(numAmts[num], isNumberFixed(num));
-        return `
-                <button onclick="document.getElementById('cheatColorSelect').value=''; document.getElementById('cheatNumberSelect').value='${num}'; document.getElementById('cheatSizeSelect').value=''; applyColorRoomCheat();" 
-                        class="btn-action edit" style="padding: 5px 2px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 4px; gap: 2px; ${numBox.style}">
+              const numBox = getHeatmapBox(numAmts[num], isNumberFixed(num));
+              return `
+                <button onclick="const el=document.getElementById('cheatNumberSelect'); el.value=(el.value==='${num}')?'':'${num}'; applyColorRoomCheat();" 
+                        class="btn-action edit" style="padding: 6px 2px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 4px; gap: 2px; ${numBox.style}">
+                  ${numBox.fixedBadge}
                   <span style="font-weight: 800; font-size: 11px; color: #fff; background: rgba(255,255,255,0.08); display: inline-block; width: 18px; height: 18px; line-height: 18px; border-radius: 50%;">${num}</span>
-                  <span style="font-size: 8.5px; color: var(--text-dim);">${numCounts[num]} players ${numBox.badge}</span>
+                  <span style="font-size: 8.5px; color: var(--text-dim);">${numCounts[num]} players</span>
                   <span style="font-family: var(--font-mono); font-size: 9px; font-weight: bold; color: ${numAmts[num] > 0 ? 'var(--green)' : 'var(--text-dim)'};">₹${numAmts[num]}</span>
                 </button>
               `;
-      }).join('')}
+            }).join('')}
           </div>
         </div>
         
