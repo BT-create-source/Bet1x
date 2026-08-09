@@ -643,92 +643,94 @@
           </div>
         </div>
 
-        <!-- Column 2: Vimaan, Teen Patti, Cricket & Fantasy Bias -->
-        <div style="display:flex; flex-direction:column; gap:16px;">
-          <!-- Aviator (Vimaan) Professional Crash Bias Card -->
-          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:0;">
-            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">✈️
-              Vimaan (Aviator) Professional Flight Telemetry & Crash Bias</h4>
+        <!-- Column 2: Vimaan & Teen Patti Side-by-Side Grid -->
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:12px; align-items:start;">
+          <!-- Aviator (Vimaan) Clean Admin Control & Profit Card -->
+          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:10px 12px; margin-top:0; width:100%;">
+            <!-- Header -->
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #242f3d; padding-bottom:6px; margin-bottom:8px;">
+              <h4 style="margin:0; font-size:13.5px; color:var(--gold); display:flex; align-items:center; gap:6px;">
+                <span>✈️ Vimaan Live Admin Control</span>
+              </h4>
+              <span id="adminAviatorRiskBadge" style="font-size:9.5px; padding:2px 6px; border-radius:4px; background:rgba(16,185,129,0.15); border:1px solid #10b981; color:#10b981; font-weight:bold;">🟢 PROFITABLE</span>
+            </div>
 
-            <!-- Live Vimaan Round Timer & Progress Bar (Uniform gliding like Color Prediction) -->
+            <!-- Compact Live Timer Header -->
             <div id="adminAviatorTimerHeader"
-              style="background:#0d0f12; padding:12px; border-radius:6px; border:1px solid #1a222d; margin-bottom:12px;">
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-                <div>
-                  <div
-                    style="font-size: 10px; color: var(--text-dim); text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px;">
-                    Vimaan Round ID</div>
-                  <div id="adminAviatorRoundId"
-                    style="font-family: var(--font-mono); font-size: 14px; font-weight: 700; color: var(--gold);">#10001
-                  </div>
+              style="background:#0d0f12; padding:6px 10px; border-radius:5px; border:1px solid #1a222d; margin-bottom:8px;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div style="display:flex; align-items:center; gap:4px;">
+                  <span style="font-size: 9.5px; color: var(--text-dim); text-transform: uppercase; font-weight: bold;">ROUND:</span>
+                  <span id="adminAviatorRoundId"
+                    style="font-family: var(--font-mono); font-size: 12.5px; font-weight: 700; color: var(--gold);">#99246958</span>
                 </div>
-                <div style="text-align: right;">
-                  <div id="adminAviatorTimerLabel"
-                    style="font-size: 10px; color: var(--text-dim); text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px;">
-                    Next round in...</div>
-                  <div id="adminAviatorTimeVal"
-                    style="font-family: var(--font-mono); font-size: 18px; font-weight: 700; color: var(--gold);">5.0s
-                  </div>
+                <div style="display:flex; align-items:center; gap:4px;">
+                  <span id="adminAviatorTimerLabel"
+                    style="font-size: 9.5px; color: var(--text-dim); text-transform: uppercase; font-weight: bold;">TIME:</span>
+                  <span id="adminAviatorTimeVal"
+                    style="font-family: var(--font-mono); font-size: 14px; font-weight: 700; color: var(--gold);">5.0s</span>
                 </div>
               </div>
               <div
-                style="width: 100%; height: 5px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden;">
+                style="width: 100%; height: 3px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; margin-top:4px;">
                 <div id="adminAviatorProgressBar"
                   style="width: 100%; height: 100%; background: var(--green); transition: none;"></div>
               </div>
             </div>
 
-            <div
-              style="background:#0d0f12; padding:10px; border-radius:6px; margin-bottom:14px; border: 1px solid #1a222d;">
-              <div
-                style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; font-weight:700;">
-                Customer Placed Stakes</div>
-              <div id="cheatAviatorActiveBets" style="font-size:13px; font-family:var(--font-mono); color:#fff;">No bets
-                active in current lobby.</div>
-            </div>
-
-            <!-- Active Crash Override Status Banner -->
-            <div id="adminAviatorActiveOverrideBanner"
-              style="background:#0d0f12; border:1px dashed var(--border); border-radius:6px; padding:10px 12px; margin-bottom:14px;">
-              <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div style="font-size:11.5px; color:var(--text-dim);">
-                  🎲 <b>Crash Point Status:</b> UNRIGGED (Fair Random Flight Curve)
-                </div>
-                <span style="font-size:10.5px; color:var(--text-dim);">Set target multiplier below to fix crash</span>
+            <!-- THE MAIN DYNAMIC ADMIN PROFIT STAT -->
+            <div style="background:#090d14; border:1px solid rgba(201,160,84,0.5); border-radius:6px; padding:10px 12px; margin-bottom:10px; text-align:center;">
+              <div style="font-size:10.5px; color:var(--text-dim); text-transform:uppercase; font-weight:bold; letter-spacing:0.5px;">
+                💰 IF PLANE CRASHES NOW — ADMIN PROFIT:
+              </div>
+              <div id="adminAviatorLiveProfitDisplay" style="font-family:var(--font-mono); font-size:22px; font-weight:900; color:var(--gold); margin:4px 0;">
+                +₹0.00
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:#cbd5e1; border-top:1px solid #1a222d; padding-top:6px; margin-top:6px;">
+                <span>📊 Placed Stakes: <b id="adminAviatorSimpleStakesCount" style="color:var(--gold)">0</b> (<b id="adminAviatorSimpleStakesAmt" style="color:var(--gold)">₹0.00</b>)</span>
+                <span>💸 Withdrawn: <b id="adminAviatorSimpleCashedCount" style="color:var(--green)">0</b> (<b id="adminAviatorSimpleCashedAmt" style="color:var(--green)">₹0.00</b>)</span>
               </div>
             </div>
 
-            <div class="cashier-input-group" style="margin-bottom:14px;">
-              <label for="cheatAviatorMultiplier">Custom Crash Multiplier (e.g. 1.05, 3.80, 50.00)</label>
-              <input type="number" id="cheatAviatorMultiplier" class="cashier-input" step="0.01" min="1.00"
-                placeholder="e.g. 1.00, 1.25, 10.00" style="background:#0d0f12; color:#fff;"
-                oninput="updateAviatorBiasUI()">
+            <!-- Customer Placed Stakes Feed -->
+            <div style="background:#0d0f12; padding:6px 8px; border-radius:5px; margin-bottom:8px; border: 1px solid #1a222d;">
+              <div style="font-size:10px; color:var(--text-dim); text-transform:uppercase; margin-bottom:4px; font-weight:700;">Customer Placed Stakes</div>
+              <div id="cheatAviatorActiveBets" style="font-size:11.5px; font-family:var(--font-mono); color:#fff;">No bets active in lobby.</div>
             </div>
 
-            <button class="btn btn-gold btn-block" onclick="applyAviatorCheat()"
-              style="color:#000; font-weight:700;">Save & Apply Crash Point Override</button>
+            <!-- Crash Controls -->
+            <div style="display:flex; gap:6px; margin-bottom:6px;">
+              <input type="number" id="cheatAviatorMultiplier" class="cashier-input" step="0.01" min="1.00"
+                placeholder="e.g. 1.25" style="background:#0d0f12; color:#fff; padding:6px 8px; font-size:12px; flex:1;"
+                oninput="updateAviatorBiasUI()">
+              <button class="btn btn-gold" onclick="applyAviatorCheat()" style="color:#000; font-weight:700; font-size:11.5px; padding:6px 12px; white-space:nowrap;">Save Multiplier</button>
+            </div>
+
             <button class="btn btn-block" onclick="instantCrashAviator()"
-              style="background:#c8102e; color:#fff; font-weight:800; font-size:13.5px; margin-top:8px; box-shadow:0 0 15px rgba(200,16,46,0.5); border:none; padding:10px; cursor:pointer;">💥
+              style="background:#c8102e; color:#fff; font-weight:800; font-size:12.5px; margin-top:2px; box-shadow:0 0 10px rgba(200,16,46,0.4); border:none; padding:8px; cursor:pointer;">💥
               CRASH VIMAAN NOW (INSTANT MID-FLIGHT)</button>
           </div>
 
-          <!-- Teen Patti Bias Card -->
-          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:0;">
-            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">Teen
-              Patti Deal Bias</h4>
+          <!-- Teen Patti Bias Card (Side-by-Side with Vimaan) -->
+          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:10px 12px; margin-top:0; width:100%;">
+            <!-- Header -->
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #242f3d; padding-bottom:6px; margin-bottom:8px;">
+              <h4 style="margin:0; font-size:13.5px; color:var(--gold); display:flex; align-items:center; gap:6px;">
+                <span>🃏 Teen Patti Rigging & Deal Bias</span>
+              </h4>
+              <span style="font-size:9.5px; padding:2px 6px; border-radius:4px; background:rgba(201,160,84,0.15); border:1px solid var(--gold); color:var(--gold); font-weight:bold;">🎴 SHOWDOWN CONTROL</span>
+            </div>
 
-            <div style="background:#0d0f12; padding:10px; border-radius:6px; margin-bottom:16px;">
-              <div
-                style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; font-weight:700;">
-                Lobby Stakes</div>
-              <div id="cheatTeenPattiActiveBets" style="font-size:13px; font-family:var(--font-mono); color:#fff;">
+            <div style="background:#0d0f12; padding:6px 8px; border-radius:5px; margin-bottom:8px; border:1px solid #1a222d;">
+              <div style="font-size:10px; color:var(--text-dim); text-transform:uppercase; margin-bottom:4px; font-weight:700;">Lobby Active Players & Stakes</div>
+              <div id="cheatTeenPattiActiveBets" style="font-size:11.5px; font-family:var(--font-mono); color:#fff;">
                 Active Players: Aap, Raju, Vikram, Sana</div>
             </div>
 
-            <div class="cashier-input-group" style="margin-bottom:12px;">
-              <label for="cheatTeenPattiWinner">Force Winning Seat (Deals highest ranked hand)</label>
-              <select id="cheatTeenPattiWinner" class="cashier-input" style="background:#0d0f12; color:#fff;">
-                <option value="">-- No Winner Bias --</option>
+            <div class="cashier-input-group" style="margin-bottom:8px;">
+              <label for="cheatTeenPattiWinner" style="font-size:10.5px;">Force Winning Seat (Deals highest hand)</label>
+              <select id="cheatTeenPattiWinner" class="cashier-input" style="background:#0d0f12; color:#fff; font-size:11.5px; padding:6px 8px;">
+                <option value="">-- No Winner Bias (Fair Deal) --</option>
                 <option value="human">Aap (Human Player)</option>
                 <option value="bot0">Raju (Conservative Bot)</option>
                 <option value="bot1">Vikram (Aggressive Bot)</option>
@@ -736,9 +738,9 @@
               </select>
             </div>
 
-            <div class="cashier-input-group" style="margin-bottom:16px;">
-              <label for="cheatTeenPattiRigType">Platform Auto-Rig Mode</label>
-              <select id="cheatTeenPattiRigType" class="cashier-input" style="background:#0d0f12; color:#fff;">
+            <div class="cashier-input-group" style="margin-bottom:10px;">
+              <label for="cheatTeenPattiRigType" style="font-size:10.5px;">Platform Auto-Rig Mode</label>
+              <select id="cheatTeenPattiRigType" class="cashier-input" style="background:#0d0f12; color:#fff; font-size:11.5px; padding:6px 8px;">
                 <option value="">-- No Auto-Rig --</option>
                 <option value="platform_profit">Platform Profit (Force user loss)</option>
                 <option value="user_win">User Win (Force user win)</option>
@@ -746,8 +748,9 @@
             </div>
 
             <button class="btn btn-gold btn-block" onclick="applyTeenPattiCheat()"
-              style="color:#000; font-weight:700;">Apply Hand Deal Override</button>
+              style="color:#000; font-weight:700; font-size:11.5px; padding:8px; margin-top:12px;">Save & Apply Hand Deal Override</button>
           </div>
+        </div>
 
           <!-- Mines (Mining) Professional Fix & Matrix Rig Console -->
           <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:16px;">
@@ -2705,10 +2708,8 @@
               }
             }
 
-            if (data.aviator.bets && data.aviator.bets.length > 0 && !hasLiveAv) {
-              const betsList = data.aviator.bets.slice(0, 4).map(b => `${b.username || 'Player'}: ₹${parseFloat(b.amount || b.wagered || 50).toFixed(2)}`).join('<br>');
-              const betsEl = document.getElementById('cheatAviatorActiveBets');
-              if (betsEl) betsEl.innerHTML = betsList;
+            if (data.aviator.bets) {
+              updateAdminAviatorStakesUI(data.aviator.bets);
             }
           }
           if (data.color_guess) {
@@ -2728,6 +2729,169 @@
         .catch(() => {
           tickAdminVisualProgress();
         });
+    };
+
+    window.updateAdminAviatorStakesUI = function(betsArray) {
+      const container = document.getElementById('cheatAviatorActiveBets');
+      if (!container) return;
+
+      const bets = Array.isArray(betsArray) ? betsArray : [];
+      const activeBets = bets.filter(b => b.status === 'pending' || b.status === 'active' || !b.status);
+      const totalCount = activeBets.length;
+      const totalStake = activeBets.reduce((sum, b) => sum + (parseFloat(b.amount || b.wagered) || 0), 0);
+      const realUserBets = activeBets.filter(b => !b.is_mock);
+
+      if (totalCount === 0) {
+        container.innerHTML = `<div style="color:var(--text-dim); font-size:12px;">No active lobby wagers (0 Users • ₹0.00).</div>`;
+        return;
+      }
+
+      let html = `
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #242f3d; padding-bottom:6px; margin-bottom:8px;">
+          <span style="color:var(--gold); font-weight:800; font-size:12px;">👥 ${totalCount} BETTING (${realUserBets.length} USER${realUserBets.length === 1 ? '' : 'S'})</span>
+          <span style="color:var(--green); font-weight:800; font-size:13px; font-family:var(--font-mono);">₹${totalStake.toFixed(2)} TOTAL</span>
+        </div>
+        <div style="max-height:130px; overflow-y:auto; display:flex; flex-direction:column; gap:5px; padding-right:2px;">
+      `;
+
+      activeBets.forEach(b => {
+        const isRealUser = !b.is_mock;
+        const name = b.username || b.user || (isRealUser ? 'User' : 'Player');
+        const amt = parseFloat(b.amount || b.wagered || 0);
+        const badgeColor = isRealUser ? 'var(--gold)' : '#94a3b8';
+        const statusMarkup = b.status === 'won' 
+          ? `<span style="color:var(--green); font-size:11px;">WON @ ${(b.cashed_multiplier || 1).toFixed(2)}x</span>` 
+          : (b.status === 'lost' 
+            ? `<span style="color:var(--red); font-size:11px;">BUSTED</span>` 
+            : `<span style="color:var(--green); font-size:11px;">LIVE</span>`);
+
+        html += `
+          <div style="display:flex; justify-content:space-between; align-items:center; background:#12171f; padding:5px 8px; border-radius:4px; ${isRealUser ? 'border:1px solid rgba(201,160,84,0.4); background:rgba(201,160,84,0.08);' : ''}">
+            <span style="color:${badgeColor}; font-weight:${isRealUser ? 'bold' : 'normal'}; font-size:12.5px;">
+              ${isRealUser ? '⭐ ' : '👤 '}${name} ${b.console_id ? `<span style="font-size:10px; color:var(--text-dim);">(Console ${b.console_id})</span>` : ''}
+            </span>
+            <span style="font-family:var(--font-mono); color:#fff; font-size:12.5px;">₹${amt.toFixed(2)} ${statusMarkup}</span>
+          </div>
+        `;
+      });
+
+      html += `</div>`;
+      container.innerHTML = html;
+    };
+
+    window.updateAdminAviatorTelemetry = function(betsArray, phase, currentMult) {
+      const bets = Array.isArray(betsArray) ? betsArray : [];
+      
+      let totalCount = bets.length;
+      let inFlightCount = 0;
+      let inFlightStake = 0;
+      let cashedCount = 0;
+      let cashedPayout = 0;
+      let cashedStake = 0;
+
+      bets.forEach(b => {
+        const amt = parseFloat(b.amount || b.wagered || 0);
+        const status = b.status || 'pending';
+        if (status === 'pending' || status === 'active') {
+          inFlightCount++;
+          inFlightStake += amt;
+        } else if (status === 'won') {
+          cashedCount++;
+          const mult = parseFloat(b.cashed_multiplier || 1.00);
+          cashedPayout += amt * mult;
+          cashedStake += amt;
+        }
+      });
+
+      const totalStake = inFlightStake + cashedStake;
+      const houseProfit = totalStake - cashedPayout;
+
+      const liveProfitEl = document.getElementById('adminAviatorLiveProfitDisplay');
+      const simpleStakesCountEl = document.getElementById('adminAviatorSimpleStakesCount');
+      const simpleStakesAmtEl = document.getElementById('adminAviatorSimpleStakesAmt');
+      const simpleCashedCountEl = document.getElementById('adminAviatorSimpleCashedCount');
+      const simpleCashedAmtEl = document.getElementById('adminAviatorSimpleCashedAmt');
+      const riskBadgeEl = document.getElementById('adminAviatorRiskBadge');
+
+      if (liveProfitEl) {
+        liveProfitEl.textContent = (houseProfit >= 0 ? '+' : '') + `₹${houseProfit.toFixed(2)}`;
+        liveProfitEl.style.color = houseProfit >= 0 ? 'var(--gold)' : '#ef4444';
+      }
+      if (simpleStakesCountEl) simpleStakesCountEl.textContent = totalCount;
+      if (simpleStakesAmtEl) simpleStakesAmtEl.textContent = `₹${totalStake.toFixed(2)}`;
+      if (simpleCashedCountEl) simpleCashedCountEl.textContent = cashedCount;
+      if (simpleCashedAmtEl) simpleCashedAmtEl.textContent = `₹${cashedPayout.toFixed(2)}`;
+
+      if (riskBadgeEl) {
+        if (phase === 'running') {
+          if (inFlightStake > 200 || currentMult > 3.0) {
+            riskBadgeEl.innerHTML = '🔴 HIGH HOUSE EXPOSURE';
+            riskBadgeEl.style.background = 'rgba(239,68,68,0.15)';
+            riskBadgeEl.style.border = '1px solid #ef4444';
+            riskBadgeEl.style.color = '#ef4444';
+          } else if (inFlightStake > 50 || currentMult > 1.8) {
+            riskBadgeEl.innerHTML = '🟡 MODERATE RISK';
+            riskBadgeEl.style.background = 'rgba(245,158,11,0.15)';
+            riskBadgeEl.style.border = '1px solid #f59e0b';
+            riskBadgeEl.style.color = '#f59e0b';
+          } else {
+            riskBadgeEl.innerHTML = '🟢 HOUSE PROFITABLE';
+            riskBadgeEl.style.background = 'rgba(16,185,129,0.15)';
+            riskBadgeEl.style.border = '1px solid #10b981';
+            riskBadgeEl.style.color = '#10b981';
+          }
+        } else if (phase === 'crashed') {
+          riskBadgeEl.innerHTML = '💥 FLIGHT CRASHED';
+          riskBadgeEl.style.background = 'rgba(239,68,68,0.15)';
+          riskBadgeEl.style.border = '1px solid #ef4444';
+          riskBadgeEl.style.color = '#ef4444';
+        } else {
+          riskBadgeEl.innerHTML = '⏳ LOBBY WAITING';
+          riskBadgeEl.style.background = 'rgba(201,160,84,0.15)';
+          riskBadgeEl.style.border = '1px solid var(--gold)';
+          riskBadgeEl.style.color = 'var(--gold)';
+        }
+      }
+
+      const aiTextEl = document.getElementById('adminAviatorAiSuggestionText');
+      const aiBtnEl = document.getElementById('adminAviatorAiApplyBtn');
+
+      if (aiTextEl) {
+        if (phase === 'waiting') {
+          if (totalStake > 300) {
+            aiTextEl.innerHTML = `High stakes lobby (<b>₹${totalStake.toFixed(2)}</b>)! Recommend setting crash bias to <b>1.25x - 1.60x</b> to secure house profit.`;
+          } else {
+            aiTextEl.innerHTML = `Normal lobby stakes. Preset or random multiplier active for current round.`;
+          }
+          if (aiBtnEl) aiBtnEl.style.display = 'none';
+        } else if (phase === 'running') {
+          const curMultVal = currentMult || 1.00;
+          if (inFlightStake > 50 && inFlightPct >= 40) {
+            window.aiSuggestedCrashMult = Math.max(1.05, parseFloat((curMultVal + 0.15).toFixed(2)));
+            aiTextEl.innerHTML = `<b>${inFlightPct}% users (₹${inFlightStake.toFixed(2)})</b> are still flying! Crash at <b>${window.aiSuggestedCrashMult.toFixed(2)}x</b> to secure <b>+₹${houseProfit.toFixed(2)}</b> house profit!`;
+            if (aiBtnEl) {
+              aiBtnEl.style.display = 'inline-block';
+              aiBtnEl.textContent = `Crash @ ${window.aiSuggestedCrashMult.toFixed(2)}x`;
+            }
+          } else if (inFlightCount > 0) {
+            aiTextEl.innerHTML = `Current multiplier <b>${curMultVal.toFixed(2)}x</b>. House retention if crashed now: <b style="color:var(--gold)">+₹${houseProfit.toFixed(2)}</b>.`;
+            if (aiBtnEl) aiBtnEl.style.display = 'none';
+          } else {
+            aiTextEl.innerHTML = `All active users have cashed out. Platform payout released: <b>₹${cashedPayout.toFixed(2)}</b>.`;
+            if (aiBtnEl) aiBtnEl.style.display = 'none';
+          }
+        } else {
+          aiTextEl.innerHTML = `Flight crashed. Preparing telemetry for next round...`;
+          if (aiBtnEl) aiBtnEl.style.display = 'none';
+        }
+      }
+    };
+
+    window.applyAiSuggestedCrash = function() {
+      if (window.aiSuggestedCrashMult) {
+        presetAviatorCrash(window.aiSuggestedCrashMult);
+        instantCrashAviator();
+      }
     };
 
     // Start continuous 60fps ticker loop for admin visual progress
@@ -2784,13 +2948,16 @@
       if (liveAvRaw) {
         try {
           const parsed = JSON.parse(liveAvRaw);
-          if (now - parsed.timestamp < 5000) {
+          if (now - (parsed.timestamp || 0) < 4000) {
             liveAv = parsed;
           }
         } catch(e){}
       }
 
-      if (liveAv) {
+      const isForceCrashed = localStorage.getItem('cheat_aviator_force_crashed') === 'true';
+
+      if (liveAv && !isForceCrashed) {
+        // Master Sync with aviator.html (User panel is driving round state)
         window.adminAviatorServerPhase = liveAv.phase;
         window.adminAviatorServerRoundId = liveAv.round_id;
         window.adminAviatorServerMult = liveAv.current_multiplier;
@@ -2798,10 +2965,60 @@
         window.adminAviatorServerPhaseStart = liveAv.phase_start;
         window.adminAviatorServerTimeLeft = liveAv.time_left;
         window.adminAviatorServerReceivedAt = now;
+        updateAdminAviatorStakesUI(liveAv.bets);
+      } else {
+        // Standalone offline admin state machine (Only when aviator.html is not open/updating)
+        if (!window.adminOfflineAviatorStart) {
+          window.adminOfflineAviatorStart = now;
+          window.adminOfflineAviatorPhase = 'waiting';
+          window.adminOfflineAviatorRoundId = (typeof getOfflineAviatorRoundId === 'function') ? getOfflineAviatorRoundId() : 99246958;
+          window.adminOfflineAviatorCrashPoint = parseFloat(localStorage.getItem('cheat_aviator_crash') || '1.85');
+        }
+
+        let offlineElapsed = (now - window.adminOfflineAviatorStart) / 1000;
+
+        if (isForceCrashed) {
+          window.adminOfflineAviatorPhase = 'crashed';
+          window.adminOfflineAviatorCrashPoint = parseFloat(localStorage.getItem('cheat_aviator_force_crash_mult') || '1.00');
+        } else if (window.adminOfflineAviatorPhase === 'waiting' && offlineElapsed >= 5.0) {
+          window.adminOfflineAviatorPhase = 'running';
+          window.adminOfflineAviatorStart = now;
+          offlineElapsed = 0;
+        } else if (window.adminOfflineAviatorPhase === 'running') {
+          const targetCrash = window.adminOfflineAviatorCrashPoint || 1.85;
+          const mult = Math.exp(0.06 * offlineElapsed);
+          if (mult >= targetCrash) {
+            window.adminOfflineAviatorPhase = 'crashed';
+            window.adminOfflineAviatorStart = now;
+            window.adminOfflineAviatorCrashPoint = Math.min(mult, targetCrash);
+            offlineElapsed = 0;
+          }
+        } else if (window.adminOfflineAviatorPhase === 'crashed' && offlineElapsed >= 4.0) {
+          window.adminOfflineAviatorPhase = 'waiting';
+          window.adminOfflineAviatorStart = now;
+          window.adminOfflineAviatorRoundId = (typeof incrementOfflineAviatorRoundId === 'function') ? incrementOfflineAviatorRoundId() : (window.adminOfflineAviatorRoundId + 1);
+          localStorage.removeItem('cheat_aviator_force_crashed');
+          localStorage.removeItem('cheat_aviator_instant_crash');
+          localStorage.removeItem('cheat_aviator_force_crash_mult');
+          offlineElapsed = 0;
+        }
+
+        window.adminAviatorServerPhase = window.adminOfflineAviatorPhase;
+        window.adminAviatorServerRoundId = window.adminOfflineAviatorRoundId;
+        window.adminAviatorServerPhaseStart = window.adminOfflineAviatorStart;
+        window.adminAviatorServerCrashPoint = window.adminOfflineAviatorCrashPoint;
       }
 
-      const isForceCrashed = localStorage.getItem('cheat_aviator_force_crashed') === 'true';
-      const effectivePhase = isForceCrashed ? 'crashed' : (window.adminAviatorServerPhase || 'waiting');
+      // Render based on synchronized phase & phaseStart
+      const effectivePhase = window.adminAviatorServerPhase || 'waiting';
+      const pStart = window.adminAviatorServerPhaseStart || now;
+      const elapsed = Math.max(0, now - pStart);
+      const flightSecs = elapsed / 1000;
+      const crashLimit = window.adminAviatorServerCrashPoint || parseFloat(localStorage.getItem('cheat_aviator_force_crash_mult') || '100.0');
+      const calculatedMult = Math.exp(0.06 * flightSecs);
+      const curFlightMult = (effectivePhase === 'running') ? Math.min(crashLimit, calculatedMult) : (effectivePhase === 'crashed' ? (window.adminAviatorServerCrashPoint || 1.00) : 1.00);
+
+      updateAdminAviatorTelemetry(liveAv ? liveAv.bets : [], effectivePhase, curFlightMult);
 
       const roundEl = document.getElementById('adminAviatorRoundId');
       const labelEl = document.getElementById('adminAviatorTimerLabel');
@@ -2811,7 +3028,7 @@
       if (roundEl) roundEl.textContent = '#' + (window.adminAviatorServerRoundId || '99246958');
 
       if (effectivePhase === 'crashed') {
-        const crashMult = window.adminAviatorServerCrashPoint || window.adminAviatorServerMult || parseFloat(localStorage.getItem('cheat_aviator_force_crash_mult') || '1.00');
+        const crashMult = window.adminAviatorServerCrashPoint || parseFloat(localStorage.getItem('cheat_aviator_force_crash_mult') || '1.00');
         if (labelEl) labelEl.textContent = 'FLIGHT CRASHED';
         if (timeEl) {
           timeEl.textContent = `@ ${crashMult.toFixed(2)}x`;
@@ -2821,12 +3038,9 @@
           barEl.parentElement.style.display = 'none';
         }
       } else if (effectivePhase === 'running') {
-        const pStart = window.adminAviatorServerPhaseStart || now;
-        const flightSecs = (now - pStart) / 1000;
-        const mult = window.adminAviatorServerMult || Math.exp(0.06 * flightSecs);
         if (labelEl) labelEl.textContent = 'LIVE MULTIPLIER';
         if (timeEl) {
-          timeEl.textContent = `${mult.toFixed(2)}x`;
+          timeEl.textContent = `${curFlightMult.toFixed(2)}x`;
           timeEl.style.color = 'var(--green)';
         }
         if (barEl && barEl.parentElement) {
@@ -2834,8 +3048,7 @@
         }
       } else {
         // waiting
-        const pStart = window.adminAviatorServerPhaseStart || (now - ((5.0 - (window.adminAviatorServerTimeLeft || 5.0)) * 1000));
-        const visualTimeLeft = Math.max(0, (5000 - (now - pStart)) / 1000);
+        const visualTimeLeft = Math.max(0, (5000 - elapsed) / 1000);
         const duration = 5.0;
         const pct = Math.max(0, Math.min(100, (visualTimeLeft / duration) * 100));
 
@@ -2851,7 +3064,6 @@
         }
       }
     }
-    setInterval(tickAdminVisualProgress, 30);
 
     // Render helper functions
     function renderColorGuessUI(colorGame) {

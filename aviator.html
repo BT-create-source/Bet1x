@@ -468,6 +468,68 @@ function updateBtnLabels(consoleId) {
   }
 }
 
+function getUserAviatorWagers() {
+  const currentUsername = (typeof getCurrentUser === 'function' && getCurrentUser()) ? getCurrentUser().username : 'Josh';
+  const activeWagers = [];
+  
+  for (let i = 1; i <= 2; i++) {
+    const b = bets[i];
+    if (b.status === 'wagered' || b.status === 'active') {
+      activeWagers.push({
+        username: currentUsername,
+        amount: b.wagered,
+        status: 'pending',
+        console_id: i,
+        cashed_multiplier: 0
+      });
+    } else if (b.cashedMultiplier > 0) {
+      activeWagers.push({
+        username: currentUsername,
+        amount: b.wagered,
+        status: 'won',
+        console_id: i,
+        cashed_multiplier: b.cashedMultiplier
+      });
+    }
+  }
+  
+  if (typeof mockPlayers !== 'undefined' && Array.isArray(mockPlayers)) {
+    mockPlayers.forEach(mp => {
+      activeWagers.push({
+        username: mp.name,
+        amount: mp.amount,
+        status: mp.status === 'won' ? 'won' : (mp.status === 'lost' ? 'lost' : 'pending'),
+        target_mult: mp.targetMult || 0,
+        cashed_multiplier: mp.cashedMultiplier || 0,
+        is_mock: true
+      });
+    });
+  }
+  
+  return activeWagers;
+}
+
+function updateAviatorLiveStateStorage() {
+  try {
+    const now = Date.now();
+    const elapsed = now - phaseStart;
+    const currentWagers = getUserAviatorWagers();
+    if (typeof saveAviatorCurrentBets === 'function') saveAviatorCurrentBets(currentWagers);
+
+    localStorage.setItem('bet1x_live_aviator_state', JSON.stringify({
+      round_id: roundId,
+      phase: phase,
+      phase_start: phaseStart,
+      duration: 5.0,
+      time_left: phase === 'waiting' ? Math.max(0, (waitingWindow - elapsed) / 1000) : 0,
+      current_multiplier: currentMultiplier,
+      crash_point: crashPoint,
+      bets: currentWagers,
+      timestamp: now
+    }));
+  } catch(e){}
+}
+
 // Handle Bet/Cancel/Cashout triggers
 window.handleBtnClick = function(consoleId) {
   const b = bets[consoleId];
@@ -501,6 +563,7 @@ window.handleBtnClick = function(consoleId) {
           category: 'Crash', value: 'Bet', amount: amount, status: 'pending'
         });
       }
+      updateAviatorLiveStateStorage();
       showAlert('success', `Bet placed: ₹${amount.toFixed(2)}`);
       return;
     }
@@ -915,7 +978,7 @@ function gameTick() {
       time_left: phase === 'waiting' ? Math.max(0, (waitingWindow - elapsed) / 1000) : 0,
       current_multiplier: currentMultiplier,
       crash_point: crashPoint,
-      bets: (typeof getAviatorCurrentBets === 'function') ? getAviatorCurrentBets() : [],
+      bets: getUserAviatorWagers(),
       timestamp: now
     }));
   } catch (err) {
