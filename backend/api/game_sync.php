@@ -124,8 +124,8 @@ function get_color_round_id(string $room, int $timestamp): string {
 }
 
 function resolve_color_number(int $num): array {
-    if ($num === 0) return ['color' => 'Red-Violet', 'dotClass' => 'violet', 'size' => 'Small'];
-    if ($num === 5) return ['color' => 'Green-Violet', 'dotClass' => 'violet', 'size' => 'Big'];
+    if ($num === 0) return ['color' => 'Violet', 'dotClass' => 'violet', 'size' => 'Small'];
+    if ($num === 5) return ['color' => 'Violet', 'dotClass' => 'violet', 'size' => 'Big'];
     if (in_array($num, [1, 3, 7, 9])) return ['color' => 'Green', 'dotClass' => 'green', 'size' => $num >= 5 ? 'Big' : 'Small'];
     return ['color' => 'Red', 'dotClass' => 'red', 'size' => $num >= 5 ? 'Big' : 'Small'];
 }
@@ -384,7 +384,8 @@ switch ($action) {
             'my_bets' => $my_bets,
             'wallet_balance' => $bal,
             'aggregates' => $aggs,
-            'overrides' => $state[$room]['overrides'] ?? []
+            'overrides' => $state[$room]['overrides'] ?? [],
+            'active_users' => count($users)
         ]);
         break;
     }

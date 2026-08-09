@@ -538,6 +538,38 @@ app.post('/api/db/recent-results', async (req, res) => {
   }
 });
 
+// Fetch last 30 chat messages
+app.get('/api/chat', async (req, res) => {
+  try {
+    const messages = await prisma.chatMessage.findMany({
+      orderBy: { id: 'asc' },
+      take: 30
+    });
+    res.json(messages);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Post a new chat message
+app.post('/api/chat', async (req, res) => {
+  const { username, message } = req.body;
+  try {
+    if (!username || !message) {
+      return res.status(400).json({ error: 'Username and message are required' });
+    }
+    const newMessage = await prisma.chatMessage.create({
+      data: {
+        username,
+        message
+      }
+    });
+    res.json({ success: true, message: newMessage });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Sync full table data back from PHP db_transaction callback edits
 app.post('/api/db/:table/sync', async (req, res) => {
   const { table } = req.params;

@@ -77,3 +77,10 @@ model RecentResult {
 
   @@unique([room, roundNumber])
 }
+
+model ChatMessage {
+  id        Int      @id @default(autoincrement())
+  username  String
+  message   String
+  timestamp DateTime @default(now())
+}

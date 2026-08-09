@@ -51,9 +51,10 @@
       <div class="round-meta">
         <h3>Sapre Room <span style="color:var(--green);font-size:13px;font-weight:500;">● Green tier</span></h3>
         <div class="round-id">Round #<span id="roundId">—</span> · 30s rounds</div>
-        <div class="text-dim" style="font-size:13px;margin-top:8px;">612 players active in this room</div>
+        <div class="text-dim" id="activePlayersCount" style="font-size:13px;margin-top:8px;">0 players active in this room</div>
       </div>
     </div>
+    <div id="settlementBox" style="margin-top: 15px;"></div>
   </div>
 
   <div class="grid-2">
@@ -221,6 +222,14 @@ function showAlert(msg, type) {
   setTimeout(() => { document.getElementById('alertBox').innerHTML = ''; }, 3500);
 }
 
+function showSettlementAlert(msg, type) {
+  const box = document.getElementById('settlementBox');
+  if (box) {
+    box.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+    setTimeout(() => { box.innerHTML = ''; }, 7000);
+  }
+}
+
 // Server synchronization loop for Color Guess
 const ringFg = document.getElementById('ringFg');
 const ringTime = document.getElementById('ringTime');
@@ -370,10 +379,10 @@ function settleRoundLocally() {
   });
   if (totalPayout > 0) {
     adjustWallet(totalPayout, `${ROOM_KEY.toUpperCase()} Win Payout Round #${lastRoundId}`);
-    showAlert(`Round settled! Result: ${winningNum} (${newResult.color}, ${newResult.size}) — you won 🪙${totalPayout.toFixed(2)}`, 'success');
+    showSettlementAlert(`Round settled! Result: ${winningNum} (${newResult.color}, ${newResult.size}) — you won 🪙${totalPayout.toFixed(2)}`, 'success');
     triggerWinShower(document.querySelector('.card'));
   } else if (hasBets) {
-    showAlert(`Round settled. Result: ${winningNum} (${newResult.color}, ${newResult.size}) — no win this round.`, 'error');
+    showSettlementAlert(`Round settled. Result: ${winningNum} (${newResult.color}, ${newResult.size}) — no win this round.`, 'error');
   }
   myBetsThisRound = [];
   renderMyBets();
@@ -409,6 +418,10 @@ function syncState() {
     roundIdEl.textContent = data.round_id;
     
     setWallet(data.wallet_balance);
+    const activeUsersEl = document.getElementById('activePlayersCount');
+    if (activeUsersEl) {
+      activeUsersEl.textContent = `${data.active_users || 0} players active in this room`;
+    }
     
     if (lastRoundId && lastRoundId !== data.round_id) {
       const lastResult = data.history.find(h => h.roundNumber == lastRoundId) || (data.history.length > 0 ? data.history[data.history.length - 1] : null);
@@ -432,10 +445,10 @@ function syncState() {
           if (won) totalPayout += b.amount * mult;
         });
         if (totalPayout > 0) {
-          showAlert(`Round settled! Result: ${lastResult.number} (${lastResult.color}, ${lastResult.size}) — you won 🪙${totalPayout.toFixed(2)}`, 'success');
+          showSettlementAlert(`Round settled! Result: ${lastResult.number} (${lastResult.color}, ${lastResult.size}) — you won 🪙${totalPayout.toFixed(2)}`, 'success');
           triggerWinShower(document.querySelector('.card'));
         } else if (hasBets) {
-          showAlert(`Round settled. Result: ${lastResult.number} (${lastResult.color}, ${lastResult.size}) — no win this round.`, 'error');
+          showSettlementAlert(`Round settled. Result: ${lastResult.number} (${lastResult.color}, ${lastResult.size}) — no win this round.`, 'error');
         }
       }
       myBetsThisRound = [];

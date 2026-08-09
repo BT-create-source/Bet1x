@@ -1,7 +1,7 @@
 <?php
 /**
- * bet1x database emulation layer using secure flock JSON files.
- * Handles users, wallets, deposits, withdrawals, bets, transactions, and payment logs.
+ * bet1x database emulation layer using Node.js Express server APIs backed by PostgreSQL and Prisma.
+ * Bridges all users, wallets, deposits, withdrawals, bets, and transaction logs.
  */
 
 require_once __DIR__ . '/config.php';
@@ -10,123 +10,122 @@ if (!is_dir(DATA_DIR)) {
     mkdir(DATA_DIR, 0755, true);
 }
 
-// Function to perform thread-safe operations on a table with exclusive locking
-function db_transaction(string $table, callable $callback) {
-    $filePath = DATA_DIR . '/' . $table . '.json';
+// Global API Request Helper
+function db_api_request(string $method, string $path, $data = null) {
+    $url = 'http://localhost:5000' . $path;
     
-    // Open file for read and write (creates if not exists)
-    $fp = fopen($filePath, 'c+');
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+        
+        if ($data !== null) {
+            $jsonData = json_encode($data);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonData);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Content-Type: application/json',
+                'Content-Length: ' . strlen($jsonData)
+            ]);
+        }
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        if ($httpCode >= 200 && $httpCode < 300) {
+            return json_decode($response, true);
+        }
+        return null;
+    } else {
+        $options = [
+            'http' => [
+                'method' => $method,
+                'header' => "Content-Type: application/json\r\n",
+                'content' => $data !== null ? json_encode($data) : '',
+                'ignore_errors' => true
+            ]
+        ];
+        $context = stream_context_create($options);
+        $response = @file_get_contents($url, false, $context);
+        return json_decode($response, true);
+    }
+}
+
+// Shared lock to perform transaction on a table
+function db_transaction(string $table, callable $callback) {
+    $lockFile = DATA_DIR . '/' . $table . '.lock';
+    $fp = fopen($lockFile, 'w');
     if (!$fp) {
-        throw new Exception("Unable to open database file: " . $table);
+        throw new Exception("Unable to open database lock file: " . $lockFile);
     }
     
-    // Acquire exclusive lock (equivalent to DB transaction isolation)
     if (!flock($fp, LOCK_EX)) {
         fclose($fp);
-        throw new Exception("Unable to acquire exclusive database lock on: " . $table);
+        throw new Exception("Unable to acquire database lock on: " . $table);
     }
     
     try {
-        // Read file contents
-        $size = filesize($filePath);
-        $data = [];
-        if ($size > 0) {
-            rewind($fp);
-            $content = fread($fp, $size);
-            $data = json_decode($content, true);
-            if (!is_array($data)) {
-                $data = [];
-            }
-        }
+        // Read table data from Postgres API
+        $data = db_read($table);
         
-        // Execute caller-supplied callback which modifies the array data
+        // Execute callback to modify array
         $result = $callback($data);
         
-        // Truncate and write modified data back
-        ftruncate($fp, 0);
-        rewind($fp);
-        fwrite($fp, json_encode($data, JSON_PRETTY_PRINT));
-        fflush($fp);
+        // Synchronize full state back to Postgres database
+        db_api_request('POST', '/api/db/' . $table . '/sync', $data);
         
-        // Release lock
         flock($fp, LOCK_UN);
         fclose($fp);
         
         return $result;
     } catch (Exception $e) {
-        // Release lock and clean up in case of failure
         flock($fp, LOCK_UN);
         fclose($fp);
         throw $e;
     }
 }
 
-// Query helper to fetch data from a table without locking (read-only operations)
+// Fetch all entries of a table
 function db_read(string $table): array {
-    $filePath = DATA_DIR . '/' . $table . '.json';
-    if (!file_exists($filePath)) {
+    $data = db_api_request('GET', '/api/db/' . $table);
+    if (!is_array($data)) {
         return [];
     }
     
-    $fp = fopen($filePath, 'r');
-    if (!$fp) {
-        return [];
-    }
-    
-    // Shared lock for reading
-    if (flock($fp, LOCK_SH)) {
-        $size = filesize($filePath);
-        $data = [];
-        if ($size > 0) {
-            $content = fread($fp, $size);
-            $data = json_decode($content, true);
-        }
-        flock($fp, LOCK_UN);
-        fclose($fp);
-        return is_array($data) ? $data : [];
-    }
-    
-    fclose($fp);
-    return [];
-}
-
-// Helper to log a user transaction record
-function db_log_transaction(string $username, string $type, float $amount, string $details, string $status) {
-    db_transaction('transactions', function (&$txns) use ($username, $type, $amount, $details, $status) {
-        $txns[] = [
-            'id' => strtoupper(substr($type, 0, 3)) . '_' . mt_rand(100000, 999999),
-            'user' => $username,
-            'type' => $type,
-            'amount' => $amount,
-            'details' => $details,
-            'status' => $status,
-            'timestamp' => date('Y-m-d H:i:s')
-        ];
-    });
-}
-
-// Safe wrapper to adjust user wallet balance with transactions support
-function db_adjust_wallet(string $username, float $delta, string $details) {
-    return db_transaction('users', function (&$users) use ($username, $delta, $details) {
-        foreach ($users as &$u) {
-            if (strtolower($u['username']) === strtolower($username)) {
-                $currentBal = (float)$u['wallet_balance'];
-                $newBal = $currentBal + $delta;
-                if ($newBal < 0) {
-                    return ['error' => 'Insufficient balance.'];
-                }
-                $u['wallet_balance'] = $newBal;
-                
-                // Determine transaction type
-                $type = ($delta >= 0) ? 'Deposit' : 'Withdrawal';
-                $absDelta = abs($delta);
-                
-                // Write transaction log
-                db_log_transaction($username, $type, $absDelta, $details, 'Completed');
-                
-                return ['success' => true, 'new_balance' => $newBal];
+    // Backwards compatibility mappings for PHP code
+    if ($table === 'withdrawals') {
+        foreach ($data as &$item) {
+            if (isset($item['id'])) {
+                $item['withdrawal_id'] = $item['id'];
+            }
+            if (isset($item['user'])) {
+                $item['username'] = $item['user'];
             }
         }
-        return ['error' => 'User not found.'];
-    });
+    }
+    return $data;
+}
+
+// Log transaction to PostgreSQL
+function db_log_transaction(string $username, string $type, float $amount, string $details, string $status) {
+    db_api_request('POST', '/api/db/transactions', [
+        'user' => $username,
+        'type' => $type,
+        'amount' => $amount,
+        'details' => $details,
+        'status' => $status
+    ]);
+}
+
+// Atomic balance adjustment inside PostgreSQL
+function db_adjust_wallet(string $username, float $delta, string $details) {
+    $res = db_api_request('POST', '/api/db/users/adjust-balance', [
+        'username' => $username,
+        'delta' => $delta,
+        'details' => $details
+    ]);
+    if (!$res || isset($res['error'])) {
+        return ['error' => $res['error'] ?? 'Connection to database failed.'];
+    }
+    return ['success' => true, 'new_balance' => $res['new_balance']];
 }
