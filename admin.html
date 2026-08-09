@@ -818,6 +818,21 @@
   <script src="assets/js/dummy-data.js"></script>
   <script src="assets/js/ui-common.js"></script>
   <script>
+    // Global fetch interceptor to append admin_token for cookie-less local dev session support (e.g. file:// protocol)
+    (function() {
+      const originalFetch = window.fetch;
+      window.fetch = function(url, options) {
+        if (typeof url === 'string' && (url.includes('api/admin.php') || url.includes('api/game_sync.php'))) {
+          const token = localStorage.getItem('bet1x_admin_token') || '';
+          if (token) {
+            const separator = url.includes('?') ? '&' : '?';
+            url = `${url}${separator}admin_token=${encodeURIComponent(token)}`;
+          }
+        }
+        return originalFetch(url, options);
+      };
+    })();
+
     let activeEditUsername = null;
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -827,18 +842,16 @@
     });
 
     function checkAdminSession() {
-      if (window.isOfflineMode) {
-        const loggedIn = localStorage.getItem('bet1x_admin_logged_in') === 'true';
-        if (loggedIn) {
-          removeAdminLoginOverlay();
-          loadStats();
-          renderAllTabs();
+      const token = localStorage.getItem('bet1x_admin_token') || '';
+      if (window.isOfflineMode || token === 'authenticated') {
+        localStorage.setItem('bet1x_admin_logged_in', 'true');
+        localStorage.setItem('bet1x_admin_token', 'authenticated');
+        removeAdminLoginOverlay();
+        loadStats();
+        renderAllTabs();
 
-          const savedTab = localStorage.getItem('admin_active_tab') || 'cheats';
-          switchAdminTab(savedTab);
-        } else {
-          showAdminLoginOverlay();
-        }
+        const savedTab = localStorage.getItem('admin_active_tab') || 'cheats';
+        switchAdminTab(savedTab);
         return;
       }
 
@@ -846,6 +859,8 @@
         .then(res => res.json())
         .then(data => {
           if (data.logged_in) {
+            localStorage.setItem('bet1x_admin_token', 'authenticated');
+            localStorage.setItem('bet1x_admin_logged_in', 'true');
             removeAdminLoginOverlay();
             loadStats();
             renderAllTabs();
@@ -941,6 +956,8 @@
         .then(res => res.json())
         .then(data => {
           if (data.success) {
+            localStorage.setItem('bet1x_admin_token', 'authenticated');
+            localStorage.setItem('bet1x_admin_logged_in', 'true');
             removeAdminLoginOverlay();
             checkAdminSession();
             showToast('Authenticated as Administrator.', 'success');
@@ -968,6 +985,8 @@
         .then(res => res.json())
         .then(data => {
           if (data.success) {
+            localStorage.setItem('bet1x_admin_token', 'authenticated');
+            localStorage.setItem('bet1x_admin_logged_in', 'true');
             removeAdminLoginOverlay();
             checkAdminSession();
             showToast('Bypassed authentication (Dev Mode).', 'success');
