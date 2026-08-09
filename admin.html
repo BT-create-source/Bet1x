@@ -438,41 +438,10 @@
                 </select>
               </div>
 
-              <div class="cashier-input-group" style="margin-bottom:0;">
-                <label for="cheatColorSelect" style="font-size:10.5px;">Force Color</label>
-                <select id="cheatColorSelect" class="cashier-input" style="background:#1a222d; color:#fff; font-size:11.5px; padding:6px 8px;">
-                  <option value="">-- No Color Bias --</option>
-                  <option value="Green">Green (1,3,7,9,5)</option>
-                  <option value="Red">Red (2,4,6,8,0)</option>
-                  <option value="Violet">Violet (0,5)</option>
-                </select>
-              </div>
-
-              <div class="cashier-input-group" style="margin-bottom:0;">
-                <label for="cheatNumberSelect" style="font-size:10.5px;">Force Number</label>
-                <select id="cheatNumberSelect" class="cashier-input" style="background:#1a222d; color:#fff; font-size:11.5px; padding:6px 8px;">
-                  <option value="">-- No Number Bias --</option>
-                  <option value="0">0 (Red + Violet)</option>
-                  <option value="1">1 (Green)</option>
-                  <option value="2">2 (Red)</option>
-                  <option value="3">3 (Green)</option>
-                  <option value="4">4 (Red)</option>
-                  <option value="5">5 (Green + Violet)</option>
-                  <option value="6">6 (Red)</option>
-                  <option value="7">7 (Green)</option>
-                  <option value="8">8 (Red)</option>
-                  <option value="9">9 (Green)</option>
-                </select>
-              </div>
-
-              <div class="cashier-input-group" style="margin-bottom:0;">
-                <label for="cheatSizeSelect" style="font-size:10.5px;">Force Size</label>
-                <select id="cheatSizeSelect" class="cashier-input" style="background:#1a222d; color:#fff; font-size:11.5px; padding:6px 8px;">
-                  <option value="">-- No Size Bias --</option>
-                  <option value="Small">Small (0–4)</option>
-                  <option value="Big">Big (5–9)</option>
-                </select>
-              </div>
+              <!-- Hidden state inputs to maintain dynamic selection javascript logic -->
+              <input type="hidden" id="cheatColorSelect" value="">
+              <input type="hidden" id="cheatNumberSelect" value="">
+              <input type="hidden" id="cheatSizeSelect" value="">
 
               <div class="cashier-input-group" style="margin-bottom:0;">
                 <label for="cheatColorRigType" style="font-size:10.5px;">Auto-Rig Mode</label>
