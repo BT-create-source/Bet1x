@@ -1,7 +1,41 @@
-/**
- * bet1x — shared UI behaviors for the pitch demo.
- * Synchronized with the PHP database-less backend api endpoints.
- */
+// Global fetch interceptor to redirect all PHP api requests to the Express backend on port 5000
+const originalFetch = window.fetch;
+window.fetch = function (input, init) {
+  let url = typeof input === 'string' ? input : (input instanceof URL ? input.href : (input && input.url));
+  
+  if (url && (url.includes('api/') || url.includes('.php'))) {
+    // If it's a relative URL or starts with backend/ or api/, redirect to port 5000
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      let cleanPath = url;
+      if (cleanPath.startsWith('../')) cleanPath = cleanPath.substring(3);
+      if (cleanPath.startsWith('backend/')) cleanPath = cleanPath.substring(8);
+      
+      if (!cleanPath.startsWith('api/')) {
+        cleanPath = 'api/' + cleanPath;
+      }
+      url = 'http://localhost:5000/' + cleanPath;
+    }
+    
+    // Automatically inject the currently logged-in username into all backend fetches
+    const currentUser = localStorage.getItem('bet1x_current_user');
+    if (currentUser) {
+      try {
+        const userObj = JSON.parse(currentUser);
+        if (userObj && userObj.username) {
+          const separator = url.includes('?') ? '&' : '?';
+          url += separator + 'username=' + encodeURIComponent(userObj.username);
+        }
+      } catch (e) {}
+    }
+  }
+  
+  // Set credentials for cross-origin cookies if needed
+  if (init && !init.credentials) {
+    init.credentials = 'include';
+  }
+  
+  return originalFetch(url, init);
+};
 
 function getApiPrefix() {
   const path = window.location.pathname;

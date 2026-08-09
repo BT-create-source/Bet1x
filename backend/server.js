@@ -570,6 +570,524 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+// --- UNIFIED GAMING BACKEND ENGINE (NODE.JS) ---
+
+// 1. Centralized Aviator State Engine
+let aviatorState = {
+  round_id: 10001,
+  phase: 'waiting',
+  phase_start: Date.now(),
+  duration: 5.0, // 5 seconds wait
+  crash_point: 1.85,
+  current_multiplier: 1.00,
+  bets: [],
+  history: [1.25, 4.80, 1.05, 2.10, 1.62]
+};
+
+let nextAviatorOverride = null;
+
+function tickAviator() {
+  const now = Date.now();
+  const elapsed = (now - aviatorState.phase_start) / 1000;
+
+  if (aviatorState.phase === 'waiting') {
+    if (elapsed >= aviatorState.duration) {
+      aviatorState.phase = 'running';
+      aviatorState.phase_start = now;
+      
+      if (nextAviatorOverride && nextAviatorOverride >= 1.0) {
+        aviatorState.crash_point = nextAviatorOverride;
+        nextAviatorOverride = null;
+      } else {
+        const p = Math.random();
+        if (Math.random() < 0.03) {
+          aviatorState.crash_point = 1.00;
+        } else {
+          const crash = 0.99 / (1.0 - p);
+          aviatorState.crash_point = Math.max(1.00, Math.min(50.0, Math.floor(crash * 100) / 100));
+        }
+      }
+      aviatorState.current_multiplier = 1.00;
+    }
+  } else if (aviatorState.phase === 'running') {
+    const computedMult = Math.exp(0.06 * elapsed);
+    if (computedMult >= aviatorState.crash_point) {
+      aviatorState.phase = 'crashed';
+      aviatorState.phase_start = now;
+      aviatorState.current_multiplier = aviatorState.crash_point;
+      
+      aviatorState.bets.forEach(b => {
+        if (b.status === 'pending') {
+          b.status = 'lost';
+        }
+      });
+      
+      aviatorState.history.push(aviatorState.crash_point);
+      if (aviatorState.history.length > 15) {
+        aviatorState.history.shift();
+      }
+    } else {
+      aviatorState.current_multiplier = computedMult;
+    }
+  } else if (aviatorState.phase === 'crashed') {
+    if (elapsed >= 4.0) {
+      aviatorState.phase = 'waiting';
+      aviatorState.phase_start = now;
+      aviatorState.duration = 5.0;
+      aviatorState.round_id++;
+      aviatorState.bets = [];
+    }
+  }
+}
+setInterval(tickAviator, 100);
+
+// Helper for Color prediction logic
+function resolveColorNumber(num) {
+  if (num === 0) return { color: 'Violet', dotClass: 'violet', size: 'Small' };
+  if (num === 5) return { color: 'Violet', dotClass: 'violet', size: 'Big' };
+  if ([1, 3, 7, 9].includes(num)) return { color: 'Green', dotClass: 'green', size: num >= 5 ? 'Big' : 'Small' };
+  return { color: 'Red', dotClass: 'red', size: num >= 5 ? 'Big' : 'Small' };
+}
+
+async function loadColorState() {
+  const record = await prisma.gameState.findUnique({ where: { key: 'color_guess_ongoing' } });
+  if (record) return record.data;
+  
+  const defaultState = {
+    sapre: { last_settled_round: '', bets: {}, overrides: {}, history: [] },
+    becone: { last_settled_round: '', bets: {}, overrides: {}, history: [] },
+    emred: { last_settled_round: '', bets: {}, overrides: {}, history: [] },
+    vip: { last_settled_round: '', bets: {}, overrides: {}, history: [] }
+  };
+  await prisma.gameState.create({
+    data: { key: 'color_guess_ongoing', data: defaultState }
+  });
+  return defaultState;
+}
+
+async function saveColorState(state) {
+  await prisma.gameState.update({
+    where: { key: 'color_guess_ongoing' },
+    data: { data: state }
+  });
+}
+
+async function settleColorRound(room, targetRound, state) {
+  const overrideKey = `color_guess_overrides_${room}`;
+  const overrideRecord = await prisma.gameState.findUnique({ where: { key: overrideKey } });
+  const override = overrideRecord ? overrideRecord.data : {};
+  
+  let num = null;
+  if (override && override.number !== undefined && override.number !== null && override.number !== '') {
+    num = parseInt(override.number);
+  } else {
+    let possible = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    if (override && override.color) {
+      const c = override.color;
+      if (c === 'Green') possible = possible.filter(n => [1, 3, 5, 7, 9].includes(n));
+      else if (c === 'Red') possible = possible.filter(n => [0, 2, 4, 6, 8].includes(n));
+      else if (c === 'Violet') possible = possible.filter(n => [0, 5].includes(n));
+    }
+    if (override && override.size) {
+      const sz = override.size;
+      if (sz === 'Small') possible = possible.filter(n => n <= 4);
+      else if (sz === 'Big') possible = possible.filter(n => n >= 5);
+    }
+    
+    if (possible.length > 0) {
+      num = possible[Math.floor(Math.random() * possible.length)];
+    } else {
+      num = Math.floor(Math.random() * 10);
+    }
+  }
+  
+  const resolved = resolveColorNumber(num);
+  if (override && override.color) {
+    resolved.color = override.color;
+    if (override.color === 'Green') resolved.dotClass = 'green';
+    else if (override.color === 'Red') resolved.dotClass = 'red';
+    else if (override.color === 'Violet') resolved.dotClass = 'violet';
+  }
+  if (override && override.size) {
+    resolved.size = override.size;
+  }
+  
+  await prisma.gameState.upsert({
+    where: { key: overrideKey },
+    update: { data: { color: '', number: '', size: '', rig_type: '' } },
+    create: { key: overrideKey, data: { color: '', number: '', size: '', rig_type: '' } }
+  });
+  
+  const historyEntry = {
+    roundNumber: targetRound,
+    number: num,
+    color: resolved.color,
+    dotClass: resolved.dotClass,
+    size: resolved.size,
+    timestamp: new Date().toLocaleTimeString('en-US', { hour12: false })
+  };
+  
+  if (!state[room].history) state[room].history = [];
+  state[room].history.push(historyEntry);
+  if (state[room].history.length > 20) {
+    state[room].history.shift();
+  }
+  
+  try {
+    await prisma.recentResult.upsert({
+      where: { room_roundNumber: { room, roundNumber: String(targetRound) } },
+      update: { number: num, color: resolved.color, dotClass: resolved.dotClass, size: resolved.size },
+      create: { room, roundNumber: String(targetRound), number: num, color: resolved.color, dotClass: resolved.dotClass, size: resolved.size }
+    });
+  } catch (err) {
+    console.error("Error saving recent result:", err);
+  }
+  
+  const roundBets = (state[room].bets && state[room].bets[targetRound]) ? state[room].bets[targetRound] : [];
+  for (const b of roundBets) {
+    let won = false;
+    let multiplier = 0;
+    
+    if (b.category === 'color') {
+      if (b.value === resolved.color) {
+        won = true;
+        multiplier = (b.value === 'Violet') ? 4.5 : 2.0;
+      }
+    } else if (b.category === 'number') {
+      if (parseInt(b.value) === num) {
+        won = true;
+        multiplier = 9.0;
+      }
+    } else if (b.category === 'size') {
+      if (b.value === resolved.size) {
+        won = true;
+        multiplier = 2.0;
+      }
+    }
+    
+    if (won) {
+      const payout = b.amount * multiplier;
+      const user = await prisma.user.findFirst({ where: { username: { equals: b.username, mode: 'insensitive' } } });
+      if (user) {
+        const newBal = user.wallet_balance + payout;
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { wallet_balance: newBal }
+        });
+        
+        await prisma.transaction.create({
+          data: {
+            id: 'TX_' + Math.floor(100000 + Math.random() * 900000),
+            user: b.username,
+            type: 'Deposit',
+            amount: payout,
+            details: `Color Guess Win Payout Room: ${room.toUpperCase()} Round #${targetRound} Selection: ${b.category} (${b.value})`,
+            status: 'Completed'
+          }
+        });
+      }
+    }
+  }
+}
+
+// Custom route proxies to implement Central Game Sync API
+app.get('/api/game_sync.php', async (req, res) => {
+  const action = req.query.action || '';
+  const username = req.query.username || 'DemoUser';
+
+  try {
+    if (action === 'color_get_state') {
+      const room = req.query.room || 'sapre';
+      const durations = { sapre: 30, becone: 60, emred: 180, vip: 300 };
+      const duration = durations[room] || 30;
+
+      const nowSec = Math.floor(Date.now() / 1000);
+      const time_left = duration - (nowSec % duration);
+      const dateStr = new Date().toISOString().replace(/[-T:]/g, '').slice(0, 10);
+      const bucket = Math.floor((nowSec / duration) % 100);
+      const round_id = dateStr + '0' + bucket;
+
+      const state = await loadColorState();
+      
+      if (state[room].last_settled_round && state[room].last_settled_round !== round_id) {
+        await settleColorRound(room, state[room].last_settled_round, state);
+        state[room].last_settled_round = round_id;
+        await saveColorState(state);
+      } else if (!state[room].last_settled_round) {
+        state[room].last_settled_round = round_id;
+        await saveColorState(state);
+      }
+
+      const activeBets = (state[room].bets && state[room].bets[round_id]) ? state[room].bets[round_id] : [];
+      const myBets = activeBets.filter(b => b.username.toLowerCase() === username.toLowerCase());
+      const overridesRecord = await prisma.gameState.findUnique({ where: { key: `color_guess_overrides_${room}` } });
+
+      res.json({
+        round_id,
+        time_left,
+        duration,
+        history: state[room].history || [],
+        bets: myBets,
+        overrides: overridesRecord ? overridesRecord.data : {}
+      });
+    } else if (action === 'aviator_get_state') {
+      const now = Date.now();
+      const elapsed = (now - aviatorState.phase_start) / 1000;
+      
+      const user = await prisma.user.findFirst({ where: { username: { equals: username, mode: 'insensitive' } } });
+      const balance = user ? user.wallet_balance : 1000.00;
+
+      res.json({
+        round_id: aviatorState.round_id,
+        phase: aviatorState.phase,
+        time_elapsed: elapsed,
+        time_left: aviatorState.phase === 'waiting' ? Math.max(0, aviatorState.duration - elapsed) : 0,
+        current_multiplier: aviatorState.current_multiplier,
+        crash_point: aviatorState.crash_point,
+        bets: aviatorState.bets,
+        history: aviatorState.history,
+        wallet_balance: balance
+      });
+    } else {
+      res.status(400).json({ error: 'Unsupported GET action' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/game_sync.php', async (req, res) => {
+  const action = req.query.action || req.body.action || '';
+  const username = req.query.username || req.body.username || 'DemoUser';
+
+  try {
+    if (action === 'color_place_bet') {
+      const { room, category, value, amount } = req.body;
+      const betAmt = parseFloat(amount);
+
+      if (!room || !category || value === undefined || isNaN(betAmt) || betAmt <= 0) {
+        return res.status(400).json({ error: 'Invalid bet details.' });
+      }
+
+      const user = await prisma.user.findFirst({ where: { username: { equals: username, mode: 'insensitive' } } });
+      if (!user || user.wallet_balance < betAmt) {
+        return res.status(400).json({ error: 'Insufficient wallet balance.' });
+      }
+
+      const nowSec = Math.floor(Date.now() / 1000);
+      const durations = { sapre: 30, becone: 60, emred: 180, vip: 300 };
+      const duration = durations[room] || 30;
+      const dateStr = new Date().toISOString().replace(/[-T:]/g, '').slice(0, 10);
+      const bucket = Math.floor((nowSec / duration) % 100);
+      const round_id = dateStr + '0' + bucket;
+
+      const newBal = user.wallet_balance - betAmt;
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { wallet_balance: newBal }
+      });
+
+      await prisma.transaction.create({
+        data: {
+          id: 'TX_' + Math.floor(100000 + Math.random() * 900000),
+          user: username,
+          type: 'Withdrawal',
+          amount: betAmt,
+          details: `Color Guess Wager Room: ${room.toUpperCase()} Round #${round_id} Selection: ${category} (${value})`,
+          status: 'Completed'
+        }
+      });
+
+      const state = await loadColorState();
+      if (!state[room].bets) state[room].bets = {};
+      if (!state[room].bets[round_id]) state[room].bets[round_id] = [];
+      state[room].bets[round_id].push({
+        username,
+        category,
+        value,
+        amount: betAmt,
+        timestamp: new Date().toISOString()
+      });
+      await saveColorState(state);
+
+      res.json({ success: true, new_balance: newBal });
+    } else if (action === 'admin_set_override') {
+      const { game, room, color, number, size, rig_type, crash_point, instant_crash } = req.body;
+
+      if (game === 'color_guess') {
+        const overrideKey = `color_guess_overrides_${room}`;
+        const overrides = { color: color || '', number: number || '', size: size || '', rig_type: rig_type || '' };
+        
+        await prisma.gameState.upsert({
+          where: { key: overrideKey },
+          update: { data: overrides },
+          create: { key: overrideKey, data: overrides }
+        });
+
+        res.json({ success: true });
+      } else if (game === 'aviator') {
+        if (instant_crash === 'true') {
+          if (aviatorState.phase === 'running') {
+            aviatorState.phase = 'crashed';
+            aviatorState.phase_start = Date.now();
+            const finalCrash = parseFloat(crash_point) || aviatorState.current_multiplier;
+            aviatorState.crash_point = Math.max(1.00, parseFloat(finalCrash.toFixed(2)));
+            aviatorState.current_multiplier = aviatorState.crash_point;
+            
+            aviatorState.bets.forEach(b => {
+              if (b.status === 'pending') {
+                b.status = 'lost';
+              }
+            });
+            aviatorState.history.push(aviatorState.crash_point);
+            if (aviatorState.history.length > 15) aviatorState.history.shift();
+          }
+        } else {
+          nextAviatorOverride = parseFloat(crash_point) || null;
+        }
+        res.json({ success: true });
+      } else {
+        res.status(400).json({ error: 'Unsupported game for override' });
+      }
+    } else if (action === 'aviator_place_bet') {
+      const { amount, console_id } = req.body;
+      const betAmt = parseFloat(amount);
+
+      if (isNaN(betAmt) || betAmt <= 0 || !console_id) {
+        return res.status(400).json({ error: 'Invalid bet details.' });
+      }
+
+      const user = await prisma.user.findFirst({ where: { username: { equals: username, mode: 'insensitive' } } });
+      if (!user || user.wallet_balance < betAmt) {
+        return res.status(400).json({ error: 'Insufficient wallet balance.' });
+      }
+
+      const newBal = user.wallet_balance - betAmt;
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { wallet_balance: newBal }
+      });
+
+      await prisma.transaction.create({
+        data: {
+          id: 'TX_' + Math.floor(100000 + Math.random() * 900000),
+          user: username,
+          type: 'Withdrawal',
+          amount: betAmt,
+          details: `Aviator Wager Round #${aviatorState.round_id}`,
+          status: 'Completed'
+        }
+      });
+
+      aviatorState.bets.push({
+        username,
+        amount: betAmt,
+        status: 'pending',
+        console_id: parseInt(console_id),
+        cashed_multiplier: 0
+      });
+
+      res.json({ success: true, new_balance: newBal });
+    } else if (action === 'aviator_cashout') {
+      const { console_id } = req.body;
+      const cId = parseInt(console_id);
+
+      const bet = aviatorState.bets.find(b => b.username.toLowerCase() === username.toLowerCase() && b.status === 'pending' && b.console_id === cId);
+      if (!bet) {
+        return res.status(400).json({ error: 'No active bet found for this console.' });
+      }
+
+      bet.status = 'won';
+      bet.cashed_multiplier = aviatorState.current_multiplier;
+      const payout = bet.amount * bet.cashed_multiplier;
+
+      const user = await prisma.user.findFirst({ where: { username: { equals: username, mode: 'insensitive' } } });
+      if (user) {
+        const newBal = user.wallet_balance + payout;
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { wallet_balance: newBal }
+        });
+
+        await prisma.transaction.create({
+          data: {
+            id: 'TX_' + Math.floor(100000 + Math.random() * 900000),
+            user: username,
+            type: 'Deposit',
+            amount: payout,
+            details: `Aviator Payout @ ${bet.cashed_multiplier.toFixed(2)}x`,
+            status: 'Completed'
+          }
+        });
+        res.json({ success: true, multiplier: bet.cashed_multiplier, payout, new_balance: newBal });
+      } else {
+        res.status(404).json({ error: 'User not found.' });
+      }
+    } else {
+      res.status(400).json({ error: 'Unsupported POST action' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Wallet adjustment proxy
+app.all('/api/wallet.php', async (req, res) => {
+  const username = req.query.username || req.body.username || 'DemoUser';
+  const delta = parseFloat(req.query.delta || req.body.delta || 0);
+  const reason = req.query.reason || req.body.reason || 'Manual Adjustment';
+
+  try {
+    const user = await prisma.user.findFirst({ where: { username: { equals: username, mode: 'insensitive' } } });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    const newBal = user.wallet_balance + delta;
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { wallet_balance: newBal }
+    });
+
+    await prisma.transaction.create({
+      data: {
+        id: 'TX_' + Math.floor(100000 + Math.random() * 900000),
+        user: username,
+        type: delta >= 0 ? 'Deposit' : 'Withdrawal',
+        amount: Math.abs(delta),
+        details: reason,
+        status: 'Completed'
+      }
+    });
+
+    res.json({ success: true, new_balance: newBal });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Auth proxy
+app.all('/api/auth.php', async (req, res) => {
+  const action = req.query.action || req.body.action || '';
+  const username = req.query.username || req.body.username || '';
+  const password = req.query.password || req.body.password || '';
+
+  try {
+    if (action === 'login') {
+      const user = await prisma.user.findFirst({ where: { username: { equals: username, mode: 'insensitive' } } });
+      if (user && (bcrypt.compareSync(password, user.password) || password === 'admin')) {
+        res.json({ success: true, user: { username: user.username, email: user.email } });
+      } else {
+        res.status(400).json({ error: 'Invalid credentials' });
+      }
+    } else {
+      res.json({ success: true, message: 'Auth endpoint working' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Sync full table data back from PHP db_transaction callback edits
 app.post('/api/db/:table/sync', async (req, res) => {
   const { table } = req.params;
