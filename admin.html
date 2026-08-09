@@ -3179,21 +3179,21 @@
           <!-- Colors & Sizes Grid -->
           <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 8px;">
             <button onclick="const el=document.getElementById('cheatColorSelect'); el.value=(el.value==='Green')?'':'Green'; applyColorRoomCheat();" 
-                    class="btn-action edit" style="padding: 6px 4px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${greenBox.style}">
+                    class="btn-action" style="padding: 6px 4px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${greenBox.style}">
               ${greenBox.fixedBadge}
               <span style="font-weight: 800; font-size: 12.5px; color: ${greenBox.titleColor};">Green</span>
               <span style="font-size: 10px; color: var(--text-dim);">${greenCount} players</span>
               <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: ${greenAmt > 0 ? 'var(--green)' : 'var(--text-dim)'};">₹${greenAmt}</span>
             </button>
             <button onclick="const el=document.getElementById('cheatColorSelect'); el.value=(el.value==='Red')?'':'Red'; applyColorRoomCheat();" 
-                    class="btn-action edit" style="padding: 6px 4px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${redBox.style}">
+                    class="btn-action" style="padding: 6px 4px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${redBox.style}">
               ${redBox.fixedBadge}
               <span style="font-weight: 800; font-size: 12.5px; color: ${redBox.titleColor};">Red</span>
               <span style="font-size: 10px; color: var(--text-dim);">${redCount} players</span>
               <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: ${redAmt > 0 ? 'var(--green)' : 'var(--text-dim)'};">₹${redAmt}</span>
             </button>
             <button onclick="const el=document.getElementById('cheatColorSelect'); el.value=(el.value==='Violet')?'':'Violet'; applyColorRoomCheat();" 
-                    class="btn-action edit" style="padding: 6px 4px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${violetBox.style}">
+                    class="btn-action" style="padding: 6px 4px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${violetBox.style}">
               ${violetBox.fixedBadge}
               <span style="font-weight: 800; font-size: 12.5px; color: ${violetBox.titleColor};">Violet</span>
               <span style="font-size: 10px; color: var(--text-dim);">${violetCount} players</span>
@@ -3203,14 +3203,14 @@
 
           <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 12px;">
             <button onclick="const el=document.getElementById('cheatSizeSelect'); el.value=(el.value==='Big')?'':'Big'; applyColorRoomCheat();" 
-                    class="btn-action edit" style="padding: 6px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${bigBox.style}">
+                    class="btn-action" style="padding: 6px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${bigBox.style}">
               ${bigBox.fixedBadge}
               <span style="font-weight: 800; font-size: 12.5px; color: ${bigBox.titleColor};">Big</span>
               <span style="font-size: 10px; color: var(--text-dim);">${bigCount} players</span>
               <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: ${bigAmt > 0 ? 'var(--green)' : 'var(--text-dim)'};">₹${bigAmt}</span>
             </button>
             <button onclick="const el=document.getElementById('cheatSizeSelect'); el.value=(el.value==='Small')?'':'Small'; applyColorRoomCheat();" 
-                    class="btn-action edit" style="padding: 6px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${smallBox.style}">
+                    class="btn-action" style="padding: 6px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${smallBox.style}">
               ${smallBox.fixedBadge}
               <span style="font-weight: 800; font-size: 12.5px; color: ${smallBox.titleColor};">Small</span>
               <span style="font-size: 10px; color: var(--text-dim);">${smallCount} players</span>
@@ -3225,7 +3225,7 @@
               const numBox = getHeatmapBox(numAmts[num], isNumberFixed(num));
               return `
                 <button onclick="const el=document.getElementById('cheatNumberSelect'); el.value=(el.value==='${num}')?'':'${num}'; applyColorRoomCheat();" 
-                        class="btn-action edit" style="padding: 6px 2px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 4px; gap: 2px; ${numBox.style}">
+                        class="btn-action" style="padding: 6px 2px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 4px; gap: 2px; ${numBox.style}">
                   ${numBox.fixedBadge}
                   <span style="font-weight: 800; font-size: 11px; color: #fff; background: rgba(255,255,255,0.08); display: inline-block; width: 18px; height: 18px; line-height: 18px; border-radius: 50%;">${num}</span>
                   <span style="font-size: 8.5px; color: var(--text-dim);">${numCounts[num]} players</span>
