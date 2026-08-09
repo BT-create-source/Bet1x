@@ -859,7 +859,7 @@ function syncAviator() {
 
         const now = Date.now();
         const serverPhaseStart = now - (data.time_elapsed * 1000);
-        if (phase !== data.phase || roundId !== data.round_id || Math.abs(phaseStart - serverPhaseStart) > 500) {
+        if (phase !== data.phase || roundId !== data.round_id || Math.abs(phaseStart - serverPhaseStart) > 20) {
           phase = data.phase;
           phaseStart = serverPhaseStart;
           roundId = data.round_id || roundId;
@@ -871,7 +871,7 @@ function syncAviator() {
     .catch(() => {});
   }
 }
-setInterval(syncAviator, 1000);
+setInterval(syncAviator, 250);
 
 function gameTick() {
   try {

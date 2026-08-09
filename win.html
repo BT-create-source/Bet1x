@@ -602,8 +602,8 @@ placeBetBtn.addEventListener('click', () => {
   });
 });
 
-// Run server polling loop every 1 second
-setInterval(syncState, 1000);
+// Run server polling loop every 300ms
+setInterval(syncState, 300);
 syncState();
 
 startActivityFeed(document.getElementById('activityFeed'));
