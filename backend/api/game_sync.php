@@ -880,24 +880,32 @@ switch ($action) {
             }
 
             $state = load_sync_state(TEENPATTI_STATE_FILE, []);
-            if (isset($state[$target_user])) {
-                $state[$target_user]['admin_override_winner'] = $winner;
-                
-                if (isset($_POST['edit_cards'])) {
-                    $player_key = $_POST['player_key'] ?? 'human';
-                    $state[$target_user]['players'][$player_key]['cards'] = [
-                        ['r' => 14, 's' => 'S'],
-                        ['r' => 14, 's' => 'H'],
-                        ['r' => 14, 's' => 'C']
-                    ];
-                    $state[$target_user]['log'][] = "Admin has modified cards of " . $state[$target_user]['players'][$player_key]['name'] . " live!";
-                }
-                
-                save_sync_state(TEENPATTI_STATE_FILE, $state);
-                echo json_encode(['success' => true]);
-            } else {
-                echo json_encode(['error' => 'No active game found for this user.']);
+            if (!isset($state[$target_user])) {
+                $state[$target_user] = [];
             }
+            $state[$target_user]['admin_override_winner'] = $winner;
+            
+            if (isset($_POST['edit_cards'])) {
+                $player_key = $_POST['player_key'] ?? 'human';
+                if (!isset($state[$target_user]['players'])) {
+                    $state[$target_user]['players'] = [];
+                }
+                if (!isset($state[$target_user]['players'][$player_key])) {
+                    $state[$target_user]['players'][$player_key] = ['name' => ($player_key === 'human' ? 'Aap' : 'Bot')];
+                }
+                $state[$target_user]['players'][$player_key]['cards'] = [
+                    ['r' => 14, 's' => 'S'],
+                    ['r' => 14, 's' => 'H'],
+                    ['r' => 14, 's' => 'C']
+                ];
+                if (!isset($state[$target_user]['log'])) {
+                    $state[$target_user]['log'] = [];
+                }
+                $state[$target_user]['log'][] = "Admin has modified cards of " . $state[$target_user]['players'][$player_key]['name'] . " live!";
+            }
+            
+            save_sync_state(TEENPATTI_STATE_FILE, $state);
+            echo json_encode(['success' => true]);
         } else {
             echo json_encode(['error' => 'Invalid game type for overrides.']);
         }

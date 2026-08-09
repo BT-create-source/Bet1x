@@ -404,210 +404,118 @@
         <p style="font-size:12.5px; color:var(--text-dim); margin-bottom:20px;">Use this panel to rig or override
           outcomes for active customer bets across Color Drawing rooms, Vimaan (Aviator), and Teen Patti showdowns.</p>
 
-        <div class="grid-2">
-          <!-- Column 1: Color Rooms Bias -->
-          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:0;">
-            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">Color Prediction Bias Control</h4>
-
-            <div class="cashier-input-group" style="margin-bottom:12px;">
-              <label for="cheatColorRoomSelect">Select Target Game Room</label>
-              <select id="cheatColorRoomSelect" class="cashier-input" style="background:#0d0f12; color:#fff;"
-                onchange="pollLiveAdminGames()">
-                <option value="sapre">Sapre (30s)</option>
-                <option value="becone">Becone (1min)</option>
-                <option value="emred">Emred (3min)</option>
-                <option value="vip">VIP (5min)</option>
-              </select>
-            </div>
-
-            <!-- Live Round Timer & Progress Bar (Uniform gliding) -->
-            <div id="adminColorTimerHeader"
-              style="background:#0d0f12; padding:12px; border-radius:6px 6px 0 0; border-bottom:1px solid #1a222d; margin-bottom: 0;">
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-                <div>
-                  <div
-                    style="font-size: 10px; color: var(--text-dim); text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px;">
-                    Current Room Round</div>
-                  <div id="adminColorRoundId"
-                    style="font-family: var(--font-mono); font-size: 14px; font-weight: 700; color: var(--gold);">
-                    #------</div>
-                </div>
-                <div style="text-align: right;">
-                  <div
-                    style="font-size: 10px; color: var(--text-dim); text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px;">
-                    Time Remaining</div>
-                  <div id="adminColorTimeVal"
-                    style="font-family: var(--font-mono); font-size: 18px; font-weight: 700; color: var(--green);">00:00
-                  </div>
-                </div>
-              </div>
-              <div
-                style="width: 100%; height: 5px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden;">
-                <div id="adminColorProgressBar"
-                  style="width: 100%; height: 100%; background: var(--green); transition: none;"></div>
+        <!-- Color Prediction Bias Control Card (Wide & 3-Column Layout) -->
+        <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:0; margin-bottom:16px; width:100%;">
+          
+          <!-- Title & Round Info Row -->
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #242f3d; padding-bottom:8px; margin-bottom:12px;">
+            <h4 style="margin:0; color:var(--gold); font-size:14.2px; display:flex; align-items:center; gap:6px;">
+              <span>🎨 Color Prediction Bias Control</span>
+            </h4>
+            <div style="display:flex; align-items:center; gap:16px; background:#0d0f12; padding:4px 12px; border-radius:6px; border:1px solid #242f3d;">
+              <span style="font-size:11px; color:var(--text-dim);">ROUND: <b style="color:var(--gold); font-family:var(--font-mono);" id="adminColorRoundId">#------</b></span>
+              <span style="font-size:11px; color:var(--text-dim);">TIMER: <b style="color:var(--green); font-family:var(--font-mono);" id="adminColorTimeVal">00:00</b></span>
+              <div style="width: 80px; height: 5px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; margin-left:4px;">
+                <div id="adminColorProgressBar" style="width: 100%; height: 100%; background: var(--green); transition: none;"></div>
               </div>
             </div>
-
-            <!-- Active Round Fixed Outcome Status Banner -->
-            <div id="adminColorActiveOverrideBanner"
-              style="background:#0d0f12; border:1px dashed var(--border); border-radius:6px; padding:10px 12px; margin-top:12px; margin-bottom:12px;">
-              <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div style="font-size:11.5px; color:var(--text-dim);">
-                  🎲 <b>Outcome Status:</b> NO BIAS (Fair Random Settlement)
-                </div>
-                <span style="font-size:10.5px; color:var(--text-dim);">Click any color below to fix outcome</span>
-              </div>
-            </div>
-
-            <!-- Last Round Fixed Result Banner -->
-            <div id="adminColorLastResultBanner"
-              style="background:#090d14; border:1px solid var(--border); border-radius:6px; padding:12px; margin-top:12px; margin-bottom:12px; display:none;">
-              <div
-                style="font-size:10px; color:var(--text-dim); text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
-                <span>Last Round Settled Result</span>
-                <span id="adminColorLastResultTime" style="color:var(--text-dim); font-size:10px;">--:--:--</span>
-              </div>
-              <div id="adminColorLastResultBody"
-                style="display:flex; align-items:center; gap:12px; font-family:var(--font-mono);">
-                <!-- Dynamic result badge rendered here -->
-              </div>
-            </div>
-
-            <div
-              style="background:#0d0f12; padding:10px; border-radius:0 0 6px 6px; margin-bottom:16px; border-top: 1px solid #1a222d;">
-              <div
-                style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; font-weight:700;">
-                Active Customer Bets (This Round)</div>
-              <div id="cheatColorRoomActiveBets" style="font-size:13px; font-family:var(--font-mono); color:#fff;">
-                Loading bet distribution...</div>
-            </div>
-
-            <div class="cashier-input-group" style="margin-bottom:12px;">
-              <label for="cheatColorSelect">Force Next Winning Color</label>
-              <select id="cheatColorSelect" class="cashier-input" style="background:#0d0f12; color:#fff;">
-                <option value="">-- No Color Bias --</option>
-                <option value="Green">Green (numbers 1,3,7,9,5)</option>
-                <option value="Red">Red (numbers 2,4,6,8,0)</option>
-                <option value="Violet">Violet (numbers 0,5)</option>
-              </select>
-            </div>
-
-            <div class="cashier-input-group" style="margin-bottom:12px;">
-              <label for="cheatNumberSelect">Force Next Winning Number</label>
-              <select id="cheatNumberSelect" class="cashier-input" style="background:#0d0f12; color:#fff;">
-                <option value="">-- No Number Bias --</option>
-                <option value="0">Number 0 (Red + Violet)</option>
-                <option value="1">Number 1 (Green)</option>
-                <option value="2">Number 2 (Red)</option>
-                <option value="3">Number 3 (Green)</option>
-                <option value="4">Number 4 (Red)</option>
-                <option value="5">Number 5 (Green + Violet)</option>
-                <option value="6">Number 6 (Red)</option>
-                <option value="7">Number 7 (Green)</option>
-                <option value="8">Number 8 (Red)</option>
-                <option value="9">Number 9 (Green)</option>
-              </select>
-            </div>
-
-            <div class="cashier-input-group" style="margin-bottom:12px;">
-              <label for="cheatSizeSelect">Force Next Winning Size</label>
-              <select id="cheatSizeSelect" class="cashier-input" style="background:#0d0f12; color:#fff;">
-                <option value="">-- No Size Bias --</option>
-                <option value="Small">Small (numbers 0–4)</option>
-                <option value="Big">Big (numbers 5–9)</option>
-              </select>
-            </div>
-
-            <div class="cashier-input-group" style="margin-bottom:16px;">
-              <label for="cheatColorRigType">Platform Auto-Rig Mode</label>
-              <select id="cheatColorRigType" class="cashier-input" style="background:#0d0f12; color:#fff;">
-                <option value="">-- No Auto-Rig --</option>
-                <option value="platform_profit">Platform Profit (Force user loss)</option>
-                <option value="user_win">User Win (Force user payout)</option>
-              </select>
-            </div>
-
-            <button class="btn btn-gold btn-block" onclick="applyColorRoomCheat()"
-              style="color:#000; font-weight:700;">Apply Color Room Override</button>
           </div>
 
-          <!-- Football Betting Rig & Live Monitor Card -->
-          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:16px;">
-            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">Football Betting Rig & Live Monitor</h4>
-
-            <div style="background:#0d0f12; padding:10px; border-radius:6px; margin-bottom:12px;">
-              <div
-                style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; font-weight:700;">
-                Live Active Football Wagers</div>
-              <div id="cheatFootballActiveBets"
-                style="font-size:13px; font-family:var(--font-mono); color:#fff; max-height:100px; overflow-y:auto;">
-                Loading active wagers...</div>
-            </div>
-
-            <!-- Active Rig Status Banner -->
-            <div id="adminFootballActiveOverrideBanner"
-              style="background:#0d0f12; border:1px dashed var(--border); border-radius:6px; padding:10px 12px; margin-bottom:12px;">
-              <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div style="font-size:11.5px; color:var(--text-dim);">
-                  🎲 <b>Outcome Status:</b> NO BIAS (Fair Random Match Simulation)
-                </div>
-                <span style="font-size:10.5px; color:var(--text-dim);">Select options below to fix outcome</span>
+          <!-- 3-Column Grid for Inputs, Heatmap, and Logs -->
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; align-items:start;">
+            
+            <!-- Col 1: Manual Overrides & Selection -->
+            <div style="display:flex; flex-direction:column; gap:10px; background:#0d0f12; padding:12px; border-radius:8px; border:1px solid #242f3d;">
+              <div style="font-size:11px; color:var(--text-dim); text-transform:uppercase; font-weight:bold; border-bottom:1px solid #1a222d; padding-bottom:4px; margin-bottom:4px;">⚙️ Manual Setup</div>
+              
+              <div class="cashier-input-group" style="margin-bottom:0;">
+                <label for="cheatColorRoomSelect" style="font-size:10.5px;">Target Room</label>
+                <select id="cheatColorRoomSelect" class="cashier-input" style="background:#1a222d; color:#fff; font-size:11.5px; padding:6px 8px;" onchange="pollLiveAdminGames()">
+                  <option value="sapre">Sapre (30s)</option>
+                  <option value="becone">Becone (1min)</option>
+                  <option value="emred">Emred (3min)</option>
+                  <option value="vip">VIP (5min)</option>
+                </select>
               </div>
+
+              <div class="cashier-input-group" style="margin-bottom:0;">
+                <label for="cheatColorSelect" style="font-size:10.5px;">Force Color</label>
+                <select id="cheatColorSelect" class="cashier-input" style="background:#1a222d; color:#fff; font-size:11.5px; padding:6px 8px;">
+                  <option value="">-- No Color Bias --</option>
+                  <option value="Green">Green (1,3,7,9,5)</option>
+                  <option value="Red">Red (2,4,6,8,0)</option>
+                  <option value="Violet">Violet (0,5)</option>
+                </select>
+              </div>
+
+              <div class="cashier-input-group" style="margin-bottom:0;">
+                <label for="cheatNumberSelect" style="font-size:10.5px;">Force Number</label>
+                <select id="cheatNumberSelect" class="cashier-input" style="background:#1a222d; color:#fff; font-size:11.5px; padding:6px 8px;">
+                  <option value="">-- No Number Bias --</option>
+                  <option value="0">0 (Red + Violet)</option>
+                  <option value="1">1 (Green)</option>
+                  <option value="2">2 (Red)</option>
+                  <option value="3">3 (Green)</option>
+                  <option value="4">4 (Red)</option>
+                  <option value="5">5 (Green + Violet)</option>
+                  <option value="6">6 (Red)</option>
+                  <option value="7">7 (Green)</option>
+                  <option value="8">8 (Red)</option>
+                  <option value="9">9 (Green)</option>
+                </select>
+              </div>
+
+              <div class="cashier-input-group" style="margin-bottom:0;">
+                <label for="cheatSizeSelect" style="font-size:10.5px;">Force Size</label>
+                <select id="cheatSizeSelect" class="cashier-input" style="background:#1a222d; color:#fff; font-size:11.5px; padding:6px 8px;">
+                  <option value="">-- No Size Bias --</option>
+                  <option value="Small">Small (0–4)</option>
+                  <option value="Big">Big (5–9)</option>
+                </select>
+              </div>
+
+              <div class="cashier-input-group" style="margin-bottom:0;">
+                <label for="cheatColorRigType" style="font-size:10.5px;">Auto-Rig Mode</label>
+                <select id="cheatColorRigType" class="cashier-input" style="background:#1a222d; color:#fff; font-size:11.5px; padding:6px 8px;">
+                  <option value="">-- No Auto-Rig --</option>
+                  <option value="platform_profit">Platform Profit</option>
+                  <option value="user_win">User Win</option>
+                </select>
+              </div>
+
+              <button class="btn btn-gold btn-block" onclick="applyColorRoomCheat()" style="color:#000; font-weight:700; font-size:11.5px; padding:8px 0; margin-top:4px;">Apply Custom Bias</button>
             </div>
 
-            <div class="cashier-input-group" style="margin-bottom:12px;">
-              <label for="cheatFootballMatchSelect">Select Active Match</label>
-              <select id="cheatFootballMatchSelect" class="cashier-input" style="background:#0d0f12; color:#fff;" onchange="updateFootballBiasUI()">
-                <!-- Populated dynamically -->
-              </select>
+            <!-- Col 2: Dynamic Bets Heatmap & Interactive Rigging -->
+            <div id="cheatColorRoomActiveBets" style="color:#fff; min-height:180px;">
+              Loading active bet distribution heatmap...
             </div>
 
-            <div class="cashier-input-group" style="margin-bottom:12px;">
-              <label for="cheatFootballWinner">Force Winner Result (1X2)</label>
-              <select id="cheatFootballWinner" class="cashier-input" style="background:#0d0f12; color:#fff;">
-                <option value="">-- No Outcome Bias --</option>
-                <option value="home">Home Team Win</option>
-                <option value="draw">Draw</option>
-                <option value="away">Away Team Win</option>
-              </select>
+            <!-- Col 3: Status Banners & Recent Settlements -->
+            <div style="display:flex; flex-direction:column; gap:12px;">
+              
+              <div style="font-size:11px; color:var(--text-dim); text-transform:uppercase; font-weight:bold; border-bottom:1px solid #242f3d; padding-bottom:4px;">📢 Settlement Status</div>
+              
+              <div id="adminColorActiveOverrideBanner" style="background:#0d0f12; border:1px dashed var(--border); border-radius:6px; padding:10px; display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:11px; color:var(--text-dim);">🎲 <b>Status:</b> NO BIAS (Fair Match)</span>
+                <span style="font-size:9.5px; color:var(--text-dim);">Lobby Active</span>
+              </div>
+              
+              <div id="adminColorLastResultBanner" style="background:#090d14; border:1px solid var(--border); border-radius:6px; padding:10px; display:none; flex-direction:column; gap:6px;">
+                <div style="font-size:10.5px; color:var(--text-dim); display:flex; justify-content:space-between;">
+                  <span>Last Settled Outcome:</span>
+                  <span id="adminColorLastResultTime" style="color:var(--text-dim);">--:--:--</span>
+                </div>
+                <div id="adminColorLastResultBody" style="display:flex; align-items:center; gap:8px; font-family:var(--font-mono); font-size:11.5px;"></div>
+              </div>
+
             </div>
 
-            <div class="cashier-input-group" style="margin-bottom:12px;">
-              <label for="cheatFootballOverUnder">Force Goals (Over/Under)</label>
-              <select id="cheatFootballOverUnder" class="cashier-input" style="background:#0d0f12; color:#fff;">
-                <option value="">-- No Goals Bias --</option>
-                <option value="over25">Over 2.5 Goals</option>
-                <option value="under25">Under 2.5 Goals</option>
-              </select>
-            </div>
-
-            <div class="cashier-input-group" style="margin-bottom:16px;">
-              <label for="cheatFootballRigType">Platform Auto-Rig Rule</label>
-              <select id="cheatFootballRigType" class="cashier-input" style="background:#0d0f12; color:#fff;">
-                <option value="">-- No Auto-Rig --</option>
-                <option value="platform_profit">Platform Profit (Force user loss)</option>
-                <option value="user_win">User Win (Force user win)</option>
-              </select>
-            </div>
-
-            <div style="display:flex; gap:8px;">
-              <button class="btn btn-gold" onclick="applyFootballCheat()" style="flex:1; color:#000; font-weight:700;">Apply Override</button>
-              <button class="btn" onclick="clearFootballCheat()" style="background:#242f3d; color:#fff; font-weight:700;">Clear Rig</button>
-            </div>
-
-            <!-- Last Football Result Banner -->
-            <div id="adminFootballLastResultBanner"
-              style="background:#090d14; border:1px solid var(--border); border-radius:6px; padding:10px; margin-top:12px; display:none;">
-              <div
-                style="font-size:10px; color:var(--text-dim); text-transform:uppercase; font-weight:700; margin-bottom:4px;">
-                Recent Match Outcome</div>
-              <div id="adminFootballLastResultBody"
-                style="font-family:var(--font-mono); font-size:13px; color:#52d17c; font-weight:700;">--</div>
-            </div>
           </div>
+
         </div>
 
-        <!-- Column 2: Vimaan & Teen Patti Side-by-Side Grid -->
+        <!-- Vimaan & Teen Patti Side-by-Side Grid -->
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:12px; align-items:start;">
           <!-- Aviator (Vimaan) Clean Admin Control & Profit Card -->
           <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:10px 12px; margin-top:0; width:100%;">
@@ -688,7 +596,14 @@
             <div style="background:#0d0f12; padding:6px 8px; border-radius:5px; margin-bottom:8px; border:1px solid #1a222d;">
               <div style="font-size:10px; color:var(--text-dim); text-transform:uppercase; margin-bottom:4px; font-weight:700;">Lobby Active Players & Stakes</div>
               <div id="cheatTeenPattiActiveBets" style="font-size:11.5px; font-family:var(--font-mono); color:#fff;">
-                Active Players: Aap, Raju, Vikram, Sana</div>
+                No active players in lobby.</div>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:8px;">
+              <label for="cheatTeenPattiTargetUser" style="font-size:10.5px;">Select Target Player Session</label>
+              <select id="cheatTeenPattiTargetUser" class="cashier-input" style="background:#0d0f12; color:#fff; font-size:11.5px; padding:6px 8px;">
+                <option value="DemoUser">DemoUser (Default Lobby)</option>
+              </select>
             </div>
 
             <div class="cashier-input-group" style="margin-bottom:8px;">
@@ -702,128 +617,19 @@
               </select>
             </div>
 
-            <div class="cashier-input-group" style="margin-bottom:10px;">
-              <label for="cheatTeenPattiRigType" style="font-size:10.5px;">Platform Auto-Rig Mode</label>
-              <select id="cheatTeenPattiRigType" class="cashier-input" style="background:#0d0f12; color:#fff; font-size:11.5px; padding:6px 8px;">
-                <option value="">-- No Auto-Rig --</option>
-                <option value="platform_profit">Platform Profit (Force user loss)</option>
-                <option value="user_win">User Win (Force user win)</option>
-              </select>
+            <!-- Rig Hands Instantly Button Group -->
+            <label style="font-size:10px; color:var(--text-dim); text-transform:uppercase; font-weight:bold; display:block; margin-bottom:4px;">Rig Cards Instantly (Force 3 Aces)</label>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; margin-bottom:12px;">
+              <button onclick="rigTeenPattiCards(document.getElementById('cheatTeenPattiTargetUser').value, 'human')" class="btn btn-sm" style="background:rgba(16,185,129,0.15); border:1px solid #10b981; color:#10b981; font-size:10.5px; font-weight:bold; padding:5px 2px; cursor:pointer;">💎 Rig Human</button>
+              <button onclick="rigTeenPattiCards(document.getElementById('cheatTeenPattiTargetUser').value, 'bot0')" class="btn btn-sm" style="background:rgba(239,68,68,0.15); border:1px solid #ef4444; color:#ef4444; font-size:10.5px; font-weight:bold; padding:5px 2px; cursor:pointer;">💥 Rig Bot0</button>
             </div>
 
             <button class="btn btn-gold btn-block" onclick="applyTeenPattiCheat()"
-              style="color:#000; font-weight:700; font-size:11.5px; padding:8px; margin-top:12px;">Save & Apply Hand Deal Override</button>
+              style="color:#000; font-weight:700; font-size:11.5px; padding:8px; margin-top:2px;">Save & Apply Hand Deal Override</button>
           </div>
         </div>
 
-          <!-- Boundary Baazi Bias Card -->
-          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:0;">
-            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">🏏
-              Boundary Baazi Cricket Bias</h4>
 
-            <div style="background:#0d0f12; padding:10px; border-radius:6px; margin-bottom:16px;">
-              <div
-                style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; font-weight:700;">
-                Active Cricket Predictions</div>
-              <div id="cheatBoundaryActiveBets"
-                style="font-size:13px; font-family:var(--font-mono); color:#fff; max-height:100px; overflow-y:auto;">
-                Loading active wagers...</div>
-            </div>
-
-            <div class="cashier-input-group" style="margin-bottom:12px;">
-              <label for="cheatBoundaryWinner">Force Match Outcome</label>
-              <select id="cheatBoundaryWinner" class="cashier-input" style="background:#0d0f12; color:#fff;">
-                <option value="">-- No Outcome Override --</option>
-                <option value="A">India wins</option>
-                <option value="B">Australia wins</option>
-                <option value="tie">Match ends in Tie</option>
-              </select>
-            </div>
-
-            <div class="cashier-input-group" style="margin-bottom:12px;">
-              <label for="cheatBoundaryPlayerSelect">Target Player to Bias</label>
-              <select id="cheatBoundaryPlayerSelect" class="cashier-input" style="background:#0d0f12; color:#fff;">
-                <option value="">-- Select Player --</option>
-                <option value="rohit_sharma">Rohit Sharma (India)</option>
-                <option value="virat_kohli">Virat Kohli (India)</option>
-                <option value="travis_head">Travis Head (Australia)</option>
-                <option value="steve_smith">Steve Smith (Australia)</option>
-                <option value="jasprit_bumrah">Jasprit Bumrah (India - Bowler)</option>
-                <option value="pat_cummins">Pat Cummins (Australia - Bowler)</option>
-              </select>
-            </div>
-
-            <div class="cashier-input-group" style="margin-bottom:12px;">
-              <label for="cheatBoundaryPlayerBias">Bias Type</label>
-              <select id="cheatBoundaryPlayerBias" class="cashier-input" style="background:#0d0f12; color:#fff;">
-                <option value="">-- Select Bias --</option>
-                <option value="success">Force Success (Boundaries/Wickets/Maidens)</option>
-                <option value="fail">Force Failure (Duck / High runs conceded)</option>
-              </select>
-            </div>
-
-            <div class="cashier-input-group" style="margin-bottom:16px;">
-              <label for="cheatBoundaryRigType">Platform Auto-Rig Mode</label>
-              <select id="cheatBoundaryRigType" class="cashier-input" style="background:#0d0f12; color:#fff;">
-                <option value="">-- No Auto-Rig --</option>
-                <option value="platform_profit">Platform Profit (Force user loss)</option>
-                <option value="user_win">User Win (Force user payout)</option>
-              </select>
-            </div>
-
-            <button class="btn btn-gold btn-block" onclick="applyBoundaryCheat()"
-              style="color:#000; font-weight:700;">Apply Cricket Overrides</button>
-          </div>
-
-          <!-- Your Eleven Fantasy Bias Card -->
-          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:0;">
-            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">🏏 Your
-              Eleven Fantasy Player Bias</h4>
-
-            <div style="background:#0d0f12; padding:10px; border-radius:6px; margin-bottom:16px;">
-              <div
-                style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; font-weight:700;">
-                Active Fantasy Wagers</div>
-              <div id="cheatYourElevenActiveBets"
-                style="font-size:13px; font-family:var(--font-mono); color:#fff; max-height:100px; overflow-y:auto;">
-                Loading active fantasy bets...</div>
-            </div>
-
-            <div class="cashier-input-group" style="margin-bottom:12px;">
-              <label for="cheatYourElevenPlayerSelect">Target Player to Bias</label>
-              <select id="cheatYourElevenPlayerSelect" class="cashier-input" style="background:#0d0f12; color:#fff;">
-                <option value="">-- Select Fantasy Player --</option>
-                <option value="rohit">Rohit Sharma</option>
-                <option value="virat">Virat Kohli</option>
-                <option value="travis">Travis Head</option>
-                <option value="steve">Steve Smith</option>
-                <option value="bumrah">Jasprit Bumrah</option>
-                <option value="cummins">Pat Cummins</option>
-              </select>
-            </div>
-
-            <div class="cashier-input-group" style="margin-bottom:12px;">
-              <label for="cheatYourElevenBias">Player Performance Bias</label>
-              <select id="cheatYourElevenBias" class="cashier-input" style="background:#0d0f12; color:#fff;">
-                <option value="">-- Select Performance --</option>
-                <option value="high">Force High Score (Huge Boundaries & Wickets)</option>
-                <option value="low">Force Low Score (Duck / Early Out)</option>
-              </select>
-            </div>
-
-            <div class="cashier-input-group" style="margin-bottom:16px;">
-              <label for="cheatYourElevenRigType">Platform Auto-Rig Mode</label>
-              <select id="cheatYourElevenRigType" class="cashier-input" style="background:#0d0f12; color:#fff;">
-                <option value="">-- No Auto-Rig --</option>
-                <option value="platform_profit">Platform Profit (Force user loss)</option>
-                <option value="user_win">User Win (Force 4x Payout)</option>
-              </select>
-            </div>
-
-            <button class="btn btn-gold btn-block" onclick="applyYourElevenCheat()"
-              style="color:#000; font-weight:700;">Apply Fantasy Overrides</button>
-          </div>
-      </div> <!-- End of grid-2 -->
 
       <!-- Mines Game Rigging & Matrix Console (Side-by-Side Grid) -->
       <div style="margin-top:16px; border-top:1px solid #242f3d; padding-top:16px;">
@@ -894,6 +700,112 @@
             <button class="btn btn-gold btn-block" onclick="applyMinesCheat()" style="color:#000; font-weight:700;">Save & Apply Mines Rig Configuration</button>
           </div>
           
+        </div>
+      </div>
+
+      <!-- Cricket Betting & Fantasy Rigging Consoles (Side-by-Side Grid) -->
+      <div style="margin-top:16px; border-top:1px solid #242f3d; padding-top:16px;">
+        <h4 style="margin:0 0 12px; color:var(--gold); text-transform:uppercase; letter-spacing:0.5px; font-size:13.5px; display:flex; align-items:center; gap:6px;">
+          <span>🏏 Cricket Betting & Fantasy Rigging Consoles</span>
+        </h4>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:12px; align-items:start;">
+
+          <!-- Card 1: Boundary Baazi Cricket Bias -->
+          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:0; width:100%;">
+            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">🏏 Boundary Baazi Cricket Bias</h4>
+
+            <div style="background:#0d0f12; padding:10px; border-radius:6px; margin-bottom:16px;">
+              <div style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; font-weight:700;">Active Cricket Predictions</div>
+              <div id="cheatBoundaryActiveBets" style="font-size:13px; font-family:var(--font-mono); color:#fff; max-height:100px; overflow-y:auto;">Loading active wagers...</div>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:12px;">
+              <label for="cheatBoundaryWinner">Force Match Outcome</label>
+              <select id="cheatBoundaryWinner" class="cashier-input" style="background:#0d0f12; color:#fff;">
+                <option value="">-- No Outcome Override --</option>
+                <option value="A">India wins</option>
+                <option value="B">Australia wins</option>
+                <option value="tie">Match ends in Tie</option>
+              </select>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:12px;">
+              <label for="cheatBoundaryPlayerSelect">Target Player to Bias</label>
+              <select id="cheatBoundaryPlayerSelect" class="cashier-input" style="background:#0d0f12; color:#fff;">
+                <option value="">-- Select Player --</option>
+                <option value="rohit_sharma">Rohit Sharma (India)</option>
+                <option value="virat_kohli">Virat Kohli (India)</option>
+                <option value="travis_head">Travis Head (Australia)</option>
+                <option value="steve_smith">Steve Smith (Australia)</option>
+                <option value="jasprit_bumrah">Jasprit Bowler (India)</option>
+                <option value="pat_cummins">Pat Cummins (Australia)</option>
+              </select>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:12px;">
+              <label for="cheatBoundaryPlayerBias">Bias Type</label>
+              <select id="cheatBoundaryPlayerBias" class="cashier-input" style="background:#0d0f12; color:#fff;">
+                <option value="">-- Select Bias --</option>
+                <option value="success">Force Success (Boundaries/Wickets/Maidens)</option>
+                <option value="fail">Force Failure (Duck / High runs conceded)</option>
+              </select>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:16px;">
+              <label for="cheatBoundaryRigType">Platform Auto-Rig Mode</label>
+              <select id="cheatBoundaryRigType" class="cashier-input" style="background:#0d0f12; color:#fff;">
+                <option value="">-- No Auto-Rig --</option>
+                <option value="platform_profit">Platform Profit (Force user loss)</option>
+                <option value="user_win">User Win (Force user payout)</option>
+              </select>
+            </div>
+
+            <button class="btn btn-gold btn-block" onclick="applyBoundaryCheat()" style="color:#000; font-weight:700;">Apply Cricket Overrides</button>
+          </div>
+
+          <!-- Card 2: Your Eleven Fantasy Player Bias -->
+          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:0; width:100%;">
+            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">🏏 Your Eleven Fantasy Player Bias</h4>
+
+            <div style="background:#0d0f12; padding:10px; border-radius:6px; margin-bottom:16px;">
+              <div style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; font-weight:700;">Active Fantasy Wagers</div>
+              <div id="cheatYourElevenActiveBets" style="font-size:13px; font-family:var(--font-mono); color:#fff; max-height:100px; overflow-y:auto;">Loading active fantasy bets...</div>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:12px;">
+              <label for="cheatYourElevenPlayerSelect">Target Player to Bias</label>
+              <select id="cheatYourElevenPlayerSelect" class="cashier-input" style="background:#0d0f12; color:#fff;">
+                <option value="">-- Select Fantasy Player --</option>
+                <option value="rohit">Rohit Sharma</option>
+                <option value="virat">Virat Kohli</option>
+                <option value="travis">Travis Head</option>
+                <option value="steve">Steve Smith</option>
+                <option value="bumrah">Jasprit Bumrah</option>
+                <option value="cummins">Pat Cummins</option>
+              </select>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:12px;">
+              <label for="cheatYourElevenBias">Player Performance Bias</label>
+              <select id="cheatYourElevenBias" class="cashier-input" style="background:#0d0f12; color:#fff;">
+                <option value="">-- Select Performance --</option>
+                <option value="high">Force High Score (Huge Boundaries & Wickets)</option>
+                <option value="low">Force Low Score (Duck / Early Out)</option>
+              </select>
+            </div>
+
+            <div class="cashier-input-group" style="margin-bottom:16px;">
+              <label for="cheatYourElevenRigType">Platform Auto-Rig Mode</label>
+              <select id="cheatYourElevenRigType" class="cashier-input" style="background:#0d0f12; color:#fff;">
+                <option value="">-- No Auto-Rig --</option>
+                <option value="platform_profit">Platform Profit (Force user loss)</option>
+                <option value="user_win">User Win (Force 4x Payout)</option>
+              </select>
+            </div>
+
+            <button class="btn btn-gold btn-block" onclick="applyYourElevenCheat()" style="color:#000; font-weight:700;">Apply Fantasy Overrides</button>
+          </div>
+
         </div>
       </div>
     </div> <!-- End of admin-cheats -->
@@ -2033,12 +1945,12 @@
 
     window.applyTeenPattiCheat = function () {
       const winner = document.getElementById('cheatTeenPattiWinner').value;
+      const targetUser = document.getElementById('cheatTeenPattiTargetUser').value;
 
       const params = new URLSearchParams();
       params.append('game', 'teenpatti');
       params.append('winner', winner);
-      // Fallback for default user in lobby (DemoUser)
-      params.append('target_user', 'DemoUser');
+      params.append('target_user', targetUser);
 
       fetch('api/game_sync.php?action=admin_set_override', {
         method: 'POST',
@@ -2050,7 +1962,7 @@
           if (data.error) {
             showToast(data.error, 'error');
           } else {
-            showToast(winner ? `Rigged next deal to win seat: ${winner}` : 'Cleared Teen Patti deal bias.', 'success');
+            showToast(winner ? `Rigged next deal to win seat: ${winner} for ${targetUser}` : `Cleared Teen Patti deal bias for ${targetUser}.`, 'success');
           }
         });
     };
@@ -2705,6 +2617,37 @@
               window.adminColorServerTimeLeft = rData.time_left;
               window.adminColorServerDuration = rData.duration;
               window.adminColorServerReceivedAt = Date.now();
+            }
+          }
+          if (data.teen_patti) {
+            const targetSelect = document.getElementById('cheatTeenPattiTargetUser');
+            if (targetSelect) {
+              const currentVal = targetSelect.value;
+              let html = '<option value="DemoUser">DemoUser (Default Lobby)</option>';
+              data.teen_patti.forEach(session => {
+                if (session.username && session.username !== 'DemoUser') {
+                  html += `<option value="${session.username}">${session.username} (Live Pot: ₹${session.pot})</option>`;
+                }
+              });
+              targetSelect.innerHTML = html;
+              if (currentVal) {
+                const optionExists = Array.from(targetSelect.options).some(opt => opt.value === currentVal);
+                if (optionExists) targetSelect.value = currentVal;
+              }
+            }
+
+            const feedEl = document.getElementById('cheatTeenPattiActiveBets');
+            if (feedEl) {
+              if (data.teen_patti.length > 0) {
+                feedEl.innerHTML = data.teen_patti.map(session => {
+                  return `<div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                    <span>👤 <b>${session.username}</b></span>
+                    <span>💰 Pot: ₹${session.pot} | Turn: ${session.turn === 'human' ? 'User' : (session.players[session.turn]?.name || 'Bot')}</span>
+                  </div>`;
+                }).join('');
+              } else {
+                feedEl.innerHTML = '<div style="color:var(--text-dim);">No active user sessions in lobby.</div>';
+              }
             }
           }
           if (typeof updateAviatorBiasUI === 'function') updateAviatorBiasUI();

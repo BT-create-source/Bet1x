@@ -69,9 +69,10 @@ switch ($action) {
             exit;
         }
         
-        $all_tp = [];
-        if (file_exists(TEENPATTI_STATE_FILE)) {
-            $all_tp = json_decode(file_get_contents(TEENPATTI_STATE_FILE), true);
+        $key = 'teenpatti_ongoing';
+        $all_tp = db_api_request('GET', '/api/db/state/' . $key);
+        if (!is_array($all_tp)) {
+            $all_tp = [];
         }
         $override_winner = $all_tp[$username]['admin_override_winner'] ?? null;
         
@@ -103,7 +104,7 @@ switch ($action) {
                 }
             }
             unset($all_tp[$username]['admin_override_winner']);
-            file_put_contents(TEENPATTI_STATE_FILE, json_encode($all_tp, JSON_PRETTY_PRINT));
+            db_api_request('POST', '/api/db/state/' . $key, ['data' => $all_tp]);
         } else {
             $game = newGameState($dbBalance);
         }
