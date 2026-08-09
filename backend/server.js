@@ -15,6 +15,26 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const prisma = new PrismaClient();
 
+async function getOrCreateUser(username) {
+  let user = await prisma.user.findFirst({ where: { username: { equals: username, mode: 'insensitive' } } });
+  if (!user) {
+    try {
+      user = await prisma.user.create({
+        data: {
+          username: username,
+          email: `${username.toLowerCase()}@demo.com`,
+          password: bcrypt.hashSync('password', 10),
+          wallet_balance: 1000.00
+        }
+      });
+      console.log(`[bet1x-backend] Auto-created user record for "${username}" with starting balance of ₹1000.00`);
+    } catch (e) {
+      console.error(`Error auto-creating user ${username}:`, e);
+    }
+  }
+  return user;
+}
+
 app.use(cors({
   origin: true,
   credentials: true
@@ -59,9 +79,7 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/api/wallet/balance', async (req, res) => {
   const username = req.query.username || 'DemoUser';
   try {
-    const user = await prisma.user.findFirst({
-      where: { username: { equals: username, mode: 'insensitive' } }
-    });
+    const user = await getOrCreateUser(username);
     res.json({ balance: user ? user.wallet_balance : 1000.00 });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -837,7 +855,7 @@ app.get('/api/game_sync.php', async (req, res) => {
       const now = Date.now();
       const elapsed = (now - aviatorState.phase_start) / 1000;
       
-      const user = await prisma.user.findFirst({ where: { username: { equals: username, mode: 'insensitive' } } });
+      const user = await getOrCreateUser(username);
       const balance = user ? user.wallet_balance : 1000.00;
 
       res.json({
@@ -872,7 +890,7 @@ app.post('/api/game_sync.php', async (req, res) => {
         return res.status(400).json({ error: 'Invalid bet details.' });
       }
 
-      const user = await prisma.user.findFirst({ where: { username: { equals: username, mode: 'insensitive' } } });
+      const user = await getOrCreateUser(username);
       if (!user || user.wallet_balance < betAmt) {
         return res.status(400).json({ error: 'Insufficient wallet balance.' });
       }
@@ -960,7 +978,7 @@ app.post('/api/game_sync.php', async (req, res) => {
         return res.status(400).json({ error: 'Invalid bet details.' });
       }
 
-      const user = await prisma.user.findFirst({ where: { username: { equals: username, mode: 'insensitive' } } });
+      const user = await getOrCreateUser(username);
       if (!user || user.wallet_balance < betAmt) {
         return res.status(400).json({ error: 'Insufficient wallet balance.' });
       }
@@ -1004,7 +1022,7 @@ app.post('/api/game_sync.php', async (req, res) => {
       bet.cashed_multiplier = aviatorState.current_multiplier;
       const payout = bet.amount * bet.cashed_multiplier;
 
-      const user = await prisma.user.findFirst({ where: { username: { equals: username, mode: 'insensitive' } } });
+      const user = await getOrCreateUser(username);
       if (user) {
         const newBal = user.wallet_balance + payout;
         await prisma.user.update({
@@ -1041,7 +1059,7 @@ app.all('/api/wallet.php', async (req, res) => {
   const reason = req.query.reason || req.body.reason || 'Manual Adjustment';
 
   try {
-    const user = await prisma.user.findFirst({ where: { username: { equals: username, mode: 'insensitive' } } });
+    const user = await getOrCreateUser(username);
     if (!user) {
       return res.status(404).json({ error: 'User not found.' });
     }
