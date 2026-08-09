@@ -218,6 +218,17 @@ function settle_color_room(string $room, string $target_round, array &$state): v
 
     $resolved = resolve_color_number($num);
 
+    // STRICT admin override enforcement: Override color/size outcomes to strictly match admin choices
+    if (!empty($override['color'])) {
+        $resolved['color'] = $override['color'];
+        if ($override['color'] === 'Green') $resolved['dotClass'] = 'green';
+        elseif ($override['color'] === 'Red') $resolved['dotClass'] = 'red';
+        elseif ($override['color'] === 'Violet') $resolved['dotClass'] = 'violet';
+    }
+    if (!empty($override['size'])) {
+        $resolved['size'] = $override['size'];
+    }
+
     foreach ($bets as $b) {
         $won = false;
         $mult = 0;
@@ -225,18 +236,23 @@ function settle_color_room(string $room, string $target_round, array &$state): v
             $won = intval($b['value']) === $num;
             $mult = 9;
         } elseif ($b['category'] === 'size') {
-            $won = $b['value'] === $resolved['size'];
+            $won = strtolower($b['value']) === strtolower($resolved['size']);
             $mult = 2;
         } elseif ($b['category'] === 'color') {
             $bc = strtolower($b['value']);
-            if ($bc === 'violet') {
-                $won = ($num === 0 || $num === 5);
-                $mult = 4.5;
-            } else {
-                if ($num === 0 && $bc === 'red') { $won = true; $mult = 1.5; }
-                elseif ($num === 5 && $bc === 'green') { $won = true; $mult = 1.5; }
-                elseif ($bc === 'green' && in_array($num, [1, 3, 7, 9])) { $won = true; $mult = 2; }
-                elseif ($bc === 'red' && in_array($num, [2, 4, 6, 8])) { $won = true; $mult = 2; }
+            $rc = strtolower($resolved['color']);
+            
+            if ($bc === $rc) {
+                $won = true;
+                if ($rc === 'violet') {
+                    $mult = 4.5;
+                } else {
+                    if ($num === 0 || $num === 5) {
+                        $mult = 1.5;
+                    } else {
+                        $mult = 2;
+                    }
+                }
             }
         }
 
