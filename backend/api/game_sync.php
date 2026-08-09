@@ -310,15 +310,38 @@ switch ($action) {
 
         ensure_dummy_bets($room, $current_round_id, $state);
 
-        $last_settled = $state[$room]['last_settled_round'] ?? '';
-        $prev_round_time = floor($now / $duration) * $duration - $duration;
-        $prev_round_id = get_color_round_id($room, $prev_round_time);
-
-        if ($last_settled !== $prev_round_id) {
-            settle_color_room($room, $prev_round_id, $state);
-        }
+        // Fetch history from PostgreSQL database first to check for settled round list
+        $db_history = db_api_request('GET', '/api/db/recent-results?room=' . $room);
         
-        save_sync_state(COLOR_STATE_FILE, $state);
+        $already_settled = false;
+        if (is_array($db_history)) {
+            foreach ($db_history as $h) {
+                if (strval($h['roundNumber']) === strval($prev_round_id)) {
+                    $already_settled = true;
+                    break;
+                }
+            }
+        }
+
+        $state_changed = false;
+        if ($last_settled !== $prev_round_id) {
+            if (!$already_settled) {
+                settle_color_room($room, $prev_round_id, $state);
+                $state_changed = true;
+            } else {
+                $state[$room]['last_settled_round'] = $prev_round_id;
+                $state_changed = true;
+            }
+        }
+
+        if (!isset($state[$room]['bets'][$current_round_id])) {
+            ensure_dummy_bets($room, $current_round_id, $state);
+            $state_changed = true;
+        }
+
+        if ($state_changed) {
+            save_sync_state(COLOR_STATE_FILE, $state);
+        }
 
         $raw_bets = $state[$room]['bets'][$current_round_id] ?? [];
         $elapsed = $duration - $time_left;
@@ -381,8 +404,6 @@ switch ($action) {
             }
         }
 
-        // Fetch history from PostgreSQL database
-        $db_history = db_api_request('GET', '/api/db/recent-results?room=' . $room);
         if (is_array($db_history) && !empty($db_history)) {
             $state[$room]['history'] = array_reverse($db_history);
         }
@@ -712,9 +733,26 @@ switch ($action) {
             $prev_round_time = floor($now / $dur) * $dur - $dur;
             $prev_round_id = get_color_round_id($room, $prev_round_time);
 
+            // Fetch history from PostgreSQL to avoid double settlement race conditions
+            $db_history = db_api_request('GET', '/api/db/recent-results?room=' . $room);
+            $already_settled = false;
+            if (is_array($db_history)) {
+                foreach ($db_history as $h) {
+                    if (strval($h['roundNumber']) === strval($prev_round_id)) {
+                        $already_settled = true;
+                        break;
+                    }
+                }
+            }
+
             if ($last_settled !== $prev_round_id) {
-                settle_color_room($room, $prev_round_id, $colors);
-                $colors_changed = true;
+                if (!$already_settled) {
+                    settle_color_room($room, $prev_round_id, $colors);
+                    $colors_changed = true;
+                } else {
+                    $colors[$room]['last_settled_round'] = $prev_round_id;
+                    $colors_changed = true;
+                }
             }
 
             if (!isset($colors[$room]['bets'][$r_id])) {
