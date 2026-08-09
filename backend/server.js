@@ -693,6 +693,23 @@ async function saveColorState(state) {
   });
 }
 
+function getColorRoundId(room, timestampSec) {
+  const durations = { sapre: 30, becone: 60, emred: 180, vip: 300 };
+  const duration = durations[room] || 30;
+  const roundStart = Math.floor(timestampSec / duration) * duration;
+  
+  const d = new Date(roundStart * 1000);
+  const yyyy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  const hh = String(d.getUTCHours()).padStart(2, '0');
+  
+  const bucket = Math.floor((roundStart % 3600) / duration);
+  const bucketStr = String(bucket).padStart(3, '0');
+  
+  return `${yyyy}${mm}${dd}${hh}${bucketStr}`;
+}
+
 async function settleColorRound(room, targetRound, state) {
   const overrideKey = `color_guess_overrides_${room}`;
   const overrideRecord = await prisma.gameState.findUnique({ where: { key: overrideKey } });
@@ -739,12 +756,23 @@ async function settleColorRound(room, targetRound, state) {
     create: { key: overrideKey, data: { color: '', number: '', size: '', rig_type: '' } }
   });
   
+  const was_rigged = !!(override && ((override.number !== undefined && override.number !== null && override.number !== '') || override.color || override.size || override.rig_type));
+  let rig_desc = '';
+  if (override) {
+    if (override.number !== undefined && override.number !== null && override.number !== '') rig_desc += `Number Fixed: ${override.number} `;
+    if (override.color) rig_desc += `Color Fixed: ${override.color} `;
+    if (override.size) rig_desc += `Size Fixed: ${override.size} `;
+    if (override.rig_type) rig_desc += `Auto-Rig: ${override.rig_type} `;
+  }
+
   const historyEntry = {
     roundNumber: targetRound,
     number: num,
     color: resolved.color,
     dotClass: resolved.dotClass,
     size: resolved.size,
+    is_rigged: was_rigged,
+    rig_desc: rig_desc.trim(),
     timestamp: new Date().toLocaleTimeString('en-US', { hour12: false })
   };
   
@@ -824,18 +852,25 @@ app.get('/api/game_sync.php', async (req, res) => {
 
       const nowSec = Math.floor(Date.now() / 1000);
       const time_left = duration - (nowSec % duration);
-      const dateStr = new Date().toISOString().replace(/[-T:]/g, '').slice(0, 10);
-      const bucket = Math.floor((nowSec / duration) % 100);
-      const round_id = dateStr + '0' + bucket;
+      const round_id = getColorRoundId(room, nowSec);
 
       const state = await loadColorState();
       
-      if (state[room].last_settled_round && state[room].last_settled_round !== round_id) {
-        await settleColorRound(room, state[room].last_settled_round, state);
-        state[room].last_settled_round = round_id;
-        await saveColorState(state);
-      } else if (!state[room].last_settled_round) {
-        state[room].last_settled_round = round_id;
+      const prev_round_id = getColorRoundId(room, nowSec - duration);
+
+      let stateChanged = false;
+      if (!state[room].last_settled_round) {
+        state[room].last_settled_round = prev_round_id;
+        stateChanged = true;
+      } else if (state[room].last_settled_round !== prev_round_id) {
+        const alreadySettled = state[room].history && state[room].history.some(h => String(h.roundNumber) === String(prev_round_id));
+        if (!alreadySettled) {
+          await settleColorRound(room, prev_round_id, state);
+        }
+        state[room].last_settled_round = prev_round_id;
+        stateChanged = true;
+      }
+      if (stateChanged) {
         await saveColorState(state);
       }
 
@@ -881,12 +916,25 @@ app.get('/api/game_sync.php', async (req, res) => {
       const nowSec = Math.floor(now / 1000);
       const state = await loadColorState();
 
+      let stateChanged = false;
       for (const room of rooms) {
         const duration = durations[room] || 30;
         const time_left = duration - (nowSec % duration);
-        const dateStr = new Date().toISOString().replace(/[-T:]/g, '').slice(0, 10);
-        const bucket = Math.floor((nowSec / duration) % 100);
-        const round_id = dateStr + '0' + bucket;
+        const round_id = getColorRoundId(room, nowSec);
+
+        const prev_round_id = getColorRoundId(room, nowSec - duration);
+
+        if (!state[room].last_settled_round) {
+          state[room].last_settled_round = prev_round_id;
+          stateChanged = true;
+        } else if (state[room].last_settled_round !== prev_round_id) {
+          const alreadySettled = state[room].history && state[room].history.some(h => String(h.roundNumber) === String(prev_round_id));
+          if (!alreadySettled) {
+            await settleColorRound(room, prev_round_id, state);
+          }
+          state[room].last_settled_round = prev_round_id;
+          stateChanged = true;
+        }
 
         const activeBets = (state[room].bets && state[room].bets[round_id]) ? state[room].bets[round_id] : [];
         const overridesRecord = await prisma.gameState.findUnique({ where: { key: `color_guess_overrides_${room}` } });
@@ -899,6 +947,9 @@ app.get('/api/game_sync.php', async (req, res) => {
           bets: activeBets,
           overrides: overridesRecord ? overridesRecord.data : {}
         };
+      }
+      if (stateChanged) {
+        await saveColorState(state);
       }
 
       res.json({

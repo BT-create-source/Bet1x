@@ -326,9 +326,14 @@ let isOffline = false;
 function getLocalOfflineRoundId() {
   const dur = ROOM_DURATION;
   const nowSec = Math.floor(Date.now() / 1000);
-  const dateStr = new Date().toISOString().replace(/[-T:]/g, '').slice(0, 10);
-  const bucket = Math.floor((nowSec / dur) % 100);
-  return dateStr + '0' + bucket;
+  const roundStart = Math.floor(nowSec / dur) * dur;
+  const dObj = new Date(roundStart * 1000);
+  const yyyy = dObj.getUTCFullYear();
+  const mm = String(dObj.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(dObj.getUTCDate()).padStart(2, '0');
+  const hh = String(dObj.getUTCHours()).padStart(2, '0');
+  const bucket = String(Math.floor((roundStart % 3600) / dur)).padStart(3, '0');
+  return `${yyyy}${mm}${dd}${hh}${bucket}`;
 }
 
 let localRoundId = getLocalOfflineRoundId();

@@ -1782,9 +1782,6 @@
     };
 
     window.applyColorRoomCheat = function () {
-      if (window.adminColorIsSubmitting) return;
-      window.adminColorIsSubmitting = true;
-
       const roomKey = document.getElementById('cheatColorRoomSelect').value;
       const color = document.getElementById('cheatColorSelect').value;
       const number = document.getElementById('cheatNumberSelect').value;
@@ -1797,9 +1794,14 @@
         const durations = { sapre: 30, becone: 60, emred: 180, vip: 300 };
         const dur = durations[roomKey] || 30;
         const nowSec = Math.floor(Date.now() / 1000);
-        const dateStr = new Date().toISOString().replace(/[-T:]/g, '').slice(0, 10);
-        const bucket = Math.floor((nowSec / dur) % 100);
-        return dateStr + '0' + bucket;
+        const roundStart = Math.floor(nowSec / dur) * dur;
+        const dObj = new Date(roundStart * 1000);
+        const yyyy = dObj.getUTCFullYear();
+        const mm = String(dObj.getUTCMonth() + 1).padStart(2, '0');
+        const dd = String(dObj.getUTCDate()).padStart(2, '0');
+        const hh = String(dObj.getUTCHours()).padStart(2, '0');
+        const bucket = String(Math.floor((roundStart % 3600) / dur)).padStart(3, '0');
+        return `${yyyy}${mm}${dd}${hh}${bucket}`;
       })();
 
       if (color || (number !== '' && number !== null && number !== undefined) || size || rigType) {
@@ -1823,22 +1825,12 @@
       })
         .then(res => res.json())
         .then(data => {
-          window.adminColorIsSubmitting = false;
           if (data.error) {
             showToast(data.error, 'error');
-          } else {
-            let summary = [];
-            if (color) summary.push(`Color: ${color}`);
-            if (number !== '') summary.push(`Number: ${number}`);
-            if (size) summary.push(`Size: ${size}`);
-            if (rigType) summary.push(`Rig: ${rigType}`);
-            // Toast removed to prevent spam in bottom right
-            // showToast(`Applied color room override for ${roomKey.toUpperCase()}: ${summary.join(', ') || 'Cleared all biases'}`, 'success');
           }
           if (typeof pollLiveAdminGames === 'function') pollLiveAdminGames();
         })
         .catch(err => {
-          window.adminColorIsSubmitting = false;
           if (typeof pollLiveAdminGames === 'function') pollLiveAdminGames();
         });
     };
@@ -3351,9 +3343,14 @@
 
       const nowSec = Math.floor(Date.now() / 1000);
       const time_left = dur - (nowSec % dur);
-      const dateStr = new Date().toISOString().replace(/[-T:]/g, '').slice(0, 10);
-      const bucket = Math.floor((nowSec / dur) % 100);
-      const round_id = dateStr + '0' + bucket;
+      const roundStart = Math.floor(nowSec / dur) * dur;
+      const dObj = new Date(roundStart * 1000);
+      const yyyy = dObj.getUTCFullYear();
+      const mm = String(dObj.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(dObj.getUTCDate()).padStart(2, '0');
+      const hh = String(dObj.getUTCHours()).padStart(2, '0');
+      const bucket = String(Math.floor((roundStart % 3600) / dur)).padStart(3, '0');
+      const round_id = `${yyyy}${mm}${dd}${hh}${bucket}`;
 
       window.adminColorRoundIdVal = round_id;
       window.adminColorServerTimeLeft = time_left;
