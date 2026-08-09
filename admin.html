@@ -3458,11 +3458,16 @@
       const bucket = Math.floor((nowSec / dur) % 100);
       const round_id = dateStr + '0' + bucket;
 
+      window.adminColorRoundIdVal = round_id;
+      window.adminColorServerTimeLeft = time_left;
+      window.adminColorServerDuration = dur;
+      window.adminColorServerReceivedAt = Date.now();
+
       const activeBetsKey = `bet1x_offline_active_bets_${roomKey}_${round_id}`;
       const activeBets = JSON.parse(localStorage.getItem(activeBetsKey) || '[]');
       const total_stake = activeBets.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
 
-      const savedOverride = JSON.parse(localStorage.getItem('cheat_color_override_' + roomKey) || '{}');
+      const savedOverride = JSON.parse(localStorage.getItem('cheat_color_override_' + roomKey + '_' + round_id) || '{}');
       renderColorGuessUI({
         round_id: round_id,
         time_left: time_left,
