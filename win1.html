@@ -489,6 +489,19 @@ placeBetBtn.addEventListener('click', () => {
   }
   if (isOffline) {
     adjustWallet(-selectedAmount, `Color Guess Wager: Room ${ROOM_KEY.charAt(0).toUpperCase() + ROOM_KEY.slice(1)} Round #${lastRoundId} Selection: ${selectedCat} (${selectedVal})`);
+    
+    const activeBetsKey = `bet1x_offline_active_bets_${ROOM_KEY}_${lastRoundId}`;
+    const activeBets = JSON.parse(localStorage.getItem(activeBetsKey) || '[]');
+    const userObj = getCurrentUser() || { username: 'Anonymous' };
+    activeBets.push({
+      username: userObj.username,
+      category: selectedCat,
+      value: selectedVal,
+      amount: selectedAmount,
+      timestamp: new Date().toISOString()
+    });
+    localStorage.setItem(activeBetsKey, JSON.stringify(activeBets));
+
     myBetsThisRound.push({ category: selectedCat, value: selectedVal, amount: selectedAmount });
     renderMyBets();
     showAlert(`Bet placed: ${selectedCat.toUpperCase()} · ${selectedVal} for ₹${selectedAmount.toFixed(2)}`, 'success');

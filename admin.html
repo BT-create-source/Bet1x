@@ -2979,20 +2979,20 @@
           <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 8px;">
             <button onclick="document.getElementById('cheatColorSelect').value='Green'; document.getElementById('cheatNumberSelect').value=''; document.getElementById('cheatSizeSelect').value=''; applyColorRoomCheat();" 
                     class="btn-action edit" style="padding: 6px 4px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${greenBtnStyle}">
-              <span style="font-weight: 800; font-size: 12.5px; color: var(--green);">🟢 Green${greenFixedBadge}</span>
-              <span style="font-size: 10px; color: var(--text-dim);">${greenCount} Plrs</span>
+              <span style="font-weight: 800; font-size: 12.5px; color: var(--green);">Green${greenFixedBadge}</span>
+              <span style="font-size: 10px; color: var(--text-dim);">${greenCount} players</span>
               <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: var(--green);">₹${greenAmt}</span>
             </button>
             <button onclick="document.getElementById('cheatColorSelect').value='Red'; document.getElementById('cheatNumberSelect').value=''; document.getElementById('cheatSizeSelect').value=''; applyColorRoomCheat();" 
                     class="btn-action edit" style="padding: 6px 4px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${redBtnStyle}">
-              <span style="font-weight: 800; font-size: 12.5px; color: var(--red);">🔴 Red${redFixedBadge}</span>
-              <span style="font-size: 10px; color: var(--text-dim);">${redCount} Plrs</span>
+              <span style="font-weight: 800; font-size: 12.5px; color: var(--red);">Red${redFixedBadge}</span>
+              <span style="font-size: 10px; color: var(--text-dim);">${redCount} players</span>
               <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: var(--red);">₹${redAmt}</span>
             </button>
             <button onclick="document.getElementById('cheatColorSelect').value='Violet'; document.getElementById('cheatNumberSelect').value=''; document.getElementById('cheatSizeSelect').value=''; applyColorRoomCheat();" 
                     class="btn-action edit" style="padding: 6px 4px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${violetBtnStyle}">
-              <span style="font-weight: 800; font-size: 12.5px; color: var(--violet);">🟣 Violet${violetFixedBadge}</span>
-              <span style="font-size: 10px; color: var(--text-dim);">${violetCount} Plrs</span>
+              <span style="font-weight: 800; font-size: 12.5px; color: var(--violet);">Violet${violetFixedBadge}</span>
+              <span style="font-size: 10px; color: var(--text-dim);">${violetCount} players</span>
               <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: var(--violet);">₹${violetAmt}</span>
             </button>
           </div>
@@ -3000,20 +3000,20 @@
           <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 12px;">
             <button onclick="document.getElementById('cheatColorSelect').value=''; document.getElementById('cheatNumberSelect').value=''; document.getElementById('cheatSizeSelect').value='Big'; applyColorRoomCheat();" 
                     class="btn-action edit" style="padding: 6px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${bigBtnStyle}">
-              <span style="font-weight: 800; font-size: 12.5px;">📐 Big${bigFixedBadge}</span>
-              <span style="font-size: 10px; color: var(--text-dim);">${bigCount} Plrs</span>
+              <span style="font-weight: 800; font-size: 12.5px;">Big${bigFixedBadge}</span>
+              <span style="font-size: 10px; color: var(--text-dim);">${bigCount} players</span>
               <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: var(--gold);">₹${bigAmt}</span>
             </button>
             <button onclick="document.getElementById('cheatColorSelect').value=''; document.getElementById('cheatNumberSelect').value=''; document.getElementById('cheatSizeSelect').value='Small'; applyColorRoomCheat();" 
                     class="btn-action edit" style="padding: 6px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${smallBtnStyle}">
-              <span style="font-weight: 800; font-size: 12.5px;">📐 Small${smallFixedBadge}</span>
-              <span style="font-size: 10px; color: var(--text-dim);">${smallCount} Plrs</span>
+              <span style="font-weight: 800; font-size: 12.5px;">Small${smallFixedBadge}</span>
+              <span style="font-size: 10px; color: var(--text-dim);">${smallCount} players</span>
               <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: var(--gold);">₹${smallAmt}</span>
             </button>
           </div>
 
           <!-- Numbers Grid (0 to 9) -->
-          <b style="color:var(--text-dim); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; display:block; margin-bottom: 6px; font-weight: bold;">🔢 Numbers Distribution:</b>
+          <b style="color:var(--text-dim); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; display:block; margin-bottom: 6px; font-weight: bold;">Numbers Distribution:</b>
           <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 8px;">
             ${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => {
         const numFixed = isNumberFixed(num);
@@ -3027,7 +3027,7 @@
                 <button onclick="document.getElementById('cheatColorSelect').value=''; document.getElementById('cheatNumberSelect').value='${num}'; document.getElementById('cheatSizeSelect').value=''; applyColorRoomCheat();" 
                         class="btn-action edit" style="padding: 5px 2px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 4px; gap: 2px; ${numBtnStyle}">
                   <span style="font-weight: 800; font-size: 11px; color: #fff; background: ${numColor}; display: inline-block; width: 18px; height: 18px; line-height: 18px; border-radius: 50%; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">${num}</span>
-                  <span style="font-size: 8.5px; color: var(--text-dim);">${numCounts[num]} Plrs ${numFixedBadge}</span>
+                  <span style="font-size: 8.5px; color: var(--text-dim);">${numCounts[num]} players ${numFixedBadge}</span>
                   <span style="font-family: var(--font-mono); font-size: 9px; font-weight: bold; color: var(--gold);">₹${numAmts[num]}</span>
                 </button>
               `;
@@ -3209,49 +3209,19 @@
     }
 
     function generateLocalFallbackData() {
-      const roomKey = document.getElementById('cheatColorRoomSelect').value;
+      const roomKey = document.getElementById('cheatColorRoomSelect') ? document.getElementById('cheatColorRoomSelect').value : 'sapre';
       const durations = { sapre: 30, becone: 60, emred: 180, vip: 300 };
       const dur = durations[roomKey] || 30;
 
       const nowSec = Math.floor(Date.now() / 1000);
       const time_left = dur - (nowSec % dur);
-      const round_id = new Date().toISOString().replace(/[-T:]/g, '').slice(0, 10) + '0' + Math.floor(nowSec / dur % 100);
-      const elapsed = dur - time_left;
+      const dateStr = new Date().toISOString().replace(/[-T:]/g, '').slice(0, 10);
+      const bucket = Math.floor((nowSec / dur) % 100);
+      const round_id = dateStr + '0' + bucket;
 
-      if (!window.fallbackBetsCache) window.fallbackBetsCache = {};
-      if (!window.fallbackBetsCache[round_id]) {
-        const names = ['Amit_K', 'Raju_S', 'Vikram_Singh', 'Sana_Patel', 'Pooja_G', 'Sunil_R', 'Neha_V', 'Vijay_D', 'Rahul_S', 'Arjun_Sharma', 'Simran_K', 'Kunal_M', 'Deepak_P', 'Jyoti_M', 'Prakash_L', 'Preeti_R', 'Karan_S', 'Aisha_T', 'Rohan_B', 'Divya_N', 'Aravind_H', 'Shreya_D'];
-        const colors = ['Green', 'Red', 'Violet'];
-        const sizes = ['Big', 'Small'];
-        const bets = [];
-        const count = Math.floor(Math.random() * 40) + 35; // 35 to 75 players
-        for (let i = 0; i < count; i++) {
-          const user = names[Math.floor(Math.random() * names.length)];
-          const cat = ['color', 'number', 'size'][Math.floor(Math.random() * 3)];
-          let val = '';
-          if (cat === 'color') {
-            val = colors[Math.random() < 0.85 ? Math.floor(Math.random() * 2) : 2];
-          } else if (cat === 'size') {
-            val = sizes[Math.floor(Math.random() * 2)];
-          } else {
-            val = Math.floor(Math.random() * 10).toString();
-          }
-          const amount = [100, 500, 1000, 2000, 5000, 10000][Math.floor(Math.random() * 6)];
-          bets.push({
-            username: user,
-            category: cat,
-            value: val,
-            amount: amount,
-            is_dummy: true,
-            reveal_second: Math.floor(Math.random() * (dur - 5))
-          });
-        }
-        window.fallbackBetsCache[round_id] = bets;
-      }
-
-      const allBets = window.fallbackBetsCache[round_id];
-      const activeBets = allBets.filter(b => elapsed >= b.reveal_second);
-      const total_stake = activeBets.reduce((sum, b) => sum + b.amount, 0);
+      const activeBetsKey = `bet1x_offline_active_bets_${roomKey}_${round_id}`;
+      const activeBets = JSON.parse(localStorage.getItem(activeBetsKey) || '[]');
+      const total_stake = activeBets.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
 
       const savedOverride = JSON.parse(localStorage.getItem('cheat_color_override_' + roomKey) || '{}');
       renderColorGuessUI({
@@ -3277,33 +3247,7 @@
       }
 
       const avRound = 10000 + Math.floor(Date.now() / 18000);
-      if (!window.fallbackAviatorBets || window.fallbackAviatorBetsRound !== avRound) {
-        window.fallbackAviatorBetsRound = avRound;
-        const names = ['Amit_K', 'Raju_S', 'Vikram_Singh', 'Sana_Patel', 'Pooja_G', 'Sunil_R', 'Neha_V', 'Vijay_D', 'Rahul_S', 'Arjun_Sharma', 'Simran_K', 'Kunal_M', 'Deepak_P', 'Jyoti_M', 'Prakash_L', 'Preeti_R', 'Karan_S', 'Aisha_T', 'Rohan_B', 'Divya_N', 'Aravind_H', 'Shreya_D'];
-        const bets = [];
-        const count = Math.floor(Math.random() * 35) + 25; // 25 to 60 players
-        for (let i = 0; i < count; i++) {
-          const user = names[Math.floor(Math.random() * names.length)];
-          const amount = [100, 500, 1000, 2000, 5000, 10000][Math.floor(Math.random() * 6)];
-          bets.push({
-            username: user,
-            amount: amount,
-            status: 'pending',
-            cashed_multiplier: 0,
-            is_dummy: true,
-            target_mult: (Math.random() * 7.4) + 1.1,
-            reveal_second: Math.floor(Math.random() * 7)
-          });
-        }
-        window.fallbackAviatorBets = bets;
-      }
-
-      let activeAvBets = [];
-      if (avPhase === 'waiting') {
-        activeAvBets = window.fallbackAviatorBets.filter(b => avTime >= b.reveal_second);
-      } else {
-        activeAvBets = window.fallbackAviatorBets;
-      }
+      const activeAvBets = JSON.parse(localStorage.getItem('bet1x_offline_aviator_bets_' + avRound) || '[]');
 
       activeAvBets.forEach(b => {
         if (avPhase === 'running') {
