@@ -7,6 +7,9 @@
   <title>bet1x — Admin Dashboard</title>
   <link rel="stylesheet" href="assets/css/style.css">
   <style>
+    :root {
+      --text-light: #ffffff;
+    }
     .admin-stats-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -147,7 +150,21 @@
       border-radius: 4px;
       font-weight: 700;
       cursor: pointer;
-      transition: all 0.2s;
+      color: #ffffff;
+    }
+
+    .btn-action * {
+      pointer-events: none;
+    }
+
+    .btn-action:hover {
+      filter: brightness(1.3) !important;
+      border-color: rgba(255, 255, 255, 0.35) !important;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.1) !important;
+    }
+
+    .btn-action:active {
+      filter: brightness(0.8) !important;
     }
 
     .btn-action.approve {
@@ -1765,6 +1782,9 @@
     };
 
     window.applyColorRoomCheat = function () {
+      if (window.adminColorIsSubmitting) return;
+      window.adminColorIsSubmitting = true;
+
       const roomKey = document.getElementById('cheatColorRoomSelect').value;
       const color = document.getElementById('cheatColorSelect').value;
       const number = document.getElementById('cheatNumberSelect').value;
@@ -1803,6 +1823,7 @@
       })
         .then(res => res.json())
         .then(data => {
+          window.adminColorIsSubmitting = false;
           if (data.error) {
             showToast(data.error, 'error');
           } else {
@@ -1811,11 +1832,13 @@
             if (number !== '') summary.push(`Number: ${number}`);
             if (size) summary.push(`Size: ${size}`);
             if (rigType) summary.push(`Rig: ${rigType}`);
-            showToast(`Applied color room override for ${roomKey.toUpperCase()}: ${summary.join(', ') || 'Cleared all biases'}`, 'success');
+            // Toast removed to prevent spam in bottom right
+            // showToast(`Applied color room override for ${roomKey.toUpperCase()}: ${summary.join(', ') || 'Cleared all biases'}`, 'success');
           }
           if (typeof pollLiveAdminGames === 'function') pollLiveAdminGames();
         })
         .catch(err => {
+          window.adminColorIsSubmitting = false;
           if (typeof pollLiveAdminGames === 'function') pollLiveAdminGames();
         });
     };
@@ -1914,7 +1937,8 @@
           if (data.error) {
             showToast(data.error, 'error');
           } else {
-            showToast(mult ? `Vimaan crash point override applied: ${parseFloat(mult).toFixed(2)}x` : 'Cleared Vimaan crash bias.', 'success');
+            // Toast removed to prevent spam
+            // showToast(mult ? `Vimaan crash point override applied: ${parseFloat(mult).toFixed(2)}x` : 'Cleared Vimaan crash bias.', 'success');
           }
           updateAviatorBiasUI();
         })
@@ -1970,7 +1994,8 @@
           if (data.error) {
             showToast(data.error, 'error');
           } else {
-            showToast(winner ? `Rigged next deal to win seat: ${winner} for ${targetUser}` : `Cleared Teen Patti deal bias for ${targetUser}.`, 'success');
+            // Toast removed to prevent spam
+            // showToast(winner ? `Rigged next deal to win seat: ${winner} for ${targetUser}` : `Cleared Teen Patti deal bias for ${targetUser}.`, 'success');
           }
         });
     };
@@ -1989,7 +2014,8 @@
         .then(res => res.json())
         .then(data => {
           if (data.error) showToast(data.error, 'error');
-          else showToast(`Teen Patti: Forced winner seat ${seat} for ${username}`, 'success');
+          // Toast removed to prevent spam
+          // else showToast(`Teen Patti: Forced winner seat ${seat} for ${username}`, 'success');
         });
     };
 
@@ -2008,7 +2034,8 @@
         .then(res => res.json())
         .then(data => {
           if (data.error) showToast(data.error, 'error');
-          else showToast(`Teen Patti: Rigged ${seat} cards to 3 Aces for ${username}`, 'success');
+          // Toast removed to prevent spam
+          // else showToast(`Teen Patti: Rigged ${seat} cards to 3 Aces for ${username}`, 'success');
         });
     };
 
@@ -2042,9 +2069,9 @@
       if (rigType) summary.push(`Rig Type: ${rigType === 'platform_profit' ? 'Platform Profit' : 'User Win'}`);
 
       if (summary.length === 0) {
-        showToast('Cleared Boundary Baazi biases.', 'info');
+        // showToast('Cleared Boundary Baazi biases.', 'info');
       } else {
-        showToast(`Applied Boundary Baazi bias: ${summary.join(', ')}`, 'success');
+        // showToast(`Applied Boundary Baazi bias: ${summary.join(', ')}`, 'success');
       }
     };
 
@@ -2068,7 +2095,7 @@
       if (ou) summary.push(`Goals: ${ou}`);
       if (rigType) summary.push(`Rig: ${rigType}`);
 
-      showToast(`Applied Football Match #${matchId} override: ${summary.join(', ') || 'Cleared all biases'}`, 'success');
+      // showToast(`Applied Football Match #${matchId} override: ${summary.join(', ') || 'Cleared all biases'}`, 'success');
       updateFootballBiasUI();
     };
 
@@ -2080,7 +2107,7 @@
       localStorage.removeItem('cheat_football_winner_' + matchId);
       localStorage.removeItem('cheat_football_over_under_' + matchId);
       localStorage.removeItem('cheat_football_rig_type');
-      showToast(`Cleared Football Match #${matchId} overrides.`, 'info');
+      // showToast(`Cleared Football Match #${matchId} overrides.`, 'info');
       updateFootballBiasUI();
     };
 
@@ -2520,10 +2547,34 @@
             const room = roomEl ? roomEl.value : 'sapre';
             const rData = data.color_guess[room];
             if (rData) {
-              window.adminColorRoundIdVal = rData.round_id;
-              window.adminColorServerTimeLeft = rData.time_left;
-              window.adminColorServerDuration = rData.duration;
-              window.adminColorServerReceivedAt = Date.now();
+              const oldRoom = window.adminColorActiveRoom;
+              const oldRoundId = window.adminColorRoundIdVal;
+              
+              let clientVisualTimeLeft = null;
+              if (typeof window.adminColorServerTimeLeft !== 'undefined' && window.adminColorServerReceivedAt) {
+                const elapsed = (Date.now() - window.adminColorServerReceivedAt) / 1000;
+                clientVisualTimeLeft = Math.max(0, window.adminColorServerTimeLeft - elapsed);
+              }
+              
+              let shouldSnap = false;
+              if (oldRoom !== room || oldRoundId !== rData.round_id) {
+                shouldSnap = true;
+              } else if (clientVisualTimeLeft === null) {
+                shouldSnap = true;
+              } else {
+                const diff = Math.abs(clientVisualTimeLeft - rData.time_left);
+                if (diff > 1.5) {
+                  shouldSnap = true;
+                }
+              }
+              
+              if (shouldSnap) {
+                window.adminColorActiveRoom = room;
+                window.adminColorRoundIdVal = rData.round_id;
+                window.adminColorServerTimeLeft = rData.time_left;
+                window.adminColorServerDuration = rData.duration;
+                window.adminColorServerReceivedAt = Date.now();
+              }
               if (typeof renderColorGuessUI === 'function') renderColorGuessUI(rData);
             }
           }
@@ -2862,14 +2913,46 @@
         if (colorGame.overrides) {
           colorGame.overrides = { color: '', number: '', size: '', rig_type: '' };
         }
+        
+        window.adminLastColorRoundId[roomKey] = colorGame.round_id;
+        window.adminColorRoundIdVal = colorGame.round_id;
+        
+        // Force-clear on the server immediately to sync states and prevent lag carrying overrides over
+        if (typeof applyColorRoomCheat === 'function') {
+          applyColorRoomCheat();
+        }
       }
       window.adminLastColorRoundId[roomKey] = colorGame.round_id;
-      window.adminColorRoundIdVal = colorGame.round_id;
 
       const savedOverride = JSON.parse(localStorage.getItem('cheat_color_override_' + roomKey + '_' + colorGame.round_id) || '{}');
       const activeOverrides = (colorGame.overrides && (colorGame.overrides.color || (colorGame.overrides.number !== undefined && colorGame.overrides.number !== '') || colorGame.overrides.size || colorGame.overrides.rig_type))
         ? colorGame.overrides
         : savedOverride;
+
+      // Signature-based cache checking to prevent innerHTML updates from disrupting clicks and hovers
+      const signatureObj = {
+        room: roomKey,
+        round: colorGame.round_id,
+        overrides: activeOverrides,
+        total_stake: colorGame.total_stake,
+        bets: (colorGame.bets || []).map(b => `${b.username}-${b.category}-${b.value}-${b.amount}`),
+        history: (colorGame.history || []).map(h => `${h.roundNumber}-${h.color}-${h.number}-${h.is_rigged}`)
+      };
+      const signature = JSON.stringify(signatureObj);
+      
+      if (window.adminColorBetsSignature === signature) {
+        // Sync inputs if not focused
+        const selectColorEl = document.getElementById('cheatColorSelect');
+        const selectNumEl = document.getElementById('cheatNumberSelect');
+        const selectSizeEl = document.getElementById('cheatSizeSelect');
+        const selectRigEl = document.getElementById('cheatColorRigType');
+        if (selectColorEl && document.activeElement !== selectColorEl) selectColorEl.value = activeOverrides.color || '';
+        if (selectNumEl && document.activeElement !== selectNumEl) selectNumEl.value = (activeOverrides.number !== undefined && activeOverrides.number !== null) ? String(activeOverrides.number) : '';
+        if (selectSizeEl && document.activeElement !== selectSizeEl) selectSizeEl.value = activeOverrides.size || '';
+        if (selectRigEl && document.activeElement !== selectRigEl) selectRigEl.value = activeOverrides.rig_type || '';
+        return;
+      }
+      window.adminColorBetsSignature = signature;
 
       const isColorFixed = (c) => activeOverrides.color === c;
       const isNumberFixed = (n) => String(activeOverrides.number) === String(n);
@@ -2975,11 +3058,14 @@
         userBetsHtml = '<div style="font-size: 11.5px; color: var(--text-dim); text-align: center; padding: 8px 0;">User: No pending wagers.</div>';
       }
 
-      // Set visual ticking variables
-      window.adminColorServerTimeLeft = colorGame.time_left;
-      window.adminColorServerDuration = colorGame.duration;
-      window.adminColorServerReceivedAt = Date.now();
-      window.adminColorRoundIdVal = colorGame.round_id;
+      // Initialize visual ticking variables on first load if undefined
+      if (typeof window.adminColorServerTimeLeft === 'undefined') {
+        window.adminColorActiveRoom = roomKey;
+        window.adminColorServerTimeLeft = colorGame.time_left;
+        window.adminColorServerDuration = colorGame.duration;
+        window.adminColorServerReceivedAt = Date.now();
+        window.adminColorRoundIdVal = colorGame.round_id;
+      }
 
       // Calculate max wager amount for adaptive green brightness heatmap
       const allBetAmts = [greenAmt, redAmt, violetAmt, bigAmt, smallAmt, ...numAmts];

@@ -473,8 +473,26 @@ function syncState() {
   .then(data => {
     if (data.error) return;
     isOffline = false;
-    serverTimeLeft = data.time_left;
-    serverReceivedAt = Date.now();
+    let clientVisualTimeLeft = null;
+    if (typeof serverTimeLeft !== 'undefined' && serverReceivedAt) {
+      const elapsed = (Date.now() - serverReceivedAt) / 1000;
+      clientVisualTimeLeft = Math.max(0, serverTimeLeft - elapsed);
+    }
+    let shouldSnap = false;
+    if (lastRoundId !== data.round_id) {
+      shouldSnap = true;
+    } else if (clientVisualTimeLeft === null) {
+      shouldSnap = true;
+    } else {
+      const diff = Math.abs(clientVisualTimeLeft - data.time_left);
+      if (diff > 1.5) {
+        shouldSnap = true;
+      }
+    }
+    if (shouldSnap) {
+      serverTimeLeft = data.time_left;
+      serverReceivedAt = Date.now();
+    }
     roundIdEl.textContent = data.round_id;
     setWallet(data.wallet_balance);
     const activeUsersEl = document.getElementById('activePlayersCount');
