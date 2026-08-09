@@ -2567,7 +2567,7 @@
       if (!container) return;
 
       const bets = Array.isArray(betsArray) ? betsArray : [];
-      const activeBets = bets.filter(b => b.status === 'pending' || b.status === 'active' || !b.status);
+      const activeBets = bets;
       const totalCount = activeBets.length;
       const totalStake = activeBets.reduce((sum, b) => sum + (parseFloat(b.amount || b.wagered) || 0), 0);
       const realUserBets = activeBets.filter(b => !b.is_mock);
@@ -2619,6 +2619,8 @@
       let cashedCount = 0;
       let cashedPayout = 0;
       let cashedStake = 0;
+      let lostCount = 0;
+      let lostStake = 0;
 
       bets.forEach(b => {
         const amt = parseFloat(b.amount || b.wagered || 0);
@@ -2631,11 +2633,15 @@
           const mult = parseFloat(b.cashed_multiplier || 1.00);
           cashedPayout += amt * mult;
           cashedStake += amt;
+        } else if (status === 'lost') {
+          lostCount++;
+          lostStake += amt;
         }
       });
 
-      const totalStake = inFlightStake + cashedStake;
+      const totalStake = inFlightStake + cashedStake + lostStake;
       const houseProfit = totalStake - cashedPayout;
+      const inFlightPct = totalCount > 0 ? (inFlightCount / totalCount) * 100 : 0;
 
       const liveProfitEl = document.getElementById('adminAviatorLiveProfitDisplay');
       const simpleStakesCountEl = document.getElementById('adminAviatorSimpleStakesCount');
