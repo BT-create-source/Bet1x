@@ -694,14 +694,100 @@ let gameState = {
   simulationResult: null,
   simulationScore: 0,
   payoutAwarded: 0,
-  activeMatchId: null
+  activeMatchId: null,
+  selectedPlayersTeamA: 'India',
+  selectedPlayersTeamB: 'Australia'
 };
 
-function enterMatchDraft(matchId) {
+let cricketMatches = [];
+
+async function fetchLiveCricketMatches() {
+  try {
+    const response = await fetch('http://localhost:3000/api/cricket/matches');
+    const data = await response.json();
+    if (data && data.matches) {
+      cricketMatches = data.matches;
+      render();
+    }
+  } catch (error) {
+    console.warn("Failed to fetch live cricket matches from server:", error);
+  }
+}
+
+let playerPool = [];
+
+function setupDynamicPlayerPool(teamA, teamB) {
+  if (teamA === 'India' && teamB === 'Australia') {
+    playerPool = [
+      { id: 1,  name: 'Rishabh Pant',     team: 'India', role: 'WK',   credits: 9.0 },
+      { id: 2,  name: 'KL Rahul',         team: 'India', role: 'WK',   credits: 8.5 },
+      { id: 3,  name: 'Rohit Sharma',     team: 'India', role: 'BAT',  credits: 10.0 },
+      { id: 4,  name: 'Virat Kohli',      team: 'India', role: 'BAT',  credits: 10.5 },
+      { id: 5,  name: 'Yashasvi Jaiswal', team: 'India', role: 'BAT',  credits: 9.5 },
+      { id: 6,  name: 'Ravindra Jadeja',  team: 'India', role: 'AR',   credits: 9.5 },
+      { id: 7,  name: 'Hardik Pandya',    team: 'India', role: 'AR',   credits: 9.0 },
+      { id: 8,  name: 'Jasprit Bumrah',   team: 'India', role: 'BOWL', credits: 10.0 },
+      { id: 9,  name: 'Mohammed Siraj',   team: 'India', role: 'BOWL', credits: 8.5 },
+      { id: 10, name: 'Kuldeep Yadav',    team: 'India', role: 'BOWL', credits: 8.0 },
+      { id: 11, name: 'Arshdeep Singh',   team: 'India', role: 'BOWL', credits: 8.0 },
+      
+      { id: 12, name: 'Josh Inglis',      team: 'Australia', role: 'WK',   credits: 8.5 },
+      { id: 13, name: 'Alex Carey',       team: 'Australia', role: 'WK',   credits: 8.0 },
+      { id: 14, name: 'Travis Head',      team: 'Australia', role: 'BAT',  credits: 10.0 },
+      { id: 15, name: 'Steve Smith',      team: 'Australia', role: 'BAT',  credits: 9.5 },
+      { id: 16, name: 'Mitchell Marsh',   team: 'Australia', role: 'BAT',  credits: 9.0 },
+      { id: 17, name: 'Glenn Maxwell',    team: 'Australia', role: 'AR',   credits: 9.5 },
+      { id: 18, name: 'Marcus Stoinis',   team: 'Australia', role: 'AR',   credits: 9.0 },
+      { id: 19, name: 'Pat Cummins',      team: 'Australia', role: 'BOWL', credits: 9.5 },
+      { id: 20, name: 'Mitchell Starc',   team: 'Australia', role: 'BOWL', credits: 9.5 },
+      { id: 21, name: 'Josh Hazlewood',   team: 'Australia', role: 'BOWL', credits: 9.0 },
+      { id: 22, name: 'Adam Zampa',       team: 'Australia', role: 'BOWL', credits: 8.5 }
+    ];
+    return;
+  }
+  
+  playerPool = [];
+  const roles = ['WK', 'WK', 'BAT', 'BAT', 'BAT', 'AR', 'AR', 'BOWL', 'BOWL', 'BOWL', 'BOWL'];
+  const baseCredits = [8.5, 8.0, 10.0, 9.5, 9.0, 9.5, 9.0, 10.0, 8.5, 8.0, 8.0];
+  
+  for (let i = 0; i < 11; i++) {
+    const role = roles[i];
+    const roleLabel = role === 'WK' ? 'Keeper' : (role === 'BAT' ? 'Batter' : (role === 'AR' ? 'AllRounder' : 'Bowler'));
+    playerPool.push({
+      id: i + 1,
+      name: `${teamA.split(' ')[0]} ${roleLabel} ${i + 1}`,
+      team: teamA,
+      role: role,
+      credits: baseCredits[i]
+    });
+  }
+  
+  for (let i = 0; i < 11; i++) {
+    const role = roles[i];
+    const roleLabel = role === 'WK' ? 'Keeper' : (role === 'BAT' ? 'Batter' : (role === 'AR' ? 'AllRounder' : 'Bowler'));
+    playerPool.push({
+      id: i + 12,
+      name: `${teamB.split(' ')[0]} ${roleLabel} ${i + 1}`,
+      team: teamB,
+      role: role,
+      credits: baseCredits[i]
+    });
+  }
+}
+
+function enterMatchDraft(matchId, teamA = 'India', teamB = 'Australia') {
   gameState.activeMatchId = matchId;
+  gameState.selectedPlayersTeamA = teamA;
+  gameState.selectedPlayersTeamB = teamB;
+  gameState.selectedPlayers = [];
+  gameState.captainId = null;
+  gameState.viceId = null;
   gameState.status = 'drafting';
+  setupDynamicPlayerPool(teamA, teamB);
   render();
 }
+
+fetchLiveCricketMatches();
 
 // Compute selected stats
 function getCreditsUsed() {
@@ -873,9 +959,12 @@ function simulateMatch() {
     };
   });
 
+  const teamAName = gameState.selectedPlayersTeamA;
+  const teamBName = gameState.selectedPlayersTeamB;
+
   let commentaryList = [
     "Match shuru hone wala hai! Pitch dry hai, batsman favor karegi.",
-    "Australia ne toss jeeta aur pehle batting karne ka faisla kiya."
+    `${teamBName} ne toss jeeta aur pehle batting karne ka faisla kiya.`
   ];
 
   let step = 0;
@@ -884,7 +973,7 @@ function simulateMatch() {
   const simInterval = setInterval(() => {
     step++;
     
-    // Innings 1 (Australia Batting)
+    // Innings 1 (Team B Batting)
     if (currentInnings === 1) {
       simOversCompleted = step * 2;
       simTeam1Score += Math.floor(Math.random() * 20) + 12;
@@ -894,12 +983,12 @@ function simulateMatch() {
         simOversCompleted = 20;
         currentInnings = 2;
         simOversCompleted = 0;
-        commentaryList.push(`Innings Complete! Australia ne banaye ${simTeam1Score}/${simTeam1Wickets} runs.`);
+        commentaryList.push(`Innings Complete! ${teamBName} ne banaye ${simTeam1Score}/${simTeam1Wickets} runs.`);
       } else {
-        commentaryList.push(`Over ${simOversCompleted}: Australia standard run-rate barkrar rakhe hai. Score: ${simTeam1Score}/${simTeam1Wickets}`);
+        commentaryList.push(`Over ${simOversCompleted}: ${teamBName} standard run-rate barkrar rakhe hai. Score: ${simTeam1Score}/${simTeam1Wickets}`);
       }
     } 
-    // Innings 2 (India Chasing)
+    // Innings 2 (Team A Chasing)
     else {
       simOversCompleted = (step - 5) * 4;
       simTeam2Score += Math.floor(Math.random() * 24) + 14;
@@ -908,7 +997,7 @@ function simulateMatch() {
       if (simOversCompleted >= 20 || simTeam2Wickets >= 10 || simTeam2Score > simTeam1Score) {
         simOversCompleted = Math.min(20, simOversCompleted);
       }
-      commentaryList.push(`Over ${simOversCompleted}: India target chase ki or agrasar. Score: ${simTeam2Score}/${simTeam2Wickets}`);
+      commentaryList.push(`Over ${simOversCompleted}: ${teamAName} target chase ki or agrasar. Score: ${simTeam2Score}/${simTeam2Wickets}`);
     }
 
     // Award random stats to team players
@@ -1159,7 +1248,7 @@ function buildStadiumPitchHtml(playerIds, captainId, viceId, resultsMap = null) 
         ? `<div class="pitch-leader-badge c">C</div>` 
         : (isVice ? `<div class="pitch-leader-badge vc">VC</div>` : '');
         
-      const teamClass = p.team === 'India' ? 'jersey-ind' : 'jersey-aus';
+      const teamClass = p.team === gameState.selectedPlayersTeamA ? 'jersey-ind' : 'jersey-aus';
       const scoreText = resultsMap 
         ? `<div style="font-size:8.5px;color:var(--gold);margin-top:1px;font-weight:bold;">${resultsMap[p.id].toFixed(1)} pts</div>` 
         : '';
@@ -1186,29 +1275,66 @@ function render() {
   const container = document.getElementById('gameScreen');
 
   if (gameState.status === 'lobby') {
+    let cardsHtml = '';
+    if (cricketMatches.length > 0) {
+      cardsHtml = cricketMatches.map((m, idx) => {
+        const teamA = m.teams[0] || 'Team A';
+        const teamB = m.teams[1] || 'Team B';
+        const name = m.name || `${teamA} vs ${teamB}`;
+        const matchType = (m.matchType || 't20').toUpperCase();
+        return `
+          <div class="lobby-card" onclick="enterMatchDraft('${m.id}', '${teamA.replace(/'/g, "\\'")}', '${teamB.replace(/'/g, "\\'")}')" style="margin-bottom: 12px;">
+            <div class="lobby-header">
+              <span class="lobby-series">${name} (${matchType})</span>
+              <span class="lobby-countdown" style="background: var(--green); color: #000; font-weight: 800; padding: 2px 8px; border-radius: 4px; font-size: 10px;">${m.status || 'LIVE'}</span>
+            </div>
+            <div class="lobby-teams">
+              <div class="lobby-team-box">
+                <span class="lobby-flag">🏏</span>
+                <span class="lobby-team-name">${teamA}</span>
+              </div>
+              <div class="lobby-vs">VS</div>
+              <div class="lobby-team-box">
+                <span class="lobby-flag">🏏</span>
+                <span class="lobby-team-name">${teamB}</span>
+              </div>
+            </div>
+            <div class="lobby-footer">
+              <div style="font-size:11px; color:var(--text-dim);">Contests: <b>3 Tiers Active</b></div>
+              <button class="btn btn-gold" style="padding:6px 16px; font-weight:700;">Draft Team</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    } else {
+      cardsHtml = `
+        <div class="lobby-card" onclick="enterMatchDraft('m1', 'India', 'Australia')">
+          <div class="lobby-header">
+            <span class="lobby-series">ICC T20 World Cup Clash</span>
+            <span class="lobby-countdown">LIVE DRAFTING OPEN</span>
+          </div>
+          <div class="lobby-teams">
+            <div class="lobby-team-box">
+              <span class="lobby-flag">🇮🇳</span>
+              <span class="lobby-team-name">India</span>
+            </div>
+            <div class="lobby-vs">VS</div>
+            <div class="lobby-team-box">
+              <span class="lobby-flag">🇦🇺</span>
+              <span class="lobby-team-name">Australia</span>
+            </div>
+          </div>
+          <div class="lobby-footer">
+            <div style="font-size:11px; color:var(--text-dim);">Contests: <b>3 Tiers Active</b></div>
+            <button class="btn btn-gold" style="padding:6px 16px; font-weight:700;">Draft Team</button>
+          </div>
+        </div>
+      `;
+    }
+
     container.innerHTML = `
       <div style="font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:12px; text-align:center;">Active & Upcoming Fixtures</div>
-      <div class="lobby-card" onclick="enterMatchDraft('m1')">
-        <div class="lobby-header">
-          <span class="lobby-series">ICC T20 World Cup Clash</span>
-          <span class="lobby-countdown">LIVE DRAFTING OPEN</span>
-        </div>
-        <div class="lobby-teams">
-          <div class="lobby-team-box">
-            <span class="lobby-flag">🇮🇳</span>
-            <span class="lobby-team-name">India</span>
-          </div>
-          <div class="lobby-vs">VS</div>
-          <div class="lobby-team-box">
-            <span class="lobby-flag">🇦🇺</span>
-            <span class="lobby-team-name">Australia</span>
-          </div>
-        </div>
-        <div class="lobby-footer">
-          <div style="font-size:11px; color:var(--text-dim);">Contests: <b>3 Tiers Active</b></div>
-          <button class="btn btn-gold" style="padding:6px 16px; font-weight:700;">Draft Team</button>
-        </div>
-      </div>
+      ${cardsHtml}
     `;
     return;
   }

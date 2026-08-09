@@ -22,6 +22,7 @@ app.use(express.static('public'));
 
 // ─── In-Memory Data Store ───────────────────────────────────────────
 let cachedMatches = [];
+let cachedCricketMatches = [];
 
 // Wallets: { username: number }
 const wallets = {};
@@ -85,6 +86,25 @@ async function fetchFootballData() {
     settleAllBets();
   } catch (error) {
     console.error('API Request Error:', error.response ? error.response.data : error.message);
+  }
+}
+
+async function fetchCricketData() {
+  try {
+    if (!process.env.CRICKET_API_KEY) {
+      console.warn("CRICKET_API_KEY is missing from environment. Skipping cricket API fetch.");
+      return;
+    }
+    const url = `https://api.cricapi.com/v1/currentMatches?apikey=${process.env.CRICKET_API_KEY}`;
+    const response = await axios.get(url);
+    if (response.data && response.data.data) {
+      cachedCricketMatches = response.data.data;
+      console.log(`[${new Date().toLocaleTimeString()}] Updated cricket match data successfully! Total matches: ${cachedCricketMatches.length}`);
+    } else {
+      console.warn("CricAPI returned no matches or error status:", response.data);
+    }
+  } catch (error) {
+    console.error('Cricket API Request Error:', error.message);
   }
 }
 
@@ -167,6 +187,14 @@ app.get('/api/matches', (req, res) => {
   res.json({
     totalMatches: cachedMatches.length,
     matches: cachedMatches
+  });
+});
+
+// GET /api/cricket/matches — Return cached live cricket match data
+app.get('/api/cricket/matches', (req, res) => {
+  res.json({
+    totalMatches: cachedCricketMatches.length,
+    matches: cachedCricketMatches
   });
 });
 
@@ -342,6 +370,9 @@ app.get('/api/bets/all', (req, res) => {
 // ─── Start Server ───────────────────────────────────────────────────
 fetchFootballData();
 setInterval(fetchFootballData, 60000);
+
+fetchCricketData();
+setInterval(fetchCricketData, 60000);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
