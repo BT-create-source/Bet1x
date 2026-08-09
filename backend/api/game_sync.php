@@ -156,7 +156,14 @@ function calculate_color_payout(array $bets, int $num): float {
 
 function settle_color_room(string $room, string $target_round, array &$state): void {
     $bets = $state[$room]['bets'][$target_round] ?? [];
-    $override = $state[$room]['overrides'] ?? [];
+    
+    // Decoupled: Load outcome overrides from dedicated state key
+    $override_key = "color_guess_overrides_" . $room;
+    $override = db_api_request('GET', '/api/db/state/' . $override_key);
+    if ($override === null) {
+        $override = $state[$room]['overrides'] ?? [];
+    }
+
     $num = null;
 
     if (isset($override['number']) && $override['number'] !== '') {
@@ -277,8 +284,12 @@ function settle_color_room(string $room, string $target_round, array &$state): v
     }
 
     unset($state[$room]['bets'][$target_round]);
-    $state[$room]['overrides'] = ['color' => '', 'number' => '', 'size' => '', 'rig_type' => ''];
+    $empty_override = ['color' => '', 'number' => '', 'size' => '', 'rig_type' => ''];
+    $state[$room]['overrides'] = $empty_override;
     $state[$room]['last_settled_round'] = $target_round;
+
+    // Decoupled: Clear outcome overrides from dedicated state key
+    db_api_request('POST', '/api/db/state/' . $override_key, ['data' => $empty_override]);
 }
 
 switch ($action) {
@@ -376,6 +387,13 @@ switch ($action) {
             $state[$room]['history'] = array_reverse($db_history);
         }
 
+        // Decoupled: Load outcome overrides from dedicated state key
+        $override_key = "color_guess_overrides_" . $room;
+        $overrides = db_api_request('GET', '/api/db/state/' . $override_key);
+        if ($overrides === null) {
+            $overrides = $state[$room]['overrides'] ?? [];
+        }
+
         echo json_encode([
             'round_id' => $current_round_id,
             'time_left' => $time_left,
@@ -385,7 +403,7 @@ switch ($action) {
             'my_bets' => $my_bets,
             'wallet_balance' => $bal,
             'aggregates' => $aggs,
-            'overrides' => $state[$room]['overrides'] ?? [],
+            'overrides' => $overrides,
             'active_users' => count($users)
         ]);
         break;
@@ -720,13 +738,20 @@ switch ($action) {
             $total_stake = 0;
             foreach ($bets as $b) { $total_stake += $b['amount']; }
 
+            // Decoupled: Load outcome overrides from dedicated state key
+            $override_key = "color_guess_overrides_" . $room;
+            $overrides = db_api_request('GET', '/api/db/state/' . $override_key);
+            if ($overrides === null) {
+                $overrides = $colors[$room]['overrides'] ?? [];
+            }
+
             $colorData[$room] = [
                 'round_id' => $r_id,
                 'time_left' => $t_left,
                 'duration' => $dur,
                 'bets' => $bets,
                 'total_stake' => $total_stake,
-                'overrides' => $colors[$room]['overrides'] ?? []
+                'overrides' => $overrides
             ];
         }
         if ($colors_changed) {
@@ -828,13 +853,19 @@ switch ($action) {
                 exit;
             }
 
-            $state = load_sync_state(COLOR_STATE_FILE, []);
-            $state[$room]['overrides'] = [
+            // Decoupled: Save overrides to dedicated state key
+            $override_key = "color_guess_overrides_" . $room;
+            $overrides = [
                 'color' => $color,
                 'number' => $number,
                 'size' => $size,
                 'rig_type' => $rig_type
             ];
+            db_api_request('POST', '/api/db/state/' . $override_key, ['data' => $overrides]);
+
+            // Keep in main state file for visual syncing backwards compatibility
+            $state = load_sync_state(COLOR_STATE_FILE, []);
+            $state[$room]['overrides'] = $overrides;
             save_sync_state(COLOR_STATE_FILE, $state);
             echo json_encode(['success' => true]);
         } elseif ($game === 'aviator') {
