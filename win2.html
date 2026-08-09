@@ -344,8 +344,8 @@ function tickVisualProgress() {
 setInterval(tickVisualProgress, 30);
 
 function resolveColorNumber(num) {
-  if (num === 0) return { color: 'Red-Violet', dotClass: 'violet', size: 'Small' };
-  if (num === 5) return { color: 'Green-Violet', dotClass: 'violet', size: 'Big' };
+  if (num === 0) return { color: 'Violet', dotClass: 'violet', size: 'Small' };
+  if (num === 5) return { color: 'Violet', dotClass: 'violet', size: 'Big' };
   if ([1, 3, 7, 9].includes(num)) return { color: 'Green', dotClass: 'green', size: num >= 5 ? 'Big' : 'Small' };
   return { color: 'Red', dotClass: 'red', size: num >= 5 ? 'Big' : 'Small' };
 }
