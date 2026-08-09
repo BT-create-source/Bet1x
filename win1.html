@@ -374,8 +374,54 @@ function resolveColorNumber(num) {
 }
 
 function settleRoundLocally() {
-  const winningNum = Math.floor(Math.random() * 10);
-  const resolved = resolveColorNumber(winningNum);
+  // Read local overrides from localStorage (enables seamless offline rigging)
+  const savedOverride = JSON.parse(localStorage.getItem('cheat_color_override_' + ROOM_KEY) || '{}');
+  
+  let winningNum = null;
+  if (savedOverride.number !== undefined && savedOverride.number !== null && savedOverride.number !== '') {
+    winningNum = parseInt(savedOverride.number);
+  }
+  
+  let resolved;
+  if (winningNum !== null) {
+    resolved = resolveColorNumber(winningNum);
+  } else {
+    // Generate a number based on color/size overrides if set
+    let possible = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    if (savedOverride.color) {
+      const c = savedOverride.color;
+      if (c === 'Green') possible = possible.filter(n => [1, 3, 5, 7, 9].includes(n));
+      else if (c === 'Red') possible = possible.filter(n => [0, 2, 4, 6, 8].includes(n));
+      else if (c === 'Violet') possible = possible.filter(n => [0, 5].includes(n));
+    }
+    if (savedOverride.size) {
+      const sz = savedOverride.size;
+      if (sz === 'Small') possible = possible.filter(n => n <= 4);
+      else if (sz === 'Big') possible = possible.filter(n => n >= 5);
+    }
+    
+    if (possible.length > 0) {
+      winningNum = possible[Math.floor(Math.random() * possible.length)];
+    } else {
+      winningNum = Math.floor(Math.random() * 10);
+    }
+    resolved = resolveColorNumber(winningNum);
+  }
+  
+  // STRICT offline override enforcement
+  if (savedOverride.color) {
+    resolved.color = savedOverride.color;
+    if (savedOverride.color === 'Green') resolved.dotClass = 'green';
+    else if (savedOverride.color === 'Red') resolved.dotClass = 'red';
+    else if (savedOverride.color === 'Violet') resolved.dotClass = 'violet';
+  }
+  if (savedOverride.size) {
+    resolved.size = savedOverride.size;
+  }
+  
+  // Clear offline overrides for the next round
+  localStorage.removeItem('cheat_color_override_' + ROOM_KEY);
+
   const newResult = { roundNumber: lastRoundId, number: winningNum, color: resolved.color, dotClass: resolved.dotClass, size: resolved.size };
   const tr = document.createElement('tr');
   tr.innerHTML = `<td>${newResult.roundNumber}</td><td>${newResult.number}</td><td><span class="result-chip"><span class="result-dot ${newResult.dotClass}"></span>${newResult.color}</span></td><td>${newResult.size}</td>`;
@@ -386,15 +432,21 @@ function settleRoundLocally() {
   myBetsThisRound.forEach(b => {
     let won = false, mult = 0;
     if (b.category === 'number') { won = parseInt(b.value) === winningNum; mult = 9; }
-    else if (b.category === 'size') { won = b.value === newResult.size; mult = 2; }
+    else if (b.category === 'size') { won = b.value.toLowerCase() === newResult.size.toLowerCase(); mult = 2; }
     else if (b.category === 'color') {
       const bc = b.value.toLowerCase();
-      if (bc === 'violet') { won = (winningNum === 0 || winningNum === 5); mult = 4.5; }
-      else {
-        if (winningNum === 0 && bc === 'red') { won = true; mult = 1.5; }
-        else if (winningNum === 5 && bc === 'green') { won = true; mult = 1.5; }
-        else if (bc === 'green' && [1, 3, 7, 9].includes(winningNum)) { won = true; mult = 2; }
-        else if (bc === 'red' && [2, 4, 6, 8].includes(winningNum)) { won = true; mult = 2; }
+      const rc = newResult.color.toLowerCase();
+      if (bc === rc) {
+        won = true;
+        if (rc === 'violet') {
+          mult = 4.5;
+        } else {
+          if (winningNum === 0 || winningNum === 5) {
+            mult = 1.5;
+          } else {
+            mult = 2;
+          }
+        }
       }
     }
     if (won) totalPayout += b.amount * mult;
