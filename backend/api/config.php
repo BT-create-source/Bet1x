@@ -17,7 +17,7 @@ define('STARTING_BALANCE', 1000.00);
 
 // Admin Credentials
 define('ADMIN_USER', 'admin');
-define('ADMIN_PASS_HASH', password_hash('Admin@Bet1x_2026', PASSWORD_BCRYPT)); // Securely hashed default password
+define('ADMIN_PASS_HASH', password_hash('admin', PASSWORD_BCRYPT)); // Securely hashed default password
 
 // Database JSON directories
 define('DATA_DIR', __DIR__ . '/../data');

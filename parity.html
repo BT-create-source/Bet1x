@@ -93,61 +93,119 @@
 const ROOM_PLAYER_COUNTS = { sapre: 612, becone: 487, emred: 253, vip: 96 };
 
 function renderDashboard(roomKey) {
-  const dist = generateFakeDistribution();
-  const totalBets = dist.colors.reduce((s, c) => s + c.bets, 0);
-  const totalAmt = dist.colors.reduce((s, c) => s + c.amount, 0);
+  fetch('api/game_sync.php?action=admin_get_games')
+    .then(res => res.json())
+    .then(data => {
+      if (data.error) {
+        window.location.href = 'admin.html';
+        return;
+      }
+      
+      const roomData = data.color_guess[roomKey];
+      if (!roomData) return;
 
-  animateCounter(document.getElementById('statPendingBets'), totalBets);
-  animateCounter(document.getElementById('statPendingAmt'), totalAmt, { prefix: '🪙' });
-  animateCounter(document.getElementById('statPlayers'), ROOM_PLAYER_COUNTS[roomKey]);
-  document.getElementById('statRound').textContent = formatRoundId(new Date(), randomInt(10000, 99999));
+      const bets = roomData.bets || [];
+      const totalBets = bets.length;
+      const totalAmt = bets.reduce((s, b) => s + b.amount, 0);
 
-  // color bars
-  const maxColorAmt = Math.max(...dist.colors.map(c => c.amount));
-  document.getElementById('colorBars').innerHTML = dist.colors.map(c => `
-    <div class="bar-row">
-      <div class="bar-label">${c.label}</div>
-      <div class="bar-track"><div class="bar-fill" style="width:${(c.amount / maxColorAmt * 100).toFixed(0)}%; background: var(--${c.cls});"></div></div>
-      <div class="bar-value">🪙${c.amount.toLocaleString('en-IN')} (${c.bets})</div>
-    </div>
-  `).join('');
+      animateCounter(document.getElementById('statPendingBets'), totalBets);
+      animateCounter(document.getElementById('statPendingAmt'), totalAmt, { prefix: '🪙' });
+      
+      const playersCount = ROOM_PLAYER_COUNTS[roomKey] || 0;
+      animateCounter(document.getElementById('statPlayers'), playersCount);
+      
+      document.getElementById('statRound').textContent = roomData.round_id || '—';
 
-  // size bars
-  const maxSizeAmt = Math.max(...dist.sizes.map(s => s.amount));
-  document.getElementById('sizeBars').innerHTML = dist.sizes.map(s => `
-    <div class="bar-row">
-      <div class="bar-label">${s.label}</div>
-      <div class="bar-track"><div class="bar-fill" style="width:${(s.amount / maxSizeAmt * 100).toFixed(0)}%; background: var(--violet);"></div></div>
-      <div class="bar-value">🪙${s.amount.toLocaleString('en-IN')} (${s.bets})</div>
-    </div>
-  `).join('');
+      // color distribution
+      const colorsMap = {
+        Green: { label: 'Green', cls: 'green', bets: 0, amount: 0 },
+        Red: { label: 'Red', cls: 'red', bets: 0, amount: 0 },
+        Violet: { label: 'Violet', cls: 'violet', bets: 0, amount: 0 }
+      };
+      
+      // size distribution
+      const sizesMap = {
+        Big: { label: 'Big', bets: 0, amount: 0 },
+        Small: { label: 'Small', bets: 0, amount: 0 }
+      };
 
-  // number bars
-  const maxNumAmt = Math.max(...dist.numbers.map(n => n.amount));
-  document.getElementById('numberBars').innerHTML = dist.numbers.map(n => `
-    <div class="bar-row">
-      <div class="bar-label">Number ${n.n}</div>
-      <div class="bar-track"><div class="bar-fill" style="width:${(n.amount / maxNumAmt * 100).toFixed(0)}%; background: var(--gold);"></div></div>
-      <div class="bar-value">🪙${n.amount.toLocaleString('en-IN')} (${n.bets})</div>
-    </div>
-  `).join('');
+      // number distribution
+      const numbersMap = Array.from({ length: 10 }, (_, i) => ({ n: i, bets: 0, amount: 0 }));
 
-  // individual pending bets table
-  const rows = [];
-  for (let i = 0; i < 12; i++) {
-    const ev = generateFakeActivityEvent();
-    const label = ev.category === 'number' ? `Number ${ev.value}` : ev.value;
-    rows.push(`
-      <tr>
-        <td>${ev.user}</td>
-        <td>${ev.category[0].toUpperCase() + ev.category.slice(1)}</td>
-        <td>${label}</td>
-        <td>🪙${ev.amount}</td>
-        <td>${randomInt(1, 28)}s ago</td>
-      </tr>
-    `);
-  }
-  document.getElementById('pendingBetsBody').innerHTML = rows.join('');
+      bets.forEach(b => {
+        const cat = b.category;
+        const val = b.value;
+        const amt = b.amount;
+        if (cat === 'color') {
+          if (colorsMap[val]) {
+            colorsMap[val].bets++;
+            colorsMap[val].amount += amt;
+          }
+        } else if (cat === 'size') {
+          if (sizesMap[val]) {
+            sizesMap[val].bets++;
+            sizesMap[val].amount += amt;
+          }
+        } else if (cat === 'number') {
+          const num = parseInt(val);
+          if (num >= 0 && num <= 9) {
+            numbersMap[num].bets++;
+            numbersMap[num].amount += amt;
+          }
+        }
+      });
+
+      const colors = Object.values(colorsMap);
+      const sizes = Object.values(sizesMap);
+
+      // render color bars
+      const maxColorAmt = Math.max(...colors.map(c => c.amount), 1);
+      document.getElementById('colorBars').innerHTML = colors.map(c => `
+        <div class="bar-row">
+          <div class="bar-label">${c.label}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${(c.amount / maxColorAmt * 100).toFixed(0)}%; background: var(--${c.cls});"></div></div>
+          <div class="bar-value">🪙${c.amount.toLocaleString('en-IN')} (${c.bets})</div>
+        </div>
+      `).join('');
+
+      // render size bars
+      const maxSizeAmt = Math.max(...sizes.map(s => s.amount), 1);
+      document.getElementById('sizeBars').innerHTML = sizes.map(s => `
+        <div class="bar-row">
+          <div class="bar-label">${s.label}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${(s.amount / maxSizeAmt * 100).toFixed(0)}%; background: var(--violet);"></div></div>
+          <div class="bar-value">🪙${s.amount.toLocaleString('en-IN')} (${s.bets})</div>
+        </div>
+      `).join('');
+
+      // render number bars
+      const maxNumAmt = Math.max(...numbersMap.map(n => n.amount), 1);
+      document.getElementById('numberBars').innerHTML = numbersMap.map(n => `
+        <div class="bar-row">
+          <div class="bar-label">Number ${n.n}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${(n.amount / maxNumAmt * 100).toFixed(0)}%; background: var(--gold);"></div></div>
+          <div class="bar-value">🪙${n.amount.toLocaleString('en-IN')} (${n.bets})</div>
+        </div>
+      `).join('');
+
+      // render individual pending bets table
+      const rows = bets.map(b => {
+        const label = b.category === 'number' ? `Number ${b.value}` : b.value;
+        return `
+          <tr>
+            <td><b>${b.username}</b></td>
+            <td>${b.category[0].toUpperCase() + b.category.slice(1)}</td>
+            <td>${label}</td>
+            <td>🪙${b.amount.toFixed(2)}</td>
+            <td>Active</td>
+          </tr>
+        `;
+      }).join('');
+      document.getElementById('pendingBetsBody').innerHTML = rows || '<tr><td colspan="5" class="text-dim" style="text-align:center; padding:16px;">No pending bets this round.</td></tr>';
+    })
+    .catch(err => {
+      console.error("Error fetching admin games state:", err);
+    });
 }
 
 document.getElementById('roomSelect').addEventListener('change', (e) => renderDashboard(e.target.value));

@@ -377,7 +377,7 @@ function settleRoundLocally() {
     if (won) totalPayout += b.amount * mult;
   });
   if (totalPayout > 0) {
-    adjustWallet(totalPayout, `${ROOM_KEY.toUpperCase()} Win Payout Round #${lastRoundId}`);
+    adjustWallet(totalPayout, `Color Guess Win: Room ${ROOM_KEY.charAt(0).toUpperCase() + ROOM_KEY.slice(1)} Round #${lastRoundId} Payout`);
     showSettlementAlert(`Round settled! Result: ${winningNum} (${newResult.color}, ${newResult.size}) — you won 🪙${totalPayout.toFixed(2)}`, 'success');
     triggerWinShower(document.querySelector('.card'));
   } else if (hasBets) {
@@ -476,7 +476,7 @@ placeBetBtn.addEventListener('click', () => {
     return;
   }
   if (isOffline) {
-    adjustWallet(-selectedAmount, `${ROOM_KEY.toUpperCase()} Bet placed`);
+    adjustWallet(-selectedAmount, `Color Guess Wager: Room ${ROOM_KEY.charAt(0).toUpperCase() + ROOM_KEY.slice(1)} Round #${lastRoundId} Selection: ${selectedCat} (${selectedVal})`);
     myBetsThisRound.push({ category: selectedCat, value: selectedVal, amount: selectedAmount });
     renderMyBets();
     showAlert(`Bet placed: ${selectedCat.toUpperCase()} · ${selectedVal} for 🪙${selectedAmount.toFixed(2)}`, 'success');

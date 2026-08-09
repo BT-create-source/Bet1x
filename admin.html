@@ -381,6 +381,7 @@
           <table class="admin-table">
             <thead>
               <tr>
+                <th>Username</th>
                 <th>Round ID</th>
                 <th>Game Type</th>
                 <th>Selection</th>
@@ -988,7 +989,6 @@
 
           const savedTab = localStorage.getItem('admin_active_tab') || 'cheats';
           switchAdminTab(savedTab);
-          localStorage.removeItem('admin_active_tab');
         } else {
           showAdminLoginOverlay();
         }
@@ -1005,7 +1005,6 @@
 
             const savedTab = localStorage.getItem('admin_active_tab') || 'cheats';
             switchAdminTab(savedTab);
-            localStorage.removeItem('admin_active_tab');
           } else {
             showAdminLoginOverlay();
           }
@@ -1121,6 +1120,8 @@
 
       const targetContent = document.getElementById('admin-' + tabId);
       if (targetContent) targetContent.classList.add('active');
+
+      localStorage.setItem('admin_active_tab', tabId);
 
       if (tabId === 'cheats' || (btnEl && btnEl.textContent.includes('Outcome Bias'))) {
         if (typeof pollLiveAdminGames === 'function') pollLiveAdminGames();
@@ -1733,27 +1734,88 @@
     }
 
     // Tab 4: Render Betting History
+    function parseBetTransaction(t) {
+      const details = t.details || '';
+      let roundId = '—';
+      let gameType = 'Game';
+      let selection = '—';
+
+      if (details.includes('Color Guess') || details.includes('Color Room') || details.includes('SAPRE') || details.includes('BECONE') || details.includes('EMRED') || details.includes('VIP')) {
+        gameType = 'Color Prediction';
+        if (details.toLowerCase().includes('sapre')) gameType += ' (Sapre)';
+        else if (details.toLowerCase().includes('becone')) gameType += ' (Becone)';
+        else if (details.toLowerCase().includes('emred')) gameType += ' (Emred)';
+        else if (details.toLowerCase().includes('vip')) gameType += ' (VIP)';
+      } else if (details.includes('Aviator') || details.includes('Vimaan')) {
+        gameType = 'Vimaan (Aviator)';
+      } else if (details.includes('Teen Patti')) {
+        gameType = 'Teen Patti';
+      } else if (details.includes('Mines')) {
+        gameType = 'Mines';
+      } else if (details.includes('Football')) {
+        gameType = 'Football Betting';
+      } else if (details.includes('Cricket') || details.includes('Boundary') || details.includes('Predictor')) {
+        gameType = 'Cricket Predictor';
+      }
+
+      const roundMatch = details.match(/Round\s*#?([A-Za-z0-9_]+)/i) || details.match(/#([0-9]+)/);
+      if (roundMatch) {
+        roundId = roundMatch[1];
+      } else if (details.includes('Bet #')) {
+        const betMatch = details.match(/Bet\s*#?([0-9]+)/i);
+        if (betMatch) roundId = 'B' + betMatch[1];
+      }
+
+      if (details.includes('Selection:')) {
+        const parts = details.split('Selection:');
+        if (parts.length > 1) selection = parts[1].trim();
+      } else {
+        if (gameType.includes('Color')) {
+          if (details.includes('Win') || details.includes('Payout')) selection = 'Win Payout';
+          else selection = 'Color Wager';
+        } else if (gameType.includes('Aviator')) {
+          if (details.includes('Cashout') || details.includes('Payout')) selection = 'Multiplier Payout';
+          else selection = 'Flight Wager';
+        } else if (gameType.includes('Teen Patti')) {
+          if (details.includes('boot')) selection = 'Ante Boot';
+          else if (details.includes('chaal')) selection = 'Chaal Bet';
+          else if (details.includes('show')) selection = 'Show Bet';
+          else if (details.includes('won')) selection = 'Pot Payout';
+        } else if (gameType.includes('Mines')) {
+          if (details.includes('Cash Out')) selection = 'Mines Cashout';
+          else selection = 'Mines Wager';
+        } else if (gameType.includes('Football')) {
+          if (details.includes('Win')) selection = 'Match Win Payout';
+          else selection = 'Football Bet';
+        }
+      }
+
+      return { roundId, gameType, selection };
+    }
+
     function renderWagers() {
       const tbody = document.getElementById('adminWagersBody');
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-dim); padding:16px;">Loading...</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-dim); padding:16px;">Loading...</td></tr>';
 
       if (window.isOfflineMode) {
         tbody.innerHTML = '';
         const txns = JSON.parse(localStorage.getItem('bet1x_transactions') || '[]');
-        const wagers = txns.filter(t => t.details && (t.details.includes('Teen Patti') || t.details.includes('Cricket') || t.details.includes('Color Room')));
+        const wagers = txns.filter(t => t.details && (t.details.includes('Teen Patti') || t.details.includes('Cricket') || t.details.includes('Color Room') || t.details.includes('Color Guess') || t.details.includes('Aviator') || t.details.includes('Vimaan') || t.details.includes('Wager') || t.details.includes('Mines') || t.details.includes('Football')));
         if (wagers.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-dim); padding:16px;">No game bets logs found.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-dim); padding:16px;">No game bets logs found.</td></tr>`;
           return;
         }
         wagers.forEach(t => {
+          const parsed = parseBetTransaction(t);
           let badgeCls = t.type === 'Deposit' ? 'completed' : 'rejected';
           let statusText = t.type === 'Deposit' ? 'Won' : 'Placed';
 
           const row = document.createElement('tr');
           row.innerHTML = `
-            <td><code>${t.id}</code></td>
             <td><b>${t.user}</b></td>
-            <td>${t.details.split(':')[0]}</td>
+            <td><code>${parsed.roundId}</code></td>
+            <td>${parsed.gameType}</td>
+            <td><span class="badge pending" style="background:#1e293b; color:#fff; border:1px solid #475569;">${parsed.selection}</span></td>
             <td style="font-family:var(--font-mono);">🪙${parseFloat(t.amount).toFixed(2)}</td>
             <td><span class="badge ${badgeCls}">${statusText}</span></td>
             <td style="font-family:var(--font-mono); color:${t.type === 'Deposit' ? 'var(--green)' : 'inherit'}; font-weight:700;">🪙${t.type === 'Deposit' ? parseFloat(t.amount).toFixed(2) : '0.00'}</td>
@@ -1768,22 +1830,24 @@
         .then(res => res.json())
         .then(txns => {
           tbody.innerHTML = '';
-          const wagers = txns.filter(t => t.details && (t.details.includes('Teen Patti') || t.details.includes('Cricket') || t.details.includes('Color Room') || t.details.includes('Aviator') || t.details.includes('Vimaan') || t.details.includes('Wager')));
+          const wagers = txns.filter(t => t.details && (t.details.includes('Teen Patti') || t.details.includes('Cricket') || t.details.includes('Color Room') || t.details.includes('Color Guess') || t.details.includes('Aviator') || t.details.includes('Vimaan') || t.details.includes('Wager') || t.details.includes('Mines') || t.details.includes('Football')));
 
           if (wagers.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-dim); padding:16px;">No game bets logs found.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-dim); padding:16px;">No game bets logs found.</td></tr>`;
             return;
           }
 
           wagers.reverse().forEach(t => {
+            const parsed = parseBetTransaction(t);
             let badgeCls = t.type === 'Deposit' ? 'completed' : 'rejected';
             let statusText = t.type === 'Deposit' ? 'Won' : 'Placed';
 
             const row = document.createElement('tr');
             row.innerHTML = `
-            <td><code>${t.id}</code></td>
             <td><b>${t.user}</b></td>
-            <td>${t.details.split(':')[0]}</td>
+            <td><code>${parsed.roundId}</code></td>
+            <td>${parsed.gameType}</td>
+            <td><span class="badge pending" style="background:#1e293b; color:#fff; border:1px solid #475569;">${parsed.selection}</span></td>
             <td style="font-family:var(--font-mono);">🪙${parseFloat(t.amount).toFixed(2)}</td>
             <td><span class="badge ${badgeCls}">${statusText}</span></td>
             <td style="font-family:var(--font-mono); color:${t.type === 'Deposit' ? 'var(--green)' : 'inherit'}; font-weight:700;">🪙${t.type === 'Deposit' ? parseFloat(t.amount).toFixed(2) : '0.00'}</td>

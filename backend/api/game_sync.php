@@ -415,15 +415,16 @@ switch ($action) {
             exit;
         }
 
-        $adj = db_adjust_wallet($username, -$amount, "Color Guess Wager: Room " . ucfirst($room));
+        $now = time();
+        $current_round_id = get_color_round_id($room, $now);
+
+        $adj = db_adjust_wallet($username, -$amount, "Color Guess Wager: Room " . ucfirst($room) . " Round #$current_round_id Selection: $category ($value)");
         if (isset($adj['error'])) {
             echo json_encode(['error' => $adj['error']]);
             exit;
         }
 
         $state = load_sync_state(COLOR_STATE_FILE, []);
-        $now = time();
-        $current_round_id = get_color_round_id($room, $now);
 
         if (!isset($state[$room]['bets'][$current_round_id])) {
             $state[$room]['bets'][$current_round_id] = [];
