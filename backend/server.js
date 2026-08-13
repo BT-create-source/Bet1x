@@ -16,6 +16,8 @@ const PORT = process.env.PORT || 5000;
 const prisma = new PrismaClient();
 
 async function getOrCreateUser(username) {
+  if (Array.isArray(username)) username = username[0];
+  if (!username || typeof username !== 'string') username = String(username || 'DemoUser');
   let user = await prisma.user.findFirst({ where: { username: { equals: username, mode: 'insensitive' } } });
   if (!user) {
     try {
@@ -31,12 +33,23 @@ async function getOrCreateUser(username) {
     } catch (e) {
       console.error(`Error auto-creating user ${username}:`, e);
     }
+  } else if (user.wallet_balance < 10) {
+    try {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { wallet_balance: 2000.00 }
+      });
+      console.log(`[TP] Auto-topped up player ${username} back to ₹2000.00 for testing.`);
+    } catch (e) { }
   }
   return user;
 }
 
 app.use(cors({
-  origin: true,
+  origin: function (origin, callback) {
+    if (!origin || origin === 'null') return callback(null, true);
+    return callback(null, true);
+  },
   credentials: true
 }));
 app.use(express.json());
@@ -1378,6 +1391,1241 @@ app.post('/api/db/:table/sync', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// ========================================================================
+// TEEN PATTI — REAL-TIME MULTIPLAYER ENGINE
+// ========================================================================
+
+const TP_ROOMS = [
+  { id: 'room_101', name: 'Room 1', boot_amount: 10 },
+  { id: 'room_102', name: 'Room 2', boot_amount: 100 },
+  { id: 'room_103', name: 'Room 3', boot_amount: 50 },
+  { id: 'room_104', name: 'Room 4', boot_amount: 50 },
+  { id: 'room_105', name: 'Room 5', boot_amount: 25 },
+  { id: 'room_106', name: 'Room 6', boot_amount: 250 },
+];
+
+const TP_BOT_NAMES = ['BOT_Raju', 'BOT_Vikram', 'BOT_Sana', 'BOT_Kabir'];
+const TP_TURN_TIMEOUT = 15; // seconds
+const TP_BOT_FILL_DELAY = 15000; // 15s before bots fill empty seats
+const TP_BOT_THINK_MIN = 1500;
+const TP_BOT_THINK_MAX = 3500;
+const TP_ROUND_DELAY = 5000; // 5s between rounds
+const TP_SEAT_HEARTBEATS = {};
+
+// -- Card utilities --
+function tpCreateDeck() {
+  const suits = ['S', 'H', 'C', 'D'];
+  const deck = [];
+  for (let r = 2; r <= 14; r++) {
+    for (const s of suits) deck.push({ r, s });
+  }
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck;
+}
+
+function tpEvaluateHand(cards) {
+  if (!cards || cards.length < 3) return [0, [0], 0];
+  const ranks = cards.map(c => c.r).sort((a, b) => b - a);
+  const suits = cards.map(c => c.s || c.suit); // handle both raw {r,s} and formatted {r,suit}
+  const isColor = suits[0] === suits[1] && suits[1] === suits[2];
+  let isSeq = false;
+  let seqTiebreak = ranks;
+  if (ranks[0] - ranks[1] === 1 && ranks[1] - ranks[2] === 1) {
+    isSeq = true;
+  } else if (ranks[0] === 14 && ranks[1] === 3 && ranks[2] === 2) {
+    isSeq = true;
+    seqTiebreak = [3, 2, 1];
+  }
+  const bestSuit = Math.max(...suits.map(s => ({ S: 4, H: 3, C: 2, D: 1 }[s] || 0)));
+
+  if (ranks[0] === ranks[1] && ranks[1] === ranks[2]) return [6, [ranks[0]], bestSuit];
+  if (isSeq && isColor) return [5, seqTiebreak, bestSuit];
+  if (isSeq) return [4, seqTiebreak, bestSuit];
+  if (isColor) return [3, ranks, bestSuit];
+  if (ranks[0] === ranks[1]) return [2, [ranks[0], ranks[2]], bestSuit];
+  if (ranks[1] === ranks[2]) return [2, [ranks[1], ranks[0]], bestSuit];
+  return [1, ranks, bestSuit];
+}
+
+function tpHandWins(a, b) {
+  if (a[0] !== b[0]) return a[0] > b[0];
+  for (let i = 0; i < a[1].length; i++) {
+    if ((a[1][i] || 0) !== (b[1][i] || 0)) return a[1][i] > b[1][i];
+  }
+  return a[2] > b[2];
+}
+
+function tpFindObliviousWinningHand(deck, rivalHand) {
+  let bestCandidateCards = null;
+  let bestCandidateEval = null;
+
+  for (let i = 0; i < deck.length - 2; i++) {
+    for (let j = i + 1; j < deck.length - 1; j++) {
+      for (let k = j + 1; k < deck.length; k++) {
+        const cards = [deck[i], deck[j], deck[k]];
+        const ev = tpEvaluateHand(cards);
+
+        // Must strictly beat rivalHand
+        if (tpHandWins(ev, rivalHand)) {
+          // We want the candidate hand with minimum winning margin over rivalHand
+          if (!bestCandidateEval || tpHandWins(bestCandidateEval, ev)) {
+            bestCandidateEval = ev;
+            bestCandidateCards = cards;
+          }
+        }
+      }
+    }
+  }
+
+  return { cards: bestCandidateCards, evaluation: bestCandidateEval };
+}
+
+function tpHandLabel(cat) {
+  return { 6: 'Trail', 5: 'Pure Sequence', 4: 'Sequence', 3: 'Color', 2: 'Pair', 1: 'High Card' }[cat] || 'Unknown';
+}
+
+function tpRankLabel(r) {
+  return { 11: 'J', 12: 'Q', 13: 'K', 14: 'A' }[r] || String(r);
+}
+
+function tpSuitSymbol(s) {
+  return { S: '♠', H: '♥', C: '♣', D: '♦' }[s] || s;
+}
+
+function tpFormatCards(cards) {
+  if (!cards) return null;
+  return cards.map(c => {
+    const suitKey = c.s || c.suit; // handle both raw {r,s} and pre-formatted {r,suit}
+    return {
+      label: tpRankLabel(c.r),
+      suit: suitKey,
+      symbol: tpSuitSymbol(suitKey),
+      red: suitKey === 'H' || suitKey === 'D',
+      r: c.r
+    };
+  });
+}
+
+// -- Seed rooms --
+async function tpSeedRooms() {
+  const defaultRooms = [
+    { id: 'room_101', name: 'Room 1', boot_amount: 10 },
+    { id: 'room_102', name: 'Room 2', boot_amount: 100 },
+    { id: 'room_103', name: 'Room 3', boot_amount: 50 },
+    { id: 'room_104', name: 'Room 4', boot_amount: 50 },
+    { id: 'room_105', name: 'Room 5', boot_amount: 25 },
+    { id: 'room_106', name: 'Room 6', boot_amount: 250 },
+  ];
+
+  for (const r of defaultRooms) {
+    const existing = await prisma.teenPattiRoom.findUnique({ where: { id: r.id } });
+    if (!existing) {
+      await prisma.teenPattiRoom.create({
+        data: {
+          id: r.id,
+          name: r.name,
+          boot_amount: r.boot_amount,
+          status: 'waiting',
+          pot: 0,
+          current_stake: r.boot_amount,
+          log: [],
+          seats: {
+            create: [
+              { seat: 0, is_bot: false },
+              { seat: 1, is_bot: false },
+              { seat: 2, is_bot: false },
+              { seat: 3, is_bot: false },
+            ]
+          }
+        }
+      });
+      console.log(`[TP] Seeded room ${r.id} — ${r.name}`);
+    } else {
+      // Full reset: clear ALL seats from previous run so rooms start fresh at 0/4
+      await prisma.teenPattiSeat.updateMany({
+        where: { room_id: r.id },
+        data: { username: null, is_bot: false, cards: null, folded: false }
+      });
+      await prisma.teenPattiRoom.update({
+        where: { id: r.id },
+        data: { status: 'waiting', pot: 0, winner_seat: null, admin_rig: null }
+      });
+    }
+  }
+}
+
+// -- Bot decision --
+function tpBotDecide(cards, stake) {
+  const hand = tpEvaluateHand(cards);
+  const cat = hand[0];
+  const rand = Math.random() * 100;
+  if (cat >= 5) return 'chaal';
+  if (cat === 4 && rand <= 90) return 'chaal';
+  if (cat === 3 && rand <= 70) return 'chaal';
+  if (cat === 2 && rand <= 55) return 'chaal';
+  if (cat === 1 && rand <= 25) return 'chaal';
+  return 'fold';
+}
+
+// -- Find next active seat --
+function tpNextActiveSeat(seats, currentTurnSeat) {
+  const activeSeatNums = seats
+    .filter(s => s.username && !s.folded)
+    .map(s => s.seat)
+    .sort((a, b) => a - b);
+  if (activeSeatNums.length === 0) return null;
+  const idx = activeSeatNums.indexOf(currentTurnSeat);
+  const nextIdx = (idx + 1) % activeSeatNums.length;
+  return activeSeatNums[nextIdx];
+}
+
+// -- Deal cards and start a round --
+async function tpStartRound(roomId) {
+  const room = await prisma.teenPattiRoom.findUnique({
+    where: { id: roomId },
+    include: { seats: true }
+  });
+  if (!room) return;
+
+  const occupiedSeats = room.seats.filter(s => s.username);
+  if (occupiedSeats.length < 2) return; // need at least 2 players
+
+  const bootAmt = room.boot_amount;
+
+  // Verify all real players have sufficient balance for the boot
+  let ejectedCount = 0;
+  for (const seat of occupiedSeats) {
+    if (!seat.is_bot && seat.username) {
+      if (seat.username.toLowerCase() === 'admin') {
+        const adminUser = await prisma.user.findFirst({ where: { username: 'Admin' } });
+        if (adminUser) {
+          await prisma.user.update({
+            where: { id: adminUser.id },
+            data: { wallet_balance: 5000.0 }
+          });
+        }
+      }
+
+      const user = await prisma.user.findFirst({
+        where: { username: { equals: seat.username, mode: 'insensitive' } }
+      });
+      if (!user || user.wallet_balance < bootAmt) {
+        console.log(`[TP] Ejecting ${seat.username} from ${roomId} due to insufficient balance.`);
+        await prisma.teenPattiSeat.update({
+          where: { id: seat.id },
+          data: { username: null, is_bot: false, cards: null, folded: false }
+        });
+        seat.username = null; // Mark as empty in memory
+        ejectedCount++;
+      }
+    }
+  }
+
+  // Refetch occupied seats in memory
+  const activeOccupied = occupiedSeats.filter(s => s.username);
+  if (activeOccupied.length < 2) {
+    // Not enough players left, cancel round and reset room to waiting
+    await prisma.teenPattiSeat.updateMany({
+      where: { room_id: roomId },
+      data: { username: null, is_bot: false, cards: null, folded: false }
+    });
+    await prisma.teenPattiRoom.update({
+      where: { id: roomId },
+      data: { status: 'waiting', pot: 0, winner_seat: null }
+    });
+    console.log(`[TP] Round aborted in ${roomId} — insufficient players after balance ejections.`);
+    return;
+  }
+
+  const deck = tpCreateDeck();
+  let pot = 0;
+
+  // Deal cards and deduct boot from each player
+  for (const seat of activeOccupied) {
+    const cards = [deck.shift(), deck.shift(), deck.shift()];
+    pot += bootAmt;
+
+    // Deduct boot from real player wallets
+    if (!seat.is_bot && seat.username) {
+      try {
+        await prisma.user.updateMany({
+          where: { username: { equals: seat.username, mode: 'insensitive' } },
+          data: { wallet_balance: { decrement: bootAmt } }
+        });
+        await prisma.transaction.create({
+          data: {
+            id: 'TP_' + Date.now() + '_' + seat.seat,
+            user: seat.username,
+            type: 'Withdrawal',
+            amount: bootAmt,
+            details: `Teen Patti Boot — ${room.name} Round #${room.round + 1}`,
+            status: 'Completed'
+          }
+        });
+      } catch (e) { console.error('[TP] Boot deduct error:', e.message); }
+    }
+
+    await prisma.teenPattiSeat.update({
+      where: { id: seat.id },
+      data: {
+        cards: cards,
+        folded: false,
+        balance: seat.is_bot ? 5000 : bootAmt * -1, // bots have infinite, track delta for humans
+        seen: seat.is_bot
+      }
+    });
+  }
+
+  // Apply admin rig: Oblivious Rigging (construct closest believable winning hand)
+  if (room.admin_rig && room.admin_rig.winner_seat !== undefined) {
+    const rigSeat = room.admin_rig.winner_seat;
+    const freshSeats = await prisma.teenPattiSeat.findMany({
+      where: { room_id: roomId },
+      orderBy: { seat: 'asc' }
+    });
+    const activeSeats = freshSeats.filter(s => s.username && s.cards);
+    if (activeSeats.length >= 2) {
+      const rivalSeats = activeSeats.filter(s => s.seat !== rigSeat);
+      if (rivalSeats.length > 0) {
+        let bestRivalSeat = rivalSeats[0];
+        for (let i = 1; i < rivalSeats.length; i++) {
+          if (tpHandWins(tpEvaluateHand(rivalSeats[i].cards), tpEvaluateHand(bestRivalSeat.cards))) {
+            bestRivalSeat = rivalSeats[i];
+          }
+        }
+        const rivalBestHand = tpEvaluateHand(bestRivalSeat.cards);
+        const rigTarget = activeSeats.find(s => s.seat === rigSeat);
+
+        if (rigTarget) {
+          // Collect all cards used by rival seats
+          const usedCardKeys = new Set();
+          rivalSeats.forEach(s => {
+            if (s.cards) s.cards.forEach(c => usedCardKeys.add(`${c.r}_${c.suit || c.s}`));
+          });
+
+          const fullDeck = tpCreateDeck();
+          const remainingDeck = fullDeck.filter(c => !usedCardKeys.has(`${c.r}_${c.s}`));
+          const oblivious = tpFindObliviousWinningHand(remainingDeck, rivalBestHand);
+
+          if (oblivious && oblivious.cards) {
+            const formattedRigCards = tpFormatCards(oblivious.cards);
+            await prisma.teenPattiSeat.update({
+              where: { id: rigTarget.id },
+              data: { cards: formattedRigCards }
+            });
+            console.log(`[TP] OBLIVIOUS RIG: Room ${roomId} — Seat ${rigSeat} assigned believable winning hand (${tpHandLabel(oblivious.evaluation[0])}) vs rival (${tpHandLabel(rivalBestHand[0])})`);
+          } else {
+            // Fallback swap
+            const tempCards = rigTarget.cards;
+            await prisma.teenPattiSeat.update({ where: { id: rigTarget.id }, data: { cards: bestRivalSeat.cards } });
+            await prisma.teenPattiSeat.update({ where: { id: bestRivalSeat.id }, data: { cards: tempCards } });
+            console.log(`[TP] OBLIVIOUS RIG FALLBACK: Room ${roomId} — swapped seat ${rigSeat} with best rival seat ${bestRivalSeat.seat}`);
+          }
+        }
+      }
+    }
+  }
+
+  const firstSeat = occupiedSeats.sort((a, b) => a.seat - b.seat)[0].seat;
+
+  await prisma.teenPattiRoom.update({
+    where: { id: roomId },
+    data: {
+      status: 'playing',
+      pot: pot,
+      current_stake: bootAmt,
+      turn_seat: firstSeat,
+      turn_index: 0,
+      turn_start: new Date(),
+      winner_seat: null,
+      round: room.round + 1,
+      deck_state: deck.slice(0, 10), // keep some deck state
+      log: [`Round #${room.round + 1} started! Boot: ₹${bootAmt}. Pot: ₹${pot}`]
+    }
+  });
+
+  console.log(`[TP] Round #${room.round + 1} started in ${roomId} with ${occupiedSeats.length} players. Pot: ₹${pot}`);
+
+  // If first seat is a bot, schedule bot action
+  const firstPlayer = occupiedSeats.find(s => s.seat === firstSeat);
+  if (firstPlayer && (firstPlayer.is_bot || firstPlayer.username.toLowerCase() === 'admin')) {
+    scheduleBotTurn(roomId);
+  }
+}
+
+// -- Process a player action --
+async function tpProcessAction(roomId, username, action) {
+  const room = await prisma.teenPattiRoom.findUnique({
+    where: { id: roomId },
+    include: { seats: { orderBy: { seat: 'asc' } } }
+  });
+  if (!room || room.status !== 'playing') return { error: 'Game not active.' };
+
+  const mySeat = room.seats.find(s => s.username && s.username.toLowerCase() === username.toLowerCase());
+  if (!mySeat) return { error: 'You are not in this room.' };
+  if (mySeat.folded) return { error: 'You already folded.' };
+  if (room.turn_seat !== mySeat.seat) return { error: 'Not your turn.' };
+
+  const activeSeats = room.seats.filter(s => s.username && !s.folded);
+  const log = Array.isArray(room.log) ? [...room.log] : [];
+
+  if (action === 'chaal') {
+    // Deduct stake from real player wallet
+    if (!mySeat.is_bot) {
+      const user = await prisma.user.findFirst({
+        where: { username: { equals: username, mode: 'insensitive' } }
+      });
+      if (!user || user.wallet_balance < room.current_stake) {
+        return { error: 'Insufficient balance for Chaal.' };
+      }
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { wallet_balance: { decrement: room.current_stake } }
+      });
+      await prisma.transaction.create({
+        data: {
+          id: 'TP_' + Date.now() + '_chaal',
+          user: username,
+          type: 'Withdrawal',
+          amount: room.current_stake,
+          details: `Teen Patti Chaal — ${room.name}`,
+          status: 'Completed'
+        }
+      });
+    }
+
+    const newPot = room.pot + room.current_stake;
+    log.push(`${mySeat.username} played Chaal (₹${room.current_stake})`);
+
+    const nextSeat = tpNextActiveSeat(activeSeats, mySeat.seat);
+
+    await prisma.teenPattiRoom.update({
+      where: { id: roomId },
+      data: {
+        pot: newPot,
+        turn_seat: nextSeat,
+        turn_start: new Date(),
+        log: log.slice(-15)
+      }
+    });
+
+    // Check if next player is a bot
+    const nextPlayer = room.seats.find(s => s.seat === nextSeat);
+    if (nextPlayer && (nextPlayer.is_bot || nextPlayer.username.toLowerCase() === 'admin') && !nextPlayer.folded) {
+      scheduleBotTurn(roomId);
+    }
+
+    return { success: true };
+
+  } else if (action === 'fold') {
+    await prisma.teenPattiSeat.update({
+      where: { id: mySeat.id },
+      data: { folded: true }
+    });
+    log.push(`${mySeat.username} packed.`);
+
+    // Check if only 1 player left
+    const remainingActive = activeSeats.filter(s => s.seat !== mySeat.seat);
+    if (remainingActive.length === 1) {
+      return await tpEndGame(roomId, remainingActive[0], room.pot + 0, log, false);
+    }
+
+    const nextSeat = tpNextActiveSeat(
+      room.seats.map(s => s.seat === mySeat.seat ? { ...s, folded: true } : s).filter(s => s.username && !s.folded),
+      mySeat.seat
+    );
+
+    // Recalculate next from remaining active
+    const stillActive = activeSeats.filter(s => s.seat !== mySeat.seat);
+    const seatNums = stillActive.map(s => s.seat).sort((a, b) => a - b);
+    const curIdx = seatNums.indexOf(mySeat.seat);
+    let nextActiveSeat;
+    if (curIdx === -1) {
+      // mySeat folded, find next after mySeat.seat
+      nextActiveSeat = seatNums.find(s => s > mySeat.seat) || seatNums[0];
+    } else {
+      nextActiveSeat = seatNums[(curIdx + 1) % seatNums.length];
+    }
+
+    await prisma.teenPattiRoom.update({
+      where: { id: roomId },
+      data: {
+        turn_seat: nextActiveSeat,
+        turn_start: new Date(),
+        log: log.slice(-15)
+      }
+    });
+
+    const nextPlayerAfterFold = room.seats.find(s => s.seat === nextActiveSeat);
+    if (nextPlayerAfterFold && (nextPlayerAfterFold.is_bot || nextPlayerAfterFold.username.toLowerCase() === 'admin') && !nextPlayerAfterFold.folded) {
+      scheduleBotTurn(roomId);
+    }
+
+    return { success: true };
+
+  } else if (action === 'show') {
+    if (activeSeats.length !== 2) return { error: 'Show only when 2 players remain.' };
+
+    // Deduct show cost from real player
+    if (!mySeat.is_bot) {
+      const user = await prisma.user.findFirst({
+        where: { username: { equals: username, mode: 'insensitive' } }
+      });
+      if (!user || user.wallet_balance < room.current_stake) {
+        return { error: 'Insufficient balance for Show.' };
+      }
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { wallet_balance: { decrement: room.current_stake } }
+      });
+    }
+
+    const newPot = room.pot + room.current_stake;
+    const opponent = activeSeats.find(s => s.seat !== mySeat.seat);
+
+    // Check admin rig for show
+    let winner;
+    if (room.admin_rig && room.admin_rig.winner_seat !== undefined) {
+      winner = activeSeats.find(s => s.seat === room.admin_rig.winner_seat) || null;
+    }
+    if (!winner) {
+      const myHand = tpEvaluateHand(mySeat.cards);
+      const oppHand = tpEvaluateHand(opponent.cards);
+      winner = tpHandWins(myHand, oppHand) ? mySeat : opponent;
+    }
+
+    log.push(`${mySeat.username} called Show!`);
+    return await tpEndGame(roomId, winner, newPot, log, true);
+
+  } else {
+    return { error: 'Unknown action.' };
+  }
+}
+
+// -- End game and credit winner --
+async function tpEndGame(roomId, winnerSeat, pot, log, wasShow) {
+  const winnerName = winnerSeat.username;
+  if (wasShow) {
+    log.push(`${winnerName} won the Show! Pot: ₹${pot}`);
+  } else {
+    log.push(`Everyone folded. ${winnerName} wins! Pot: ₹${pot}`);
+  }
+
+  // Credit winner wallet if real player
+  if (!winnerSeat.is_bot && winnerName) {
+    try {
+      await prisma.user.updateMany({
+        where: { username: { equals: winnerName, mode: 'insensitive' } },
+        data: { wallet_balance: { increment: pot } }
+      });
+      await prisma.transaction.create({
+        data: {
+          id: 'TP_WIN_' + Date.now(),
+          user: winnerName,
+          type: 'Deposit',
+          amount: pot,
+          details: `Teen Patti Won Pot`,
+          status: 'Completed'
+        }
+      });
+    } catch (e) { console.error('[TP] Winner credit error:', e.message); }
+  }
+
+  log.push(`🏆 GAME OVER — ${winnerName} WON THE POT OF ₹${pot}!`);
+
+  await prisma.teenPattiRoom.update({
+    where: { id: roomId },
+    data: {
+      status: 'finished',
+      winner_seat: winnerSeat.seat,
+      pot: pot,
+      log: log.slice(-15)
+    }
+  });
+
+  console.log(`[TP] Game ended in ${roomId}. Winner: ${winnerName} (seat ${winnerSeat.seat}). Pot: ₹${pot}`);
+
+  // Show winner for 5 seconds, then empty room back to 0/4
+  setTimeout(async () => {
+    try {
+      // Clear all seat occupants so room becomes 0/4 empty again
+      await prisma.teenPattiSeat.updateMany({
+        where: { room_id: roomId },
+        data: { username: null, is_bot: false, cards: null, folded: false }
+      });
+
+      // Reset room state to waiting (keep winner_seat so lobby can briefly show last winner)
+      await prisma.teenPattiRoom.update({
+        where: { id: roomId },
+        data: { status: 'waiting', pot: 0, winner_seat: null }
+      });
+
+      console.log(`[TP] Winner display ended in ${roomId} — room emptied back to 0/4.`);
+    } catch (e) { console.error('[TP] Room empty error:', e.message); }
+  }, 5000);
+
+  return { success: true, winner: winnerName };
+}
+
+// -- Bot & Admin turn scheduler --
+function scheduleBotTurn(roomId) {
+  const delay = TP_BOT_THINK_MIN + Math.floor(Math.random() * (TP_BOT_THINK_MAX - TP_BOT_THINK_MIN));
+  setTimeout(async () => {
+    try {
+      const room = await prisma.teenPattiRoom.findUnique({
+        where: { id: roomId },
+        include: { seats: { orderBy: { seat: 'asc' } } }
+      });
+      if (!room || room.status !== 'playing') return;
+
+      const botSeat = room.seats.find(s => s.seat === room.turn_seat && (s.is_bot || s.username.toLowerCase() === 'admin') && !s.folded);
+      if (!botSeat) return;
+
+      const activeSeats = room.seats.filter(s => s.username && !s.folded);
+
+      // Bot can show if only 2 left and has a strong hand (or if it is Admin, we show to win)
+      if (activeSeats.length === 2) {
+        const hand = tpEvaluateHand(botSeat.cards);
+        if (hand[0] >= 4 || botSeat.username.toLowerCase() === 'admin') {
+          await tpProcessAction(roomId, botSeat.username, 'show');
+          return;
+        }
+      }
+
+      let decision = tpBotDecide(botSeat.cards, room.current_stake);
+      if (botSeat.username.toLowerCase() === 'admin' && decision === 'fold') {
+        decision = 'chaal'; // Admin never folds
+      }
+      await tpProcessAction(roomId, botSeat.username, decision);
+    } catch (e) { console.error('[TP] Bot turn error:', e.message); }
+  }, delay);
+}
+
+// -- Turn timeout checker & Player presence tracker (runs every 5s) --
+setInterval(async () => {
+  try {
+    const playingRooms = await prisma.teenPattiRoom.findMany({
+      where: { status: 'playing' },
+      include: { seats: { orderBy: { seat: 'asc' } } }
+    });
+
+    for (const room of playingRooms) {
+      // Disband stuck playing rooms with fewer than 2 active players
+      const activeRemaining = room.seats.filter(s => s.username && !s.folded);
+      if (activeRemaining.length < 2) {
+        console.log(`[TP Monitor] Stuck playing room ${room.id} with ${activeRemaining.length} active players. Force-disbanding.`);
+        await prisma.teenPattiSeat.updateMany({
+          where: { room_id: room.id },
+          data: { username: null, is_bot: false, cards: null, folded: false }
+        });
+        await prisma.teenPattiRoom.update({
+          where: { id: room.id },
+          data: { status: 'waiting', pot: 0, winner_seat: null }
+        });
+        continue;
+      }
+
+      if (!room.turn_start) continue;
+      const elapsed = (Date.now() - new Date(room.turn_start).getTime()) / 1000;
+      if (elapsed >= TP_TURN_TIMEOUT) {
+        const currentSeat = room.seats.find(s => s.seat === room.turn_seat);
+        if (currentSeat && currentSeat.username && !currentSeat.folded) {
+          if (currentSeat.username.toLowerCase() === 'admin') {
+            // Admin NEVER auto-folds on timeout! Reset turn timer to give admin infinite time to win.
+            await prisma.teenPattiRoom.update({
+              where: { id: room.id },
+              data: { turn_start: new Date() }
+            });
+            console.log(`[TP] Admin turn timeout extended in ${room.id}`);
+          } else {
+            console.log(`[TP] Timeout auto-fold: ${currentSeat.username} in ${room.id}`);
+            await tpProcessAction(room.id, currentSeat.username, 'fold');
+          }
+        }
+      }
+    }
+
+    // Force-clear finished rooms that are stuck for too long (> 10s)
+    const finishedRooms = await prisma.teenPattiRoom.findMany({
+      where: { status: 'finished' }
+    });
+    for (const room of finishedRooms) {
+      const elapsed = (Date.now() - new Date(room.updated_at).getTime()) / 1000;
+      if (elapsed >= 10) {
+        await prisma.teenPattiSeat.updateMany({
+          where: { room_id: room.id },
+          data: { username: null, is_bot: false, cards: null, folded: false }
+        });
+        await prisma.teenPattiRoom.update({
+          where: { id: room.id },
+          data: { status: 'waiting', pot: 0, winner_seat: null }
+        });
+        console.log(`[TP Monitor] Force-reset stuck finished room ${room.id} back to waiting.`);
+      }
+    }
+
+    // Presence Check: Auto-remove players who stopped polling (e.g. closed tab)
+    const now = Date.now();
+    const realPlayerSeats = await prisma.teenPattiSeat.findMany({
+      where: {
+        username: { not: null },
+        is_bot: false
+      }
+    });
+
+    for (const seat of realPlayerSeats) {
+      if (seat.username && seat.username.toLowerCase() === 'admin') continue;
+      const key = `${seat.room_id}:${seat.seat}`;
+      const lastActive = TP_SEAT_HEARTBEATS[key];
+
+      // If they haven't polled in > 10 seconds, remove them
+      if (!lastActive || (now - lastActive) > 10000) {
+        console.log(`[TP Monitor] Auto-removing inactive player "${seat.username}" from ${seat.room_id} seat ${seat.seat}`);
+
+        // If game is active and they haven't folded, auto-fold first
+        const room = await prisma.teenPattiRoom.findUnique({ where: { id: seat.room_id } });
+        if (room && room.status === 'playing' && !seat.folded) {
+          try {
+            await tpProcessAction(seat.room_id, seat.username, 'fold');
+          } catch (e) { /* ignore */ }
+        }
+
+        // Clear the seat
+        await prisma.teenPattiSeat.update({
+          where: { id: seat.id },
+          data: { username: null, is_bot: false, cards: null, folded: false }
+        });
+
+        // Delete heartbeat tracker entry
+        delete TP_SEAT_HEARTBEATS[key];
+
+        // Check if room should go back to waiting (no real players left)
+        const checkRoom = await prisma.teenPattiRoom.findUnique({
+          where: { id: seat.room_id },
+          include: { seats: true }
+        });
+        if (checkRoom) {
+          const realPlayersRemaining = checkRoom.seats.filter(s => s.username && !s.is_bot);
+          if (realPlayersRemaining.length === 0) {
+            // Remove all bots too
+            await prisma.teenPattiSeat.updateMany({
+              where: { room_id: seat.room_id },
+              data: { username: null, is_bot: false, cards: null, folded: false }
+            });
+            await prisma.teenPattiRoom.update({
+              where: { id: seat.room_id },
+              data: { status: 'waiting', pot: 0, winner_seat: null }
+            });
+            console.log(`[TP Monitor] Cleared empty room ${seat.room_id}`);
+          }
+        }
+      }
+    }
+  } catch (e) { /* silent */ }
+}, 5000);
+
+// -- Bot fill checker: fill empty seats with bots when real players are waiting --
+const roomJoinTimers = {};
+
+function scheduleBotFill(roomId) {
+  if (roomJoinTimers[roomId]) return; // already scheduled
+  roomJoinTimers[roomId] = setTimeout(async () => {
+    delete roomJoinTimers[roomId];
+    try {
+      const room = await prisma.teenPattiRoom.findUnique({
+        where: { id: roomId },
+        include: { seats: { orderBy: { seat: 'asc' } } }
+      });
+      if (!room || room.status !== 'waiting') return;
+
+      const seatedPlayers = room.seats.filter(s => s.username);
+      if (seatedPlayers.length === 0) return; // nobody waiting
+
+      // Fill ALL empty seats with bots to reach 4/4
+      const emptySeats = room.seats.filter(s => !s.username);
+      let botIdx = 0;
+      for (const seat of emptySeats) {
+        if (botIdx >= TP_BOT_NAMES.length) break;
+        await prisma.teenPattiSeat.update({
+          where: { id: seat.id },
+          data: {
+            username: TP_BOT_NAMES[botIdx],
+            is_bot: true,
+            folded: false
+          }
+        });
+        botIdx++;
+      }
+
+      console.log(`[TP] Filled ${botIdx} bot(s) in ${roomId}. Starting round...`);
+      await tpStartRound(roomId);
+    } catch (e) { console.error('[TP] Bot fill error:', e.message); }
+  }, TP_BOT_FILL_DELAY);
+}
+
+// ===================== TEEN PATTI API ENDPOINTS =====================
+
+// GET /api/teenpatti/rooms — List all rooms
+app.get('/api/teenpatti/rooms', async (req, res) => {
+  try {
+    const rooms = await prisma.teenPattiRoom.findMany({
+      orderBy: { id: 'asc' },
+      include: { seats: { orderBy: { seat: 'asc' } } }
+    });
+    const result = rooms.map(r => {
+      const winnerSeatObj = r.winner_seat !== null ? r.seats.find(s => s.seat === r.winner_seat) : null;
+      const winnerName = winnerSeatObj ? winnerSeatObj.username : null;
+      return {
+        id: r.id,
+        name: r.name,
+        boot_amount: r.boot_amount,
+        status: r.status,
+        pot: r.pot,
+        round: r.round,
+        winner_seat: r.winner_seat,
+        winner_name: winnerName,
+        players: r.seats.filter(s => s.username).map(s => ({
+          seat: s.seat,
+          username: s.username,
+          is_bot: s.is_bot,
+          folded: s.folded
+        })),
+        player_count: r.seats.filter(s => s.username).length,
+        real_player_count: r.seats.filter(s => s.username && !s.is_bot).length
+      };
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/teenpatti/join — Join a room
+app.post('/api/teenpatti/join', async (req, res) => {
+  const { room_id, username } = req.body;
+  if (!room_id || !username) return res.status(400).json({ error: 'room_id and username required.' });
+
+  try {
+    const user = await getOrCreateUser(username);
+    if (!user) return res.status(400).json({ error: 'User not found.' });
+
+    const room = await prisma.teenPattiRoom.findUnique({
+      where: { id: room_id },
+      include: { seats: { orderBy: { seat: 'asc' } } }
+    });
+    if (!room) return res.status(404).json({ error: 'Room not found.' });
+
+    // Check if user already in this room
+    const existingSeat = room.seats.find(s => s.username && s.username.toLowerCase() === username.toLowerCase());
+    if (existingSeat) return res.json({ success: true, seat: existingSeat.seat, message: 'Already in room.' });
+
+    // Check if user is in another room — leave it first
+    const otherSeat = await prisma.teenPattiSeat.findFirst({
+      where: {
+        username: { equals: username, mode: 'insensitive' },
+        is_bot: false
+      }
+    });
+    if (otherSeat && otherSeat.room_id !== room_id) {
+      await prisma.teenPattiSeat.update({
+        where: { id: otherSeat.id },
+        data: { username: null, is_bot: false, cards: null, folded: false }
+      });
+      delete TP_SEAT_HEARTBEATS[`${otherSeat.room_id}:${otherSeat.seat}`];
+
+      const oldRoomId = otherSeat.room_id;
+      const oldRoom = await prisma.teenPattiRoom.findUnique({
+        where: { id: oldRoomId },
+        include: { seats: true }
+      });
+      if (oldRoom) {
+        const oldRoomRealPlayers = oldRoom.seats.filter(s => s.username && !s.is_bot && s.username.toLowerCase() !== username.toLowerCase());
+        if (oldRoomRealPlayers.length === 0) {
+          await prisma.teenPattiSeat.updateMany({
+            where: { room_id: oldRoomId },
+            data: { username: null, is_bot: false, cards: null, folded: false }
+          });
+          await prisma.teenPattiRoom.update({
+            where: { id: oldRoomId },
+            data: { status: 'waiting', pot: 0, winner_seat: null }
+          });
+          console.log(`[TP] Cleared old room ${oldRoomId} since last real player left to join ${room_id}`);
+        }
+      }
+    }
+
+    // Check wallet balance
+    if (user.wallet_balance < room.boot_amount) {
+      return res.status(400).json({ error: `Need at least ₹${room.boot_amount} to join. Your balance: ₹${user.wallet_balance}` });
+    }
+
+    // Find empty seat or auto-evict a bot seat to make room for human player
+    let targetSeat = room.seats.find(s => !s.username);
+    if (!targetSeat) {
+      targetSeat = room.seats.find(s => s.is_bot);
+    }
+
+    if (!targetSeat) {
+      return res.status(400).json({ error: 'Room is full with 4 real players.' });
+    }
+
+    await prisma.teenPattiSeat.update({
+      where: { id: targetSeat.id },
+      data: {
+        username: username,
+        is_bot: false,
+        folded: false,
+        cards: null,
+        balance: user.wallet_balance
+      }
+    });
+
+    console.log(`[TP] ${username} joined ${room_id} at seat ${targetSeat.seat}`);
+
+    // Check if we should fill bots and start
+    const updatedRoom = await prisma.teenPattiRoom.findUnique({
+      where: { id: room_id },
+      include: { seats: true }
+    });
+    const occupiedCount = updatedRoom.seats.filter(s => s.username).length;
+
+    if (occupiedCount >= 3 && updatedRoom.status === 'waiting') {
+      // Fill remaining empty seats with bots and start immediately
+      const emptySeats = updatedRoom.seats.filter(s => !s.username);
+      let botIdx = 0;
+      for (const seat of emptySeats) {
+        if (botIdx >= TP_BOT_NAMES.length) break;
+        await prisma.teenPattiSeat.update({
+          where: { id: seat.id },
+          data: { username: TP_BOT_NAMES[botIdx], is_bot: true, folded: false }
+        });
+        botIdx++;
+      }
+      await tpStartRound(room_id);
+    } else if (occupiedCount >= 1 && updatedRoom.status === 'waiting') {
+      scheduleBotFill(room_id);
+    }
+
+    res.json({ success: true, seat: targetSeat.seat });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/teenpatti/leave — Leave a room
+app.post('/api/teenpatti/leave', async (req, res) => {
+  const { room_id, username } = req.body;
+  if (!room_id || !username) return res.status(400).json({ error: 'room_id and username required.' });
+
+  try {
+    const seat = await prisma.teenPattiSeat.findFirst({
+      where: {
+        room_id: room_id,
+        username: { equals: username, mode: 'insensitive' },
+        is_bot: false
+      }
+    });
+    if (!seat) return res.json({ success: true, message: 'Not in room.' });
+
+    // If game is playing, auto-fold first
+    const room = await prisma.teenPattiRoom.findUnique({ where: { id: room_id } });
+    if (room && room.status === 'playing' && !seat.folded) {
+      await tpProcessAction(room_id, username, 'fold');
+    }
+
+    await prisma.teenPattiSeat.update({
+      where: { id: seat.id },
+      data: { username: null, is_bot: false, cards: null, folded: false }
+    });
+
+    console.log(`[TP] ${username} left ${room_id}`);
+
+    // Check if room should go back to waiting
+    const updatedRoom = await prisma.teenPattiRoom.findUnique({
+      where: { id: room_id },
+      include: { seats: true }
+    });
+    const realPlayers = updatedRoom.seats.filter(s => s.username && !s.is_bot);
+    if (realPlayers.length === 0) {
+      // Remove all bots too
+      await prisma.teenPattiSeat.updateMany({
+        where: { room_id: room_id },
+        data: { username: null, is_bot: false, cards: null, folded: false }
+      });
+      await prisma.teenPattiRoom.update({
+        where: { id: room_id },
+        data: { status: 'waiting', pot: 0, winner_seat: null }
+      });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/teenpatti/state — Get room state (cards hidden for opponents)
+app.get('/api/teenpatti/state', async (req, res) => {
+  const { room_id, username } = req.query;
+  if (!room_id) return res.status(400).json({ error: 'room_id required.' });
+
+  try {
+    const room = await prisma.teenPattiRoom.findUnique({
+      where: { id: room_id },
+      include: { seats: { orderBy: { seat: 'asc' } } }
+    });
+    if (!room) return res.status(404).json({ error: 'Room not found.' });
+
+    const isFinished = room.status === 'finished';
+    const mySeat = username ? room.seats.find(s =>
+      s.username && s.username.toLowerCase() === username.toLowerCase()
+    ) : null;
+
+    if (mySeat) {
+      TP_SEAT_HEARTBEATS[`${room.id}:${mySeat.seat}`] = Date.now();
+    }
+
+    // Calculate time left for current turn
+    let timeLeft = TP_TURN_TIMEOUT;
+    if (room.status === 'playing' && room.turn_start) {
+      const elapsed = (Date.now() - new Date(room.turn_start).getTime()) / 1000;
+      timeLeft = Math.max(0, TP_TURN_TIMEOUT - Math.floor(elapsed));
+    }
+
+    const seats = room.seats.map(s => {
+      const isMe = mySeat && s.seat === mySeat.seat;
+      const showCards = isMe || isFinished;
+      return {
+        seat: s.seat,
+        username: s.username,
+        is_bot: s.is_bot,
+        folded: s.folded,
+        cards: showCards ? tpFormatCards(s.cards) : (s.cards ? [null, null, null] : null),
+        hand_label: showCards && s.cards ? tpHandLabel(tpEvaluateHand(s.cards)[0]) : null,
+        is_me: isMe || false
+      };
+    });
+
+    // Get user's current wallet balance
+    let walletBalance = 0;
+    if (username) {
+      const user = await prisma.user.findFirst({
+        where: { username: { equals: username, mode: 'insensitive' } }
+      });
+      walletBalance = user ? user.wallet_balance : 0;
+    }
+
+    res.json({
+      room_id: room.id,
+      name: room.name,
+      boot_amount: room.boot_amount,
+      status: room.status,
+      pot: room.pot,
+      current_stake: room.current_stake,
+      turn_seat: room.turn_seat,
+      time_left: timeLeft,
+      round: room.round,
+      winner_seat: room.winner_seat,
+      winner_name: isFinished && room.winner_seat !== null
+        ? (room.seats.find(s => s.seat === room.winner_seat) || {}).username
+        : null,
+      seats: seats,
+      log: room.log || [],
+      my_seat: mySeat ? mySeat.seat : null,
+      wallet_balance: walletBalance,
+      admin_rig: room.admin_rig
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/teenpatti/action — Play an action
+app.post('/api/teenpatti/action', async (req, res) => {
+  const { room_id, username, action } = req.body;
+  if (!room_id || !username || !action) {
+    return res.status(400).json({ error: 'room_id, username, and action required.' });
+  }
+
+  try {
+    const result = await tpProcessAction(room_id, username, action);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/teenpatti/admin/rig — Rig a room & sit Admin on target seat (starts round immediately)
+app.post('/api/teenpatti/admin/rig', async (req, res) => {
+  const { room_id, winner_seat } = req.body;
+  if (!room_id) return res.status(400).json({ error: 'room_id required.' });
+
+  try {
+    const seatIdx = parseInt(winner_seat);
+    const validSeat = isNaN(seatIdx) ? 0 : seatIdx;
+
+    const adminUser = await getOrCreateUser('Admin');
+    if (adminUser) {
+      await prisma.user.update({
+        where: { id: adminUser.id },
+        data: { wallet_balance: 5000.0 }
+      });
+    }
+
+    // Remove "Admin" from any other seat in this room
+    await prisma.teenPattiSeat.updateMany({
+      where: { room_id: room_id, username: 'Admin' },
+      data: { username: null, is_bot: false, cards: null, folded: false }
+    });
+
+    // Target seat occupant check: if empty or occupied by bot, sit "Admin" on target seat
+    const targetSeat = await prisma.teenPattiSeat.findFirst({
+      where: { room_id: room_id, seat: validSeat }
+    });
+
+    if (targetSeat && (!targetSeat.username || targetSeat.is_bot)) {
+      await prisma.teenPattiSeat.update({
+        where: { id: targetSeat.id },
+        data: {
+          username: 'Admin',
+          is_bot: false,
+          folded: false,
+          cards: null,
+          balance: 5000.0
+        }
+      });
+    }
+
+    // Set rig config and reset status to trigger fresh round
+    await prisma.teenPattiRoom.update({
+      where: { id: room_id },
+      data: { status: 'waiting', admin_rig: { winner_seat: validSeat } }
+    });
+
+    console.log(`[TP] Admin rigged room ${room_id} — target seat ${validSeat}`);
+
+    // Fill remaining seats with bots if needed & start round immediately
+    const room = await prisma.teenPattiRoom.findUnique({
+      where: { id: room_id },
+      include: { seats: { orderBy: { seat: 'asc' } } }
+    });
+
+    if (room) {
+      const emptySeats = room.seats.filter(s => !s.username);
+      let botIdx = 0;
+      for (const seat of emptySeats) {
+        if (botIdx >= TP_BOT_NAMES.length) break;
+        await prisma.teenPattiSeat.update({
+          where: { id: seat.id },
+          data: { username: TP_BOT_NAMES[botIdx], is_bot: true, folded: false }
+        });
+        botIdx++;
+      }
+
+      await tpStartRound(room_id);
+      console.log(`[TP Admin Rig] Room ${room_id} round started immediately for seat ${validSeat}!`);
+    }
+
+    res.json({ success: true, room_id, winner_seat: validSeat });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/teenpatti/admin/reset-rig — Remove rig from a room
+app.post('/api/teenpatti/admin/reset-rig', async (req, res) => {
+  const { room_id } = req.body;
+  if (!room_id) return res.status(400).json({ error: 'room_id required.' });
+
+  try {
+    await prisma.teenPattiRoom.update({
+      where: { id: room_id },
+      data: { admin_rig: null }
+    });
+
+    console.log(`[TP] Admin reset rig for ${room_id}`);
+    res.json({ success: true, room_id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Sequential Organic Room Filling Engine ---
+// Fills ONE seat in ONE waiting room each tick at staggered intervals.
+// Rooms stay open (0/4 → 1/4 → 2/4 → 3/4) for a while before filling to 4/4 and starting.
+// When a round ends, winner is shown for 5s, then room empties to 0/4.
+const TP_SIMULATED_NAMES = [
+  'Aarav', 'Vivaan', 'Aditya', 'Vihaan', 'Arjun', 'Sai', 'Reyansh', 'Arav', 'Pranav', 'Krishna',
+  'Ishaan', 'Shaurya', 'Atharv', 'Kabir', 'Rudra', 'Aryan', 'Dev', 'Karan', 'Dhruv', 'Siddharth',
+  'Ananya', 'Diya', 'Ishika', 'Kiara', 'Myra', 'Aria', 'Saanvi', 'Riya', 'Prisha', 'Anika'
+];
+
+// Stagger function: adds 1 player to 1 waiting room every 6-12 seconds
+function scheduleNextTrafficTick() {
+  const delay = 6000 + Math.floor(Math.random() * 6000); // 6-12s
+  setTimeout(async () => {
+    try {
+      const roomIds = ['room_101', 'room_102', 'room_103', 'room_104', 'room_105', 'room_106'];
+      
+      // Find all rooms that are waiting and have < 4 players
+      const waitingRooms = [];
+      for (const roomId of roomIds) {
+        const room = await prisma.teenPattiRoom.findUnique({
+          where: { id: roomId },
+          include: { seats: { orderBy: { seat: 'asc' } } }
+        });
+        if (room && room.status === 'waiting') {
+          const count = room.seats.filter(s => s.username).length;
+          if (count < 4) waitingRooms.push({ room, count });
+        }
+      }
+
+      if (waitingRooms.length > 0) {
+        // Pick ONE random waiting room
+        const target = waitingRooms[Math.floor(Math.random() * waitingRooms.length)];
+        const emptySeats = target.room.seats.filter(s => !s.username);
+        
+        if (emptySeats.length > 0) {
+          // Add exactly 1 simulated player to the next empty seat
+          const nextSeat = emptySeats[0];
+          const name = TP_SIMULATED_NAMES[Math.floor(Math.random() * TP_SIMULATED_NAMES.length)] + '_' + (10 + Math.floor(Math.random() * 90));
+
+          await prisma.teenPattiSeat.update({
+            where: { id: nextSeat.id },
+            data: {
+              username: name,
+              is_bot: true,
+              folded: false,
+              balance: 1000 + Math.floor(Math.random() * 5000)
+            }
+          });
+
+          const newCount = target.count + 1;
+          console.log(`[TP Sequential Traffic] ${name} joined ${target.room.id} (Seat ${nextSeat.seat + 1}) — Count: ${newCount}/4`);
+
+          // When room reaches 3 or 4, fill remaining and start round
+          if (newCount >= 3) {
+            scheduleBotFill(target.room.id);
+          }
+        }
+      }
+    } catch (err) { /* silent */ }
+    
+    // Schedule next tick
+    scheduleNextTrafficTick();
+  }, delay);
+}
+
+// Start the traffic engine
+scheduleNextTrafficTick();
+
+// Seed rooms on startup
+tpSeedRooms().catch(e => console.error('[TP] Seed error:', e.message));
+
+// ========================================================================
 
 app.listen(PORT, () => {
   console.log(`[bet1x-backend] Express backend listening on port ${PORT}`);

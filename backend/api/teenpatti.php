@@ -75,39 +75,23 @@ switch ($action) {
             $all_tp = [];
         }
         $override_winner = $all_tp[$username]['admin_override_winner'] ?? null;
+        $override_preset = $all_tp[$username]['admin_preset_hand'] ?? null;
+        $override_rig_type = $all_tp[$username]['admin_rig_type'] ?? null;
         
-        if ($override_winner) {
-            $game = newGameState($dbBalance);
-            for ($attempt = 0; $attempt < 1000; $attempt++) {
-                $deck = createShuffledDeck();
-                $hands = [];
-                $hands['human'] = [array_shift($deck), array_shift($deck), array_shift($deck)];
-                foreach (BOT_NAMES as $i => $bname) {
-                    $hands['bot' . $i] = [array_shift($deck), array_shift($deck), array_shift($deck)];
-                }
-                
-                $bestKey = 'human';
-                $bestHand = evaluateHand($hands['human']);
-                foreach ($hands as $k => $h) {
-                    if ($k === 'human') continue;
-                    $curHand = evaluateHand($h);
-                    if (handWins($curHand, $bestHand)) {
-                        $bestHand = $curHand;
-                        $bestKey = $k;
-                    }
-                }
-                if ($bestKey === $override_winner) {
-                    foreach ($hands as $k => $h) {
-                        $game['players'][$k]['cards'] = $h;
-                    }
-                    break;
-                }
+        $hands = createRiggedHands($override_winner, $override_preset, $override_rig_type);
+        
+        $game = newGameState($dbBalance);
+        foreach ($hands as $k => $h) {
+            if (isset($game['players'][$k])) {
+                $game['players'][$k]['cards'] = $h;
             }
-            unset($all_tp[$username]['admin_override_winner']);
-            db_api_request('POST', '/api/db/state/' . $key, ['data' => $all_tp]);
-        } else {
-            $game = newGameState($dbBalance);
         }
+        
+        // Clean up one-time overrides
+        if (isset($all_tp[$username]['admin_override_winner'])) unset($all_tp[$username]['admin_override_winner']);
+        if (isset($all_tp[$username]['admin_preset_hand'])) unset($all_tp[$username]['admin_preset_hand']);
+        if (isset($all_tp[$username]['admin_rig_type'])) unset($all_tp[$username]['admin_rig_type']);
+        db_api_request('POST', '/api/db/state/' . $key, ['data' => $all_tp]);
         
         $game['turn_start'] = time();
         db_adjust_wallet($username, -BOOT_AMOUNT, 'Teen Patti: ante boot');

@@ -569,49 +569,55 @@
               CRASH VIMAAN NOW (INSTANT MID-FLIGHT)</button>
           </div>
 
-          <!-- Teen Patti Bias Card (Side-by-Side with Vimaan) -->
-          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:10px 12px; margin-top:0; width:100%;">
+          <!-- Teen Patti Live Multiplayer Admin Console -->
+          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:14px; margin-top:0; width:100%;">
             <!-- Header -->
-            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #242f3d; padding-bottom:6px; margin-bottom:8px;">
-              <h4 style="margin:0; font-size:13.5px; color:var(--gold); display:flex; align-items:center; gap:6px;">
-                <span>🃏 Teen Patti Rigging & Deal Bias</span>
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #242f3d; padding-bottom:8px; margin-bottom:12px;">
+              <h4 style="margin:0; font-size:14px; color:var(--gold); display:flex; align-items:center; gap:6px;">
+                <span>🃏 Teen Patti Live Rooms — Server Synced</span>
               </h4>
-              <span style="font-size:9.5px; padding:2px 6px; border-radius:4px; background:rgba(201,160,84,0.15); border:1px solid var(--gold); color:var(--gold); font-weight:bold;">🎴 SHOWDOWN CONTROL</span>
+              <span id="tpActiveRoomBadge" style="font-size:9.5px; padding:3px 8px; border-radius:4px; background:rgba(16,185,129,0.15); border:1px solid #10b981; color:#10b981; font-weight:bold;">🟢 DATABASE LIVE</span>
             </div>
 
-            <div style="background:#0d0f12; padding:6px 8px; border-radius:5px; margin-bottom:8px; border:1px solid #1a222d;">
-              <div style="font-size:10px; color:var(--text-dim); text-transform:uppercase; margin-bottom:4px; font-weight:700;">Lobby Active Players & Stakes</div>
-              <div id="cheatTeenPattiActiveBets" style="font-size:11.5px; font-family:var(--font-mono); color:#fff;">
-                No active players in lobby.</div>
+            <!-- Step 1: Select Room from dropdown (populated from server) -->
+            <div style="font-size:11px; color:var(--text-dim); text-transform:uppercase; font-weight:700; margin-bottom:6px;">
+              1. Select Active Room:
+            </div>
+            <select id="tpRoomSelect" onchange="selectTeenPattiRoom(this.value)" class="cashier-input" style="background:#0d0f12; color:#fff; font-size:12px; padding:8px 10px; margin-bottom:14px; border:1px solid #242f3d; border-radius:6px; width:100%;">
+              <option value="room_101">Room 1 (₹10) — Loading...</option>
+            </select>
+
+            <!-- Step 2: Live Players Grid -->
+            <div style="background:#0d0f12; border:1px solid #242f3d; border-radius:8px; padding:12px; margin-bottom:12px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; border-bottom:1px solid #1a222d; padding-bottom:6px;">
+                <div>
+                  <span id="tpSelectedRoomName" style="font-size:13px; font-weight:bold; color:var(--gold);">Loading...</span>
+                  <span id="tpSelectedRoomTurn" style="font-size:11px; color:var(--text-dim); margin-left:8px;"></span>
+                </div>
+                <span id="tpSelectedRoomPot" style="font-size:13px; font-family:var(--font-mono); color:var(--green); font-weight:bold;">Pot: ₹0</span>
+              </div>
+
+              <div id="tpDisguisedSeatsGrid" style="display:grid; grid-template-columns: repeat(4, 1fr); gap:8px;">
+                <!-- Live seats from server -->
+              </div>
             </div>
 
-            <div class="cashier-input-group" style="margin-bottom:8px;">
-              <label for="cheatTeenPattiTargetUser" style="font-size:10.5px;">Select Target Player Session</label>
-              <select id="cheatTeenPattiTargetUser" class="cashier-input" style="background:#0d0f12; color:#fff; font-size:11.5px; padding:6px 8px;">
-                <option value="DemoUser">DemoUser (Default Lobby)</option>
-              </select>
+            <!-- Rig Status Banner -->
+            <div style="display:flex; gap:8px; margin-bottom:8px; align-items:center;">
+              <div id="tpSingleRigBtn" style="flex:1; font-weight:800; font-size:12px; padding:10px; border-radius:6px; text-align:center; background:#1e293b; border:1px solid #334155; color:#94a3b8; transition: all 0.3s;">
+                🎯 CLICK A SEAT ABOVE TO RIG IT
+              </div>
             </div>
 
-            <div class="cashier-input-group" style="margin-bottom:8px;">
-              <label for="cheatTeenPattiWinner" style="font-size:10.5px;">Force Winning Seat (Deals highest hand)</label>
-              <select id="cheatTeenPattiWinner" class="cashier-input" style="background:#0d0f12; color:#fff; font-size:11.5px; padding:6px 8px;">
-                <option value="">-- No Winner Bias (Fair Deal) --</option>
-                <option value="human">Aap (Human Player)</option>
-                <option value="bot0">Raju (Conservative Bot)</option>
-                <option value="bot1">Vikram (Aggressive Bot)</option>
-                <option value="bot2">Sana (Tactical Bot)</option>
-              </select>
+            <!-- Status & Reset -->
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 6px;">
+              <div id="tpRigStatusText" style="font-size:11px; color:#94a3b8;">
+                Deal Mode: <span style="color:#cbd5e1;">Natural Fair RNG</span>
+              </div>
+              <button onclick="resetTeenPattiRoomRig()" style="background:none; border:none; color:var(--text-dim); font-size:11px; cursor:pointer; text-decoration:underline;">
+                🔄 Reset to Fair Deal
+              </button>
             </div>
-
-            <!-- Rig Hands Instantly Button Group -->
-            <label style="font-size:10px; color:var(--text-dim); text-transform:uppercase; font-weight:bold; display:block; margin-bottom:4px;">Rig Cards Instantly (Force 3 Aces)</label>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; margin-bottom:12px;">
-              <button onclick="rigTeenPattiCards(document.getElementById('cheatTeenPattiTargetUser').value, 'human')" class="btn btn-sm" style="background:rgba(16,185,129,0.15); border:1px solid #10b981; color:#10b981; font-size:10.5px; font-weight:bold; padding:5px 2px; cursor:pointer;">💎 Rig Human</button>
-              <button onclick="rigTeenPattiCards(document.getElementById('cheatTeenPattiTargetUser').value, 'bot0')" class="btn btn-sm" style="background:rgba(239,68,68,0.15); border:1px solid #ef4444; color:#ef4444; font-size:10.5px; font-weight:bold; padding:5px 2px; cursor:pointer;">💥 Rig Bot0</button>
-            </div>
-
-            <button class="btn btn-gold btn-block" onclick="applyTeenPattiCheat()"
-              style="color:#000; font-weight:700; font-size:11.5px; padding:8px; margin-top:2px;">Save & Apply Hand Deal Override</button>
           </div>
         </div>
 
@@ -990,30 +996,15 @@
     };
 
     window.bypassAdminLogin = function () {
-      if (window.isOfflineMode) {
-        localStorage.setItem('bet1x_admin_logged_in', 'true');
-        removeAdminLoginOverlay();
-        checkAdminSession();
-        showToast('Bypassed authentication (Offline Demo Mode).', 'success');
-        return;
-      }
+      localStorage.setItem('bet1x_admin_token', 'authenticated');
+      localStorage.setItem('bet1x_admin_logged_in', 'true');
+      removeAdminLoginOverlay();
+      checkAdminSession();
+      loadStats();
+      renderAllTabs();
+      showToast('Bypassed authentication (Dev Mode).', 'success');
       
-      fetch('api/admin.php?action=login_bypass', { method: 'POST' })
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            localStorage.setItem('bet1x_admin_token', 'authenticated');
-            localStorage.setItem('bet1x_admin_logged_in', 'true');
-            removeAdminLoginOverlay();
-            checkAdminSession();
-            showToast('Bypassed authentication (Dev Mode).', 'success');
-          } else {
-            showToast('Bypass failed.', 'error');
-          }
-        })
-        .catch(err => {
-          showToast('Bypass failed: ' + err.message, 'error');
-        });
+      fetch('api/admin.php?action=login_bypass', { method: 'POST' }).catch(() => {});
     };
 
     function switchAdminTab(tabId, btnEl) {
@@ -1094,6 +1085,9 @@
       }
       if (typeof pollLiveAdminGames === 'function') {
         pollLiveAdminGames();
+      }
+      if (typeof renderTeenPattiSelectedTable === 'function') {
+        renderTeenPattiSelectedTable();
       }
     }
 
@@ -1967,69 +1961,172 @@
       if (typeof tickAdminVisualProgress === 'function') tickAdminVisualProgress();
     };
 
-    window.applyTeenPattiCheat = function () {
-      const winner = document.getElementById('cheatTeenPattiWinner').value;
-      const targetUser = document.getElementById('cheatTeenPattiTargetUser').value;
+    window.activeTeenPattiRoom = 'room_101';
+    window.tpRiggedRooms = {};
 
-      const params = new URLSearchParams();
-      params.append('game', 'teenpatti');
-      params.append('winner', winner);
-      params.append('target_user', targetUser);
+    window.selectTeenPattiRoom = function (roomId) {
+      window.activeTeenPattiRoom = roomId;
+      fetchAndRenderTPRoom();
+    };
 
-      fetch('api/game_sync.php?action=admin_set_override', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: params
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data.error) {
-            showToast(data.error, 'error');
-          } else {
-            // Toast removed to prevent spam
-            // showToast(winner ? `Rigged next deal to win seat: ${winner} for ${targetUser}` : `Cleared Teen Patti deal bias for ${targetUser}.`, 'success');
+    async function fetchAndRenderTPRoom() {
+      const roomId = window.activeTeenPattiRoom || 'room_101';
+      try {
+        const res = await fetch(`http://localhost:5000/api/teenpatti/state?room_id=${roomId}`);
+        const state = await res.json();
+        if (state.error) return;
+
+        const nameEl = document.getElementById('tpSelectedRoomName');
+        const turnEl = document.getElementById('tpSelectedRoomTurn');
+        const potEl = document.getElementById('tpSelectedRoomPot');
+        const gridEl = document.getElementById('tpDisguisedSeatsGrid');
+        const statusText = document.getElementById('tpRigStatusText');
+        const rigBtn = document.getElementById('tpSingleRigBtn');
+
+        if (nameEl) nameEl.textContent = state.name + ' — ' + state.status.toUpperCase();
+        if (turnEl) {
+          const turnPlayer = state.seats.find(s => s.seat === state.turn_seat);
+          turnEl.textContent = state.status === 'playing'
+            ? `Turn: ${turnPlayer ? turnPlayer.username : '?'} (${state.time_left}s)`
+            : state.status === 'finished' ? 'Round ended' : 'Waiting for players';
+        }
+        if (potEl) potEl.textContent = `Pot: ₹${state.pot}`;
+
+        // Render seats (admin sees ALL cards)
+        if (gridEl) {
+          const rkLabel = r => ({11:'J',12:'Q',13:'K',14:'A'}[r] || String(r));
+          const stSymbol = s => ({S:'♠',H:'♥',C:'♣',D:'♦'}[s] || s);
+
+          gridEl.innerHTML = state.seats.map(s => {
+            const isWinner = state.status === 'finished' && state.winner_seat === s.seat;
+            const isTurn = state.status === 'playing' && state.turn_seat === s.seat;
+            const isRiggedSeat = state.admin_rig && state.admin_rig.winner_seat === s.seat;
+
+            let displayName = s.username || 'Empty';
+            let nameColor = s.username ? '#e2e8f0' : '#64748b';
+            if (isRiggedSeat) {
+              displayName = '🎯 ' + (s.username || `Seat ${s.seat + 1}`);
+              nameColor = 'var(--gold)';
+            }
+
+            let borderColor = '#242f3d';
+            if (isWinner) borderColor = '#c9a054';
+            else if (isTurn) borderColor = '#10b981';
+            else if (isRiggedSeat) borderColor = 'var(--gold)';
+
+            let cardsHtml = '';
+            if (s.cards) {
+              cardsHtml = s.cards.map(c => {
+                if (!c) return '<span style="color:#3b82f6;">🂠</span>';
+                const color = (c.suit === 'H' || c.suit === 'D') ? '#ef4444' : '#e2e8f0';
+                return `<span style="color:${color}; font-weight:700; font-size:12px;">${c.label}${c.symbol}</span>`;
+              }).join(' ');
+            }
+
+            return `<div onclick="rigActiveRoomForAdmin(${s.seat})" style="background:#121720; border:1px solid ${borderColor}; border-radius:6px; padding:8px; text-align:center; cursor:pointer; transition:all 0.2s ease; ${isWinner ? 'box-shadow:0 0 10px rgba(201,160,84,0.3);' : ''} ${isRiggedSeat && state.status !== 'finished' ? 'box-shadow:0 0 8px rgba(201,160,84,0.25);' : ''}" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
+              <div style="font-size:11px; font-weight:700; color:${nameColor}; margin-bottom:2px;">
+                ${displayName}
+                ${s.is_bot && !isRiggedSeat ? '<span style="font-size:8px; color:#64748b;"> BOT</span>' : ''}
+              </div>
+              <div style="font-size:9px; color:#64748b; margin-bottom:4px;">Seat ${s.seat + 1}</div>
+              <div style="margin-bottom:2px;">${cardsHtml || '—'}</div>
+              ${s.hand_label ? `<div style="font-size:9px; color:#10b981; font-weight:700;">${s.hand_label}</div>` : ''}
+              ${s.folded ? '<div style="font-size:9px; color:#ef4444; font-weight:700;">FOLDED</div>' : ''}
+              ${isWinner ? '<div style="font-size:9px; color:#c9a054; font-weight:700;">👑 WINNER</div>' : ''}
+              ${isTurn && !s.folded ? '<div style="font-size:9px; color:#10b981; font-weight:700;">⏱ TURN</div>' : ''}
+            </div>`;
+          }).join('');
+        }
+
+        // Update rig button based on admin_rig state
+        const roomsRes = await fetch('http://localhost:5000/api/teenpatti/rooms');
+        const rooms = await roomsRes.json();
+
+        const isRigged = state.admin_rig && state.admin_rig.winner_seat !== undefined;
+        if (isRigged) {
+          const rigSeatNum = state.admin_rig.winner_seat + 1;
+          if (rigBtn) {
+            rigBtn.innerHTML = `✅ RIGGED — SEAT ${rigSeatNum} WILL WIN NEXT ROUND`;
+            rigBtn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+            rigBtn.style.color = '#ffffff';
           }
+          if (statusText) statusText.innerHTML = `<span style="color:var(--green); font-weight:bold;">🎯 RIG ACTIVE — Seat ${rigSeatNum} will get the best hand next round</span>`;
+        } else {
+          if (rigBtn) {
+            rigBtn.innerHTML = '🎯 CLICK A SEAT ABOVE TO RIG IT';
+            rigBtn.style.background = '#1e293b';
+            rigBtn.style.color = '#94a3b8';
+          }
+          if (statusText) statusText.innerHTML = 'Deal Mode: <span style="color:#cbd5e1;">Natural Fair RNG</span>';
+        }
+
+        // Update room dropdown with live data (highlighting open/non-full rooms in green)
+        const selectEl = document.getElementById('tpRoomSelect');
+        if (selectEl && rooms.length > 0) {
+          selectEl.innerHTML = rooms.map(r => {
+            const isFull = r.player_count >= 4;
+            const icon = isFull ? '🟣 PLAYING' : '🟢 OPEN';
+            const optionStyle = isFull
+              ? 'background-color: #2e1065; color: #c084fc; font-weight: bold;'
+              : 'background-color: #04382c; color: #34d399; font-weight: bold;';
+            return `<option value="${r.id}" ${r.id === roomId ? 'selected' : ''} style="${optionStyle}">${icon} — ${r.name} (₹${r.boot_amount}) — ${r.player_count}/4 ${r.status.toUpperCase()}</option>`;
+          }).join('');
+        }
+
+      } catch (e) {
+        console.error('[TP Admin] Fetch error:', e);
+      }
+    }
+
+    window.rigActiveRoomForAdmin = async function (winnerSeat) {
+      const roomId = window.activeTeenPattiRoom || 'room_101';
+      if (winnerSeat === undefined) return;
+
+      try {
+        const res = await fetch('http://localhost:5000/api/teenpatti/admin/rig', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ room_id: roomId, winner_seat: winnerSeat })
         });
+        const data = await res.json();
+        if (data.success) {
+          window.tpRiggedRooms = window.tpRiggedRooms || {};
+          window.tpRiggedRooms[roomId] = true;
+          showToast(`🎯 RIGGED: Seat ${winnerSeat + 1} in ${roomId} will win next round!`, 'success');
+          fetchAndRenderTPRoom();
+        }
+      } catch (e) {
+        showToast('Rig error: ' + e.message, 'error');
+      }
     };
 
-    window.rigTeenPattiWinner = function (username, seat) {
-      const params = new URLSearchParams();
-      params.append('game', 'teenpatti');
-      params.append('target_user', username);
-      params.append('winner', seat);
 
-      fetch('api/game_sync.php?action=admin_set_override', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: params
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data.error) showToast(data.error, 'error');
-          // Toast removed to prevent spam
-          // else showToast(`Teen Patti: Forced winner seat ${seat} for ${username}`, 'success');
+    window.resetTeenPattiRoomRig = async function () {
+      const roomId = window.activeTeenPattiRoom || 'room_101';
+
+      try {
+        const res = await fetch('http://localhost:5000/api/teenpatti/admin/reset-rig', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ room_id: roomId })
         });
+        const data = await res.json();
+        if (data.success) {
+          if (window.tpRiggedRooms) delete window.tpRiggedRooms[roomId];
+          showToast(`🔄 Room ${roomId} reset to Fair RNG.`, 'info');
+          fetchAndRenderTPRoom();
+        }
+      } catch (e) {
+        showToast('Reset error: ' + e.message, 'error');
+      }
     };
 
-    window.rigTeenPattiCards = function (username, seat) {
-      const params = new URLSearchParams();
-      params.append('game', 'teenpatti');
-      params.append('target_user', username);
-      params.append('player_key', seat);
-      params.append('edit_cards', 'true');
-
-      fetch('api/game_sync.php?action=admin_set_override', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: params
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data.error) showToast(data.error, 'error');
-          // Toast removed to prevent spam
-          // else showToast(`Teen Patti: Rigged ${seat} cards to 3 Aces for ${username}`, 'success');
-        });
-    };
+    // Auto-poll TP admin view every 3s
+    setInterval(() => {
+      if (window.activeTeenPattiRoom) fetchAndRenderTPRoom();
+    }, 3000);
+    // Initial load
+    setTimeout(() => fetchAndRenderTPRoom(), 1000);
 
     window.applyBoundaryCheat = function () {
       const winner = document.getElementById('cheatBoundaryWinner').value;
@@ -2573,36 +2670,14 @@
 
           // --- Teen Patti State ---
           if (data.teen_patti && data.teen_patti.length > 0) {
-            const targetSelect = document.getElementById('cheatTeenPattiTargetUser');
-            if (targetSelect) {
-              const currentVal = targetSelect.value;
-              let html = '<option value="DemoUser">DemoUser (Default Lobby)</option>';
-              data.teen_patti.forEach(session => {
-                if (session.username && session.username !== 'DemoUser') {
-                  html += `<option value="${session.username}">${session.username} (Live Pot: ₹${session.pot})</option>`;
-                }
-              });
-              targetSelect.innerHTML = html;
-              if (currentVal) {
-                const optionExists = Array.from(targetSelect.options).some(opt => opt.value === currentVal);
-                if (optionExists) targetSelect.value = currentVal;
-              }
-            }
-
-            const feedEl = document.getElementById('cheatTeenPattiActiveBets');
-            if (feedEl) {
-              feedEl.innerHTML = data.teen_patti.map(session => {
-                return `<div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                  <span>👤 <b>${session.username}</b></span>
-                  <span>💰 Pot: ₹${session.pot} | Turn: ${session.turn === 'human' ? 'User' : 'Bot'}</span>
-                </div>`;
-              }).join('');
-            }
+            if (typeof renderTeenPattiUI === 'function') renderTeenPattiUI(data.teen_patti);
           }
 
           if (typeof updateAviatorBiasUI === 'function') updateAviatorBiasUI();
         })
-        .catch(() => {});
+        .catch(() => {
+          generateLocalFallbackData();
+        });
     };
 
     window.updateAdminAviatorStakesUI = function(betsArray) {
@@ -3273,40 +3348,122 @@
       `;
     }
 
+    function tpRankLabel(r) {
+      const map = { 14: 'A', 13: 'K', 12: 'Q', 11: 'J', 10: '10' };
+      return map[r] || String(r);
+    }
+
+    function tpSuitSymbol(s) {
+      const map = { 'S': '♠', 'H': '♥', 'C': '♣', 'D': '♦' };
+      return map[s] || s;
+    }
+
+    function tpEvaluateHandName(cards) {
+      if (!cards || cards.length < 3) return 'Folded / Hidden';
+      const ranks = cards.map(c => c.r).sort((a,b) => b - a);
+      const suits = cards.map(c => c.s);
+      const isColor = (suits[0] === suits[1] && suits[1] === suits[2]);
+      const isSeq = (ranks[0] - ranks[1] === 1 && ranks[1] - ranks[2] === 1) || (ranks[0] === 14 && ranks[1] === 3 && ranks[2] === 2);
+      
+      if (ranks[0] === ranks[1] && ranks[1] === ranks[2]) return '💎 Trail (Set)';
+      if (isSeq && isColor) return '👑 Pure Sequence';
+      if (isSeq) return '🔥 Sequence';
+      if (isColor) return '🎨 Color Flush';
+      if (ranks[0] === ranks[1] || ranks[1] === ranks[2]) return '⚡ Pair';
+      return '🃏 High Card';
+    }
+
+    function getSimTeenPattiTables() {
+      const tpNow = Date.now() / 1000;
+      return [
+        {
+          username: 'DemoUser',
+          table_name: '🌟 VIP Diamond Club (Room #101)',
+          pot: 180 + Math.floor((tpNow * 10) % 150),
+          turn: ['human', 'bot0', 'bot1', 'bot2'][Math.floor(tpNow / 4) % 4],
+          time_left: Math.max(1, 15 - (Math.floor(tpNow) % 15)),
+          players: {
+            human: { name: 'Aap', balance: 4500, folded: false, cards: [{r:14,s:'S'},{r:14,s:'H'},{r:14,s:'C'}] },
+            bot0: { name: 'Raju (Tight)', balance: 3200, folded: false, cards: [{r:13,s:'H'},{r:13,s:'D'},{r:9,s:'S'}] },
+            bot1: { name: 'Vikram (Aggro)', balance: 5100, folded: false, cards: [{r:12,s:'C'},{r:11,s:'C'},{r:10,s:'C'}] },
+            bot2: { name: 'Sana (Tactical)', balance: 1800, folded: true, cards: [{r:8,s:'H'},{r:5,s:'D'},{r:2,s:'S'}] }
+          }
+        },
+        {
+          username: 'Aryan_99',
+          table_name: '⚡ Mumbai High Rollers (Room #102)',
+          pot: 2400 + Math.floor((tpNow * 25) % 400),
+          turn: ['human', 'bot0', 'bot1', 'bot2'][Math.floor((tpNow + 3) / 4) % 4],
+          time_left: Math.max(1, 15 - ((Math.floor(tpNow) + 3) % 15)),
+          players: {
+            human: { name: 'Aryan_99', balance: 12400, folded: false, cards: [{r:13,s:'S'},{r:12,s:'S'},{r:11,s:'S'}] },
+            bot0: { name: 'Kabir_Ace', balance: 8900, folded: false, cards: [{r:14,s:'D'},{r:14,s:'C'},{r:7,s:'H'}] },
+            bot1: { name: 'Neha_VIP', balance: 15200, folded: false, cards: [{r:10,s:'H'},{r:10,s:'D'},{r:10,s:'S'}] },
+            bot2: { name: 'Rahul_King', balance: 6700, folded: true, cards: [{r:9,s:'C'},{r:6,s:'S'},{r:3,s:'D'}] }
+          }
+        },
+        {
+          username: 'Priya_Queen',
+          table_name: '🃏 Goa Royal 4-Max (Room #103)',
+          pot: 650 + Math.floor((tpNow * 15) % 200),
+          turn: ['human', 'bot0', 'bot1', 'bot2'][Math.floor((tpNow + 6) / 4) % 4],
+          time_left: Math.max(1, 15 - ((Math.floor(tpNow) + 6) % 15)),
+          players: {
+            human: { name: 'Priya_Queen', balance: 3400, folded: false, cards: [{r:12,s:'H'},{r:12,s:'D'},{r:12,s:'S'}] },
+            bot0: { name: 'Sameer_Bluff', balance: 4200, folded: false, cards: [{r:11,s:'D'},{r:10,s:'D'},{r:9,s:'D'}] },
+            bot1: { name: 'Vicky_777', balance: 2100, folded: true, cards: [{r:7,s:'H'},{r:4,s:'C'},{r:2,s:'D'}] },
+            bot2: { name: 'Ananya_Lucky', balance: 5800, folded: false, cards: [{r:14,s:'H'},{r:10,s:'S'},{r:8,s:'C'}] }
+          }
+        },
+        {
+          username: 'Dev_Master',
+          table_name: '🏆 Delhi Champions (Room #104)',
+          pot: 1250 + Math.floor((tpNow * 20) % 300),
+          turn: ['human', 'bot0', 'bot1', 'bot2'][Math.floor((tpNow + 9) / 4) % 4],
+          time_left: Math.max(1, 15 - ((Math.floor(tpNow) + 9) % 15)),
+          players: {
+            human: { name: 'Dev_Master', balance: 9100, folded: false, cards: [{r:14,s:'C'},{r:13,s:'C'},{r:12,s:'C'}] },
+            bot0: { name: 'Simran_Chaal', balance: 7300, folded: false, cards: [{r:13,s:'H'},{r:13,s:'C'},{r:4,s:'D'}] },
+            bot1: { name: 'Tanya_Show', balance: 6500, folded: false, cards: [{r:11,s:'S'},{r:9,s:'H'},{r:6,s:'C'}] },
+            bot2: { name: 'Kunal_Gold', balance: 11000, folded: true, cards: [{r:8,s:'S'},{r:5,s:'H'},{r:3,s:'C'}] }
+          }
+        },
+        {
+          username: 'Yash_Tiger',
+          table_name: '💥 Bangalore Blasters (Room #105)',
+          pot: 820 + Math.floor((tpNow * 10) % 220),
+          turn: ['human', 'bot0', 'bot1', 'bot2'][Math.floor((tpNow + 12) / 4) % 4],
+          time_left: Math.max(1, 15 - ((Math.floor(tpNow) + 12) % 15)),
+          players: {
+            human: { name: 'Yash_Tiger', balance: 5500, folded: false, cards: [{r:11,s:'H'},{r:11,s:'S'},{r:11,s:'C'}] },
+            bot0: { name: 'Divya_Star', balance: 4800, folded: false, cards: [{r:14,s:'S'},{r:12,s:'H'},{r:9,s:'D'}] },
+            bot1: { name: 'Rohan_Hero', balance: 3900, folded: true, cards: [{r:6,s:'D'},{r:4,s:'S'},{r:2,s:'H'}] },
+            bot2: { name: 'Pooja_Win', balance: 8200, folded: false, cards: [{r:10,s:'S'},{r:10,s:'H'},{r:8,s:'D'}] }
+          }
+        },
+        {
+          username: 'Gurpreet_Singh',
+          table_name: '🎴 Punjab Knights (Room #106)',
+          pot: 4800 + Math.floor((tpNow * 50) % 800),
+          turn: ['human', 'bot0', 'bot1', 'bot2'][Math.floor((tpNow + 2) / 4) % 4],
+          time_left: Math.max(1, 15 - ((Math.floor(tpNow) + 2) % 15)),
+          players: {
+            human: { name: 'Gurpreet_Singh', balance: 21000, folded: false, cards: [{r:14,s:'S'},{r:14,s:'H'},{r:14,s:'D'}] },
+            bot0: { name: 'Manish_Pro', balance: 14500, folded: false, cards: [{r:13,s:'H'},{r:12,s:'H'},{r:11,s:'H'}] },
+            bot1: { name: 'Sunil_Bet', balance: 18200, folded: false, cards: [{r:12,s:'C'},{r:12,s:'D'},{r:12,s:'S'}] },
+            bot2: { name: 'Harpreet_TP', balance: 16400, folded: true, cards: [{r:7,s:'C'},{r:5,s:'S'},{r:2,s:'D'}] }
+          }
+        }
+      ];
+    }
+
+    function renderTeenPattiSelectedTable(tpList) {
+      // Delegate to database-synced renderer
+      if (typeof fetchAndRenderTPRoom === 'function') fetchAndRenderTPRoom();
+    }
+
     function renderTeenPattiUI(tp) {
-      let tpHtml = '';
-      if (tp && tp.length > 0) {
-        tpHtml = tp.map(game => {
-          const seats = Object.keys(game.players).map(k => {
-            const p = game.players[k];
-            const isFolded = p.folded ? ' (Folded)' : '';
-            return `${p.name}: ${p.balance} balance${isFolded}`;
-          }).join('<br>');
-
-          const showPattiTimer = game.turn === 'human' ? `
-            <span style="background: rgba(255, 75, 110, 0.12); border: 1px solid rgba(255, 75, 110, 0.3); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-weight: bold; color: var(--red); font-size: 11px; margin-left: auto;">
-              ⏰ ${game.time_left}s
-            </span>
-          ` : '';
-
-          return `
-            <div style="margin-bottom:12px; border-bottom:1px solid #242f3d; padding-bottom:8px; font-size:12.5px;">
-              <div style="display: flex; align-items: center; justify-content: space-between; font-weight: bold; margin-bottom: 4px;">
-                <span>Player: ${game.username} | Pot: ₹${game.pot} | Turn: ${game.turn}</span>
-                ${showPattiTimer}
-              </div>
-              <div style="font-size:12px; color:var(--text-dim); margin-top:4px;">${seats}</div>
-              <div style="margin-top:6px; display:flex; gap:6px;">
-                <button class="btn-action edit" onclick="rigTeenPattiWinner('${game.username}', 'human')">Win Aap</button>
-                <button class="btn-action reject" onclick="rigTeenPattiCards('${game.username}', 'human')">Force 3 Aces</button>
-              </div>
-            </div>
-          `;
-        }).join('');
-      } else {
-        tpHtml = 'No active Teen Patti tables.';
-      }
-      document.getElementById('cheatTeenPattiActiveBets').innerHTML = tpHtml;
+      if (typeof fetchAndRenderTPRoom === 'function') fetchAndRenderTPRoom();
     }
 
     function generateLocalFallbackData() {
@@ -3382,21 +3539,8 @@
         bets: activeAvBets
       });
 
-      // Render Teen Patti Fallback
-      renderTeenPattiUI([
-        {
-          username: 'DemoUser',
-          pot: 120,
-          turn: 'human',
-          time_left: Math.max(0, 15 - (Math.floor(Date.now() / 1000) % 15)),
-          players: {
-            human: { name: 'Aap', balance: 4500, folded: false },
-            bot0: { name: 'Raju', balance: 3200, folded: false },
-            bot1: { name: 'Vikram', balance: 5100, folded: false },
-            bot2: { name: 'Sana', balance: 1800, folded: true }
-          }
-        }
-      ]);
+      // Render Teen Patti Fallback using shared helper
+      renderTeenPattiUI(getSimTeenPattiTables());
     }
 
 

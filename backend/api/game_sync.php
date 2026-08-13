@@ -872,18 +872,123 @@ switch ($action) {
         $tp_ongoing = load_sync_state(TEENPATTI_STATE_FILE, []);
         $tpData = [];
         $tp_now = time();
+
+        // Real active user games
         foreach ($tp_ongoing as $pname => $g) {
-            if ($g['status'] === 'playing') {
+            if (isset($g['status']) && $g['status'] === 'playing') {
                 $t_left = 15;
                 if (currentPlayerKey($g) === 'human') {
                     $t_left = max(0, 15 - ($tp_now - ($g['turn_start'] ?? $tp_now)));
                 }
                 $tpData[] = [
                     'username' => $pname,
-                    'pot' => $g['pot'],
+                    'table_name' => "User Live Table ({$pname})",
+                    'pot' => $g['pot'] ?? 120,
                     'turn' => currentPlayerKey($g),
-                    'players' => $g['players'],
-                    'time_left' => $t_left
+                    'players' => $g['players'] ?? [],
+                    'time_left' => $t_left,
+                    'is_simulated' => false
+                ];
+            }
+        }
+
+        // Add sets of 4 players online tables (Simulated Live Tables)
+        $simulatedTables = [
+            [
+                'username' => 'DemoUser',
+                'table_name' => '🌟 VIP Diamond Club (Table #101)',
+                'base_pot' => 180,
+                'players' => [
+                    'human' => ['name' => 'Aap', 'balance' => 4500, 'folded' => false, 'cards' => [['r'=>14,'s'=>'S'],['r'=>14,'s'=>'H'],['r'=>14,'s'=>'C']]],
+                    'bot0'  => ['name' => 'Raju (Tight)', 'balance' => 3200, 'folded' => false, 'cards' => [['r'=>13,'s'=>'H'],['r'=>13,'s'=>'D'],['r'=>9,'s'=>'S']]],
+                    'bot1'  => ['name' => 'Vikram (Aggro)', 'balance' => 5100, 'folded' => false, 'cards' => [['r'=>12,'s'=>'C'],['r'=>11,'s'=>'C'],['r'=>10,'s'=>'C']]],
+                    'bot2'  => ['name' => 'Sana (Tactical)', 'balance' => 1800, 'folded' => true, 'cards' => [['r'=>8,'s'=>'H'],['r'=>5,'s'=>'D'],['r'=>2,'s'=>'S']]]
+                ]
+            ],
+            [
+                'username' => 'Aryan_99',
+                'table_name' => '⚡ Mumbai High Rollers (Table #102)',
+                'base_pot' => 2400,
+                'players' => [
+                    'human' => ['name' => 'Aryan_99', 'balance' => 12400, 'folded' => false, 'cards' => [['r'=>13,'s'=>'S'],['r'=>12,'s'=>'S'],['r'=>11,'s'=>'S']]],
+                    'bot0'  => ['name' => 'Kabir_Ace', 'balance' => 8900, 'folded' => false, 'cards' => [['r'=>14,'s'=>'D'],['r'=>14,'s'=>'C'],['r'=>7,'s'=>'H']]],
+                    'bot1'  => ['name' => 'Neha_VIP', 'balance' => 15200, 'folded' => false, 'cards' => [['r'=>10,'s'=>'H'],['r'=>10,'s'=>'D'],['r'=>10,'s'=>'S']]],
+                    'bot2'  => ['name' => 'Rahul_King', 'balance' => 6700, 'folded' => true, 'cards' => [['r'=>9,'s'=>'C'],['r'=>6,'s'=>'S'],['r'=>3,'s'=>'D']]]
+                ]
+            ],
+            [
+                'username' => 'Priya_Queen',
+                'table_name' => '🃏 Goa Royal 4-Max (Table #103)',
+                'base_pot' => 650,
+                'players' => [
+                    'human' => ['name' => 'Priya_Queen', 'balance' => 3400, 'folded' => false, 'cards' => [['r'=>12,'s'=>'H'],['r'=>12,'s'=>'D'],['r'=>12,'s'=>'S']]],
+                    'bot0'  => ['name' => 'Sameer_Bluff', 'balance' => 4200, 'folded' => false, 'cards' => [['r'=>11,'s'=>'D'],['r'=>10,'s'=>'D'],['r'=>9,'s'=>'D']]],
+                    'bot1'  => ['name' => 'Vicky_777', 'balance' => 2100, 'folded' => true, 'cards' => [['r'=>7,'s'=>'H'],['r'=>4,'s'=>'C'],['r'=>2,'s'=>'D']]],
+                    'bot2'  => ['name' => 'Ananya_Lucky', 'balance' => 5800, 'folded' => false, 'cards' => [['r'=>14,'s'=>'H'],['r'=>10,'s'=>'S'],['r'=>8,'s'=>'C']]]
+                ]
+            ],
+            [
+                'username' => 'Dev_Master',
+                'table_name' => '🏆 Delhi Champions Club (Table #104)',
+                'base_pot' => 1250,
+                'players' => [
+                    'human' => ['name' => 'Dev_Master', 'balance' => 9100, 'folded' => false, 'cards' => [['r'=>14,'s'=>'C'],['r'=>13,'s'=>'C'],['r'=>12,'s'=>'C']]],
+                    'bot0'  => ['name' => 'Simran_Chaal', 'balance' => 7300, 'folded' => false, 'cards' => [['r'=>13,'s'=>'H'],['r'=>13,'s'=>'C'],['r'=>4,'s'=>'D']]],
+                    'bot1'  => ['name' => 'Tanya_Show', 'balance' => 6500, 'folded' => false, 'cards' => [['r'=>11,'s'=>'S'],['r'=>9,'s'=>'H'],['r'=>6,'s'=>'C']]],
+                    'bot2'  => ['name' => 'Kunal_Gold', 'balance' => 11000, 'folded' => true, 'cards' => [['r'=>8,'s'=>'S'],['r'=>5,'s'=>'H'],['r'=>3,'s'=>'C']]]
+                ]
+            ],
+            [
+                'username' => 'Yash_Tiger',
+                'table_name' => '💥 Bangalore Blasters (Table #105)',
+                'base_pot' => 820,
+                'players' => [
+                    'human' => ['name' => 'Yash_Tiger', 'balance' => 5500, 'folded' => false, 'cards' => [['r'=>11,'s'=>'H'],['r'=>11,'s'=>'S'],['r'=>11,'s'=>'C']]],
+                    'bot0'  => ['name' => 'Divya_Star', 'balance' => 4800, 'folded' => false, 'cards' => [['r'=>14,'s'=>'S'],['r'=>12,'s'=>'H'],['r'=>9,'s'=>'D']]],
+                    'bot1'  => ['name' => 'Rohan_Hero', 'balance' => 3900, 'folded' => true, 'cards' => [['r'=>6,'s'=>'D'],['r'=>4,'s'=>'S'],['r'=>2,'s'=>'H']]],
+                    'bot2'  => ['name' => 'Pooja_Win', 'balance' => 8200, 'folded' => false, 'cards' => [['r'=>10,'s'=>'S'],['r'=>10,'s'=>'H'],['r'=>8,'s'=>'D']]]
+                ]
+            ],
+            [
+                'username' => 'Gurpreet_Singh',
+                'table_name' => '🎴 Punjab Knights (Table #106)',
+                'base_pot' => 4800,
+                'players' => [
+                    'human' => ['name' => 'Gurpreet_Singh', 'balance' => 21000, 'folded' => false, 'cards' => [['r'=>14,'s'=>'S'],['r'=>14,'s'=>'H'],['r'=>14,'s'=>'D']]],
+                    'bot0'  => ['name' => 'Manish_Pro', 'balance' => 14500, 'folded' => false, 'cards' => [['r'=>13,'s'=>'H'],['r'=>12,'s'=>'H'],['r'=>11,'s'=>'H']]],
+                    'bot1'  => ['name' => 'Sunil_Bet', 'balance' => 18200, 'folded' => false, 'cards' => [['r'=>12,'s'=>'C'],['r'=>12,'s'=>'D'],['r'=>12,'s'=>'S']]],
+                    'bot2'  => ['name' => 'Harpreet_TP', 'balance' => 16400, 'folded' => true, 'cards' => [['r'=>7,'s'=>'C'],['r'=>5,'s'=>'S'],['r'=>2,'s'=>'D']]]
+                ]
+            ]
+        ];
+
+        // Merge simulated tables if not overridden by real users
+        $existingUsers = array_column($tpData, 'username');
+        foreach ($simulatedTables as $idx => $st) {
+            if (!in_array($st['username'], $existingUsers)) {
+                // If admin stored custom overrides or cards in state, reflect them
+                if (isset($tp_ongoing[$st['username']])) {
+                    $saved = $tp_ongoing[$st['username']];
+                    if (!empty($saved['players'])) {
+                        $st['players'] = $saved['players'];
+                    }
+                    if (!empty($saved['pot'])) {
+                        $st['base_pot'] = $saved['pot'];
+                    }
+                }
+
+                $simCycle = ($tp_now + ($idx * 3)) % 15;
+                $activeSeats = ['human', 'bot0', 'bot1', 'bot2'];
+                $turnSeat = $activeSeats[floor($simCycle / 4) % 4];
+
+                $tpData[] = [
+                    'username' => $st['username'],
+                    'table_name' => $st['table_name'],
+                    'pot' => $st['base_pot'] + (($simCycle * 20) % 200),
+                    'turn' => $turnSeat,
+                    'players' => $st['players'],
+                    'time_left' => max(1, 15 - $simCycle),
+                    'is_simulated' => true
                 ];
             }
         }
@@ -997,6 +1102,8 @@ switch ($action) {
         } elseif ($game === 'teenpatti') {
             $target_user = $_POST['target_user'] ?? '';
             $winner = $_POST['winner'] ?? '';
+            $preset_hand = $_POST['preset_hand'] ?? '';
+            $rig_type = $_POST['rig_type'] ?? '';
             
             if (empty($target_user)) {
                 echo json_encode(['error' => 'Target Teen Patti player is required.']);
@@ -1007,28 +1114,40 @@ switch ($action) {
             if (!isset($state[$target_user])) {
                 $state[$target_user] = [];
             }
-            $state[$target_user]['admin_override_winner'] = $winner;
+            if ($winner !== '') $state[$target_user]['admin_override_winner'] = $winner;
+            if ($preset_hand !== '') $state[$target_user]['admin_preset_hand'] = $preset_hand;
+            if ($rig_type !== '') $state[$target_user]['admin_rig_type'] = $rig_type;
             
             if (isset($_POST['edit_cards'])) {
                 $player_key = $_POST['player_key'] ?? 'human';
+                $custom_preset = $_POST['cards_preset'] ?? 'trail_aces';
+                $cards = getPresetCards($custom_preset);
+                if (empty($cards)) {
+                    $cards = [['r' => 14, 's' => 'S'], ['r' => 14, 's' => 'H'], ['r' => 14, 's' => 'C']];
+                }
+
                 if (!isset($state[$target_user]['players'])) {
                     $state[$target_user]['players'] = [];
                 }
                 if (!isset($state[$target_user]['players'][$player_key])) {
                     $state[$target_user]['players'][$player_key] = ['name' => ($player_key === 'human' ? 'Aap' : 'Bot')];
                 }
-                $state[$target_user]['players'][$player_key]['cards'] = [
-                    ['r' => 14, 's' => 'S'],
-                    ['r' => 14, 's' => 'H'],
-                    ['r' => 14, 's' => 'C']
-                ];
+                $state[$target_user]['players'][$player_key]['cards'] = $cards;
                 if (!isset($state[$target_user]['log'])) {
                     $state[$target_user]['log'] = [];
                 }
-                $state[$target_user]['log'][] = "Admin has modified cards of " . $state[$target_user]['players'][$player_key]['name'] . " live!";
+                $state[$target_user]['log'][] = "Admin modified cards of " . $state[$target_user]['players'][$player_key]['name'] . " live!";
             }
             
             save_sync_state(TEENPATTI_STATE_FILE, $state);
+
+            // Also persist to DB state for central persistence
+            $override_key = 'teenpatti_ongoing';
+            $db_state = db_api_request('GET', '/api/db/state/' . $override_key);
+            if (!is_array($db_state)) $db_state = [];
+            $db_state[$target_user] = $state[$target_user];
+            db_api_request('POST', '/api/db/state/' . $override_key, ['data' => $db_state]);
+
             echo json_encode(['success' => true]);
         } else {
             echo json_encode(['error' => 'Invalid game type for overrides.']);

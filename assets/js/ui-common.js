@@ -18,7 +18,7 @@ window.fetch = function (input, init) {
     
     // Automatically inject the currently logged-in username into all backend fetches
     const currentUser = localStorage.getItem('bet1x_current_user');
-    if (currentUser) {
+    if (currentUser && !url.includes('username=')) {
       try {
         const userObj = JSON.parse(currentUser);
         if (userObj && userObj.username) {

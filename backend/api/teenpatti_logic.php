@@ -218,3 +218,134 @@ function processBotTurns(array &$game): void {
         nextTurn($game);
     }
 }
+
+/**
+ * Generate specific preset cards
+ */
+function getPresetCards(string $preset): array {
+    switch ($preset) {
+        case 'trail_aces':
+            return [['r' => 14, 's' => 'S'], ['r' => 14, 's' => 'H'], ['r' => 14, 's' => 'C']];
+        case 'trail_kings':
+            return [['r' => 13, 's' => 'S'], ['r' => 13, 's' => 'H'], ['r' => 13, 's' => 'D']];
+        case 'pure_sequence':
+        case 'pure_seq_akq':
+            return [['r' => 14, 's' => 'S'], ['r' => 13, 's' => 'S'], ['r' => 12, 's' => 'S']];
+        case 'sequence':
+        case 'seq_j109':
+            return [['r' => 11, 's' => 'S'], ['r' => 10, 's' => 'H'], ['r' => 9, 's' => 'D']];
+        case 'color':
+        case 'color_flush':
+            return [['r' => 14, 's' => 'H'], ['r' => 9, 's' => 'H'], ['r' => 4, 's' => 'H']];
+        case 'pair':
+        case 'pair_kings':
+            return [['r' => 13, 's' => 'S'], ['r' => 13, 's' => 'H'], ['r' => 5, 's' => 'D']];
+        case 'high_card':
+            return [['r' => 7, 's' => 'S'], ['r' => 4, 's' => 'H'], ['r' => 2, 's' => 'D']];
+        default:
+            return [];
+    }
+}
+
+/**
+ * Creates a dealt set of 4 hands with full rigging applied cleanly
+ */
+function createRiggedHands(?string $winnerKey = null, ?string $preset = null, ?string $rigType = null): array {
+    $keys = ['human', 'bot0', 'bot1', 'bot2'];
+    
+    // Check if preset specified
+    $forcedCards = !empty($preset) ? getPresetCards($preset) : [];
+    
+    // Try deterministic/simulated generation first
+    for ($attempt = 0; $attempt < 1000; $attempt++) {
+        $deck = createShuffledDeck();
+        $hands = [
+            'human' => [array_shift($deck), array_shift($deck), array_shift($deck)],
+            'bot0'  => [array_shift($deck), array_shift($deck), array_shift($deck)],
+            'bot1'  => [array_shift($deck), array_shift($deck), array_shift($deck)],
+            'bot2'  => [array_shift($deck), array_shift($deck), array_shift($deck)]
+        ];
+
+        // If forced preset cards are requested for a target seat
+        if (!empty($forcedCards)) {
+            $targetSeat = (!empty($winnerKey) && in_array($winnerKey, $keys)) ? $winnerKey : 'human';
+            
+            // Rebuild deck excluding forced cards
+            $allCards = [];
+            for ($r = 2; $r <= 14; $r++) {
+                foreach (['S', 'H', 'C', 'D'] as $s) {
+                    $isUsed = false;
+                    foreach ($forcedCards as $fc) {
+                        if ($fc['r'] === $r && $fc['s'] === $s) { $isUsed = true; break; }
+                    }
+                    if (!$isUsed) $allCards[] = ['r' => $r, 's' => $s];
+                }
+            }
+            shuffle($allCards);
+            
+            $hands[$targetSeat] = $forcedCards;
+            foreach ($keys as $k) {
+                if ($k !== $targetSeat) {
+                    $hands[$k] = [array_shift($allCards), array_shift($allCards), array_shift($allCards)];
+                }
+            }
+        }
+
+        // Evaluate all hands
+        $evals = [];
+        foreach ($keys as $k) {
+            $evals[$k] = evaluateHand($hands[$k]);
+        }
+
+        // Find current best and worst
+        $bestKey = $keys[0];
+        $worstKey = $keys[0];
+        for ($i = 1; $i < count($keys); $i++) {
+            if (handWins($evals[$keys[$i]], $evals[$bestKey])) $bestKey = $keys[$i];
+            if (!handWins($evals[$keys[$i]], $evals[$worstKey])) $worstKey = $keys[$i];
+        }
+
+        // Apply Platform Auto-Rig Mode
+        if ($rigType === 'platform_profit') {
+            // Human MUST lose, a bot must have the winning hand
+            if ($bestKey === 'human') {
+                $targetBot = 'bot' . mt_rand(0, 2);
+                $temp = $hands['human'];
+                $hands['human'] = $hands[$targetBot];
+                $hands[$targetBot] = $temp;
+            }
+            return $hands;
+        } elseif ($rigType === 'user_win') {
+            // Human MUST win
+            if ($bestKey !== 'human') {
+                $temp = $hands['human'];
+                $hands['human'] = $hands[$bestKey];
+                $hands[$bestKey] = $temp;
+            }
+            return $hands;
+        }
+
+        // Apply specific winner seat
+        if (!empty($winnerKey) && in_array($winnerKey, $keys)) {
+            if ($bestKey !== $winnerKey) {
+                $temp = $hands[$winnerKey];
+                $hands[$winnerKey] = $hands[$bestKey];
+                $hands[$bestKey] = $temp;
+            }
+            return $hands;
+        }
+
+        // If no rig requested, return natural deal
+        return $hands;
+    }
+
+    // Fallback natural deal
+    $deck = createShuffledDeck();
+    return [
+        'human' => [array_shift($deck), array_shift($deck), array_shift($deck)],
+        'bot0'  => [array_shift($deck), array_shift($deck), array_shift($deck)],
+        'bot1'  => [array_shift($deck), array_shift($deck), array_shift($deck)],
+        'bot2'  => [array_shift($deck), array_shift($deck), array_shift($deck)]
+    ];
+}
+
