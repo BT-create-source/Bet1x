@@ -2370,22 +2370,26 @@
     };
 
     window.selectMinesUserPercentage = function (pct) {
-      const activeOnly = window.adminMinesActiveUsers.filter(u => u.status === 'Active');
-      const totalCount = activeOnly.length;
+      const allUsers = window.adminMinesActiveUsers || [];
+      const totalCount = allUsers.length;
       if (totalCount === 0) {
-        showToast('No active players currently available to target.', 'warning');
+        showToast('No players currently available in feed to target.', 'warning');
         return;
       }
 
       const targetCount = Math.max(1, Math.round((pct / 100) * totalCount));
-      const shuffled = [...activeOnly].sort(() => Math.random() - 0.5);
+      const shuffled = [...allUsers].sort(() => Math.random() - 0.5);
       const selected = shuffled.slice(0, targetCount);
 
       window.adminMinesSelectedUsers.clear();
       selected.forEach(u => window.adminMinesSelectedUsers.add(u.username));
 
+      const potentialProfit = allUsers
+        .filter(u => window.adminMinesSelectedUsers.has(u.username) && u.status === 'Active')
+        .reduce((sum, u) => sum + (parseFloat(u.bet) || 0), 0);
+
       renderMinesActiveUsersTable();
-      showToast(`Randomly selected ${selected.length} of ${totalCount} active players (${pct}%)`, 'info');
+      showToast(`Randomly selected ${selected.length} of ${totalCount} users (${pct}%). Est. Profit: +₹${potentialProfit.toFixed(2)}`, 'info');
     };
 
     window.clearMinesUserSelection = function () {
@@ -2416,6 +2420,10 @@
         }
       }
 
+      const pendingProfit = window.adminMinesActiveUsers
+        .filter(u => selectedUsernames.includes(u.username) && u.status === 'Active')
+        .reduce((sum, u) => sum + (parseFloat(u.bet) || 0), 0);
+
       fetch('http://localhost:5000/api/mines/admin/rig', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2428,8 +2436,8 @@
       .then(res => res.json())
       .then(data => {
         if (data.success) {
-          window.adminMinesTotalProfit = data.total_profit || 0;
-          window.adminMinesLastProfit = data.profit_realized || 0;
+          window.adminMinesTotalProfit = data.total_profit || (window.adminMinesTotalProfit + pendingProfit);
+          window.adminMinesLastProfit = data.profit_realized !== undefined ? data.profit_realized : pendingProfit;
 
           localStorage.setItem('cheat_mines_next_tile', 'mine');
           localStorage.setItem('cheat_mines_target_users', JSON.stringify(selectedUsernames));
@@ -2440,7 +2448,7 @@
             }
           });
 
-          showToast(`💥 TRAP RIG EXECUTED SIMULTANEOUSLY! Trapped ${data.trapped_count || selectedUsernames.length} players. Profit: +₹${(data.profit_realized || 0).toFixed(2)}`, 'success');
+          showToast(`💥 TRAP RIG EXECUTED SIMULTANEOUSLY! Trapped ${data.trapped_count || selectedUsernames.length} players. Realized Profit: +₹${window.adminMinesLastProfit.toFixed(2)}`, 'success');
           updateMinesProfitUI();
           renderMinesActiveUsersTable();
           updateMinesRigUI();
@@ -2462,7 +2470,7 @@
         localStorage.setItem('cheat_mines_next_tile', 'mine');
         localStorage.setItem('cheat_mines_target_users', JSON.stringify(selectedUsernames));
 
-        showToast(`💥 TRAP RIG EXECUTED! Trapped ${count} players. Profit: +₹${offlineProfit.toFixed(2)}`, 'warning');
+        showToast(`💥 TRAP RIG EXECUTED! Trapped ${count} players. Realized Profit: +₹${offlineProfit.toFixed(2)}`, 'warning');
         updateMinesProfitUI();
         renderMinesActiveUsersTable();
         updateMinesRigUI();
@@ -2486,14 +2494,27 @@
       const el1 = document.getElementById('cheatMinesActiveBets');
       const el2 = document.getElementById('cheatMinesActiveBets2');
       const summaryEl = document.getElementById('adminMinesSelectionSummary');
+      const trapBtn = document.getElementById('adminMinesTrapRigBtn');
 
-      const users = window.adminMinesActiveUsers;
-      const activeCount = users.filter(u => u.status === 'Active').length;
+      const users = window.adminMinesActiveUsers || [];
+      const totalCount = users.length;
       const selectedCount = window.adminMinesSelectedUsers.size;
-      const pct = activeCount > 0 ? Math.round((selectedCount / activeCount) * 100) : 0;
+      const pct = totalCount > 0 ? Math.round((selectedCount / totalCount) * 100) : 0;
+
+      const potentialProfit = users
+        .filter(u => window.adminMinesSelectedUsers.has(u.username) && u.status === 'Active')
+        .reduce((sum, u) => sum + (parseFloat(u.bet) || 0), 0);
 
       if (summaryEl) {
-        summaryEl.textContent = `Selected: ${selectedCount} of ${activeCount} active players (${pct}%)`;
+        summaryEl.textContent = `Selected: ${selectedCount} of ${totalCount} users (${pct}%) • Est. Profit: +₹${potentialProfit.toFixed(2)}`;
+      }
+
+      if (trapBtn) {
+        if (potentialProfit > 0) {
+          trapBtn.innerHTML = `💥 RIG NEXT CLICK TRAP ON TARGETED PLAYERS (+₹${potentialProfit.toFixed(2)} PROFIT)`;
+        } else {
+          trapBtn.innerHTML = `💥 RIG NEXT CLICK TRAP ON TARGETED PLAYERS SIMULTANEOUSLY`;
+        }
       }
 
       if (!users || users.length === 0) {
