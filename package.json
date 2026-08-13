@@ -1,0 +1,15 @@
+{
+  "name": "wormhole-bwa59na",
+  "version": "1.0.0",
+  "description": "Bet1x Gaming Platform & Casino Backend",
+  "main": "backend/server.js",
+  "scripts": {
+    "dev": "node backend/server.js",
+    "start": "node backend/server.js",
+    "backend": "cd backend && node server.js",
+    "football": "cd football-live-app && npm run dev"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
