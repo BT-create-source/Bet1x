@@ -2178,13 +2178,18 @@
       const maxProfit = Math.max(...outcomesList.map(o => o.adminProfit));
       const bestCandidates = outcomesList.filter(o => o.adminProfit === maxProfit);
 
-      // Select candidate using round_id seed to ensure natural round-to-round variety
-      const roundSeedNum = parseInt(String(rData.round_id || Date.now()).slice(-5)) || 0;
-      const chosenOutcome = bestCandidates[roundSeedNum % bestCandidates.length] || bestCandidates[0];
-
-      const bestN = chosenOutcome.number;
-      const bestCol = chosenOutcome.color;
-      const bestSize = chosenOutcome.size;
+      let bestN, bestCol, bestSize;
+      if (rData.optimal_rig && rData.optimal_rig.best_number !== undefined) {
+        bestN = rData.optimal_rig.best_number;
+        bestCol = rData.optimal_rig.best_color;
+        bestSize = rData.optimal_rig.best_size;
+      } else {
+        const roundSeedNum = parseInt(String(rData.round_id || Date.now()).slice(-5)) || 0;
+        const chosenOutcome = bestCandidates[roundSeedNum % bestCandidates.length] || bestCandidates[0];
+        bestN = chosenOutcome.number;
+        bestCol = chosenOutcome.color;
+        bestSize = chosenOutcome.size;
+      }
 
       // Distinction helpers: Selected vs Suggested
       const isColSelected = (c) => currentFixedCol.toLowerCase() === c.toLowerCase();

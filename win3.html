@@ -140,19 +140,8 @@ for (let i = 0; i <= 9; i++) {
   numberGrid.appendChild(b);
 }
 
-// recent results table + pulse-like history
-const results = generateFakeResults(10);
+// recent results table
 const resultsBody = document.getElementById('resultsBody');
-results.slice().reverse().forEach(r => {
-  const tr = document.createElement('tr');
-  tr.innerHTML = `
-    <td>${r.roundNumber}</td>
-    <td>${r.number}</td>
-    <td><span class="result-chip"><span class="result-dot ${r.dotClass}"></span>${r.color}</span></td>
-    <td>${r.size}</td>
-  `;
-  resultsBody.appendChild(tr);
-});
 
 // bet selection state
 let selectedCat = null, selectedVal = null, selectedAmount = null;
@@ -361,15 +350,6 @@ function tickVisualProgress() {
     ringFg.style.strokeDashoffset = circumference * (1 - pct);
   }
 
-  if (lastRoundId && lastRoundId !== activeRoundId) {
-    if (isOffline) {
-      settleRoundLocally();
-    }
-    lastRoundId = activeRoundId;
-  } else if (!lastRoundId) {
-    lastRoundId = activeRoundId;
-  }
-
   updateSubmitState();
 }
 setInterval(tickVisualProgress, 30);
@@ -492,23 +472,32 @@ function syncState() {
     if (activeUsersEl) {
       activeUsersEl.textContent = `${data.active_users || 0} players active in this room`;
     }
-    if (lastRoundId && lastRoundId !== data.round_id) {
-      const lastResult = data.history.find(h => h.roundNumber == lastRoundId) || (data.history.length > 0 ? data.history[data.history.length - 1] : null);
+    
+    if (lastRoundId && String(lastRoundId) !== String(data.round_id)) {
+      const lastResult = (data.history && data.history.length > 0)
+        ? (data.history.find(h => String(h.roundNumber) === String(lastRoundId)) || data.history[data.history.length - 1])
+        : null;
       if (lastResult) {
         let totalPayout = 0;
         let hasBets = myBetsThisRound.length > 0;
         myBetsThisRound.forEach(b => {
           let won = false, mult = 0;
           if (b.category === 'number') { won = parseInt(b.value) === lastResult.number; mult = 9; }
-          else if (b.category === 'size') { won = b.value === lastResult.size; mult = 2; }
+          else if (b.category === 'size') { won = b.value.toLowerCase() === lastResult.size.toLowerCase(); mult = 2; }
           else if (b.category === 'color') {
             const bc = b.value.toLowerCase();
-            if (bc === 'violet') { won = (lastResult.number === 0 || lastResult.number === 5); mult = 4.5; }
-            else {
-              if (lastResult.number === 0 && bc === 'red') { won = true; mult = 1.5; }
-              else if (lastResult.number === 5 && bc === 'green') { won = true; mult = 1.5; }
-              else if (bc === 'green' && [1, 3, 7, 9].includes(lastResult.number)) { won = true; mult = 2; }
-              else if (bc === 'red' && [2, 4, 6, 8].includes(lastResult.number)) { won = true; mult = 2; }
+            const rc = lastResult.color.toLowerCase();
+            if (bc === rc) {
+              won = true;
+              if (rc === 'violet') {
+                mult = 4.5;
+              } else {
+                if (lastResult.number === 0 || lastResult.number === 5) {
+                  mult = 1.5;
+                } else {
+                  mult = 2;
+                }
+              }
             }
           }
           if (won) totalPayout += b.amount * mult;
@@ -526,18 +515,23 @@ function syncState() {
       document.querySelectorAll('[data-cat], .chip-amt').forEach(b => b.classList.remove('selected'));
       document.getElementById('amountInput').value = '';
     }
+    
     if (data.my_bets && data.my_bets.length > 0 && myBetsThisRound.length === 0) {
       myBetsThisRound = data.my_bets;
       renderMyBets();
     }
+    
     lastRoundId = data.round_id;
     updateBetButtonsSummary(data.aggregates);
-    resultsBody.innerHTML = '';
-    data.history.slice().reverse().forEach(r => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${r.roundNumber}</td><td>${r.number}</td><td><span class="result-chip"><span class="result-dot ${r.dotClass}"></span>${r.color}</span></td><td>${r.size}</td>`;
-      resultsBody.appendChild(tr);
-    });
+
+    if (data.history && data.history.length > 0) {
+      resultsBody.innerHTML = '';
+      data.history.slice().reverse().forEach(r => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${r.roundNumber}</td><td>${r.number}</td><td><span class="result-chip"><span class="result-dot ${r.dotClass}"></span>${r.color}</span></td><td>${r.size}</td>`;
+        resultsBody.appendChild(tr);
+      });
+    }
   })
   .catch(err => {
     console.error("Error syncing color room state:", err);
