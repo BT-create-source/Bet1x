@@ -3671,11 +3671,16 @@
         .then(data => {
           if (data.error) return;
 
+          if (data.server_time && typeof ServerClock !== 'undefined') {
+            ServerClock.clockSkew = Date.now() - data.server_time;
+            ServerClock.isSynced = true;
+          }
+
           // --- Aviator State ---
           if (data.aviator) {
             const av = data.aviator;
-            const now = Date.now();
-            const serverPhaseStart = now - (av.time_elapsed * 1000);
+            const now = (typeof ServerClock !== 'undefined') ? ServerClock.now() : Date.now();
+            const serverPhaseStart = av.phase_start || (now - (av.time_elapsed * 1000));
 
             window.adminAviatorServerPhase = av.phase;
             window.adminAviatorServerRoundId = av.round_id;
@@ -3698,34 +3703,11 @@
             const room = roomEl ? roomEl.value : 'sapre';
             const rData = data.color_guess[room];
             if (rData) {
-              const oldRoom = window.adminColorActiveRoom;
-              const oldRoundId = window.adminColorRoundIdVal;
-              
-              let clientVisualTimeLeft = null;
-              if (typeof window.adminColorServerTimeLeft !== 'undefined' && window.adminColorServerReceivedAt) {
-                const elapsed = (Date.now() - window.adminColorServerReceivedAt) / 1000;
-                clientVisualTimeLeft = Math.max(0, window.adminColorServerTimeLeft - elapsed);
-              }
-              
-              let shouldSnap = false;
-              if (oldRoom !== room || oldRoundId !== rData.round_id) {
-                shouldSnap = true;
-              } else if (clientVisualTimeLeft === null) {
-                shouldSnap = true;
-              } else {
-                const diff = Math.abs(clientVisualTimeLeft - rData.time_left);
-                if (diff > 1.5) {
-                  shouldSnap = true;
-                }
-              }
-              
-              if (shouldSnap) {
-                window.adminColorActiveRoom = room;
-                window.adminColorRoundIdVal = rData.round_id;
-                window.adminColorServerTimeLeft = rData.time_left;
-                window.adminColorServerDuration = rData.duration;
-                window.adminColorServerReceivedAt = Date.now();
-              }
+              window.adminColorActiveRoom = room;
+              window.adminColorRoundIdVal = rData.round_id;
+              window.adminColorServerTimeLeft = rData.time_left;
+              window.adminColorServerDuration = rData.duration;
+              window.adminColorServerReceivedAt = (typeof ServerClock !== 'undefined') ? ServerClock.now() : Date.now();
               if (typeof renderColorGuessUI === 'function') renderColorGuessUI(rData);
             }
           }
@@ -4086,34 +4068,46 @@
 
     // Global high-resolution progress ticker
     function tickAdminVisualProgress() {
-      const now = Date.now();
+      const now = (typeof ServerClock !== 'undefined') ? ServerClock.now() : Date.now();
 
       // 1. Color Guess Progress
-      if (typeof window.adminColorServerTimeLeft !== 'undefined') {
-        const elapsed = (now - window.adminColorServerReceivedAt) / 1000;
-        const visualTimeLeft = Math.max(0, window.adminColorServerTimeLeft - elapsed);
+      const roomEl = document.getElementById('cheatColorRoomSelect');
+      const room = roomEl ? roomEl.value : 'sapre';
+      const durations = { sapre: 30, becone: 60, emred: 180, vip: 300 };
+      const dur = durations[room] || 30;
 
-        const mins = Math.floor(visualTimeLeft / 60);
-        const secs = Math.floor(visualTimeLeft % 60);
-        const timeStr = mins.toString().padStart(2, '0') + ':' + secs.toString().padStart(2, '0');
+      const roomState = (typeof ServerClock !== 'undefined' && ServerClock.getRoomState)
+        ? ServerClock.getRoomState(room, dur)
+        : (function() {
+            const nowSec = Math.floor(Date.now() / 1000);
+            return {
+              time_left: dur - (nowSec % dur),
+              round_id: window.adminColorRoundIdVal || '—',
+              progress_pct: (dur - (nowSec % dur)) / dur
+            };
+          })();
 
-        const pct = window.adminColorServerDuration > 0 ? (visualTimeLeft / window.adminColorServerDuration) * 100 : 0;
-        const timerColor = visualTimeLeft <= 5 ? 'var(--red)' : 'var(--green)';
+      const visualTimeLeft = roomState.time_left;
+      const mins = Math.floor(visualTimeLeft / 60);
+      const secs = Math.floor(visualTimeLeft % 60);
+      const timeStr = mins.toString().padStart(2, '0') + ':' + secs.toString().padStart(2, '0');
 
-        const roundEl = document.getElementById('adminColorRoundId');
-        if (roundEl) roundEl.textContent = '#' + window.adminColorRoundIdVal;
+      const pct = (visualTimeLeft / dur) * 100;
+      const timerColor = visualTimeLeft <= 5 ? 'var(--red)' : 'var(--green)';
 
-        const timeEl = document.getElementById('adminColorTimeVal');
-        if (timeEl) {
-          timeEl.textContent = timeStr;
-          timeEl.style.color = timerColor;
-        }
+      const colorRoundEl = document.getElementById('adminColorRoundId');
+      if (colorRoundEl) colorRoundEl.textContent = '#' + (roomState.round_id || window.adminColorRoundIdVal);
 
-        const barEl = document.getElementById('adminColorProgressBar');
-        if (barEl) {
-          barEl.style.width = pct + '%';
-          barEl.style.background = timerColor;
-        }
+      const timeEl = document.getElementById('adminColorTimeVal');
+      if (timeEl) {
+        timeEl.textContent = timeStr;
+        timeEl.style.color = timerColor;
+      }
+
+      const barEl = document.getElementById('adminColorProgressBar');
+      if (barEl) {
+        barEl.style.width = pct + '%';
+        barEl.style.background = timerColor;
       }
 
       // 2. Aviator Progress (purely server-driven via pollLiveAdminGames)
@@ -4127,31 +4121,31 @@
 
       updateAdminAviatorTelemetry(window.adminAviatorServerBets || [], effectivePhase, curFlightMult);
 
-      const roundEl = document.getElementById('adminAviatorRoundId');
+      const aviatorRoundEl = document.getElementById('adminAviatorRoundId');
       const labelEl = document.getElementById('adminAviatorTimerLabel');
-      const timeEl = document.getElementById('adminAviatorTimeVal');
-      const barEl = document.getElementById('adminAviatorProgressBar');
+      const avTimeEl = document.getElementById('adminAviatorTimeVal');
+      const avBarEl = document.getElementById('adminAviatorProgressBar');
 
-      if (roundEl) roundEl.textContent = '#' + (window.adminAviatorServerRoundId || '99246958');
+      if (aviatorRoundEl) aviatorRoundEl.textContent = '#' + (window.adminAviatorServerRoundId || '99246958');
 
       if (effectivePhase === 'crashed') {
         const crashMult = window.adminAviatorServerCrashPoint || parseFloat(localStorage.getItem('cheat_aviator_force_crash_mult') || '1.00');
         if (labelEl) labelEl.textContent = 'FLIGHT CRASHED';
-        if (timeEl) {
-          timeEl.textContent = `@ ${crashMult.toFixed(2)}x`;
-          timeEl.style.color = 'var(--red)';
+        if (avTimeEl) {
+          avTimeEl.textContent = `@ ${crashMult.toFixed(2)}x`;
+          avTimeEl.style.color = 'var(--red)';
         }
-        if (barEl && barEl.parentElement) {
-          barEl.parentElement.style.display = 'none';
+        if (avBarEl && avBarEl.parentElement) {
+          avBarEl.parentElement.style.display = 'none';
         }
       } else if (effectivePhase === 'running') {
         if (labelEl) labelEl.textContent = 'LIVE MULTIPLIER';
-        if (timeEl) {
-          timeEl.textContent = `${curFlightMult.toFixed(2)}x`;
-          timeEl.style.color = 'var(--green)';
+        if (avTimeEl) {
+          avTimeEl.textContent = `${curFlightMult.toFixed(2)}x`;
+          avTimeEl.style.color = 'var(--green)';
         }
-        if (barEl && barEl.parentElement) {
-          barEl.parentElement.style.display = 'none';
+        if (avBarEl && avBarEl.parentElement) {
+          avBarEl.parentElement.style.display = 'none';
         }
       } else {
         // waiting
@@ -4160,14 +4154,14 @@
         const pct = Math.max(0, Math.min(100, (visualTimeLeft / duration) * 100));
 
         if (labelEl) labelEl.textContent = 'NEXT ROUND IN...';
-        if (timeEl) {
-          timeEl.textContent = visualTimeLeft.toFixed(1) + 's';
-          timeEl.style.color = visualTimeLeft <= 1.5 ? 'var(--red)' : 'var(--gold)';
+        if (avTimeEl) {
+          avTimeEl.textContent = visualTimeLeft.toFixed(1) + 's';
+          avTimeEl.style.color = visualTimeLeft <= 1.5 ? 'var(--red)' : 'var(--gold)';
         }
-        if (barEl && barEl.parentElement) {
-          barEl.parentElement.style.display = 'block';
-          barEl.style.width = pct + '%';
-          barEl.style.background = visualTimeLeft <= 1.5 ? 'var(--red)' : 'var(--gold)';
+        if (avBarEl && avBarEl.parentElement) {
+          avBarEl.parentElement.style.display = 'block';
+          avBarEl.style.width = pct + '%';
+          avBarEl.style.background = visualTimeLeft <= 1.5 ? 'var(--red)' : 'var(--gold)';
         }
       }
     }

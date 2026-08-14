@@ -238,15 +238,6 @@ const radius = ringFg.r.baseVal.value;
 const circumference = 2 * Math.PI * radius;
 ringFg.style.strokeDasharray = circumference;
 
-let lastRoundId = null;
-let current_time_left = 30;
-
-function formatTime(sec) {
-  const m = Math.floor(sec / 60).toString().padStart(2, '0');
-  const s = Math.floor(sec % 60).toString().padStart(2, '0');
-  return `${m}:${s}`;
-}
-
 function updateBetButtonsSummary(aggs) {
   if (!aggs) return;
   
@@ -319,13 +310,19 @@ function updateBetButtonsSummary(aggs) {
   }
 }
 
-let serverTimeLeft = ROOM_DURATION;
-let serverReceivedAt = Date.now();
+let lastRoundId = null;
+let current_time_left = ROOM_DURATION;
 let isOffline = false;
+
+function formatTime(sec) {
+  const m = Math.floor(sec / 60).toString().padStart(2, '0');
+  const s = Math.floor(sec % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
 
 function getLocalOfflineRoundId() {
   const dur = ROOM_DURATION;
-  const nowSec = Math.floor(Date.now() / 1000);
+  const nowSec = (typeof ServerClock !== 'undefined' && ServerClock.nowSec) ? ServerClock.nowSec() : Math.floor(Date.now() / 1000);
   const roundStart = Math.floor(nowSec / dur) * dur;
   const dObj = new Date(roundStart * 1000);
   const yyyy = dObj.getUTCFullYear();
@@ -336,37 +333,43 @@ function getLocalOfflineRoundId() {
   return `${yyyy}${mm}${dd}${hh}${bucket}`;
 }
 
-let localRoundId = getLocalOfflineRoundId();
-if (!lastRoundId) { lastRoundId = localRoundId; roundIdEl.textContent = localRoundId; }
-
 if (ringFg) {
   ringFg.style.transition = 'none';
 }
 
 function tickVisualProgress() {
-  let visualTimeLeft;
-  if (isOffline) {
-    const nowSec = Math.floor(Date.now() / 1000);
-    visualTimeLeft = ROOM_DURATION - (nowSec % ROOM_DURATION);
-    const offlineRoundId = getLocalOfflineRoundId();
-    if (lastRoundId !== offlineRoundId) {
-      if (lastRoundId) {
-        settleRoundLocally();
-      }
-      lastRoundId = offlineRoundId;
-      roundIdEl.textContent = offlineRoundId;
-    }
-  } else {
-    const elapsed = (Date.now() - serverReceivedAt) / 1000;
-    visualTimeLeft = Math.max(0, serverTimeLeft - elapsed);
-  }
-  
+  const roomState = (typeof ServerClock !== 'undefined' && ServerClock.getRoomState)
+    ? ServerClock.getRoomState(ROOM_KEY, ROOM_DURATION)
+    : (function() {
+        const nowSec = Math.floor(Date.now() / 1000);
+        return {
+          time_left: Math.max(0, ROOM_DURATION - (nowSec % ROOM_DURATION)),
+          round_id: getLocalOfflineRoundId(),
+          progress_pct: (ROOM_DURATION - (nowSec % ROOM_DURATION)) / ROOM_DURATION
+        };
+      })();
+
+  const visualTimeLeft = roomState.time_left;
+  const activeRoundId = roomState.round_id;
+
   current_time_left = visualTimeLeft;
-  ringTime.textContent = formatTime(visualTimeLeft);
-  
-  const pct = visualTimeLeft / ROOM_DURATION;
-  ringFg.style.strokeDashoffset = circumference * (1 - pct);
-  
+  if (ringTime) ringTime.textContent = formatTime(visualTimeLeft);
+  if (roundIdEl) roundIdEl.textContent = activeRoundId;
+
+  if (ringFg) {
+    const pct = visualTimeLeft / ROOM_DURATION;
+    ringFg.style.strokeDashoffset = circumference * (1 - pct);
+  }
+
+  if (lastRoundId && lastRoundId !== activeRoundId) {
+    if (isOffline) {
+      settleRoundLocally();
+    }
+    lastRoundId = activeRoundId;
+  } else if (!lastRoundId) {
+    lastRoundId = activeRoundId;
+  }
+
   updateSubmitState();
 }
 setInterval(tickVisualProgress, 30);
@@ -408,7 +411,7 @@ function settleRoundLocally() {
     if (possible.length > 0) {
       winningNum = possible[Math.floor(Math.random() * possible.length)];
     } else {
-      winningNum = Math.floor(Date.now() / 10) % 10;
+      winningNum = Math.floor(Math.random() * 10);
     }
     resolved = resolveColorNumber(winningNum);
   }
@@ -470,34 +473,19 @@ function settleRoundLocally() {
   document.getElementById('amountInput').value = '';
 }
 
-// Local countdown fallback interval removed (handled dynamically inside visual progress clock)
-
 function syncState() {
   fetch(`api/game_sync.php?action=color_get_state&room=${ROOM_KEY}`)
   .then(res => res.json())
   .then(data => {
     if (data.error) return;
     isOffline = false;
-    let clientVisualTimeLeft = null;
-    if (typeof serverTimeLeft !== 'undefined' && serverReceivedAt) {
-      const elapsed = (Date.now() - serverReceivedAt) / 1000;
-      clientVisualTimeLeft = Math.max(0, serverTimeLeft - elapsed);
+    
+    if (data.server_time && typeof ServerClock !== 'undefined') {
+      const serverNow = data.server_time;
+      ServerClock.clockSkew = Date.now() - serverNow;
+      ServerClock.isSynced = true;
     }
-    let shouldSnap = false;
-    if (lastRoundId !== data.round_id) {
-      shouldSnap = true;
-    } else if (clientVisualTimeLeft === null) {
-      shouldSnap = true;
-    } else {
-      const diff = Math.abs(clientVisualTimeLeft - data.time_left);
-      if (diff > 1.5) {
-        shouldSnap = true;
-      }
-    }
-    if (shouldSnap) {
-      serverTimeLeft = data.time_left;
-      serverReceivedAt = Date.now();
-    }
+
     roundIdEl.textContent = data.round_id;
     setWallet(data.wallet_balance);
     const activeUsersEl = document.getElementById('activePlayersCount');

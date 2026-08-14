@@ -843,23 +843,28 @@ function syncAviator() {
     .then(res => res.json())
     .then(data => {
       if (!data || data.error) return;
+      if (data.server_time && typeof ServerClock !== 'undefined') {
+        ServerClock.clockSkew = Date.now() - data.server_time;
+        ServerClock.isSynced = true;
+      }
       if (data.wallet_balance !== undefined && typeof setWallet === 'function') {
         setWallet(data.wallet_balance);
       }
       if (data.phase && data.time_elapsed !== undefined) {
+        const serverNow = (typeof ServerClock !== 'undefined') ? ServerClock.now() : Date.now();
+        const authoritativePhaseStart = (data.phase_start !== undefined) ? data.phase_start : (serverNow - (data.time_elapsed * 1000));
+        
         // Enforce minimum crash display duration:
         if (phase === 'crashed' && data.phase === 'waiting') {
-          const clientElapsed = Date.now() - phaseStart;
+          const clientElapsed = serverNow - phaseStart;
           if (clientElapsed < crashPause) {
             return; // Wait for local crash display duration to complete
           }
         }
 
-        const now = Date.now();
-        const serverPhaseStart = now - (data.time_elapsed * 1000);
-        if (phase !== data.phase || roundId !== data.round_id || Math.abs(phaseStart - serverPhaseStart) > 20) {
+        if (phase !== data.phase || roundId !== data.round_id || Math.abs(phaseStart - authoritativePhaseStart) > 20) {
           phase = data.phase;
-          phaseStart = serverPhaseStart;
+          phaseStart = authoritativePhaseStart;
           roundId = data.round_id || roundId;
           crashPoint = data.crash_point || crashPoint;
           if (data.current_multiplier) currentMultiplier = data.current_multiplier;
@@ -954,8 +959,8 @@ let consolesResetForFlight = false;
 
 function gameTick() {
   try {
-    const now = Date.now();
-    const elapsed = now - phaseStart;
+    const now = (typeof ServerClock !== 'undefined') ? ServerClock.now() : Date.now();
+    const elapsed = Math.max(0, now - phaseStart);
 
     // Detect phase transitions driven by server sync
     if (lastRenderedPhase !== phase || lastRenderedRoundId !== roundId) {

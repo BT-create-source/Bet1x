@@ -49,6 +49,67 @@ const WALLET_KEY = 'bet1x_demo_wallet';
 const HISTORY_KEY = 'bet1x_demo_history';
 const STARTING_BALANCE = 1000;
 
+// --- CENTRALIZED BACKEND SYNCHRONIZED CLOCK ENGINE ---
+window.ServerClock = {
+  clockSkew: 0,
+  isSynced: false,
+  lastSyncTime: 0,
+  rooms: {},
+  aviator: null,
+  async sync() {
+    const t0 = Date.now();
+    try {
+      const res = await originalFetch('http://localhost:5000/api/server_time');
+      if (res.ok) {
+        const data = await res.json();
+        const t1 = Date.now();
+        const latency = (t1 - t0) / 2;
+        const serverNow = (data.server_time || Date.now()) + latency;
+        this.clockSkew = Date.now() - serverNow;
+        this.isSynced = true;
+        this.lastSyncTime = Date.now();
+        if (data.rooms) this.rooms = data.rooms;
+        if (data.aviator) this.aviator = data.aviator;
+      }
+    } catch (e) {
+      this.isSynced = true;
+    }
+  },
+  now() {
+    return Date.now() - this.clockSkew;
+  },
+  nowSec() {
+    return Math.floor((Date.now() - this.clockSkew) / 1000);
+  },
+  getRoomState(room, duration) {
+    const dur = duration || (room === 'sapre' ? 30 : (room === 'becone' ? 60 : (room === 'emred' ? 180 : (room === 'vip' ? 300 : 30))));
+    const nowSec = this.nowSec();
+    const timeLeft = Math.max(0, dur - (nowSec % dur));
+    const roundStart = Math.floor(nowSec / dur) * dur;
+    const d = new Date(roundStart * 1000);
+    const yyyy = d.getUTCFullYear();
+    const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(d.getUTCDate()).padStart(2, '0');
+    const hh = String(d.getUTCHours()).padStart(2, '0');
+    const bucket = String(Math.floor((roundStart % 3600) / dur)).padStart(3, '0');
+    const roundId = `${yyyy}${mm}${dd}${hh}${bucket}`;
+    return {
+      time_left: timeLeft,
+      round_id: roundId,
+      duration: dur,
+      progress_pct: timeLeft / dur
+    };
+  }
+};
+
+// Immediately synchronize server clock on script evaluation
+if (typeof originalFetch === 'function') {
+  window.ServerClock.sync();
+  setInterval(() => {
+    window.ServerClock.sync();
+  }, 10000);
+}
+
 const USERS_KEY = 'bet1x_users';
 const CURRENT_USER_KEY = 'bet1x_current_user';
 

@@ -56,6 +56,7 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, '..')));
 
 // Connect to database on start
 prisma.$connect()
@@ -1014,18 +1015,72 @@ async function settleColorRound(room, targetRound, state) {
   }
 }
 
+// Central Server Clock API endpoint
+app.get('/api/server_time', (req, res) => {
+  const now = Date.now();
+  const nowSec = Math.floor(now / 1000);
+  const avElapsed = (now - aviatorState.phase_start) / 1000;
+
+  res.json({
+    server_time: now,
+    server_time_sec: nowSec,
+    iso: new Date(now).toISOString(),
+    rooms: {
+      sapre: { duration: 30, time_left: 30 - (nowSec % 30), round_id: getColorRoundId('sapre', nowSec) },
+      becone: { duration: 60, time_left: 60 - (nowSec % 60), round_id: getColorRoundId('becone', nowSec) },
+      emred: { duration: 180, time_left: 180 - (nowSec % 180), round_id: getColorRoundId('emred', nowSec) },
+      vip: { duration: 300, time_left: 300 - (nowSec % 300), round_id: getColorRoundId('vip', nowSec) }
+    },
+    aviator: {
+      round_id: aviatorState.round_id,
+      phase: aviatorState.phase,
+      phase_start: aviatorState.phase_start,
+      time_elapsed: avElapsed,
+      time_left: aviatorState.phase === 'waiting' ? Math.max(0, aviatorState.duration - avElapsed) : 0,
+      duration: aviatorState.duration || 5.0,
+      current_multiplier: aviatorState.current_multiplier,
+      crash_point: aviatorState.crash_point
+    }
+  });
+});
+
 // Custom route proxies to implement Central Game Sync API
 app.get('/api/game_sync.php', async (req, res) => {
   const action = req.query.action || '';
   const username = req.query.username || 'DemoUser';
 
   try {
-    if (action === 'color_get_state') {
+    const now = Date.now();
+    const nowSec = Math.floor(now / 1000);
+
+    if (action === 'server_time') {
+      const avElapsed = (now - aviatorState.phase_start) / 1000;
+      return res.json({
+        server_time: now,
+        server_time_sec: nowSec,
+        iso: new Date(now).toISOString(),
+        rooms: {
+          sapre: { duration: 30, time_left: 30 - (nowSec % 30), round_id: getColorRoundId('sapre', nowSec) },
+          becone: { duration: 60, time_left: 60 - (nowSec % 60), round_id: getColorRoundId('becone', nowSec) },
+          emred: { duration: 180, time_left: 180 - (nowSec % 180), round_id: getColorRoundId('emred', nowSec) },
+          vip: { duration: 300, time_left: 300 - (nowSec % 300), round_id: getColorRoundId('vip', nowSec) }
+        },
+        aviator: {
+          round_id: aviatorState.round_id,
+          phase: aviatorState.phase,
+          phase_start: aviatorState.phase_start,
+          time_elapsed: avElapsed,
+          time_left: aviatorState.phase === 'waiting' ? Math.max(0, aviatorState.duration - avElapsed) : 0,
+          duration: aviatorState.duration || 5.0,
+          current_multiplier: aviatorState.current_multiplier,
+          crash_point: aviatorState.crash_point
+        }
+      });
+    } else if (action === 'color_get_state') {
       const room = req.query.room || 'sapre';
       const durations = { sapre: 30, becone: 60, emred: 180, vip: 300 };
       const duration = durations[room] || 30;
 
-      const nowSec = Math.floor(Date.now() / 1000);
       const time_left = duration - (nowSec % duration);
       const round_id = getColorRoundId(room, nowSec);
 
@@ -1054,9 +1109,11 @@ app.get('/api/game_sync.php', async (req, res) => {
       const overridesRecord = await prisma.gameState.findUnique({ where: { key: `color_guess_overrides_${room}` } });
 
       const user = await getOrCreateUser(username);
-      const optimal = calculateColorOptimalOutcome(activeBets);
+      const optimal = calculateColorOptimalOutcome(activeBets, round_id);
 
       res.json({
+        server_time: now,
+        server_time_sec: nowSec,
         round_id,
         time_left,
         duration,
@@ -1068,17 +1125,20 @@ app.get('/api/game_sync.php', async (req, res) => {
         optimal_rig: optimal
       });
     } else if (action === 'aviator_get_state') {
-      const now = Date.now();
       const elapsed = (now - aviatorState.phase_start) / 1000;
       
       const user = await getOrCreateUser(username);
       const balance = user ? user.wallet_balance : 1000.00;
 
       res.json({
+        server_time: now,
+        server_time_sec: nowSec,
         round_id: aviatorState.round_id,
         phase: aviatorState.phase,
+        phase_start: aviatorState.phase_start,
         time_elapsed: elapsed,
         time_left: aviatorState.phase === 'waiting' ? Math.max(0, aviatorState.duration - elapsed) : 0,
+        duration: aviatorState.duration || 5.0,
         current_multiplier: aviatorState.current_multiplier,
         crash_point: aviatorState.crash_point,
         bets: aviatorState.bets,
@@ -1087,14 +1147,12 @@ app.get('/api/game_sync.php', async (req, res) => {
       });
     } else if (action === 'admin_get_live_state' || action === 'admin_get_games') {
       // Unified admin live state endpoint
-      const now = Date.now();
       const avElapsed = (now - aviatorState.phase_start) / 1000;
 
       // Color guess state for all rooms
       const colorGuess = {};
       const rooms = ['sapre', 'becone', 'emred', 'vip'];
       const durations = { sapre: 30, becone: 60, emred: 180, vip: 300 };
-      const nowSec = Math.floor(now / 1000);
       const state = await loadColorState();
 
       let stateChanged = false;
@@ -1136,6 +1194,8 @@ app.get('/api/game_sync.php', async (req, res) => {
       }
 
       res.json({
+        server_time: now,
+        server_time_sec: nowSec,
         aviator: {
           round_id: aviatorState.round_id,
           phase: aviatorState.phase,
