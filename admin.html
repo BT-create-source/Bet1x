@@ -1927,14 +1927,26 @@
           });
           outcomes.push({ number: n, color: res.color, dotClass: res.dotClass, size: res.size, playerPayout: payout, adminProfit: totalVolume - payout });
         }
-        const sorted = [...outcomes].sort((a, b) => b.adminProfit - a.adminProfit);
+        const maxProfit = Math.max(...outcomes.map(o => o.adminProfit));
+        const bestCandidates = outcomes.filter(o => o.adminProfit === maxProfit);
+        let best = bestCandidates[0];
+        if (bestCandidates.length > 1) {
+          let hash = 0;
+          const str = String(rData.round_id || Date.now());
+          for (let i = 0; i < str.length; i++) {
+            hash = ((hash << 5) - hash) + str.charCodeAt(i);
+            hash |= 0;
+          }
+          const idx = Math.abs(hash) % bestCandidates.length;
+          best = bestCandidates[idx];
+        }
         return {
           total_volume: totalVolume,
-          best_number: sorted[0].number,
-          best_color: sorted[0].color,
-          best_size: sorted[0].size,
-          max_profit: sorted[0].adminProfit,
-          min_payout: sorted[0].playerPayout,
+          best_number: best.number,
+          best_color: best.color,
+          best_size: best.size,
+          max_profit: best.adminProfit,
+          min_payout: best.playerPayout,
           outcomes
         };
       })();
@@ -2008,11 +2020,26 @@
       const currentFixedCol = overrides.color || '';
       const currentFixedSize = overrides.size || '';
 
-      // Optimal single choices
-      const bestN = optimal.best_number;
-      const bestCol = optimal.best_color;
-      const bestSize = optimal.best_size;
-      const maxProfit = optimal.max_profit;
+      // Compute best options dynamically from outcomes array with round-based rotation among tied max profits
+      let outcomesList = (optimal && optimal.outcomes && optimal.outcomes.length > 0) ? optimal.outcomes : [];
+      if (outcomesList.length === 0) {
+        outcomesList = [];
+        for (let n = 0; n <= 9; n++) {
+          const res = (n === 0) ? { color: 'Violet', dotClass: 'violet', size: 'Small' } : ((n === 5) ? { color: 'Violet', dotClass: 'violet', size: 'Big' } : ([1,3,7,9].includes(n) ? { color: 'Green', dotClass: 'green', size: n>=5?'Big':'Small' } : { color: 'Red', dotClass: 'red', size: n>=5?'Big':'Small' }));
+          outcomesList.push({ number: n, color: res.color, dotClass: res.dotClass, size: res.size, playerPayout: 0, adminProfit: totalVolume });
+        }
+      }
+
+      const maxProfit = Math.max(...outcomesList.map(o => o.adminProfit));
+      const bestCandidates = outcomesList.filter(o => o.adminProfit === maxProfit);
+
+      // Select candidate using round_id seed to ensure natural round-to-round variety
+      const roundSeedNum = parseInt(String(rData.round_id || Date.now()).slice(-5)) || 0;
+      const chosenOutcome = bestCandidates[roundSeedNum % bestCandidates.length] || bestCandidates[0];
+
+      const bestN = chosenOutcome.number;
+      const bestCol = chosenOutcome.color;
+      const bestSize = chosenOutcome.size;
 
       // Distinction helpers: Selected vs Suggested
       const isColSelected = (c) => currentFixedCol.toLowerCase() === c.toLowerCase();

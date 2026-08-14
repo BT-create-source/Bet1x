@@ -686,7 +686,7 @@ function resolveColorNumber(num) {
 }
 
 // Calculate the exact optimal outcome for Admin profit across all numbers (0-9)
-function calculateColorOptimalOutcome(bets) {
+function calculateColorOptimalOutcome(bets, roundSeed) {
   const roundBets = Array.isArray(bets) ? bets : [];
   const totalVolume = roundBets.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
 
@@ -723,10 +723,29 @@ function calculateColorOptimalOutcome(bets) {
     });
   }
 
-  // Sort by highest profit to lowest profit
-  const sorted = [...outcomes].sort((a, b) => b.adminProfit - a.adminProfit);
-  const best = sorted[0];
-  const worst = sorted[sorted.length - 1];
+  // Find max and min profit
+  const maxProfit = Math.max(...outcomes.map(o => o.adminProfit));
+  const minProfit = Math.min(...outcomes.map(o => o.adminProfit));
+  
+  const bestCandidates = outcomes.filter(o => o.adminProfit === maxProfit);
+  const worstCandidates = outcomes.filter(o => o.adminProfit === minProfit);
+
+  // Pick pseudo-randomly among equally profitable choices using roundSeed
+  let best;
+  if (bestCandidates.length === 1) {
+    best = bestCandidates[0];
+  } else {
+    let hash = 0;
+    const str = String(roundSeed || Date.now());
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) - hash) + str.charCodeAt(i);
+      hash |= 0;
+    }
+    const idx = Math.abs(hash) % bestCandidates.length;
+    best = bestCandidates[idx];
+  }
+
+  const worst = worstCandidates[0] || outcomes[0];
 
   return {
     total_volume: parseFloat(totalVolume.toFixed(2)),
@@ -792,10 +811,10 @@ async function settleColorRound(room, targetRound, state) {
   if (override && override.number !== undefined && override.number !== null && override.number !== '') {
     num = parseInt(override.number);
   } else if (override && (override.rig_type === 'platform_profit' || override.rig_type === 'max_profit')) {
-    const optimal = calculateColorOptimalOutcome(roundBets);
+    const optimal = calculateColorOptimalOutcome(roundBets, targetRound);
     num = optimal.best_number;
   } else if (override && override.rig_type === 'user_win') {
-    const optimal = calculateColorOptimalOutcome(roundBets);
+    const optimal = calculateColorOptimalOutcome(roundBets, targetRound);
     num = optimal.worst_number;
   } else {
     let possible = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -813,7 +832,7 @@ async function settleColorRound(room, targetRound, state) {
     
     if (possible.length > 0) {
       if (roundBets.length > 0) {
-        const optimal = calculateColorOptimalOutcome(roundBets);
+        const optimal = calculateColorOptimalOutcome(roundBets, targetRound);
         const bestPossible = optimal.outcomes
           .filter(o => possible.includes(o.number))
           .sort((a, b) => b.adminProfit - a.adminProfit);
@@ -1030,7 +1049,7 @@ app.get('/api/game_sync.php', async (req, res) => {
 
         const activeBets = (state[room].bets && state[room].bets[round_id]) ? state[room].bets[round_id] : [];
         const overridesRecord = await prisma.gameState.findUnique({ where: { key: `color_guess_overrides_${room}` } });
-        const optimal = calculateColorOptimalOutcome(activeBets);
+        const optimal = calculateColorOptimalOutcome(activeBets, round_id);
 
         colorGuess[room] = {
           round_id,
