@@ -938,7 +938,7 @@ function syncAndSettleBets(updatedMatches) {
       }
 
       // Also sync wallet from server
-      return fetch(`http://localhost:3000/api/wallet?user=${encodeURIComponent(username)}`);
+      return fetch(`http://localhost:5000/api/wallet/balance?username=${encodeURIComponent(username)}`);
     })
     .then(res => res.json())
     .then(walletData => {
@@ -1484,7 +1484,7 @@ function placeFootballBet() {
   msgEl.style.color = 'var(--fb-gold)';
   msgEl.textContent = '⏳ Placing bet...';
 
-  fetch('http://localhost:3000/api/bets', {
+  fetch('http://localhost:5000/api/bets', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ user: username, bet_type: betType, stake, legs })

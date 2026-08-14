@@ -143,6 +143,8 @@
       color: #e74c3c;
     }
 
+
+
     /* Admin Action Button styles */
     .btn-action {
       padding: 4px 10px;
@@ -439,7 +441,7 @@
           </div>
 
           <!-- 3-Column Grid for Inputs, Heatmap, and Logs -->
-          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; align-items:start;">
+          <div style="display:grid; grid-template-columns: minmax(200px, 240px) minmax(360px, 1fr) minmax(240px, 280px); gap:16px; align-items:start;">
             
             <!-- Col 1: Manual Overrides & Selection -->
             <div style="display:flex; flex-direction:column; gap:10px; background:#0d0f12; padding:12px; border-radius:8px; border:1px solid #242f3d;">
@@ -492,7 +494,7 @@
                   <span>Last Settled Outcome:</span>
                   <span id="adminColorLastResultTime" style="color:var(--text-dim);">--:--:--</span>
                 </div>
-                <div id="adminColorLastResultBody" style="display:flex; align-items:center; gap:8px; font-family:var(--font-mono); font-size:11.5px;"></div>
+                <div id="adminColorLastResultBody" style="display:flex; flex-direction:column; gap:6px; font-family:var(--font-mono); font-size:11.5px; width:100%;"></div>
               </div>
 
             </div>
@@ -1834,6 +1836,473 @@
       document.getElementById('cheatBoundaryActiveBets').innerHTML = userText;
     };
 
+    window.selectedRigColor = '';
+    window.selectedRigNumber = '';
+    window.selectedRigSize = '';
+
+    window.selectColorRigTarget = function(type, val) {
+      if (type === 'color') {
+        window.selectedRigColor = (window.selectedRigColor === val) ? '' : val;
+        document.getElementById('cheatColorSelect').value = window.selectedRigColor;
+      } else if (type === 'number') {
+        const numStr = String(val);
+        window.selectedRigNumber = (window.selectedRigNumber === numStr) ? '' : numStr;
+        document.getElementById('cheatNumberSelect').value = window.selectedRigNumber;
+        if (window.selectedRigNumber !== '') {
+          const n = parseInt(window.selectedRigNumber);
+          const res = (n === 0) ? { c: 'Violet', s: 'Small' } : ((n === 5) ? { c: 'Violet', s: 'Big' } : ([1,3,7,9].includes(n) ? { c: 'Green', s: n>=5?'Big':'Small' } : { c: 'Red', s: n>=5?'Big':'Small' }));
+          window.selectedRigColor = res.c;
+          window.selectedRigSize = res.s;
+          document.getElementById('cheatColorSelect').value = res.c;
+          document.getElementById('cheatSizeSelect').value = res.s;
+        }
+      } else if (type === 'size') {
+        window.selectedRigSize = (window.selectedRigSize === val) ? '' : val;
+        document.getElementById('cheatSizeSelect').value = window.selectedRigSize;
+      }
+      applyColorRoomCheat();
+    };
+
+    window.applyDirectColorRig = function(num, col, sz) {
+      window.selectedRigNumber = String(num);
+      window.selectedRigColor = col || '';
+      window.selectedRigSize = sz || '';
+      document.getElementById('cheatNumberSelect').value = window.selectedRigNumber;
+      document.getElementById('cheatColorSelect').value = window.selectedRigColor;
+      document.getElementById('cheatSizeSelect').value = window.selectedRigSize;
+      document.getElementById('cheatColorRigType').value = '';
+      applyColorRoomCheat();
+      showToast(`⚡ Optimal Rig Applied: Number ${num} (${col}, ${sz}) locked!`, 'success');
+    };
+
+    window.renderColorGuessUI = function(rData) {
+      if (!rData) return;
+      const bets = Array.isArray(rData.bets) ? rData.bets : [];
+      const overrides = rData.overrides || {};
+      const history = Array.isArray(rData.history) ? rData.history : [];
+      
+      let totalVolume = 0;
+      const colorStats = { Green: { count: 0, amount: 0 }, Red: { count: 0, amount: 0 }, Violet: { count: 0, amount: 0 } };
+      const sizeStats = { Big: { count: 0, amount: 0 }, Small: { count: 0, amount: 0 } };
+      const numberStats = Array.from({ length: 10 }, (_, i) => ({ count: 0, amount: 0 }));
+      const userList = [];
+
+      bets.forEach(b => {
+        const amt = parseFloat(b.amount) || 0;
+        totalVolume += amt;
+        userList.push(b);
+
+        if (b.category === 'color') {
+          const c = b.value;
+          if (colorStats[c]) {
+            colorStats[c].count++;
+            colorStats[c].amount += amt;
+          }
+        } else if (b.category === 'size') {
+          const s = b.value;
+          if (sizeStats[s]) {
+            sizeStats[s].count++;
+            sizeStats[s].amount += amt;
+          }
+        } else if (b.category === 'number') {
+          const n = parseInt(b.value);
+          if (!isNaN(n) && n >= 0 && n <= 9) {
+            numberStats[n].count++;
+            numberStats[n].amount += amt;
+          }
+        }
+      });
+
+      // Calculate profit and optimal outcome
+      const optimal = rData.optimal_rig || (function() {
+        const outcomes = [];
+        for (let n = 0; n <= 9; n++) {
+          const res = (n === 0) ? { color: 'Violet', dotClass: 'violet', size: 'Small' } : ((n === 5) ? { color: 'Violet', dotClass: 'violet', size: 'Big' } : ([1,3,7,9].includes(n) ? { color: 'Green', dotClass: 'green', size: n>=5?'Big':'Small' } : { color: 'Red', dotClass: 'red', size: n>=5?'Big':'Small' }));
+          let payout = 0;
+          bets.forEach(b => {
+            const amt = parseFloat(b.amount) || 0;
+            if (b.category === 'color' && b.value === res.color) payout += amt * (b.value === 'Violet' ? 4.5 : 2.0);
+            else if (b.category === 'number' && parseInt(b.value) === n) payout += amt * 9.0;
+            else if (b.category === 'size' && b.value === res.size) payout += amt * 2.0;
+          });
+          outcomes.push({ number: n, color: res.color, dotClass: res.dotClass, size: res.size, playerPayout: payout, adminProfit: totalVolume - payout });
+        }
+        const sorted = [...outcomes].sort((a, b) => b.adminProfit - a.adminProfit);
+        return {
+          total_volume: totalVolume,
+          best_number: sorted[0].number,
+          best_color: sorted[0].color,
+          best_size: sorted[0].size,
+          max_profit: sorted[0].adminProfit,
+          min_payout: sorted[0].playerPayout,
+          outcomes
+        };
+      })();
+
+      // 1. Update Status Banner
+      const statusBanner = document.getElementById('adminColorActiveOverrideBanner');
+      if (statusBanner) {
+        const hasFixedNum = overrides.number !== undefined && overrides.number !== null && overrides.number !== '';
+        const hasFixedCol = !!overrides.color;
+        const hasFixedSize = !!overrides.size;
+        const hasRigType = !!overrides.rig_type;
+
+        if (hasFixedNum || hasFixedCol || hasFixedSize || hasRigType) {
+          let desc = '';
+          if (hasFixedNum) desc += `Number <b>${overrides.number}</b> `;
+          if (hasFixedCol) desc += `<span style="color:${overrides.color.toLowerCase() === 'green' ? 'var(--green)' : (overrides.color.toLowerCase() === 'red' ? 'var(--red)' : '#a855f7')}">${overrides.color}</span> `;
+          if (hasFixedSize) desc += `(${overrides.size}) `;
+          if (hasRigType) desc += `[Auto: ${overrides.rig_type}]`;
+
+          statusBanner.style.background = 'rgba(201,160,84,0.12)';
+          statusBanner.style.border = '1px solid var(--gold)';
+          statusBanner.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+              <span style="font-size:11.5px; color:#fff;">🔒 <b>LOCKED OUTCOME:</b> ${desc}</span>
+              <button onclick="clearColorRoomCheat()" class="btn btn-sm" style="background:rgba(231,76,60,0.2); border:1px solid #e74c3c; color:#e74c3c; font-size:10.5px; padding:3px 8px; border-radius:4px; cursor:pointer;">✕ Clear Bias</button>
+            </div>
+          `;
+        } else {
+          statusBanner.style.background = '#0d0f12';
+          statusBanner.style.border = '1px dashed var(--border)';
+          statusBanner.innerHTML = `
+            <span style="font-size:11px; color:var(--text-dim);">🎲 <b>Outcome Status:</b> NO BIAS (Fair Random Settlement)</span>
+            <span style="font-size:9.5px; color:var(--text-dim);">Click any highlighted option below to fix outcome</span>
+          `;
+        }
+      }
+
+      // 2. Update Last Result Banner
+      const lastResultBanner = document.getElementById('adminColorLastResultBanner');
+      const lastResultBody = document.getElementById('adminColorLastResultBody');
+      const lastResultTime = document.getElementById('adminColorLastResultTime');
+      if (lastResultBanner && history.length > 0) {
+        const lr = history[history.length - 1];
+        lastResultBanner.style.display = 'flex';
+        if (lastResultTime) lastResultTime.textContent = lr.timestamp || '--:--:--';
+        if (lastResultBody) {
+          const dotColor = lr.dotClass === 'green' ? '#10b981' : (lr.dotClass === 'red' ? '#ef4444' : '#a855f7');
+          lastResultBody.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; width:100%; font-size:11px; margin-bottom:4px;">
+              <span style="color:var(--gold); font-weight:800;">Round #${lr.roundNumber}</span>
+              ${lr.is_rigged ? `<span style="font-size:9px; background:rgba(201,160,84,0.2); border:1px solid var(--gold); color:var(--gold); padding:2px 6px; border-radius:3px; font-weight:bold;">RIGGED</span>` : `<span style="font-size:9px; background:rgba(16,185,129,0.15); border:1px solid #10b981; color:#10b981; padding:2px 6px; border-radius:3px; font-weight:bold;">Natural Draw</span>`}
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; background:#12171f; padding:6px 8px; border-radius:4px; font-size:11.5px;">
+              <span style="display:flex; align-items:center; gap:5px;">
+                <span style="width:10px; height:10px; border-radius:50%; background:${dotColor};"></span>
+                <b style="color:${dotColor}; font-size:12px;">${lr.color}</b>
+              </span>
+              <span>Number: <b style="color:var(--gold); font-size:13px;">${lr.number}</b></span>
+              <span>Size: <b>${lr.size}</b></span>
+            </div>
+          `;
+        }
+      }
+
+      // 3. Render Dynamic Active Bets & Optimal Rig heatmap
+      const betsContainer = document.getElementById('cheatColorRoomActiveBets');
+      if (!betsContainer) return;
+
+      const hasLockedNum = (overrides.number !== undefined && overrides.number !== null && overrides.number !== '');
+      const currentFixedNum = hasLockedNum ? parseInt(overrides.number) : null;
+      const currentFixedCol = overrides.color || '';
+      const currentFixedSize = overrides.size || '';
+
+      // Optimal single choices
+      const bestN = optimal.best_number;
+      const bestCol = optimal.best_color;
+      const bestSize = optimal.best_size;
+      const maxProfit = optimal.max_profit;
+
+      // Distinction helpers: Selected vs Suggested
+      const isColSelected = (c) => currentFixedCol.toLowerCase() === c.toLowerCase();
+      const isColSuggested = (c) => (!isColSelected(c) && bestCol.toLowerCase() === c.toLowerCase());
+
+      const isSizeSelected = (s) => currentFixedSize.toLowerCase() === s.toLowerCase();
+      const isSizeSuggested = (s) => (!isSizeSelected(s) && bestSize.toLowerCase() === s.toLowerCase());
+
+      const isNumSelected = (n) => (currentFixedNum !== null && currentFixedNum === n);
+      const isNumSuggested = (n) => (!isNumSelected(n) && n === bestN);
+
+      // Card Styles - Colors
+      const greenSelected = isColSelected('Green');
+      const greenSuggested = isColSuggested('Green');
+      const greenBorder = greenSelected 
+        ? '2px solid #10b981;' 
+        : (greenSuggested ? '2px solid #64748b;' : '1px solid #1f2937;');
+      const greenBg = greenSelected 
+        ? 'rgba(16, 185, 129, 0.18)' 
+        : (greenSuggested ? 'rgba(100, 116, 139, 0.12)' : '#0d0f12');
+      const greenBadge = greenSelected 
+        ? `<span style="background:#10b981; color:#000; font-size:9px; font-weight:800; padding:2px 7px; border-radius:4px; margin-left:4px;">🔒 SELECTED</span>` 
+        : (greenSuggested ? `<span style="background:#334155; color:#f1f5f9; font-size:8.5px; font-weight:800; padding:1px 6px; border-radius:4px; border:1px solid #64748b; margin-left:4px;">💡 SUGGESTED</span>` : '');
+
+      const redSelected = isColSelected('Red');
+      const redSuggested = isColSuggested('Red');
+      const redBorder = redSelected 
+        ? '2px solid #ef4444;' 
+        : (redSuggested ? '2px solid #64748b;' : '1px solid #1f2937;');
+      const redBg = redSelected 
+        ? 'rgba(239, 68, 68, 0.18)' 
+        : (redSuggested ? 'rgba(100, 116, 139, 0.12)' : '#0d0f12');
+      const redBadge = redSelected 
+        ? `<span style="background:#ef4444; color:#fff; font-size:9px; font-weight:800; padding:2px 7px; border-radius:4px; margin-left:4px;">🔒 SELECTED</span>` 
+        : (redSuggested ? `<span style="background:#334155; color:#f1f5f9; font-size:8.5px; font-weight:800; padding:1px 6px; border-radius:4px; border:1px solid #64748b; margin-left:4px;">💡 SUGGESTED</span>` : '');
+
+      const violetSelected = isColSelected('Violet');
+      const violetSuggested = isColSuggested('Violet');
+      const violetBorder = violetSelected 
+        ? '2px solid #a855f7;' 
+        : (violetSuggested ? '2px solid #64748b;' : '1px solid #1f2937;');
+      const violetBg = violetSelected 
+        ? 'rgba(168, 85, 247, 0.18)' 
+        : (violetSuggested ? 'rgba(100, 116, 139, 0.12)' : '#0d0f12');
+      const violetBadge = violetSelected 
+        ? `<span style="background:#a855f7; color:#fff; font-size:9px; font-weight:800; padding:2px 7px; border-radius:4px; margin-left:4px;">🔒 SELECTED</span>` 
+        : (violetSuggested ? `<span style="background:#334155; color:#f1f5f9; font-size:8.5px; font-weight:800; padding:1px 6px; border-radius:4px; border:1px solid #64748b; margin-left:4px;">💡 SUGGESTED</span>` : '');
+
+      // Card Styles - Sizes
+      const bigSelected = isSizeSelected('Big');
+      const bigSuggested = isSizeSuggested('Big');
+      const bigBorder = bigSelected 
+        ? '2px solid #f59e0b;' 
+        : (bigSuggested ? '2px solid #64748b;' : '1px solid #1f2937;');
+      const bigBg = bigSelected 
+        ? 'rgba(245, 158, 11, 0.18)' 
+        : (bigSuggested ? 'rgba(100, 116, 139, 0.12)' : '#0d0f12');
+      const bigBadge = bigSelected 
+        ? `<span style="background:#f59e0b; color:#000; font-size:9px; font-weight:800; padding:2px 7px; border-radius:4px; margin-left:4px;">🔒 SELECTED</span>` 
+        : (bigSuggested ? `<span style="background:#334155; color:#f1f5f9; font-size:8.5px; font-weight:800; padding:1px 6px; border-radius:4px; border:1px solid #64748b; margin-left:4px;">💡 SUGGESTED</span>` : '');
+
+      const smallSelected = isSizeSelected('Small');
+      const smallSuggested = isSizeSuggested('Small');
+      const smallBorder = smallSelected 
+        ? '2px solid #3b82f6;' 
+        : (smallSuggested ? '2px solid #64748b;' : '1px solid #1f2937;');
+      const smallBg = smallSelected 
+        ? 'rgba(59, 130, 246, 0.18)' 
+        : (smallSuggested ? 'rgba(100, 116, 139, 0.12)' : '#0d0f12');
+      const smallBadge = smallSelected 
+        ? `<span style="background:#3b82f6; color:#fff; font-size:9px; font-weight:800; padding:2px 7px; border-radius:4px; margin-left:4px;">🔒 SELECTED</span>` 
+        : (smallSuggested ? `<span style="background:#334155; color:#f1f5f9; font-size:8.5px; font-weight:800; padding:1px 6px; border-radius:4px; border:1px solid #64748b; margin-left:4px;">💡 SUGGESTED</span>` : '');
+
+      // Signature check to avoid unnecessary innerHTML DOM destruction during mouse clicks
+      const stateSig = `${rData.round_id}_${totalVolume}_${JSON.stringify(overrides)}_${bets.length}_${bestN}_${bestCol}_${bestSize}`;
+      if (window.adminColorBetsRenderSig === stateSig) {
+        if (document.getElementById('cheatColorSelect')) document.getElementById('cheatColorSelect').value = overrides.color || '';
+        if (document.getElementById('cheatNumberSelect')) document.getElementById('cheatNumberSelect').value = (overrides.number !== undefined && overrides.number !== null && overrides.number !== '') ? overrides.number : '';
+        if (document.getElementById('cheatSizeSelect')) document.getElementById('cheatSizeSelect').value = overrides.size || '';
+        return;
+      }
+      window.adminColorBetsRenderSig = stateSig;
+
+      let html = `
+        <style>
+          .color-rig-card {
+            user-select: none;
+            -webkit-user-select: none;
+            cursor: pointer;
+          }
+          .color-rig-card * {
+            pointer-events: none;
+          }
+        </style>
+
+        <!-- Live Wager Distribution (Click to Rig Outcome) -->
+        <div style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; font-weight:bold; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+          <span>Live Wager Distribution (Click Option to Rig):</span>
+          <span style="color:var(--gold); font-family:var(--font-mono); font-size:12px; font-weight:800;">Lobby Volume: ₹${totalVolume.toFixed(2)}</span>
+        </div>
+
+        <!-- Color Cards Row -->
+        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:10px;">
+          <!-- Green -->
+          <div class="color-rig-card" onclick="selectColorRigTarget('color', 'Green')" style="background:${greenBg}; border:${greenBorder}; border-radius:8px; padding:10px; text-align:center; transition:all 0.15s;">
+            <div style="display:flex; justify-content:center; align-items:center; gap:5px; font-weight:900; font-size:13px; color:#10b981;">
+              <span style="width:9px; height:9px; border-radius:50%; background:#10b981; display:inline-block;"></span> Green ${greenBadge}
+            </div>
+            <div style="font-size:10.5px; color:var(--text-dim); margin-top:3px;">${colorStats.Green.count} players</div>
+            <div style="font-family:var(--font-mono); font-size:13px; font-weight:800; color:#fff; margin-top:2px;">₹${colorStats.Green.amount.toFixed(2)}</div>
+          </div>
+
+          <!-- Red -->
+          <div class="color-rig-card" onclick="selectColorRigTarget('color', 'Red')" style="background:${redBg}; border:${redBorder}; border-radius:8px; padding:10px; text-align:center; transition:all 0.15s;">
+            <div style="display:flex; justify-content:center; align-items:center; gap:5px; font-weight:900; font-size:13px; color:#ef4444;">
+              <span style="width:9px; height:9px; border-radius:50%; background:#ef4444; display:inline-block;"></span> Red ${redBadge}
+            </div>
+            <div style="font-size:10.5px; color:var(--text-dim); margin-top:3px;">${colorStats.Red.count} players</div>
+            <div style="font-family:var(--font-mono); font-size:13px; font-weight:800; color:#fff; margin-top:2px;">₹${colorStats.Red.amount.toFixed(2)}</div>
+          </div>
+
+          <!-- Violet -->
+          <div class="color-rig-card" onclick="selectColorRigTarget('color', 'Violet')" style="background:${violetBg}; border:${violetBorder}; border-radius:8px; padding:10px; text-align:center; transition:all 0.15s;">
+            <div style="display:flex; justify-content:center; align-items:center; gap:5px; font-weight:900; font-size:13px; color:#a855f7;">
+              <span style="width:9px; height:9px; border-radius:50%; background:#a855f7; display:inline-block;"></span> Violet ${violetBadge}
+            </div>
+            <div style="font-size:10.5px; color:var(--text-dim); margin-top:3px;">${colorStats.Violet.count} players</div>
+            <div style="font-family:var(--font-mono); font-size:13px; font-weight:800; color:#fff; margin-top:2px;">₹${colorStats.Violet.amount.toFixed(2)}</div>
+          </div>
+        </div>
+
+        <!-- Size Cards Row -->
+        <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:10px; margin-bottom:12px;">
+          <!-- Big -->
+          <div class="color-rig-card" onclick="selectColorRigTarget('size', 'Big')" style="background:${bigBg}; border:${bigBorder}; border-radius:8px; padding:10px; text-align:center; transition:all 0.15s;">
+            <div style="display:flex; justify-content:center; align-items:center; gap:5px; font-weight:900; font-size:13px; color:var(--gold);">
+              Big (5-9) ${bigBadge}
+            </div>
+            <div style="font-size:10.5px; color:var(--text-dim); margin-top:3px;">${sizeStats.Big.count} players</div>
+            <div style="font-family:var(--font-mono); font-size:13px; font-weight:800; color:#fff; margin-top:2px;">₹${sizeStats.Big.amount.toFixed(2)}</div>
+          </div>
+
+          <!-- Small -->
+          <div class="color-rig-card" onclick="selectColorRigTarget('size', 'Small')" style="background:${smallBg}; border:${smallBorder}; border-radius:8px; padding:10px; text-align:center; transition:all 0.15s;">
+            <div style="display:flex; justify-content:center; align-items:center; gap:5px; font-weight:900; font-size:13px; color:#3b82f6;">
+              Small (0-4) ${smallBadge}
+            </div>
+            <div style="font-size:10.5px; color:var(--text-dim); margin-top:3px;">${sizeStats.Small.count} players</div>
+            <div style="font-family:var(--font-mono); font-size:13px; font-weight:800; color:#fff; margin-top:2px;">₹${sizeStats.Small.amount.toFixed(2)}</div>
+          </div>
+        </div>
+
+        <!-- Numbers Distribution Grid (0 to 9) -->
+        <div style="font-size:11px; color:var(--text-dim); text-transform:uppercase; font-weight:bold; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+          <span>Numbers Distribution (0 - 9):</span>
+          <span style="font-size:10px; color:var(--text-dim);">💡 Grey Outline = Suggested &nbsp;|&nbsp; <b style="color:var(--gold);">🔒 Color Outline = Selected</b></span>
+        </div>
+        
+        <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:8px; margin-bottom:12px;">
+      `;
+
+      for (let n = 0; n <= 9; n++) {
+        const stat = numberStats[n];
+        const outcome = (optimal.outcomes && optimal.outcomes[n]) || { playerPayout: 0, adminProfit: totalVolume };
+        const isSelected = isNumSelected(n);
+        const isSuggested = isNumSuggested(n);
+        const dotCol = (n === 0 || n === 5) ? '#a855f7' : ([1,3,7,9].includes(n) ? '#10b981' : '#ef4444');
+
+        const borderStyle = isSelected 
+          ? '2px solid #f59e0b;' 
+          : (isSuggested 
+            ? '2px solid #64748b;' 
+            : '1px solid #1f2937;');
+        const bgStyle = isSelected 
+          ? 'rgba(245, 158, 11, 0.18)' 
+          : (isSuggested 
+            ? 'rgba(100, 116, 139, 0.12)' 
+            : '#0d0f12');
+
+        const badgeHtml = isSelected
+          ? `<span style="position:absolute; top:-9px; right:-4px; background:#f59e0b; color:#000; font-size:8.5px; font-weight:800; padding:2px 6px; border-radius:4px;">🔒 SELECTED</span>`
+          : (isSuggested 
+            ? `<span style="position:absolute; top:-8px; right:-4px; background:#334155; color:#f1f5f9; font-size:8px; font-weight:800; padding:1px 5px; border-radius:4px; border:1px solid #64748b;">💡 SUGGESTED</span>` 
+            : '');
+
+        html += `
+          <div class="color-rig-card" onclick="selectColorRigTarget('number', ${n})" style="background:${bgStyle}; border:${borderStyle}; border-radius:8px; padding:8px 4px; text-align:center; position:relative; transition:all 0.15s;">
+            ${badgeHtml}
+            <div style="display:flex; justify-content:center; align-items:center; gap:4px;">
+              <span style="width:8px; height:8px; border-radius:50%; background:${dotCol}; display:inline-block;"></span>
+              <b style="font-size:14px; color:#fff; font-family:var(--font-mono);">${n}</b>
+            </div>
+            <div style="font-size:10px; color:var(--text-dim); margin-top:3px;">${stat.count}p · ₹${stat.amount.toFixed(0)}</div>
+            <div style="font-size:9.5px; font-family:var(--font-mono); font-weight:800; color:${outcome.adminProfit >= 0 ? '#10b981' : '#ef4444'}; margin-top:2px;">
+              ${outcome.adminProfit >= 0 ? '+' : ''}₹${outcome.adminProfit.toFixed(0)}
+            </div>
+          </div>
+        `;
+      }
+
+      html += `
+        </div>
+
+        <!-- Detailed Wagers Log -->
+        <div style="font-size:11px; color:var(--text-dim); text-transform:uppercase; font-weight:bold; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+          <span>Detailed Active Wagers Log:</span>
+          <span style="font-size:10.5px; color:#cbd5e1; font-weight:bold;">${userList.length} Wager${userList.length === 1 ? '' : 's'} Active</span>
+        </div>
+        
+        <div style="background:#090d14; border:1px solid #1a222d; border-radius:6px; padding:8px; max-height:140px; overflow-y:auto; margin-bottom:8px;">
+      `;
+
+      if (userList.length === 0) {
+        html += `<div style="text-align:center; padding:12px; color:var(--text-dim); font-size:11.5px;">User: No pending wagers in this room.</div>`;
+      } else {
+        userList.forEach(b => {
+          const amt = parseFloat(b.amount) || 0;
+          let badgeCol = '#cbd5e1';
+          let badgeBg = 'rgba(255,255,255,0.06)';
+
+          if (b.category === 'color') {
+            if (b.value === 'Green') { badgeCol = '#10b981'; badgeBg = 'rgba(16,185,129,0.15)'; }
+            else if (b.value === 'Red') { badgeCol = '#ef4444'; badgeBg = 'rgba(239,68,68,0.15)'; }
+            else { badgeCol = '#a855f7'; badgeBg = 'rgba(168,85,247,0.15)'; }
+          } else if (b.category === 'number') {
+            badgeCol = 'var(--gold)'; badgeBg = 'rgba(201,160,84,0.15)';
+          } else if (b.category === 'size') {
+            badgeCol = '#3b82f6'; badgeBg = 'rgba(59,130,246,0.15)';
+          }
+
+          html += `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 8px; border-bottom:1px solid rgba(255,255,255,0.04); font-size:11.5px;">
+              <span style="font-weight:700; color:#fff;">👤 ${b.username}</span>
+              <span style="background:${badgeBg}; color:${badgeCol}; border:1px solid ${badgeCol}; font-weight:800; font-size:10px; padding:2px 7px; border-radius:3px;">
+                ${b.category.toUpperCase()}: ${b.value}
+              </span>
+              <span style="font-family:var(--font-mono); font-weight:700; color:#fff;">₹${amt.toFixed(2)}</span>
+            </div>
+          `;
+        });
+      }
+
+      html += `
+        </div>
+
+        <!-- Total Lobby Volume Summary -->
+        <div style="display:flex; justify-content:space-between; align-items:center; background:#0d0f12; border:1px solid #1f2937; border-radius:6px; padding:7px 12px; font-size:11.5px;">
+          <span style="color:var(--text-dim);">Total Lobby Volume: <b style="color:var(--gold); font-family:var(--font-mono); font-size:13px;">₹${totalVolume.toFixed(2)}</b></span>
+          <span style="color:#10b981; font-weight:800; font-family:var(--font-mono); font-size:12.5px;">Max Admin Profit: +₹${maxProfit.toFixed(2)}</span>
+        </div>
+      `;
+
+      // Sync DOM hidden inputs with server overrides
+      if (document.getElementById('cheatColorSelect')) document.getElementById('cheatColorSelect').value = overrides.color || '';
+      if (document.getElementById('cheatNumberSelect')) document.getElementById('cheatNumberSelect').value = (overrides.number !== undefined && overrides.number !== null && overrides.number !== '') ? overrides.number : '';
+      if (document.getElementById('cheatSizeSelect')) document.getElementById('cheatSizeSelect').value = overrides.size || '';
+
+      betsContainer.innerHTML = html;
+    };
+
+    window.selectColorRigTarget = function (category, value) {
+      const roomKey = document.getElementById('cheatColorRoomSelect').value;
+      let currCol = document.getElementById('cheatColorSelect').value || '';
+      let currNum = document.getElementById('cheatNumberSelect').value;
+      let currSize = document.getElementById('cheatSizeSelect').value || '';
+
+      if (category === 'color') {
+        if (currCol.toLowerCase() === value.toLowerCase()) {
+          document.getElementById('cheatColorSelect').value = '';
+        } else {
+          document.getElementById('cheatColorSelect').value = value;
+        }
+      } else if (category === 'size') {
+        if (currSize.toLowerCase() === value.toLowerCase()) {
+          document.getElementById('cheatSizeSelect').value = '';
+        } else {
+          document.getElementById('cheatSizeSelect').value = value;
+        }
+      } else if (category === 'number') {
+        const numStr = String(value);
+        if (currNum !== '' && currNum !== null && String(currNum) === numStr) {
+          document.getElementById('cheatNumberSelect').value = '';
+        } else {
+          document.getElementById('cheatNumberSelect').value = numStr;
+        }
+      }
+
+      applyColorRoomCheat();
+    };
+
     window.applyColorRoomCheat = function () {
       const roomKey = document.getElementById('cheatColorRoomSelect').value;
       const color = document.getElementById('cheatColorSelect').value;
@@ -1890,6 +2359,9 @@
 
     window.clearColorRoomCheat = function () {
       const roomKey = document.getElementById('cheatColorRoomSelect').value;
+      window.selectedRigColor = '';
+      window.selectedRigNumber = '';
+      window.selectedRigSize = '';
       document.getElementById('cheatColorSelect').value = '';
       document.getElementById('cheatNumberSelect').value = '';
       document.getElementById('cheatSizeSelect').value = '';
@@ -1905,6 +2377,7 @@
       })();
       localStorage.removeItem('cheat_color_override_' + roomKey + '_' + currentRoundId);
       applyColorRoomCheat();
+      showToast('Bias cleared — round will draw naturally.', 'info');
     };
 
     window.presetAviatorCrash = function (mult) {
@@ -2348,22 +2821,7 @@
           }
         })
         .catch(err => {
-          if (window.adminMinesActiveUsers.length === 0) {
-            window.adminMinesActiveUsers = [
-              { username: 'DemoUser', type: 'Real Player', bet: 100, mines: 3, revealed: 2, status: 'Active' },
-              { username: 'Vikram_P', type: 'Simulated User', bet: 200, mines: 3, revealed: 4, status: 'Active' },
-              { username: 'Neha_R', type: 'Simulated User', bet: 500, mines: 5, revealed: 3, status: 'Active' },
-              { username: 'Rohit_M', type: 'Simulated User', bet: 150, mines: 2, revealed: 1, status: 'Active' },
-              { username: 'Ananya_S', type: 'Simulated User', bet: 300, mines: 4, revealed: 5, status: 'Active' },
-              { username: 'Karan_V', type: 'Simulated User', bet: 250, mines: 3, revealed: 2, status: 'Active' },
-              { username: 'Priya_K', type: 'Simulated User', bet: 100, mines: 2, revealed: 3, status: 'Active' },
-              { username: 'Aarav_G', type: 'Simulated User', bet: 400, mines: 6, revealed: 1, status: 'Active' },
-              { username: 'Riya_D', type: 'Simulated User', bet: 350, mines: 3, revealed: 4, status: 'Active' },
-              { username: 'Kabir_N', type: 'Simulated User', bet: 500, mines: 5, revealed: 2, status: 'Active' },
-              { username: 'Ishaan_B', type: 'Simulated User', bet: 200, mines: 3, revealed: 2, status: 'Active' },
-              { username: 'Saanvi_M', type: 'Simulated User', bet: 600, mines: 4, revealed: 6, status: 'Active' }
-            ];
-          }
+          console.warn("Could not fetch active mines users:", err);
           renderMinesActiveUsersTable();
           updateMinesProfitUI();
         });
@@ -3385,350 +3843,7 @@
       }
     }
 
-    // Render helper functions
-    function renderColorGuessUI(colorGame) {
-      let greenAmt = 0, greenCount = 0;
-      let redAmt = 0, redCount = 0;
-      let violetAmt = 0, violetCount = 0;
-      let bigAmt = 0, bigCount = 0;
-      let smallAmt = 0, smallCount = 0;
-      let numAmts = Array(10).fill(0);
-      let numCounts = Array(10).fill(0);
 
-      const roomKey = document.getElementById('cheatColorRoomSelect') ? document.getElementById('cheatColorRoomSelect').value : 'sapre';
-
-      // Auto-unselect fixed outcome when current round finishes & new round starts
-      if (!window.adminLastColorRoundId) window.adminLastColorRoundId = {};
-      if (window.adminLastColorRoundId[roomKey] && window.adminLastColorRoundId[roomKey] !== colorGame.round_id) {
-        localStorage.removeItem('cheat_color_override_' + roomKey + '_' + window.adminLastColorRoundId[roomKey]);
-        const sColor = document.getElementById('cheatColorSelect');
-        const sNum = document.getElementById('cheatNumberSelect');
-        const sSize = document.getElementById('cheatSizeSelect');
-        const sRig = document.getElementById('cheatColorRigType');
-        if (sColor) sColor.value = '';
-        if (sNum) sNum.value = '';
-        if (sSize) sSize.value = '';
-        if (sRig) sRig.value = '';
-        if (colorGame.overrides) {
-          colorGame.overrides = { color: '', number: '', size: '', rig_type: '' };
-        }
-        
-        window.adminLastColorRoundId[roomKey] = colorGame.round_id;
-        window.adminColorRoundIdVal = colorGame.round_id;
-        
-        // Force-clear on the server immediately to sync states and prevent lag carrying overrides over
-        if (typeof applyColorRoomCheat === 'function') {
-          applyColorRoomCheat();
-        }
-      }
-      window.adminLastColorRoundId[roomKey] = colorGame.round_id;
-
-      const savedOverride = JSON.parse(localStorage.getItem('cheat_color_override_' + roomKey + '_' + colorGame.round_id) || '{}');
-      const activeOverrides = (colorGame.overrides && (colorGame.overrides.color || (colorGame.overrides.number !== undefined && colorGame.overrides.number !== '') || colorGame.overrides.size || colorGame.overrides.rig_type))
-        ? colorGame.overrides
-        : savedOverride;
-
-      // Signature-based cache checking to prevent innerHTML updates from disrupting clicks and hovers
-      const signatureObj = {
-        room: roomKey,
-        round: colorGame.round_id,
-        overrides: activeOverrides,
-        total_stake: colorGame.total_stake,
-        bets: (colorGame.bets || []).map(b => `${b.username}-${b.category}-${b.value}-${b.amount}`),
-        history: (colorGame.history || []).map(h => `${h.roundNumber}-${h.color}-${h.number}-${h.is_rigged}`)
-      };
-      const signature = JSON.stringify(signatureObj);
-      
-      if (window.adminColorBetsSignature === signature) {
-        // Sync inputs if not focused
-        const selectColorEl = document.getElementById('cheatColorSelect');
-        const selectNumEl = document.getElementById('cheatNumberSelect');
-        const selectSizeEl = document.getElementById('cheatSizeSelect');
-        const selectRigEl = document.getElementById('cheatColorRigType');
-        if (selectColorEl && document.activeElement !== selectColorEl) selectColorEl.value = activeOverrides.color || '';
-        if (selectNumEl && document.activeElement !== selectNumEl) selectNumEl.value = (activeOverrides.number !== undefined && activeOverrides.number !== null) ? String(activeOverrides.number) : '';
-        if (selectSizeEl && document.activeElement !== selectSizeEl) selectSizeEl.value = activeOverrides.size || '';
-        if (selectRigEl && document.activeElement !== selectRigEl) selectRigEl.value = activeOverrides.rig_type || '';
-        return;
-      }
-      window.adminColorBetsSignature = signature;
-
-      const isColorFixed = (c) => activeOverrides.color === c;
-      const isNumberFixed = (n) => String(activeOverrides.number) === String(n);
-      const isSizeFixed = (s) => activeOverrides.size === s;
-
-      // Sync select boxes if not focused
-      const selectColorEl = document.getElementById('cheatColorSelect');
-      const selectNumEl = document.getElementById('cheatNumberSelect');
-      const selectSizeEl = document.getElementById('cheatSizeSelect');
-      const selectRigEl = document.getElementById('cheatColorRigType');
-
-      if (selectColorEl && document.activeElement !== selectColorEl) selectColorEl.value = activeOverrides.color || '';
-      if (selectNumEl && document.activeElement !== selectNumEl) selectNumEl.value = (activeOverrides.number !== undefined && activeOverrides.number !== null) ? String(activeOverrides.number) : '';
-      if (selectSizeEl && document.activeElement !== selectSizeEl) selectSizeEl.value = activeOverrides.size || '';
-      if (selectRigEl && document.activeElement !== selectRigEl) selectRigEl.value = activeOverrides.rig_type || '';
-
-      // Active Override Status Banner
-      const overrideBannerEl = document.getElementById('adminColorActiveOverrideBanner');
-      if (overrideBannerEl) {
-        let summaryParts = [];
-        if (activeOverrides.color) summaryParts.push(`Color: <b style="color:var(--gold); font-size:14px;">${activeOverrides.color}</b>`);
-        if (activeOverrides.number !== '' && activeOverrides.number !== null && activeOverrides.number !== undefined) summaryParts.push(`Number: <b style="color:var(--gold); font-size:14px;">${activeOverrides.number}</b>`);
-        if (activeOverrides.size) summaryParts.push(`Size: <b style="color:var(--gold); font-size:14px;">${activeOverrides.size}</b>`);
-        if (activeOverrides.rig_type) summaryParts.push(`Auto-Rig: <b style="color:var(--gold); font-size:14px;">${activeOverrides.rig_type}</b>`);
-
-        if (summaryParts.length > 0) {
-          overrideBannerEl.style.display = 'block';
-          overrideBannerEl.style.background = 'rgba(201, 160, 84, 0.14)';
-          overrideBannerEl.style.border = '1px solid var(--gold)';
-          overrideBannerEl.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-              <div>
-                <div style="font-size:10px; color:var(--gold); text-transform:uppercase; font-weight:800; letter-spacing:0.5px;">ACTIVE FIXED OUTCOME (ROUND #${colorGame.round_id})</div>
-                <div style="font-size:13.5px; font-weight:700; color:#fff; margin-top:2px;">
-                  ${summaryParts.join(' &nbsp;•&nbsp; ')}
-                </div>
-                <div style="font-size:11px; color:var(--text-dim); margin-top:2px;">
-                  This result is locked and will be shown to all users when timer hits 00:00.
-                </div>
-              </div>
-              <button onclick="clearColorRoomCheat()" class="btn btn-sm" style="background:rgba(231,76,60,0.15); border:1px solid #e74c3c; color:#e74c3c; font-weight:bold; padding:4px 10px; font-size:11.5px; border-radius:4px; cursor:pointer;">
-                ✕ Clear Rig
-              </button>
-            </div>
-          `;
-        } else {
-          overrideBannerEl.style.display = 'block';
-          overrideBannerEl.style.background = '#0d0f12';
-          overrideBannerEl.style.border = '1px dashed #242f3d';
-          overrideBannerEl.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <div style="font-size:11.5px; color:var(--text-dim);">
-                🎲 <b>Outcome Status:</b> NO BIAS (Fair Random Settlement)
-              </div>
-              <span style="font-size:10.5px; color:var(--text-dim);">Click any color below to fix outcome</span>
-            </div>
-          `;
-        }
-      }
-
-      let userBetsHtml = '';
-      if (colorGame.bets && colorGame.bets.length > 0) {
-        colorGame.bets.forEach(b => {
-          if (b.category === 'color') {
-            if (b.value === 'Green') { greenAmt += b.amount; greenCount++; }
-            else if (b.value === 'Red') { redAmt += b.amount; redCount++; }
-            else if (b.value === 'Violet') { violetAmt += b.amount; violetCount++; }
-          } else if (b.category === 'size') {
-            if (b.value === 'Big') { bigAmt += b.amount; bigCount++; }
-            else if (b.value === 'Small') { smallAmt += b.amount; smallCount++; }
-          } else if (b.category === 'number') {
-            const numVal = parseInt(b.value);
-            if (numVal >= 0 && numVal <= 9) {
-              numAmts[numVal] += b.amount;
-              numCounts[numVal]++;
-            }
-          }
-        });
-
-        userBetsHtml = colorGame.bets.map(b => {
-          const badgeStyle = b.is_dummy ? 'background: rgba(255,255,255,0.04); color: var(--text-dim); border: 1px solid rgba(255,255,255,0.06);' : 'background: rgba(201,160,84,0.12); color: var(--gold); border: 1px solid rgba(201,160,84,0.3);';
-          const typeLabel = b.is_dummy ? 'Simulated' : 'Real User';
-
-          let selectColor = 'var(--text-light)';
-          if (b.value === 'Green') selectColor = 'var(--green)';
-          else if (b.value === 'Red') selectColor = 'var(--red)';
-          else if (b.value === 'Violet') selectColor = '#a29bfe';
-
-          return `
-            <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; border-bottom: 1px solid #1a222d; font-size: 11.5px;">
-              <div style="display: flex; align-items: center; gap: 6px;">
-                <span style="font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; ${badgeStyle}">${typeLabel}</span>
-                <span style="font-weight: 700; color: ${b.is_dummy ? 'var(--text-dim)' : 'var(--text-light)'};">${b.username}</span>
-              </div>
-              <div style="display: flex; align-items: center; gap: 12px;">
-                <span style="color: ${selectColor}; font-weight: 800;">${b.category.toUpperCase()}(${b.value})</span>
-                <span style="font-family: var(--font-mono); font-weight: bold; color: var(--gold);">₹${b.amount}</span>
-              </div>
-            </div>
-          `;
-        }).join('');
-      } else {
-        userBetsHtml = '<div style="font-size: 11.5px; color: var(--text-dim); text-align: center; padding: 8px 0;">User: No pending wagers.</div>';
-      }
-
-      // Initialize visual ticking variables on first load if undefined
-      if (typeof window.adminColorServerTimeLeft === 'undefined') {
-        window.adminColorActiveRoom = roomKey;
-        window.adminColorServerTimeLeft = colorGame.time_left;
-        window.adminColorServerDuration = colorGame.duration;
-        window.adminColorServerReceivedAt = Date.now();
-        window.adminColorRoundIdVal = colorGame.round_id;
-      }
-
-      // Calculate max wager amount for adaptive green brightness heatmap
-      const allBetAmts = [greenAmt, redAmt, violetAmt, bigAmt, smallAmt, ...numAmts];
-      const maxBetAmt = Math.max(0, ...allBetAmts);
-
-      function getHeatmapBox(amt, isFixed) {
-        if (isFixed) {
-          return {
-            style: 'position: relative; border: 2.5px solid var(--gold); background: rgba(201,160,84,0.18); box-shadow: inset 0 0 8px rgba(201,160,84,0.4);',
-            titleColor: '#ffffff',
-            badge: '',
-            fixedBadge: '<span style="position: absolute; top: -1px; right: -1px; background: var(--gold); color: #000; font-size: 8px; line-height: 1; padding: 2px 4px; border-radius: 0 4px 0 4px; font-weight: 900; box-shadow: -1px 1px 4px rgba(0,0,0,0.5);">✓ FIXED</span>'
-          };
-        }
-        if (!amt || amt <= 0 || maxBetAmt <= 0) {
-          return {
-            style: 'position: relative; border: 1px solid rgba(255,255,255,0.08); background: #13171f;',
-            titleColor: 'var(--text-light)',
-            badge: '',
-            fixedBadge: ''
-          };
-        }
-        const ratio = amt / maxBetAmt;
-        const bgAlpha = (0.10 + 0.40 * ratio).toFixed(2);
-        const borderAlpha = (0.30 + 0.70 * ratio).toFixed(2);
-        const glow = ratio >= 0.7 ? `box-shadow: 0 0 ${Math.round(ratio * 12)}px rgba(46, 204, 113, ${(ratio * 0.7).toFixed(2)});` : '';
-        const topBadge = ratio === 1 ? '<span style="position: absolute; top: -1px; right: -1px; background: var(--green); color: #000; font-size: 8px; line-height: 1; padding: 2px 4px; border-radius: 0 4px 0 4px; font-weight: 900; box-shadow: -1px 1px 4px rgba(0,0,0,0.5);">TOP</span>' : '';
-        return {
-          style: `position: relative; border: 1.5px solid rgba(46, 204, 113, ${borderAlpha}); background: rgba(46, 204, 113, ${bgAlpha}); ${glow}`,
-          titleColor: '#ffffff',
-          badge: '',
-          fixedBadge: topBadge
-        };
-      }
-
-      const greenBox = getHeatmapBox(greenAmt, isColorFixed('Green'));
-      const redBox = getHeatmapBox(redAmt, isColorFixed('Red'));
-      const violetBox = getHeatmapBox(violetAmt, isColorFixed('Violet'));
-      const bigBox = getHeatmapBox(bigAmt, isSizeFixed('Big'));
-      const smallBox = getHeatmapBox(smallAmt, isSizeFixed('Small'));
-
-      document.getElementById('cheatColorRoomActiveBets').innerHTML = `
-        <div style="font-size:12px; margin-bottom:12px;">
-          <b style="color:var(--text); font-size:12.5px; display:block; margin-bottom:8px;">Live Wager Distribution (Click to Rig Outcome):</b>
-          
-          <!-- Colors & Sizes Grid -->
-          <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 8px;">
-            <button onclick="const el=document.getElementById('cheatColorSelect'); el.value=(el.value==='Green')?'':'Green'; applyColorRoomCheat();" 
-                    class="btn-action" style="padding: 6px 4px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${greenBox.style}">
-              ${greenBox.fixedBadge}
-              <span style="font-weight: 800; font-size: 12.5px; color: ${greenBox.titleColor};">Green</span>
-              <span style="font-size: 10px; color: var(--text-dim);">${greenCount} players</span>
-              <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: ${greenAmt > 0 ? 'var(--green)' : 'var(--text-dim)'};">₹${greenAmt}</span>
-            </button>
-            <button onclick="const el=document.getElementById('cheatColorSelect'); el.value=(el.value==='Red')?'':'Red'; applyColorRoomCheat();" 
-                    class="btn-action" style="padding: 6px 4px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${redBox.style}">
-              ${redBox.fixedBadge}
-              <span style="font-weight: 800; font-size: 12.5px; color: ${redBox.titleColor};">Red</span>
-              <span style="font-size: 10px; color: var(--text-dim);">${redCount} players</span>
-              <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: ${redAmt > 0 ? 'var(--green)' : 'var(--text-dim)'};">₹${redAmt}</span>
-            </button>
-            <button onclick="const el=document.getElementById('cheatColorSelect'); el.value=(el.value==='Violet')?'':'Violet'; applyColorRoomCheat();" 
-                    class="btn-action" style="padding: 6px 4px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${violetBox.style}">
-              ${violetBox.fixedBadge}
-              <span style="font-weight: 800; font-size: 12.5px; color: ${violetBox.titleColor};">Violet</span>
-              <span style="font-size: 10px; color: var(--text-dim);">${violetCount} players</span>
-              <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: ${violetAmt > 0 ? 'var(--green)' : 'var(--text-dim)'};">₹${violetAmt}</span>
-            </button>
-          </div>
-
-          <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 12px;">
-            <button onclick="const el=document.getElementById('cheatSizeSelect'); el.value=(el.value==='Big')?'':'Big'; applyColorRoomCheat();" 
-                    class="btn-action" style="padding: 6px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${bigBox.style}">
-              ${bigBox.fixedBadge}
-              <span style="font-weight: 800; font-size: 12.5px; color: ${bigBox.titleColor};">Big</span>
-              <span style="font-size: 10px; color: var(--text-dim);">${bigCount} players</span>
-              <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: ${bigAmt > 0 ? 'var(--green)' : 'var(--text-dim)'};">₹${bigAmt}</span>
-            </button>
-            <button onclick="const el=document.getElementById('cheatSizeSelect'); el.value=(el.value==='Small')?'':'Small'; applyColorRoomCheat();" 
-                    class="btn-action" style="padding: 6px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ${smallBox.style}">
-              ${smallBox.fixedBadge}
-              <span style="font-weight: 800; font-size: 12.5px; color: ${smallBox.titleColor};">Small</span>
-              <span style="font-size: 10px; color: var(--text-dim);">${smallCount} players</span>
-              <span style="font-family: var(--font-mono); font-size: 10.5px; font-weight: bold; color: ${smallAmt > 0 ? 'var(--green)' : 'var(--text-dim)'};">₹${smallAmt}</span>
-            </button>
-          </div>
-
-          <!-- Numbers Grid (0 to 9) -->
-          <b style="color:var(--text-dim); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; display:block; margin-bottom: 6px; font-weight: bold;">Numbers Distribution:</b>
-          <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 8px;">
-            ${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => {
-              const numBox = getHeatmapBox(numAmts[num], isNumberFixed(num));
-              return `
-                <button onclick="const el=document.getElementById('cheatNumberSelect'); el.value=(el.value==='${num}')?'':'${num}'; applyColorRoomCheat();" 
-                        class="btn-action" style="padding: 6px 2px; text-align: center; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 4px; gap: 2px; ${numBox.style}">
-                  ${numBox.fixedBadge}
-                  <span style="font-weight: 800; font-size: 11px; color: #fff; background: rgba(255,255,255,0.08); display: inline-block; width: 18px; height: 18px; line-height: 18px; border-radius: 50%;">${num}</span>
-                  <span style="font-size: 8.5px; color: var(--text-dim);">${numCounts[num]} players</span>
-                  <span style="font-family: var(--font-mono); font-size: 9px; font-weight: bold; color: ${numAmts[num] > 0 ? 'var(--green)' : 'var(--text-dim)'};">₹${numAmts[num]}</span>
-                </button>
-              `;
-            }).join('')}
-          </div>
-        </div>
-        
-        <hr style="border-color:#242f3d; margin:6px 0;">
-        <div style="font-size:11px; color:var(--text-dim); text-transform:uppercase; margin-bottom:4px; font-weight:bold;">Detailed Wagers Log</div>
-        <div style="margin-bottom:4px; max-height:100px; overflow-y:auto; font-size:11.5px; line-height:1.4; background:#0d0f12; padding:6px; border-radius:4px;">${userBetsHtml}</div>
-        <hr style="border-color:#242f3d; margin:6px 0;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-          <div>Total Lobby Volume: <b>₹${(colorGame.bets || []).reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0)}</b></div>
-        </div>
-      `;
-
-      // Render Last Round Fixed Outcome Banner
-      const lastBanner = document.getElementById('adminColorLastResultBanner');
-      const lastBody = document.getElementById('adminColorLastResultBody');
-      const lastTime = document.getElementById('adminColorLastResultTime');
-
-      if (lastBanner && lastBody) {
-        const lastRes = colorGame.last_result || (colorGame.history && colorGame.history.length > 0 ? colorGame.history[colorGame.history.length - 1] : null);
-        if (lastRes) {
-          lastBanner.style.display = 'block';
-          if (lastTime) lastTime.textContent = lastRes.timestamp || new Date().toLocaleTimeString();
-
-          let colStyle = 'color: var(--text-light);';
-          let colIcon = '⚪';
-          const colStr = lastRes.color || '';
-          if (colStr.includes('Green')) { colStyle = 'color: var(--green);'; colIcon = '🟢'; }
-          else if (colStr.includes('Red')) { colStyle = 'color: var(--red);'; colIcon = '🔴'; }
-          else if (colStr.includes('Violet')) { colStyle = 'color: var(--violet);'; colIcon = '🟣'; }
-
-          let rigBadge = '<span style="background: rgba(46,212,122,0.12); color: var(--green); border:1px solid rgba(46,212,122,0.3); padding:2px 6px; border-radius:4px; font-size:10.5px; font-weight:bold;">🎲 Natural Draw</span>';
-          if (lastRes.is_rigged) {
-            rigBadge = `<span style="background: rgba(201,160,84,0.18); color: var(--gold); border:1px solid var(--gold); padding:2px 6px; border-radius:4px; font-size:10.5px; font-weight:bold;">⚡ FIXED BY ADMIN: ${lastRes.rig_desc || 'Custom Override'}</span>`;
-          }
-
-          lastBody.innerHTML = `
-            <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
-              <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span style="font-size:12px; font-weight:bold; color:var(--gold);">Round #${lastRes.roundNumber || lastRes.round_id}</span>
-                ${rigBadge}
-              </div>
-              <div style="display:flex; align-items:center; gap:12px; background:#141a22; padding:8px 10px; border-radius:4px; margin-top:2px;">
-                <div style="display:flex; align-items:center; gap:4px;">
-                  <span style="font-size:11px; color:var(--text-dim);">Winning Color:</span>
-                  <span style="font-size:13px; font-weight:800; ${colStyle}">${colIcon} ${lastRes.color}</span>
-                </div>
-                <div style="border-left:1px solid #242f3d; padding-left:10px; display:flex; align-items:center; gap:4px;">
-                  <span style="font-size:11px; color:var(--text-dim);">Winning Number:</span>
-                  <span style="font-size:13px; font-weight:800; color:var(--gold); font-family:var(--font-mono);">${lastRes.number}</span>
-                </div>
-                <div style="border-left:1px solid #242f3d; padding-left:10px; display:flex; align-items:center; gap:4px;">
-                  <span style="font-size:11px; color:var(--text-dim);">Size:</span>
-                  <span style="font-size:13px; font-weight:800; color:#fff;">${lastRes.size}</span>
-                </div>
-              </div>
-            </div>
-          `;
-        } else {
-          lastBanner.style.display = 'none';
-        }
-      }
-    }
 
     function renderAviatorUI(av) {
       let userBetsHtml = '';

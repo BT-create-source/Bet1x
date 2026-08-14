@@ -119,3 +119,18 @@ model TeenPattiSeat {
 
   @@unique([room_id, seat])
 }
+
+model GameBet {
+  id         String    @id @default(uuid())
+  username   String
+  game       String                              // 'mines', 'cricket', 'football', 'boundarybaazi'
+  bet_amount Float
+  payout     Float     @default(0)
+  status     String    @default("active")        // active, won, lost, cashed
+  metadata   Json?                               // game-specific data
+  created_at DateTime  @default(now())
+  settled_at DateTime?
+
+  @@index([username, game])
+  @@index([game, status])
+}

