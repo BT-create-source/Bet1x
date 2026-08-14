@@ -703,7 +703,7 @@ let cricketMatches = [];
 
 async function fetchLiveCricketMatches() {
   try {
-    const response = await fetch('http://localhost:3000/api/cricket/matches');
+    const response = await fetch('http://localhost:5000/api/cricket/matches');
     const data = await response.json();
     if (data && data.matches) {
       cricketMatches = data.matches;
@@ -714,7 +714,7 @@ async function fetchLiveCricketMatches() {
   }
 }
 
-let playerPool = [];
+var playerPool = window.playerPool || [];
 
 function setupDynamicPlayerPool(teamA, teamB) {
   if (teamA === 'India' && teamB === 'Australia') {

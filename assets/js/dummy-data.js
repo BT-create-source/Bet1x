@@ -70,7 +70,7 @@ function generateFakeDistribution() {
   };
 }
 
-const playerPool = [
+var playerPool = [
   // India (IND)
   { id: 1,  name: 'Rishabh Pant',     team: 'India', role: 'WK',   credits: 9.0 },
   { id: 2,  name: 'KL Rahul',         team: 'India', role: 'WK',   credits: 8.5 },
