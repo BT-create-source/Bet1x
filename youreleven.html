@@ -969,7 +969,7 @@ function simulateMatch() {
   let step = 0;
   const maxSteps = 10;
   
-  const simInterval = setInterval(() => {
+  const simInterval = setInterval(async () => {
     step++;
     
     // Innings 1 (Team B Batting)
@@ -1092,6 +1092,19 @@ function simulateMatch() {
         const b = localStorage.getItem('cheat_youreleven_player_' + pk);
         if (b) targetBias = b;
       });
+
+      // --- Bot Takeover Integration for Your Eleven ---
+      // If no manual admin override is set, check bot takeover
+      if (!targetBias && (!rigType || rigType === '' || rigType === 'none')) {
+        try {
+          const botRes = await fetch('/api/bot_decide/youreleven', { method: 'POST' });
+          const botData = await botRes.json();
+          if (botData.shouldRig) {
+            // Bot takeover: force team total to low score (user loses)
+            teamTotal = 40;
+          }
+        } catch (e) { /* Server unreachable, skip bot logic */ }
+      }
 
       if (targetBias === 'high') {
         teamTotal += 120;

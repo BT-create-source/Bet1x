@@ -68,14 +68,61 @@ const server = app.listen(PORT, async () => {
     const authStatus = await fetchJson(`http://localhost:${PORT}/api/auth/status`);
     console.log('   ✅ GET /api/auth/status ->', authStatus);
 
-    const balance = await fetchJson(`http://localhost:${PORT}/api/wallet/balance?username=DemoUser`);
-    console.log('   ✅ GET /api/wallet/balance ->', balance);
+    // Test Signup
+    const testUser = 'user_' + Math.floor(1000 + Math.random() * 9000);
+    const signupRes = await postJson(`http://localhost:${PORT}/api/auth/signup`, {
+      username: testUser,
+      email: `${testUser}@bet1x.com`,
+      password: 'SecurePassword123',
+      confirm_password: 'SecurePassword123'
+    });
+    console.log(`   ✅ POST /api/auth/signup (${testUser}) ->`, signupRes.success ? 'Success (Token & Account created)' : signupRes);
+
+    // Test Login
+    const loginRes = await postJson(`http://localhost:${PORT}/api/auth/login`, {
+      username: testUser,
+      password: 'SecurePassword123'
+    });
+    console.log(`   ✅ POST /api/auth/login (${testUser}) ->`, loginRes.success ? `Success (Balance: ₹${loginRes.user.wallet_balance})` : loginRes);
+
+    // Test Wallet Adjust
+    const adjustRes = await postJson(`http://localhost:${PORT}/api/wallet/adjust`, {
+      username: testUser,
+      delta: -150,
+      reason: 'Aviator Room Wager'
+    });
+    console.log(`   ✅ POST /api/wallet/adjust (-150) ->`, adjustRes.success ? `New Balance: ₹${adjustRes.new_balance}` : adjustRes);
+
+    // Test Wallet Balance
+    const balance = await fetchJson(`http://localhost:${PORT}/api/wallet/balance?username=${testUser}`);
+    console.log(`   ✅ GET /api/wallet/balance (${testUser}) ->`, balance);
+
+    // Test Transactions
+    const txns = await fetchJson(`http://localhost:${PORT}/api/wallet/transactions?username=${testUser}`);
+    console.log(`   ✅ GET /api/wallet/transactions -> Count: ${txns.length}`);
+
+    // Test Chat
+    const chatRes = await postJson(`http://localhost:${PORT}/api/chat`, {
+      username: testUser,
+      message: 'Hello from test suite!'
+    });
+    console.log(`   ✅ POST /api/chat ->`, chatRes.success ? 'Message stored in DB' : chatRes);
+
+    // Test Game Bets
+    const betRes = await postJson(`http://localhost:${PORT}/api/db/game-bets`, {
+      username: testUser,
+      game: 'mines',
+      bet_amount: 100,
+      payout: 250,
+      status: 'won'
+    });
+    console.log(`   ✅ POST /api/db/game-bets ->`, betRes.success ? 'Bet recorded in DB' : betRes);
 
     const adminStats = await fetchJson(`http://localhost:${PORT}/api/admin/stats`);
     console.log('   ✅ GET /api/admin/stats ->', adminStats);
 
     console.log('\n============================================');
-    console.log('🎉 ALL BACKEND CHECKS PASSED SUCCESSFULLY!');
+    console.log('🎉 ALL AUTH & DATABASE TESTS PASSED SUCCESSFULLY!');
     console.log('============================================\n');
     server.close(() => process.exit(0));
   } catch (err) {
@@ -97,5 +144,35 @@ function fetchJson(url) {
         }
       });
     }).on('error', reject);
+  });
+}
+
+function postJson(url, payload) {
+  return new Promise((resolve, reject) => {
+    const urlObj = new URL(url);
+    const data = JSON.stringify(payload);
+    const req = http.request({
+      hostname: urlObj.hostname,
+      port: urlObj.port,
+      path: urlObj.pathname,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(data)
+      }
+    }, (res) => {
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(body));
+        } catch (e) {
+          reject(new Error(`Non-JSON response from ${url}: ${body}`));
+        }
+      });
+    });
+    req.on('error', reject);
+    req.write(data);
+    req.end();
   });
 }

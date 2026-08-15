@@ -784,6 +784,13 @@
     }
 
     function initiateDeposit() {
+      const currentUser = getCurrentUser();
+      if (!currentUser || !currentUser.username) {
+        if (typeof openAuthModal === 'function') openAuthModal('login');
+        if (typeof showToast === 'function') showToast('Please login or create an account to deposit funds.', 'info');
+        return;
+      }
+
       const amt = parseFloat(document.getElementById('customAmount').value);
       if (!amt || amt < 100) {
         alert('Minimum deposit amount is ₹100.');
@@ -933,6 +940,13 @@
 
     /* ---------------- Withdraw submit actions ---------------- */
     function submitWithdrawal() {
+      const currentUser = getCurrentUser();
+      if (!currentUser || !currentUser.username) {
+        if (typeof openAuthModal === 'function') openAuthModal('login');
+        if (typeof showToast === 'function') showToast('Please login or create an account to withdraw funds.', 'info');
+        return;
+      }
+
       const amt = parseFloat(document.getElementById('withdrawAmount').value);
       if (!amt || amt < 200) {
         alert('Minimum withdrawal amount is ₹200.');
@@ -945,7 +959,7 @@
       
       const balance = getWallet();
       if (balance < amt) {
-        alert('Sufficient balance nahi hai wallet me.');
+        alert('Insufficient wallet balance.');
         return;
       }
       

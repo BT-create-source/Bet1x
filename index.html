@@ -6,47 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>bet1x — Live Prediction Exchange</title>
   <link rel="stylesheet" href="assets/css/style.css">
-  <script>
-    if (sessionStorage.getItem('bet1x_splash_shown') === 'true') {
-      document.documentElement.classList.add('splash-skip');
-    }
-  </script>
 </head>
 
 <body class="exchange-theme">
-
-  <!-- Static Splash Screen to prevent layout flash on load -->
-  <div id="bet1x-splash" class="bet1x-splash-overlay">
-    <div class="splash-aurora aurora-1"></div>
-    <div class="splash-aurora aurora-2"></div>
-    <div class="splash-particles">
-      <span class="sp-particle p1"></span>
-      <span class="sp-particle p2"></span>
-      <span class="sp-particle p3"></span>
-      <span class="sp-particle p4"></span>
-      <span class="sp-particle p5"></span>
-      <span class="sp-particle p6"></span>
-      <span class="sp-particle p7"></span>
-      <span class="sp-particle p8"></span>
-    </div>
-    <div class="bet1x-splash-content">
-      <div class="splash-emblem-container">
-        <div class="splash-ring"></div>
-        <div class="splash-logo-center">
-          <span class="splash-dot-core"></span>
-        </div>
-      </div>
-      <div class="bet1x-splash-logo-text">
-        bet<span class="accent-text">1x</span>
-      </div>
-      <div class="splash-loader-container">
-        <div class="splash-loader-bar-modern">
-          <div class="splash-progress-modern"></div>
-        </div>
-      </div>
-      <div class="bet1x-splash-tagline" id="splash-status-text">CONNECTING TO SECURE EXCHANGE...</div>
-    </div>
-  </div>
 
   <!-- Header -->
   <nav class="navbar exchange-header">
@@ -262,59 +224,6 @@
   <script src="assets/js/dummy-data.js"></script>
   <script src="assets/js/ui-common.js"></script>
   <script>
-    // Header Authentication handlers
-    function updateAuthHeaderUI() {
-      const authArea = document.getElementById('headerAuthArea');
-      const user = getCurrentUser();
-
-      if (user) {
-        // User logged in
-        authArea.innerHTML = `
-          <div style="display:flex; align-items:center; gap:10px; color:#ffffff; font-size:13.5px; flex-wrap:wrap; justify-content:flex-end;">
-            <span>Welcome, <strong style="color:var(--gold);">${user.username}</strong></span>
-            <span class="wallet-chip" data-wallet-chip style="margin:0;">₹ ${getWallet().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            <a href="cashier.html" style="background:var(--gold); color:#000; font-weight:800; font-size:12px; padding:4px 10px; border-radius:4px; text-decoration:none; display:inline-flex; align-items:center; gap:4px; box-shadow:0 0 12px rgba(201,160,84,0.5);">💰 Deposit</a>
-            <a href="#" onclick="handleHeaderLogout(event)" style="color:#ff5d5d; font-weight:700; text-decoration:none; font-size:12.5px; border-left:1px solid rgba(255,255,255,0.2); padding-left:10px;">Logout ⎋</a>
-          </div>
-        `;
-      } else {
-        // Guest mode
-        authArea.innerHTML = `
-          <div class="header-guest-wrap" style="display:flex; align-items:center;">
-            <button type="button" class="header-login-btn mobile-login-btn" onclick="openAuthModal('login')" style="background:#c8102e; color:#fff; font-weight:700; border:none; border-radius:4px; padding:0 14px; height:32px; font-size:13px; cursor:pointer;">Login / Sign Up</button>
-            <form class="header-login-form desktop-only" id="headerLoginForm" onsubmit="handleHeaderLogin(event)">
-              <input type="text" class="header-login-input" id="loginUsername" placeholder="Username" required>
-              <input type="password" class="header-login-input" id="loginPassword" placeholder="Password">
-              <button type="submit" class="header-login-btn">Login ➜</button>
-            </form>
-          </div>
-        `;
-      }
-      renderWalletChips();
-    }
-
-    function handleHeaderLogin(e) {
-      e.preventDefault();
-      const userField = document.getElementById('loginUsername');
-      const username = userField.value.trim() || 'DemoUser';
-
-      localStorage.setItem('bet1x_current_user', JSON.stringify({ username: username }));
-      // Guarantee starting wallet balance exists
-      if (localStorage.getItem('bet1x_demo_wallet') === null) {
-        localStorage.setItem('bet1x_demo_wallet', '1000.00');
-      }
-
-      updateAuthHeaderUI();
-    }
-
-    function handleHeaderLogout(e) {
-      e.preventDefault();
-      localStorage.removeItem('bet1x_current_user');
-      localStorage.removeItem('bet1x_demo_wallet');
-      localStorage.removeItem('bet1x_demo_history');
-      location.reload();
-    }
-
     // Universe Games tabs active class toggle
     const universeTabs = document.querySelectorAll('.exchange-tabs-bar .exchange-tab-btn');
     universeTabs.forEach(btn => {

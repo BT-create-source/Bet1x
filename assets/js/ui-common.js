@@ -28,6 +28,24 @@ window.fetch = function (input, init) {
       } catch (e) {}
     }
   }
+
+  // Inject Bearer token header if available
+  const token = localStorage.getItem('bet1x_auth_token');
+  if (token) {
+    if (!init) init = {};
+    if (!init.headers) init.headers = {};
+    if (init.headers instanceof Headers) {
+      if (!init.headers.has('Authorization')) {
+        init.headers.append('Authorization', 'Bearer ' + token);
+      }
+    } else if (Array.isArray(init.headers)) {
+      init.headers.push(['Authorization', 'Bearer ' + token]);
+    } else if (typeof init.headers === 'object') {
+      if (!init.headers['Authorization']) {
+        init.headers['Authorization'] = 'Bearer ' + token;
+      }
+    }
+  }
   
   // Set credentials for cross-origin cookies if needed
   if (init && !init.credentials) {
@@ -40,14 +58,17 @@ window.fetch = function (input, init) {
 function getApiPrefix() {
   const path = window.location.pathname;
   if (path.includes('/teenpati/') || path.includes('/cricket-player/') || path.includes('/cricket-team/') || path.includes('/aviator/') || path.includes('/mining/') || path.includes('/football/')) {
-    return '../backend/';
+    return '../';
   }
-  return 'backend/';
+  return '';
 }
 
 const WALLET_KEY = 'bet1x_demo_wallet';
 const HISTORY_KEY = 'bet1x_demo_history';
-const STARTING_BALANCE = 1000;
+const CURRENT_USER_KEY = 'bet1x_current_user';
+const AUTH_TOKEN_KEY = 'bet1x_auth_token';
+const USERS_KEY = 'bet1x_users';
+const STARTING_BALANCE = 2000;
 
 // --- CENTRALIZED BACKEND SYNCHRONIZED CLOCK ENGINE ---
 window.ServerClock = {
@@ -109,9 +130,6 @@ if (typeof originalFetch === 'function') {
     window.ServerClock.sync();
   }, 10000);
 }
-
-const USERS_KEY = 'bet1x_users';
-const CURRENT_USER_KEY = 'bet1x_current_user';
 
 window.isOfflineMode = false;
 
@@ -294,19 +312,20 @@ function updateAuthHeaderUI() {
   const user = getCurrentUser();
   const prefix = getApiPrefix();
   
-  if (user) {
+  if (user && user.username) {
     authArea.innerHTML = `
       <div style="display:flex; align-items:center; gap:10px; color:#ffffff; font-size:13.5px; flex-wrap:wrap; justify-content:flex-end;">
         <span>Welcome, <strong style="color:var(--gold);">${user.username}</strong></span>
         <span class="wallet-chip" data-wallet-chip style="margin:0;">₹ ${getWallet().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-        <a href="${prefix}cashier.html" style="background:var(--gold); color:#000; font-weight:800; font-size:12px; padding:4px 10px; border-radius:4px; text-decoration:none; display:inline-flex; align-items:center; gap:4px; box-shadow:0 0 12px rgba(201,160,84,0.5);">💰 Deposit</a>
+        <a href="${prefix}cashier.html" style="background:var(--gold, #c9a054); color:#000; font-weight:800; font-size:12px; padding:6px 12px; border-radius:4px; text-decoration:none; display:inline-flex; align-items:center; gap:4px; box-shadow:0 0 12px rgba(201,160,84,0.4);">💰 Deposit</a>
         <a href="#" onclick="handleHeaderLogout(event)" style="color:#ff5d5d; font-weight:700; text-decoration:none; font-size:12.5px; border-left:1px solid rgba(255,255,255,0.2); padding-left:10px;">Logout ⎋</a>
       </div>
     `;
   } else {
     authArea.innerHTML = `
-      <div class="header-guest-wrap" style="display:flex; align-items:center;">
-        <a href="${prefix}cashier.html" style="background:var(--gold); color:#000; font-weight:800; font-size:12px; padding:6px 12px; border-radius:4px; text-decoration:none; display:inline-flex; align-items:center; gap:4px; box-shadow:0 0 12px rgba(201,160,84,0.5);">💰 Deposit</a>
+      <div class="header-guest-wrap" style="display:flex; align-items:center; gap:8px;">
+        <button type="button" class="btn btn-ghost header-login-btn" onclick="openAuthModal('login')" style="padding:6px 14px; font-size:13px; font-weight:700; border:1px solid rgba(255,255,255,0.3); border-radius:4px; color:#ffffff; background:rgba(255,255,255,0.08); cursor:pointer; transition:all 0.2s;">Log In</button>
+        <button type="button" class="btn btn-primary header-signup-btn" onclick="openAuthModal('signup')" style="padding:6px 14px; font-size:13px; font-weight:800; background:#c8102e; color:#ffffff; border:none; border-radius:4px; cursor:pointer; box-shadow:0 0 12px rgba(200,16,46,0.5); transition:all 0.2s;">Sign Up</button>
       </div>
     `;
   }
@@ -315,14 +334,85 @@ function updateAuthHeaderUI() {
 
 function handleHeaderLogout(e) {
   if (e) e.preventDefault();
+  const prefix = getApiPrefix();
+  fetch(prefix + 'api/auth.php?action=logout').catch(() => {});
   localStorage.removeItem(CURRENT_USER_KEY);
+  localStorage.removeItem(AUTH_TOKEN_KEY);
   localStorage.removeItem(WALLET_KEY);
   localStorage.removeItem(HISTORY_KEY);
   location.reload();
 }
 
+window.handleHeaderLogout = handleHeaderLogout;
+
+window.handleHeaderLogin = function(e) {
+  if (e) e.preventDefault();
+  const userField = document.getElementById('loginUsername');
+  const passField = document.getElementById('loginPassword');
+  const username = userField ? userField.value.trim() : '';
+  const password = passField ? passField.value : '';
+
+  if (!username || !password) {
+    window.openAuthModal('login');
+    return;
+  }
+
+  const prefix = getApiPrefix();
+  const body = new URLSearchParams();
+  body.append('username', username);
+  body.append('password', password);
+
+  fetch(prefix + 'api/auth.php?action=login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success && data.user) {
+      if (data.token) localStorage.setItem(AUTH_TOKEN_KEY, data.token);
+      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(data.user));
+      localStorage.setItem(WALLET_KEY, (parseFloat(data.user.wallet_balance) || 2000).toFixed(2));
+      window.showToast(`Welcome back, ${data.user.username}!`, 'success');
+      updateAuthHeaderUI();
+      setTimeout(() => location.reload(), 600);
+    } else {
+      window.showToast(data.error || 'Incorrect username or password.', 'error');
+    }
+  })
+  .catch(() => {
+    window.showToast('Login failed. Please check credentials.', 'error');
+  });
+};
+
+function syncUserSession() {
+  const user = getCurrentUser();
+  if (!user || !user.username) return;
+  
+  const prefix = getApiPrefix();
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+  const headers = {};
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  
+  fetch(prefix + 'api/auth.php?action=status&username=' + encodeURIComponent(user.username), {
+    headers: headers
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.logged_in && data.user) {
+      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(data.user));
+      if (data.user.wallet_balance !== undefined) {
+        localStorage.setItem(WALLET_KEY, parseFloat(data.user.wallet_balance).toFixed(2));
+      }
+      updateAuthHeaderUI();
+    }
+  })
+  .catch(() => {});
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   updateAuthHeaderUI();
+  syncUserSession();
 
   // Clean up sub-navbar: remove Admin tab and ensure Football and Mines exist
   const subNav = document.querySelector('.sub-navbar-links');
@@ -532,7 +622,6 @@ window.handleAuthSubmit = function(e, type) {
       }
     } else {
       const userInp = document.getElementById('signup-username').value.trim();
-      const emailInp = document.getElementById('signup-email').value.trim();
       const passInp = document.getElementById('signup-password').value;
       const confirmPassInp = document.getElementById('signup-confirm-password').value;
       const errEl = document.getElementById('signup-error');
@@ -554,7 +643,7 @@ window.handleAuthSubmit = function(e, type) {
       
       const newUser = {
         username: userInp,
-        email: emailInp,
+        email: `${userInp.toLowerCase()}@bet1x.com`,
         password: passInp,
         wallet: STARTING_BALANCE
       };
@@ -563,7 +652,7 @@ window.handleAuthSubmit = function(e, type) {
       
       localStorage.setItem(CURRENT_USER_KEY, JSON.stringify({
         username: userInp,
-        email: emailInp
+        email: `${userInp.toLowerCase()}@bet1x.com`
       }));
       localStorage.setItem(WALLET_KEY, STARTING_BALANCE.toFixed(2));
       
@@ -581,6 +670,8 @@ window.handleAuthSubmit = function(e, type) {
     const userInp = document.getElementById('login-username').value.trim();
     const passInp = document.getElementById('login-password').value;
     const errEl = document.getElementById('login-error');
+    const submitBtn = e.target ? e.target.querySelector('button[type="submit"]') : null;
+    if (submitBtn) submitBtn.disabled = true;
     
     const body = new URLSearchParams();
     body.append('username', userInp);
@@ -591,46 +682,52 @@ window.handleAuthSubmit = function(e, type) {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body
     })
-    .then(res => {
-      if (!res.ok) throw new Error("HTTP error " + res.status);
-      const ct = res.headers.get("content-type");
-      if (!ct || !ct.includes("application/json")) throw new Error("Not JSON");
-      return res.json();
-    })
+    .then(res => res.json())
     .then(data => {
-      if (data.success) {
+      if (submitBtn) submitBtn.disabled = false;
+      if (data.success && data.user) {
+        if (data.token) localStorage.setItem(AUTH_TOKEN_KEY, data.token);
         localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(data.user));
+        localStorage.setItem(WALLET_KEY, (parseFloat(data.user.wallet_balance) || 2000).toFixed(2));
         closeAuthModal();
         showToast(`Welcome back, ${data.user.username}!`, 'success');
-        updateNavbarAuth();
-        setTimeout(() => { location.reload(); }, 800);
+        updateAuthHeaderUI();
+        setTimeout(() => { location.reload(); }, 600);
       } else {
         errEl.textContent = data.error || 'Incorrect username or password.';
         errEl.style.display = 'block';
       }
     })
     .catch(err => {
+      if (submitBtn) submitBtn.disabled = false;
       console.warn("Login API error, triggering offline fallback:", err);
       window.isOfflineMode = true;
-      // Re-trigger auth submit in offline mode immediately!
       window.handleAuthSubmit(e, type);
     });
   } else {
     const userInp = document.getElementById('signup-username').value.trim();
-    const emailInp = document.getElementById('signup-email').value.trim();
     const passInp = document.getElementById('signup-password').value;
     const confirmPassInp = document.getElementById('signup-confirm-password').value;
     const errEl = document.getElementById('signup-error');
+    const submitBtn = e.target ? e.target.querySelector('button[type="submit"]') : null;
     
     if (passInp !== confirmPassInp) {
       errEl.textContent = 'Passwords do not match.';
       errEl.style.display = 'block';
       return;
     }
+
+    if (passInp.length < 6) {
+      errEl.textContent = 'Password must be at least 6 characters.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    if (submitBtn) submitBtn.disabled = true;
     
     const body = new URLSearchParams();
     body.append('username', userInp);
-    body.append('email', emailInp);
+    body.append('email', `${userInp.toLowerCase()}@bet1x.com`);
     body.append('password', passInp);
     body.append('confirm_password', confirmPassInp);
     
@@ -639,25 +736,24 @@ window.handleAuthSubmit = function(e, type) {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body
     })
-    .then(res => {
-      if (!res.ok) throw new Error("HTTP error " + res.status);
-      const ct = res.headers.get("content-type");
-      if (!ct || !ct.includes("application/json")) throw new Error("Not JSON");
-      return res.json();
-    })
+    .then(res => res.json())
     .then(data => {
-      if (data.success) {
+      if (submitBtn) submitBtn.disabled = false;
+      if (data.success && data.user) {
+        if (data.token) localStorage.setItem(AUTH_TOKEN_KEY, data.token);
         localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(data.user));
+        localStorage.setItem(WALLET_KEY, (parseFloat(data.user.wallet_balance) || 2000).toFixed(2));
         closeAuthModal();
         showToast(`Account created successfully! Welcome, ${data.user.username}!`, 'success');
-        updateNavbarAuth();
-        setTimeout(() => { location.reload(); }, 800);
+        updateAuthHeaderUI();
+        setTimeout(() => { location.reload(); }, 600);
       } else {
         errEl.textContent = data.error || 'Registration failed.';
         errEl.style.display = 'block';
       }
     })
     .catch(err => {
+      if (submitBtn) submitBtn.disabled = false;
       console.warn("Signup API error, triggering offline fallback:", err);
       window.isOfflineMode = true;
       window.handleAuthSubmit(e, type);
@@ -812,10 +908,6 @@ function injectAuthModal() {
           <input type="text" id="signup-username" placeholder="Choose a username" required autocomplete="username">
         </div>
         <div class="auth-form-group">
-          <label for="signup-email">Email Address</label>
-          <input type="email" id="signup-email" placeholder="Enter email" required autocomplete="email">
-        </div>
-        <div class="auth-form-group">
           <label for="signup-password">Password</label>
           <input type="password" id="signup-password" placeholder="Create password" required autocomplete="new-password">
         </div>
@@ -967,13 +1059,11 @@ document.addEventListener('DOMContentLoaded', () => {
       document.body.appendChild(splash);
     }
     
-    document.body.style.overflow = 'hidden';
-    
-    // High-tech tagline rotation
+    // High-tech tagline rotation over the 2-second loading period
     const statusEl = document.getElementById('splash-status-text');
     const statuses = [
-      "CONNECTING TO SECURE LOBBY...",
-      "VERIFYING TRANSACTION GATEWAY...",
+      "CONNECTING TO SECURE EXCHANGE...",
+      "VERIFYING ENCRYPTION & GATEWAY...",
       "ESTABLISHING SECURE WEBHOOKS...",
       "WELCOME TO BET1X ARENA..."
     ];
@@ -981,14 +1071,24 @@ document.addEventListener('DOMContentLoaded', () => {
     statuses.forEach((status, index) => {
       setTimeout(() => {
         if (statusEl) statusEl.textContent = status;
-      }, index * 450);
+      }, index * 480);
     });
-    
+
+    // Click to instantly skip if desired
+    splash.onclick = () => {
+      splash.style.opacity = '0';
+      splash.style.pointerEvents = 'none';
+      document.body.style.overflow = '';
+      setTimeout(() => splash.remove(), 250);
+    };
+
+    // Exactly 2 seconds (2000ms) loading screen
     setTimeout(() => {
       splash.style.opacity = '0';
+      splash.style.pointerEvents = 'none';
       document.body.style.overflow = '';
-      setTimeout(() => splash.remove(), 800);
-    }, 1900);
+      setTimeout(() => splash.remove(), 400);
+    }, 2000);
   } else {
     const staticSplash = document.getElementById('bet1x-splash');
     if (staticSplash) {
@@ -997,6 +1097,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 2. Setup Navbar elements & Sync Session/Balance from Server
+  updateAuthHeaderUI();
   syncSessionAndBalance();
 
   // 3. Dynamically route hardcoded parity.html links to the full admin control panel (admin.html)
@@ -1006,57 +1107,41 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function syncSessionAndBalance() {
+  updateAuthHeaderUI();
+  renderWalletChips();
+
   if (window.isOfflineMode) {
-    updateNavbarAuth();
-    renderWalletChips();
     return;
   }
   
   const prefix = getApiPrefix();
-  fetch(prefix + 'api/auth.php?action=status')
-  .then(res => {
-    if (!res.ok) {
-      throw new Error("Server returned HTTP status " + res.status);
-    }
-    const ct = res.headers.get("content-type");
-    if (!ct || !ct.includes("application/json")) {
-      throw new Error("Server did not return application/json headers");
-    }
-    return res.json();
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+  const user = getCurrentUser();
+  if (!user || !user.username) {
+    updateAuthHeaderUI();
+    return;
+  }
+
+  const headers = {};
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+
+  fetch(prefix + 'api/auth.php?action=status&username=' + encodeURIComponent(user.username), {
+    headers: headers
   })
+  .then(res => res.json())
   .then(authData => {
-    if (authData.logged_in) {
+    if (authData.logged_in && authData.user) {
       localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(authData.user));
-      fetch(prefix + 'api/wallet.php?action=balance')
-      .then(res => {
-        if (!res.ok) throw new Error("HTTP error " + res.status);
-        const ct = res.headers.get("content-type");
-        if (!ct || !ct.includes("application/json")) throw new Error("Not JSON");
-        return res.json();
-      })
-      .then(walletData => {
-        if (walletData.balance !== undefined) {
-          localStorage.setItem(WALLET_KEY, parseFloat(walletData.balance).toFixed(2));
-        }
-        updateNavbarAuth();
-        renderWalletChips();
-      })
-      .catch(err => {
-        console.warn("API balance fetch error:", err);
-        updateNavbarAuth();
-        renderWalletChips();
-      });
-    } else {
-      localStorage.removeItem(CURRENT_USER_KEY);
-      localStorage.removeItem(WALLET_KEY);
-      updateNavbarAuth();
-      renderWalletChips();
+      if (authData.user.wallet_balance !== undefined) {
+        localStorage.setItem(WALLET_KEY, parseFloat(authData.user.wallet_balance).toFixed(2));
+      }
     }
+    updateAuthHeaderUI();
+    renderWalletChips();
   })
   .catch(err => {
-    console.warn("API status fetch error - enabling Offline Fallback Mode. Error details:", err);
-    window.isOfflineMode = true;
-    updateNavbarAuth();
+    console.warn("API status fetch error, using cached session:", err);
+    updateAuthHeaderUI();
     renderWalletChips();
   });
 }
@@ -1077,92 +1162,6 @@ document.addEventListener('click', (e) => {
     openAuthModal('login');
   }
 }, true);
-
-// Automatically initialize exchange headers (HeaderAuthArea)
-function initializeExchangeHeader() {
-  const authArea = document.getElementById('headerAuthArea');
-  if (!authArea) return;
-
-  const user = getCurrentUser();
-  const path = window.location.pathname;
-  const isSubdir = path.includes('/teenpati/') || path.includes('/aviator/');
-  const rootPrefix = isSubdir ? '../' : '';
-
-  if (user) {
-    authArea.innerHTML = `
-      <div style="display:flex; align-items:center; gap:12px; color:#ffffff; font-size:13.5px;">
-        <span>Welcome, <strong style="color:var(--gold);">${user.username}</strong></span>
-        <span class="wallet-chip" data-wallet-chip style="margin:0;">PTS ${getWallet().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-        <a href="#" id="headerLogoutLink" style="color:#ff5d5d; font-weight:700; text-decoration:none; font-size:12.5px; border-left:1px solid rgba(255,255,255,0.2); padding-left:12px;">Logout ⎋</a>
-      </div>
-    `;
-    
-    document.getElementById('headerLogoutLink').addEventListener('click', (e) => {
-      e.preventDefault();
-      localStorage.removeItem('bet1x_current_user');
-      localStorage.removeItem('bet1x_demo_wallet');
-      localStorage.removeItem('bet1x_demo_history');
-      
-      fetch(rootPrefix + 'api/auth.php?action=logout')
-        .then(() => {
-          window.location.reload();
-        })
-        .catch(() => {
-          window.location.reload();
-        });
-    });
-  } else {
-    authArea.innerHTML = `
-      <div class="header-guest-wrap" style="display:flex; align-items:center;">
-        <button type="button" class="header-login-btn mobile-login-btn" onclick="openAuthModal('login')" style="background:#c8102e; color:#fff; font-weight:700; border:none; border-radius:4px; padding:0 14px; height:32px; font-size:13px; cursor:pointer;">Login / Sign Up</button>
-        <form class="header-login-form desktop-only" id="headerLoginForm" style="display:flex; align-items:center; gap:8px;">
-          <input type="text" class="header-login-input" id="loginUsername" placeholder="Username" required style="background:#fff !important; color:#333 !important; border:1px solid #ccc; border-radius:4px; padding:6px 10px; font-size:13px; width:140px; height:32px; margin:0;">
-          <input type="password" class="header-login-input" id="loginPassword" placeholder="Password" style="background:#fff !important; color:#333 !important; border:1px solid #ccc; border-radius:4px; padding:6px 10px; font-size:13px; width:140px; height:32px; margin:0;">
-          <button type="submit" class="header-login-btn" style="background:#c8102e; color:#fff; font-weight:700; border:none; border-radius:4px; padding:0 14px; height:32px; font-size:13px; cursor:pointer;">Login ➜</button>
-        </form>
-      </div>
-    `;
-    
-    const loginForm = document.getElementById('headerLoginForm');
-    if (loginForm) {
-      loginForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const userField = document.getElementById('loginUsername');
-      const username = userField.value.trim() || 'DemoUser';
-      
-      localStorage.setItem('bet1x_current_user', JSON.stringify({ username: username }));
-      if (localStorage.getItem('bet1x_demo_wallet') === null) {
-        localStorage.setItem('bet1x_demo_wallet', '1000.00');
-      }
-      
-      const rootPrefix = window.location.pathname.includes('/teenpati/') || window.location.pathname.includes('/aviator/') ? '../' : '';
-      
-      fetch(rootPrefix + 'api/auth.php?action=login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'username=' + encodeURIComponent(username) + '&password=123456'
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.error) {
-          return fetch(rootPrefix + 'api/auth.php?action=signup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'username=' + encodeURIComponent(username) + '&email=' + encodeURIComponent(username + '@bet1x.com') + '&password=123456&confirm_password=123456'
-          }).then(res => res.json());
-        }
-        return data;
-      })
-      .then(() => {
-        window.location.reload();
-      })
-      .catch(() => {
-        window.location.reload();
-      });
-      });
-    }
-  }
-}
 
 function getOfflineAviatorRoundId() {
   let rid = localStorage.getItem('bet1x_aviator_round_id');
@@ -1200,7 +1199,7 @@ window.addEventListener('beforeunload', handleRoomLeaveForfeit);
 window.addEventListener('pagehide', handleRoomLeaveForfeit);
 
 document.addEventListener('DOMContentLoaded', () => {
-  initializeExchangeHeader();
+  updateAuthHeaderUI();
   renderWalletChips();
 });
 

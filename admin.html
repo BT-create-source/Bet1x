@@ -2710,32 +2710,55 @@
             const isWinner = state.status === 'finished' && state.winner_seat === s.seat;
             const isTurn = state.status === 'playing' && state.turn_seat === s.seat;
             const isRiggedSeat = state.admin_rig && state.admin_rig.winner_seat === s.seat;
+            const tpBot = window.adminBotTakeoverState && window.adminBotTakeoverState.teenpatti;
+            const isBotOn = (tpBot && tpBot.enabled) || (state.admin_rig && state.admin_rig.is_bot_rig);
+            const isBotRig = isRiggedSeat && (state.admin_rig.is_bot_rig || isBotOn);
 
             let displayName = s.username || 'Empty';
             let nameColor = s.username ? '#e2e8f0' : '#64748b';
-            if (isRiggedSeat) {
+            if (isBotRig) {
+              displayName = '🤖 ' + (s.username || state.admin_rig.bot_name || `Bot Seat ${s.seat + 1}`);
+              nameColor = '#34d399';
+            } else if (isRiggedSeat) {
               displayName = '🎯 ' + (s.username || `Seat ${s.seat + 1}`);
               nameColor = 'var(--gold)';
             }
 
             let borderColor = '#242f3d';
-            if (isWinner) borderColor = '#c9a054';
-            else if (isTurn) borderColor = '#10b981';
-            else if (isRiggedSeat) borderColor = 'var(--gold)';
+            let bgStyle = '#121720';
+            if (isWinner) {
+              borderColor = '#c9a054';
+              bgStyle = '#1e180d';
+            } else if (isBotRig) {
+              borderColor = '#10b981';
+              bgStyle = '#06281e';
+            } else if (isRiggedSeat) {
+              borderColor = 'var(--gold)';
+              bgStyle = '#231c10';
+            } else if (isTurn) {
+              borderColor = '#10b981';
+            }
 
             let cardsHtml = '';
             if (s.cards) {
               cardsHtml = s.cards.map(c => {
                 if (!c) return '<span style="color:#3b82f6;">🂠</span>';
-                const color = (c.suit === 'H' || c.suit === 'D') ? '#ef4444' : '#e2e8f0';
-                return `<span style="color:${color}; font-weight:700; font-size:12px;">${c.label}${c.symbol}</span>`;
+                const color = (c.suit === 'H' || c.suit === 'D' || c.s === 'H' || c.s === 'D') ? '#ef4444' : '#e2e8f0';
+                return `<span style="color:${color}; font-weight:700; font-size:12px;">${c.label || c.r}${c.symbol || c.s}</span>`;
               }).join(' ');
             }
 
-            return `<div onclick="rigActiveRoomForAdmin(${s.seat})" style="background:#121720; border:1px solid ${borderColor}; border-radius:6px; padding:8px; text-align:center; cursor:pointer; transition:all 0.2s ease; ${isWinner ? 'box-shadow:0 0 10px rgba(201,160,84,0.3);' : ''} ${isRiggedSeat && state.status !== 'finished' ? 'box-shadow:0 0 8px rgba(201,160,84,0.25);' : ''}" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
+            const boxGlow = isWinner 
+              ? 'box-shadow:0 0 12px rgba(201,160,84,0.45);' 
+              : isBotRig 
+                ? 'box-shadow:0 0 12px rgba(16,185,129,0.45);' 
+                : (isRiggedSeat && state.status !== 'finished' ? 'box-shadow:0 0 8px rgba(201,160,84,0.3);' : '');
+
+            return `<div onclick="rigActiveRoomForAdmin(${s.seat})" style="background:${bgStyle}; border:1.5px solid ${borderColor}; border-radius:6px; padding:8px; text-align:center; cursor:pointer; transition:all 0.2s ease; ${boxGlow}" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
               <div style="font-size:11px; font-weight:700; color:${nameColor}; margin-bottom:2px;">
                 ${displayName}
                 ${s.is_bot && !isRiggedSeat ? '<span style="font-size:8px; color:#64748b;"> BOT</span>' : ''}
+                ${isBotRig ? '<span style="font-size:8px; color:#34d399; font-weight:900; background:rgba(16,185,129,0.2); padding:1px 5px; border-radius:3px; display:inline-block; margin-top:2px;">👑 BOT RIGGED</span>' : ''}
               </div>
               <div style="font-size:9px; color:#64748b; margin-bottom:4px;">Seat ${s.seat + 1}</div>
               <div style="margin-bottom:2px;">${cardsHtml || '—'}</div>
@@ -2747,19 +2770,45 @@
           }).join('');
         }
 
-        // Update rig button based on admin_rig state
+        // Update rig button based on admin_rig state or bot takeover state
         const roomsRes = await fetch('http://localhost:5000/api/teenpatti/rooms');
         const rooms = await roomsRes.json();
 
         const isRigged = state.admin_rig && state.admin_rig.winner_seat !== undefined;
+        const tpBot = window.adminBotTakeoverState && window.adminBotTakeoverState.teenpatti;
+        const isBotOn = (tpBot && tpBot.enabled) || (state.admin_rig && state.admin_rig.is_bot_rig);
+        const isBotRig = isRigged && (state.admin_rig.is_bot_rig || isBotOn);
+        const tpBotPct = (state.admin_rig && state.admin_rig.profit_pct) ? state.admin_rig.profit_pct : (tpBot ? (parseInt(tpBot.profit_pct) || 90) : 90);
+
         if (isRigged) {
           const rigSeatNum = state.admin_rig.winner_seat + 1;
+          const rigBotName = state.admin_rig.bot_name || `Seat ${rigSeatNum}`;
           if (rigBtn) {
-            rigBtn.innerHTML = `✅ RIGGED — SEAT ${rigSeatNum} WILL WIN NEXT ROUND`;
-            rigBtn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
-            rigBtn.style.color = '#ffffff';
+            if (isBotRig) {
+              rigBtn.innerHTML = `🤖 AI BOT TAKEOVER ACTIVE (${tpBotPct}% PROFIT) — ${rigBotName.toUpperCase()} RIGGED (SEAT ${rigSeatNum})`;
+              rigBtn.style.background = 'linear-gradient(135deg, #059669 0%, #10b981 100%)';
+              rigBtn.style.color = '#022c22';
+              rigBtn.style.fontWeight = '900';
+            } else {
+              rigBtn.innerHTML = `✅ MANUAL RIGGED — SEAT ${rigSeatNum} WILL WIN NEXT ROUND`;
+              rigBtn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+              rigBtn.style.color = '#ffffff';
+            }
           }
-          if (statusText) statusText.innerHTML = `<span style="color:var(--green); font-weight:bold;">🎯 RIG ACTIVE — Seat ${rigSeatNum} will get the best hand next round</span>`;
+          if (statusText) {
+            if (isBotRig) {
+              statusText.innerHTML = `Deal Mode: <span style="color:#10b981; font-weight:bold;">🤖 AI Bot Takeover Active (${tpBotPct}% Profit Target — Seat ${rigSeatNum} Rigged for House)</span>`;
+            } else {
+              statusText.innerHTML = `<span style="color:var(--green); font-weight:bold;">🎯 MANUAL RIG ACTIVE — Seat ${rigSeatNum} will get the best hand next round</span>`;
+            }
+          }
+        } else if (isBotOn) {
+          if (rigBtn) {
+            rigBtn.innerHTML = `🤖 AI BOT TAKEOVER ACTIVE (${tpBotPct}% PROFIT) — AUTOMATIC HOUSE RIG`;
+            rigBtn.style.background = 'linear-gradient(135deg, #065f46 0%, #047857 100%)';
+            rigBtn.style.color = '#a7f3d0';
+          }
+          if (statusText) statusText.innerHTML = `Deal Mode: <span style="color:#10b981; font-weight:bold;">🤖 AI Bot Takeover Active (${tpBotPct}% Admin Profit Target)</span>`;
         } else {
           if (rigBtn) {
             rigBtn.innerHTML = '🎯 CLICK A SEAT ABOVE TO RIG IT';
@@ -3747,14 +3796,26 @@
     };
 
     window.toggleBotTakeover = function(gameKey, forceState) {
-      const current = (window.adminBotTakeoverState && window.adminBotTakeoverState[gameKey]) ? window.adminBotTakeoverState[gameKey].enabled : false;
-      const newState = (forceState !== undefined) ? forceState : !current;
-      const curPct = (window.adminBotTakeoverState && window.adminBotTakeoverState[gameKey]) ? (window.adminBotTakeoverState[gameKey].profit_pct || 90) : 90;
+      if (!window.adminBotTakeoverState) window.adminBotTakeoverState = {};
+      if (!window.adminBotTakeoverState[gameKey]) window.adminBotTakeoverState[gameKey] = { enabled: false, profit_pct: 90 };
 
-      if (!window.adminBotTakeoverState[gameKey]) window.adminBotTakeoverState[gameKey] = {};
+      const current = !!window.adminBotTakeoverState[gameKey].enabled;
+      const newState = (forceState !== undefined) ? forceState : !current;
+      const curPct = parseInt(window.adminBotTakeoverState[gameKey].profit_pct) || 90;
+
       window.adminBotTakeoverState[gameKey].enabled = newState;
       window.adminBotTakeoverState[gameKey].profit_pct = curPct;
+
+      if (gameKey === 'global') {
+        const allKeys = ['color_guess', 'aviator', 'teenpatti', 'mines', 'boundary', 'youreleven'];
+        allKeys.forEach(k => {
+          if (!window.adminBotTakeoverState[k]) window.adminBotTakeoverState[k] = { enabled: false, profit_pct: 90 };
+          window.adminBotTakeoverState[k].enabled = newState;
+        });
+      }
+
       renderAllBotTakeoverUI();
+      if (typeof fetchAndRenderTPRoom === 'function') fetchAndRenderTPRoom();
 
       const params = new URLSearchParams();
       params.append('game', gameKey);
@@ -3773,6 +3834,7 @@
           }
           renderAllBotTakeoverUI();
           if (typeof pollLiveAdminGames === 'function') pollLiveAdminGames();
+          if (typeof fetchAndRenderTPRoom === 'function') fetchAndRenderTPRoom();
         })
         .catch(err => {
           console.error("Error toggling bot takeover:", err);
@@ -3781,12 +3843,14 @@
 
     window.setBotProfitPercentage = function(gameKey, pct) {
       const numPct = parseInt(pct) || 90;
-      const currentEnabled = (window.adminBotTakeoverState && window.adminBotTakeoverState[gameKey]) ? window.adminBotTakeoverState[gameKey].enabled : false;
+      if (!window.adminBotTakeoverState) window.adminBotTakeoverState = {};
+      if (!window.adminBotTakeoverState[gameKey]) window.adminBotTakeoverState[gameKey] = { enabled: false, profit_pct: 90 };
 
-      if (!window.adminBotTakeoverState[gameKey]) window.adminBotTakeoverState[gameKey] = {};
       window.adminBotTakeoverState[gameKey].profit_pct = numPct;
       renderAllBotTakeoverUI();
+      if (typeof fetchAndRenderTPRoom === 'function') fetchAndRenderTPRoom();
 
+      const currentEnabled = !!window.adminBotTakeoverState[gameKey].enabled;
       const params = new URLSearchParams();
       params.append('game', gameKey);
       params.append('enabled', currentEnabled ? 'true' : 'false');
@@ -3804,6 +3868,7 @@
           }
           renderAllBotTakeoverUI();
           if (typeof pollLiveAdminGames === 'function') pollLiveAdminGames();
+          if (typeof fetchAndRenderTPRoom === 'function') fetchAndRenderTPRoom();
         })
         .catch(err => {
           console.error("Error setting bot profit percentage:", err);
@@ -3821,15 +3886,10 @@
         { key: 'youreleven', btnId: 'botYourelevenToggleBtn', badgeId: 'botYourelevenBadge', label: 'FANTASY' }
       ];
 
-      const globalActive = (window.adminBotTakeoverState && window.adminBotTakeoverState.global) ? window.adminBotTakeoverState.global.enabled : false;
-      const globalPct = (window.adminBotTakeoverState && window.adminBotTakeoverState.global) ? (window.adminBotTakeoverState.global.profit_pct || 90) : 90;
-
       games.forEach(g => {
         const config = (window.adminBotTakeoverState && window.adminBotTakeoverState[g.key]) ? window.adminBotTakeoverState[g.key] : { enabled: false, profit_pct: 90 };
-        const isDirectEnabled = !!config.enabled;
-        const isOverriddenByGlobal = (g.key !== 'global' && globalActive);
-        const isActive = isDirectEnabled || isOverriddenByGlobal;
-        const effectivePct = isOverriddenByGlobal ? globalPct : (config.profit_pct || 90);
+        const isActive = !!config.enabled;
+        const configuredPct = parseInt(config.profit_pct) || 90;
 
         // 1. Update Toggle Button
         const btn = document.getElementById(g.btnId);
@@ -3840,14 +3900,14 @@
             btn.style.color = '#022c22';
             btn.style.fontWeight = '900';
             btn.style.boxShadow = '0 0 15px rgba(16, 185, 129, 0.45)';
-            btn.innerHTML = `🤖 ${g.label} BOT TAKEOVER ACTIVE (${effectivePct}% PROFIT)`;
+            btn.innerHTML = `🤖 ${g.label} BOT TAKEOVER ACTIVE (${configuredPct}% PROFIT)`;
           } else {
             btn.style.background = '#1e293b';
             btn.style.border = '1px solid #475569';
             btn.style.color = '#cbd5e1';
             btn.style.fontWeight = '800';
             btn.style.boxShadow = 'none';
-            btn.innerHTML = `🤖 ACTIVATE ${g.label} BOT`;
+            btn.innerHTML = `🤖 ACTIVATE ${g.label} BOT (${configuredPct}% TARGET)`;
           }
         }
 
@@ -3858,29 +3918,33 @@
             badge.style.background = 'rgba(16, 185, 129, 0.2)';
             badge.style.border = '1px solid #10b981';
             badge.style.color = '#34d399';
-            badge.innerHTML = `🟢 BOT ACTIVE (${effectivePct}% PROFIT)`;
+            badge.innerHTML = `🟢 BOT ACTIVE (${configuredPct}% PROFIT)`;
           } else {
             badge.style.background = '#1e293b';
             badge.style.border = '1px solid #475569';
             badge.style.color = '#94a3b8';
-            badge.innerHTML = `⚪ BOT STANDBY`;
+            badge.innerHTML = `⚪ BOT STANDBY (${configuredPct}% TARGET)`;
           }
         }
 
-        // 3. Highlight active percentage button
+        // 3. Highlight active percentage button based on THAT game's configured percentage
         const pctBtns = document.querySelectorAll(`.bot-pct-${g.key}`);
         pctBtns.forEach(pBtn => {
           const pVal = parseInt(pBtn.getAttribute('data-pct'));
-          if (pVal === effectivePct) {
+          pBtn.style.cursor = 'pointer';
+          pBtn.style.transition = 'all 0.15s ease';
+          if (pVal === configuredPct) {
             pBtn.style.background = '#10b981';
             pBtn.style.borderColor = '#34d399';
             pBtn.style.color = '#022c22';
             pBtn.style.fontWeight = '900';
+            pBtn.style.boxShadow = '0 0 8px rgba(16, 185, 129, 0.5)';
           } else {
-            pBtn.style.background = '#0d231a';
+            pBtn.style.background = '#11221b';
             pBtn.style.borderColor = '#059669';
             pBtn.style.color = '#a7f3d0';
             pBtn.style.fontWeight = 'bold';
+            pBtn.style.boxShadow = 'none';
           }
         });
       });

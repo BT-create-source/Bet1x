@@ -516,7 +516,8 @@ select {
   overflow: hidden;
   opacity: 1;
   visibility: visible;
-  transition: opacity 0.8s cubic-bezier(0.77, 0, 0.175, 1), visibility 0.8s;
+  cursor: pointer;
+  transition: opacity 0.35s cubic-bezier(0.77, 0, 0.175, 1), visibility 0.35s;
 }
 
 /* Premium Gold/Amber Auroras */
@@ -966,6 +967,54 @@ select {
 .dropdown-item.logout:hover {
   background: var(--red-soft);
   color: var(--red);
+}
+
+/* Header Guest Controls */
+.header-guest-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.header-login-btn {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.28) !important;
+  font-weight: 700 !important;
+  font-size: 13px !important;
+  padding: 6px 14px !important;
+  border-radius: 4px !important;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.4;
+}
+.header-login-btn:hover {
+  background: rgba(255, 255, 255, 0.16) !important;
+  border-color: #ffffff !important;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+}
+.header-signup-btn {
+  background: #c8102e !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  font-weight: 800 !important;
+  font-size: 13px !important;
+  padding: 6px 16px !important;
+  border-radius: 4px !important;
+  cursor: pointer;
+  box-shadow: 0 0 14px rgba(200, 16, 46, 0.6) !important;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.4;
+}
+.header-signup-btn:hover {
+  background: #e01234 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 0 20px rgba(224, 18, 52, 0.8) !important;
 }
 
 /* Toast Notification Container */

