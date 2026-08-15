@@ -38,7 +38,6 @@
     <li class="sub-navbar-item"><a href="youreleven.html" class="sub-navbar-link">Your Eleven</a></li>
     <li class="sub-navbar-item"><a href="football.html" class="sub-navbar-link">Football</a></li>
     <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
-    <li class="sub-navbar-item"><a href="parity.html" class="sub-navbar-link">Admin</a></li>
   </ul>
 </div>
 
@@ -1233,6 +1232,25 @@ generateMockBets();
 renderHistory();
 gameTick();
 
+// Automatically forfeit in-flight or pending bets on leaving the room
+window.addEventListener('beforeunload', () => {
+  for (let i = 1; i <= 2; i++) {
+    const b = bets[i];
+    if (b && (b.status === 'active' || b.status === 'wagered')) {
+      b.status = 'none';
+    }
+  }
+  if (typeof forfeitAllPendingBets === 'function') {
+    forfeitAllPendingBets('Vimaan');
+  }
+  localStorage.removeItem('bet1x_aviator_live_state');
+  localStorage.removeItem('bet1x_aviator_current_bets');
+});
+window.addEventListener('pagehide', () => {
+  if (typeof forfeitAllPendingBets === 'function') {
+    forfeitAllPendingBets('Vimaan');
+  }
+});
 </script>
 </body>
 </html>

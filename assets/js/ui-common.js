@@ -206,9 +206,68 @@ function adjustWallet(delta, reason = 'Color Room Wager/Payout') {
   return newBal;
 }
 
+function getCurrentGameRoom() {
+  const p = window.location.pathname.toLowerCase();
+  if (p.includes('aviator')) return 'Vimaan';
+  if (p.includes('win.html') || p.endsWith('/win')) return 'SAPRE';
+  if (p.includes('win1')) return 'BECONE';
+  if (p.includes('win2')) return 'EMRED';
+  if (p.includes('win3')) return 'VIP';
+  if (p.includes('boundarybaazi')) return 'Cricket';
+  if (p.includes('teenpatti') || p.includes('teenpati')) return 'Teen Patti';
+  if (p.includes('mining')) return 'Mines';
+  if (p.includes('football')) return 'Football';
+  if (p.includes('youreleven')) return 'Your Eleven';
+  return null;
+}
+
+function forfeitAllPendingBets(targetRoom = null) {
+  try {
+    const stored = localStorage.getItem(HISTORY_KEY);
+    if (!stored) return;
+    const hist = JSON.parse(stored);
+    let changed = false;
+    hist.forEach(bet => {
+      if (bet.status === 'pending') {
+        if (!targetRoom || (bet.room && bet.room.toUpperCase() === targetRoom.toUpperCase())) {
+          bet.status = 'lost';
+          bet.payout = 0;
+          changed = true;
+        }
+      }
+    });
+    if (changed) {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(hist));
+    }
+  } catch (e) {
+    console.error("Error forfeiting pending bets:", e);
+  }
+}
+
 function getHistory() {
   const stored = localStorage.getItem(HISTORY_KEY);
-  return stored ? JSON.parse(stored) : [];
+  if (!stored) return [];
+  try {
+    const hist = JSON.parse(stored);
+    const currentRoom = getCurrentGameRoom();
+    let changed = false;
+    hist.forEach(bet => {
+      // If user is no longer in this game room, any pending bets are automatically lost
+      if (bet.status === 'pending') {
+        if (!currentRoom || !bet.room || bet.room.toUpperCase() !== currentRoom.toUpperCase()) {
+          bet.status = 'lost';
+          bet.payout = 0;
+          changed = true;
+        }
+      }
+    });
+    if (changed) {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(hist));
+    }
+    return hist;
+  } catch (e) {
+    return [];
+  }
 }
 
 function pushHistory(entry) {
@@ -265,29 +324,31 @@ function handleHeaderLogout(e) {
 document.addEventListener('DOMContentLoaded', () => {
   updateAuthHeaderUI();
 
-  // Inject sub-navbar links for Football and Mines globally
+  // Clean up sub-navbar: remove Admin tab and ensure Football and Mines exist
   const subNav = document.querySelector('.sub-navbar-links');
   if (subNav) {
-    const hasFootball = Array.from(subNav.querySelectorAll('a')).some(a => a.getAttribute('href').includes('football'));
+    // Always remove Admin tab from sub-navbar
+    Array.from(subNav.children).forEach(li => {
+      const a = li.querySelector('a');
+      if (li.textContent.toLowerCase().includes('admin') || (a && a.getAttribute('href') && a.getAttribute('href').includes('parity'))) {
+        li.remove();
+      }
+    });
+
+    const hasFootball = Array.from(subNav.querySelectorAll('a')).some(a => a.getAttribute('href') && a.getAttribute('href').includes('football'));
+    const prefix = getApiPrefix();
     if (!hasFootball) {
-      const prefix = getApiPrefix();
-      const adminItem = Array.from(subNav.querySelectorAll('li')).find(li => li.textContent.toLowerCase().includes('admin'));
-      
       const fbLi = document.createElement('li');
       fbLi.className = 'sub-navbar-item';
       fbLi.innerHTML = `<a href="${prefix}football.html" class="sub-navbar-link">Football</a>`;
-      
+      subNav.appendChild(fbLi);
+    }
+    const hasMines = Array.from(subNav.querySelectorAll('a')).some(a => a.getAttribute('href') && (a.getAttribute('href').includes('mining') || a.getAttribute('href').includes('mines')));
+    if (!hasMines) {
       const mineLi = document.createElement('li');
       mineLi.className = 'sub-navbar-item';
-      mineLi.innerHTML = `<a href="${prefix}mining.html" class="sub-navbar-link">💣 Mines</a>`;
-      
-      if (adminItem) {
-        subNav.insertBefore(fbLi, adminItem);
-        subNav.insertBefore(mineLi, adminItem);
-      } else {
-        subNav.appendChild(fbLi);
-        subNav.appendChild(mineLi);
-      }
+      mineLi.innerHTML = `<a href="${prefix}mining.html" class="sub-navbar-link">Mines</a>`;
+      subNav.appendChild(mineLi);
     }
   }
 });
@@ -1127,14 +1188,20 @@ function getAviatorCurrentBets() {
   }
 }
 
-function saveAviatorCurrentBets(betsArray) {
-  try {
-    localStorage.setItem('bet1x_aviator_current_bets', JSON.stringify(betsArray || []));
-  } catch (e) {}
+// Automatically forfeit all active/pending bets when leaving any game room
+function handleRoomLeaveForfeit() {
+  const currentRoom = getCurrentGameRoom();
+  if (currentRoom) {
+    forfeitAllPendingBets(currentRoom);
+  }
 }
+
+window.addEventListener('beforeunload', handleRoomLeaveForfeit);
+window.addEventListener('pagehide', handleRoomLeaveForfeit);
 
 document.addEventListener('DOMContentLoaded', () => {
   initializeExchangeHeader();
   renderWalletChips();
 });
+
 

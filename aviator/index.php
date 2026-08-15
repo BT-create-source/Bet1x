@@ -42,7 +42,8 @@ session_start();
     <li class="sub-navbar-item"><a href="../teenpatti.html" class="sub-navbar-link">Teen Patti</a></li>
     <li class="sub-navbar-item"><a href="../boundarybaazi.html" class="sub-navbar-link">Boundary Baazi</a></li>
     <li class="sub-navbar-item"><a href="../youreleven.html" class="sub-navbar-link">Your Eleven</a></li>
-    <li class="sub-navbar-item"><a href="../parity.html" class="sub-navbar-link">Admin</a></li>
+    <li class="sub-navbar-item"><a href="../football.html" class="sub-navbar-link">Football</a></li>
+    <li class="sub-navbar-item"><a href="../mining.html" class="sub-navbar-link">Mines</a></li>
   </ul>
 </div>
 

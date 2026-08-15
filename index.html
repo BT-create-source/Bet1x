@@ -66,24 +66,8 @@
 
   <!-- Red Sub Navigation Bar moved below promo banner -->
 
-  <!-- Three Column Layout -->
+  <!-- Two Column Layout: Main Content + Games Directory Sidebar -->
   <div class="exchange-layout">
-
-    <!-- Left Column: Betslip Sidebar -->
-    <aside class="exchange-right-sidebar">
-      <div class="exchange-bets-header" style="display:flex; justify-content:space-between; align-items:center;">
-        <span>Open Bets</span>
-        <button class="betslip-close-btn" onclick="toggleBetslipDrawer()"
-          style="background:none; border:none; color:#ffffff; font-size:24px; cursor:pointer; line-height:1; display:none; padding:0; height:24px; width:24px; align-items:center; justify-content:center;">&times;</button>
-      </div>
-      <div class="exchange-bets-list" id="sidebarBetslist">
-        <div class="betslip-empty">
-          <span>No open bets.</span>
-          <span style="font-size:11px; color:#8b949e;">Place wagers inside game rooms to populate details.</span>
-        </div>
-      </div>
-
-    </aside>
 
     <!-- Center Column: Main Promo & Exchange Grid -->
     <main class="exchange-main-content">
@@ -122,7 +106,6 @@
           <li class="sub-navbar-item"><a href="youreleven.html" class="sub-navbar-link">Your Eleven</a></li>
           <li class="sub-navbar-item"><a href="football.html" class="sub-navbar-link">Football</a></li>
           <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
-          <li class="sub-navbar-item"><a href="parity.html" class="sub-navbar-link">Admin</a></li>
         </ul>
       </div>
 
@@ -322,7 +305,6 @@
       }
 
       updateAuthHeaderUI();
-      loadSidebarBetslip();
     }
 
     function handleHeaderLogout(e) {
@@ -331,49 +313,6 @@
       localStorage.removeItem('bet1x_demo_wallet');
       localStorage.removeItem('bet1x_demo_history');
       location.reload();
-    }
-
-    // Load active/recent bet history into right side panel
-    function loadSidebarBetslip() {
-      const container = document.getElementById('sidebarBetslist');
-      const history = getHistory();
-
-      if (!history || history.length === 0) {
-        container.innerHTML = `
-          <div class="betslip-empty">
-            <span>No open bets.</span>
-            <span style="font-size:11px; color:#999;">Place wagers inside game rooms to populate details.</span>
-          </div>
-        `;
-        return;
-      }
-
-      container.innerHTML = '';
-      history.slice(0, 5).forEach(bet => {
-        const item = document.createElement('div');
-        item.className = 'betslip-item';
-
-        let payoutHTML = '';
-        if (bet.status === 'won') {
-          payoutHTML = `<span style="color:var(--green)">+₹${bet.payout.toFixed(2)}</span>`;
-        } else if (bet.status === 'lost') {
-          payoutHTML = `<span style="color:var(--red)">Lost</span>`;
-        } else {
-          payoutHTML = `<span style="color:var(--gold)">Pending</span>`;
-        }
-
-        item.innerHTML = `
-          <div>
-            <div class="title">${bet.room || 'Game Room'}</div>
-            <div style="font-size:10px; color:#888;">${bet.timestamp || 'Recent'}</div>
-          </div>
-          <div style="text-align:right;">
-            <div class="odds">₹${bet.amount.toFixed(2)}</div>
-            <div style="font-size:11px;">${payoutHTML}</div>
-          </div>
-        `;
-        container.appendChild(item);
-      });
     }
 
     // Universe Games tabs active class toggle
@@ -395,16 +334,8 @@
       }
     };
 
-    window.toggleBetslipDrawer = function () {
-      const betslip = document.querySelector('.exchange-right-sidebar');
-      if (betslip) {
-        betslip.classList.toggle('active');
-      }
-    };
-
     // Initialize UI on page load
     updateAuthHeaderUI();
-    loadSidebarBetslip();
 
     // Live Odds Feed Flashing Simulator
     setInterval(() => {
@@ -601,13 +532,13 @@
         </svg></span>
       <span class="nav-label">Cards</span>
     </a>
-    <a href="#" onclick="toggleBetslipDrawer(); return false;" class="mobile-bottom-nav-item">
+    <a href="cashier.html" class="mobile-bottom-nav-item">
       <span class="nav-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"
           style="display:block; margin:0 auto;">
           <path
-            d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" />
+            d="M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-2h10V8H12v8zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" />
         </svg></span>
-      <span class="nav-label">Betslip</span>
+      <span class="nav-label">Wallet</span>
     </a>
   </div>
 

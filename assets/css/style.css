@@ -1548,15 +1548,17 @@ body.exchange-theme footer {
   font-weight: 500;
 }
 
-/* Red Sub Navigation Bar replaced with sleek dark cyber design */
+/* Sub Navigation Bar - sleek cyber bar fitting all options evenly */
 .sub-navbar {
   background: var(--surface-2);
-  border-bottom: 2px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 4px;
   display: flex;
   align-items: stretch;
   padding: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 .sub-navbar::-webkit-scrollbar {
   display: none;
@@ -1570,33 +1572,53 @@ body.exchange-theme footer {
   width: 100%;
 }
 .sub-navbar-item {
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
   align-items: stretch;
 }
 .sub-navbar-link {
   color: #8b949e;
   text-decoration: none;
-  font-size: 13.5px;
+  font-size: 11.5px;
   font-weight: 700;
-  padding: 10px 18px;
+  padding: 9px 2px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  text-align: center;
   transition: all 0.15s;
   border-right: 1px solid var(--border);
   white-space: nowrap;
+  flex: 1;
+  width: 100%;
+  box-sizing: border-box;
 }
-.sub-navbar-link:hover, .sub-navbar-link.active {
+.sub-navbar-item:last-child .sub-navbar-link {
+  border-right: none;
+}
+.sub-navbar-link:hover {
   color: #ffffff;
-  background: var(--border);
+  background: rgba(255, 255, 255, 0.08);
+}
+.sub-navbar-link.active {
+  color: #ffffff;
+  background: #232c3d;
+  box-shadow: inset 0 -2px 0 var(--gold, #c9a054);
 }
 .sub-navbar-link.vimaan-tab {
-  background: #b51212;
+  background: #910e0e;
   color: #ffffff;
-  border-right: 1px solid #910e0e;
 }
 .sub-navbar-link.vimaan-tab:hover {
-  background: #c8102e;
+  background: #b51212;
+}
+
+@media (max-width: 1100px) {
+  .sub-navbar-link {
+    font-size: 10.5px;
+    padding: 8px 1px;
+  }
 }
 
 /* Header Login boxes */
@@ -1638,11 +1660,11 @@ body.exchange-theme footer {
   background: #e61c38 !important;
 }
 
-/* 3-Column Layout: Swapped Orientation */
+/* 2-Column Layout: Main Promo & Matches Grid + Games Directory Sidebar */
 .exchange-layout {
   display: grid;
-  grid-template-columns: 280px 1fr 200px;
-  gap: 12px;
+  grid-template-columns: 1fr 280px;
+  gap: 16px;
   padding: 12px;
   max-width: 1400px;
   margin: 0 auto;
@@ -1651,20 +1673,9 @@ body.exchange-theme footer {
 .exchange-main-content {
   min-width: 0;
 }
-@media (max-width: 1200px) {
-  .exchange-layout {
-    grid-template-columns: 280px 1fr;
-  }
-  .exchange-left-sidebar {
-    display: none;
-  }
-}
-@media (max-width: 768px) {
+@media (max-width: 992px) {
   .exchange-layout {
     grid-template-columns: 1fr;
-  }
-  .exchange-right-sidebar {
-    display: none;
   }
 }
 
@@ -2062,21 +2073,13 @@ body.exchange-theme .footer {
     padding: 8px !important;
   }
   
-  /* Swapping visual order so main live exchange betting matches display on top! */
   .exchange-main-content {
     order: 1 !important;
     width: 100% !important;
   }
-  .exchange-right-sidebar {
-    order: 2 !important; /* Betslip stacks second */
-    width: 100% !important;
-  }
   .exchange-left-sidebar {
-    order: 3 !important; /* Games stacks third */
+    order: 2 !important;
     width: 100% !important;
-  }
-  
-  .exchange-left-sidebar, .exchange-right-sidebar {
     display: block !important;
   }
 }
@@ -2171,12 +2174,23 @@ body.exchange-theme .footer {
   }
 
   .sub-navbar {
-    padding: 2px 4px !important;
+    overflow-x: auto !important;
+    scrollbar-width: none !important;
+    padding: 0 !important;
   }
-  
+  .sub-navbar::-webkit-scrollbar {
+    display: none !important;
+  }
+  .sub-navbar-links {
+    width: max-content !important;
+    min-width: 100% !important;
+  }
+  .sub-navbar-item {
+    flex: 0 0 auto !important;
+  }
   .sub-navbar-link {
-    font-size: 10.5px !important;
-    padding: 3px 6px !important;
+    font-size: 11px !important;
+    padding: 7px 10px !important;
   }
   
   .exchange-section-header {
@@ -2311,31 +2325,6 @@ body.exchange-theme .footer {
   
   .desktop-only {
     display: none !important;
-  }
-
-  /* Redefine Betslip sidebar to behave as a slide-up drawer bottom sheet on mobile! */
-  .exchange-right-sidebar {
-    position: fixed !important;
-    bottom: -100% !important;
-    left: 0 !important;
-    width: 100% !important;
-    max-height: 75vh !important;
-    background: var(--surface) !important;
-    border-top: 2px solid #00e676 !important;
-    border-radius: 12px 12px 0 0 !important;
-    box-shadow: 0 -8px 24px rgba(0,0,0,0.6) !important;
-    z-index: 1004 !important;
-    transition: bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    padding-bottom: 66px !important; /* spacing offset */
-    display: block !important;
-    overflow-y: auto !important;
-  }
-  .exchange-right-sidebar.active {
-    bottom: 0 !important;
-  }
-  
-  .betslip-close-btn {
-    display: flex !important;
   }
 
   /* Hide static desktop menu sidebar on mobile to prevent redundancy */

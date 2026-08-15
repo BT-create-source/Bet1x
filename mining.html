@@ -189,7 +189,6 @@
       <li class="sub-navbar-item"><a href="youreleven.html" class="sub-navbar-link">Your Eleven</a></li>
       <li class="sub-navbar-item"><a href="football.html" class="sub-navbar-link">Football</a></li>
       <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link active">Mines</a></li>
-      <li class="sub-navbar-item"><a href="parity.html" class="sub-navbar-link">Admin</a></li>
     </ul>
   </div>
 
@@ -563,6 +562,22 @@
     });
 
     refreshState();
+
+    // Forfeit active game when leaving room
+    window.addEventListener('beforeunload', () => {
+      if (offlineMinesState && offlineMinesState.status === 'active') {
+        offlineMinesState.status = 'busted';
+        offlineMinesState.potential_payout = 0;
+      }
+      if (typeof forfeitAllPendingBets === 'function') {
+        forfeitAllPendingBets('Mines');
+      }
+    });
+    window.addEventListener('pagehide', () => {
+      if (typeof forfeitAllPendingBets === 'function') {
+        forfeitAllPendingBets('Mines');
+      }
+    });
   </script>
 </body>
 

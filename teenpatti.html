@@ -474,7 +474,6 @@
     <li class="sub-navbar-item"><a href="youreleven.html" class="sub-navbar-link">Your Eleven</a></li>
     <li class="sub-navbar-item"><a href="football.html" class="sub-navbar-link">Football</a></li>
     <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
-    <li class="sub-navbar-item"><a href="parity.html" class="sub-navbar-link">Admin</a></li>
   </ul>
 </div>
 
@@ -1005,6 +1004,9 @@ async function leaveRoom() {
   if (pollInterval) clearInterval(pollInterval);
   pollInterval = null;
   currentRoom = null;
+  if (typeof forfeitAllPendingBets === 'function') {
+    forfeitAllPendingBets('Teen Patti');
+  }
 
   document.getElementById('tpGame').style.display = 'none';
   document.getElementById('tpLobby').style.display = 'block';
@@ -1248,6 +1250,17 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(() => {
     if (!currentRoom) loadLobby();
   }, 3000);
+});
+
+window.addEventListener('beforeunload', () => {
+  if (typeof forfeitAllPendingBets === 'function') {
+    forfeitAllPendingBets('Teen Patti');
+  }
+});
+window.addEventListener('pagehide', () => {
+  if (typeof forfeitAllPendingBets === 'function') {
+    forfeitAllPendingBets('Teen Patti');
+  }
 });
 </script>
 </body>

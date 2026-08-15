@@ -30,7 +30,6 @@
     <li class="sub-navbar-item"><a href="youreleven.html" class="sub-navbar-link">Your Eleven</a></li>
     <li class="sub-navbar-item"><a href="football.html" class="sub-navbar-link">Football</a></li>
     <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
-    <li class="sub-navbar-item"><a href="parity.html" class="sub-navbar-link">Admin</a></li>
   </ul>
 </div>
 
@@ -413,8 +412,26 @@ function syncState() {
         if (totalPayout > 0) {
           showSettlementAlert(`Round settled! Result: ${lastResult.number} (${lastResult.color}, ${lastResult.size}) — you won ₹${totalPayout.toFixed(2)}`, 'success');
           triggerWinShower(document.querySelector('.card'));
+          if (typeof getHistory === 'function') {
+            const hist = getHistory();
+            const item = hist.find(x => x.room === ROOM_KEY.toUpperCase() && x.status === 'pending');
+            if (item) {
+              item.status = 'won';
+              item.payout = totalPayout;
+              localStorage.setItem('bet1x_demo_history', JSON.stringify(hist));
+            }
+          }
         } else if (hasBets) {
           showSettlementAlert(`Round settled. Result: ${lastResult.number} (${lastResult.color}, ${lastResult.size}) — no win this round.`, 'error');
+          if (typeof getHistory === 'function') {
+            const hist = getHistory();
+            const item = hist.find(x => x.room === ROOM_KEY.toUpperCase() && x.status === 'pending');
+            if (item) {
+              item.status = 'lost';
+              item.payout = 0;
+              localStorage.setItem('bet1x_demo_history', JSON.stringify(hist));
+            }
+          }
         }
       }
       myBetsThisRound = [];
