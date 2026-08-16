@@ -778,9 +778,9 @@ function joinOfflineRoom(roomId) {
     winner_seat: null,
     seats: [
       { seat: 0, username: getUsername(), is_bot: false, cards: null, folded: false, balance: balance, seen: false, is_me: true },
-      { seat: 1, username: 'BOT_Raju', is_bot: true, cards: null, folded: false, balance: 5000, seen: true, is_me: false },
-      { seat: 2, username: 'BOT_Vikram', is_bot: true, cards: null, folded: false, balance: 5000, seen: true, is_me: false },
-      { seat: 3, username: 'BOT_Sana', is_bot: true, cards: null, folded: false, balance: 5000, seen: true, is_me: false },
+      { seat: 1, username: 'Rohan_42', is_bot: true, cards: null, folded: false, balance: 5000, seen: true, is_me: false },
+      { seat: 2, username: 'Vikram_57', is_bot: true, cards: null, folded: false, balance: 5000, seen: true, is_me: false },
+      { seat: 3, username: 'Sana_63', is_bot: true, cards: null, folded: false, balance: 5000, seen: true, is_me: false },
     ],
     log: ['Joined table ' + roomData.name + ' in offline mode.'],
     my_seat: 0,
@@ -1124,7 +1124,8 @@ function renderGameState(state) {
     const banner = document.createElement('div');
     banner.id = 'tpWinnerBanner';
     banner.style.cssText = 'position:absolute; top:40%; left:50%; transform:translate(-50%, -50%); z-index:100; background:linear-gradient(135deg, rgba(201,160,84,0.98), rgba(180,130,50,0.98)); color:#0f172a; padding:14px 28px; border-radius:12px; font-weight:800; font-size:17px; box-shadow:0 0 25px rgba(201,160,84,0.7); text-align:center; border:2px solid #fff; pointer-events:none;';
-    banner.innerHTML = `${winnerTitle}<br><span style="font-size:13px; font-weight:700; color:#1e293b;">Won Pot of ₹${state.pot}!</span>`;
+    const riggedLine = state.was_rigged ? `<br><span style="font-size:12px; font-weight:800; color:#7a1f1f;">⚠️ This outcome was rigged</span>` : '';
+    banner.innerHTML = `${winnerTitle}<br><span style="font-size:13px; font-weight:700; color:#1e293b;">Won Pot of ₹${state.pot}!</span>${riggedLine}`;
     tableEl.appendChild(banner);
   }
 
@@ -1169,9 +1170,8 @@ function renderGameState(state) {
     }
     cardsHtml += '</div>';
 
-    const badgeHtml = s.is_bot
-      ? '<span class="player-badge-blind">BOT</span>'
-      : (s.seen || (s.cards && s.cards[0] !== null) ? '<span class="player-badge-seen">Seen</span>' : '<span class="player-badge-blind">Blind</span>');
+    // No seat is ever labeled as a bot to players — every occupant reads as a regular player.
+    const badgeHtml = s.seen || (s.cards && s.cards[0] !== null) ? '<span class="player-badge-seen">Seen</span>' : '<span class="player-badge-blind">Blind</span>';
 
     let label = '';
     if (s.folded) {
@@ -1204,9 +1204,10 @@ function renderGameState(state) {
     statusMsg.innerHTML = `Turn: <strong style="color:var(--gold)">${turnName}</strong> — ${state.time_left}s remaining`;
   } else if (state.status === 'finished') {
     const isMeWinner = state.winner_name && state.winner_name.toLowerCase() === getUsername().toLowerCase();
-    statusMsg.innerHTML = isMeWinner
+    const rigNote = state.was_rigged ? ` <span style="color:#ff5c5c; font-weight:700;">⚠️ This outcome was rigged</span>` : '';
+    statusMsg.innerHTML = (isMeWinner
       ? `<span style="color:var(--green)">🏆 YOU WON! ₹${state.pot} 🎉</span>`
-      : `<span style="color:var(--green)">🏆 ${state.winner_name} WON! ₹${state.pot}</span>`;
+      : `<span style="color:var(--green)">🏆 ${state.winner_name} WON! ₹${state.pot}</span>`) + rigNote;
   } else {
     statusMsg.textContent = 'Waiting for players...';
   }

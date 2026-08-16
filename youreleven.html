@@ -1095,27 +1095,39 @@ function simulateMatch() {
 
       // --- Bot Takeover Integration for Your Eleven ---
       // If no manual admin override is set, check bot takeover
+      let wasRigged = false;
       if (!targetBias && (!rigType || rigType === '' || rigType === 'none')) {
         try {
-          const botRes = await fetch('/api/bot_decide/youreleven', { method: 'POST' });
+          const currentUser = getCurrentUser();
+          const uname = currentUser ? currentUser.username : 'DemoUser';
+          const botRes = await fetch('/api/bot_decide/youreleven', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: uname })
+          });
           const botData = await botRes.json();
           if (botData.shouldRig) {
             // Bot takeover: force team total to low score (user loses)
             teamTotal = 40;
+            wasRigged = true;
           }
         } catch (e) { /* Server unreachable, skip bot logic */ }
       }
 
       if (targetBias === 'high') {
         teamTotal += 120;
+        wasRigged = true;
       } else if (targetBias === 'low') {
         teamTotal = Math.max(10, teamTotal - 100);
+        wasRigged = true;
       }
 
       if (rigType === 'platform_profit') {
         teamTotal = 40; // force loss
+        wasRigged = true;
       } else if (rigType === 'user_win') {
         teamTotal = 220; // force 4x payout
+        wasRigged = true;
       }
 
       // Calculate payouts based on dynamic simulated total
@@ -1133,6 +1145,7 @@ function simulateMatch() {
       gameState.simulationResult = breakdown;
       gameState.simulationScore = teamTotal;
       gameState.payoutAwarded = payoutAwarded;
+      gameState.wasRigged = wasRigged;
       gameState.status = 'result';
       
       render();
@@ -1151,6 +1164,7 @@ function startNewLobby() {
   gameState.simulationResult = null;
   gameState.simulationScore = 0;
   gameState.payoutAwarded = 0;
+  gameState.wasRigged = false;
   gameState.activeMatchId = null;
   render();
 }
@@ -1405,12 +1419,13 @@ function render() {
     const pitchHtml = buildStadiumPitchHtml(gameState.simulationResult.map(p => p.id), gameState.captainId, gameState.viceId, resultsMap);
 
     container.innerHTML = `
+      ${gameState.wasRigged ? `<div style="text-align:center; font-size:13px; font-weight:700; color:#ff5c5c; background:rgba(255,92,92,0.12); border:1px solid rgba(255,92,92,0.4); border-radius:8px; padding:8px 12px; margin-bottom:12px;">⚠️ This outcome was rigged</div>` : ''}
       <div class="score-badge">
         <div class="score-val">${gameState.simulationScore.toFixed(1)}</div>
         <div class="score-lbl">Total Squad Points</div>
         <div style="font-size:15px; font-weight:600; margin-top:8px;">${payoutMsg}</div>
       </div>
-      
+
       <div style="font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em; margin: 20px 0 8px; text-align:center;">Your Team Performance</div>
       ${pitchHtml}
       

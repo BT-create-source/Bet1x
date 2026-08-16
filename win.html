@@ -409,8 +409,9 @@ function syncState() {
           }
           if (won) totalPayout += b.amount * mult;
         });
+        const rigNote = (hasBets && lastResult.is_rigged) ? ' ⚠️ This outcome was rigged.' : '';
         if (totalPayout > 0) {
-          showSettlementAlert(`Round settled! Result: ${lastResult.number} (${lastResult.color}, ${lastResult.size}) — you won ₹${totalPayout.toFixed(2)}`, 'success');
+          showSettlementAlert(`Round settled! Result: ${lastResult.number} (${lastResult.color}, ${lastResult.size}) — you won ₹${totalPayout.toFixed(2)}${rigNote}`, 'success');
           triggerWinShower(document.querySelector('.card'));
           if (typeof getHistory === 'function') {
             const hist = getHistory();
@@ -422,7 +423,7 @@ function syncState() {
             }
           }
         } else if (hasBets) {
-          showSettlementAlert(`Round settled. Result: ${lastResult.number} (${lastResult.color}, ${lastResult.size}) — no win this round.`, 'error');
+          showSettlementAlert(`Round settled. Result: ${lastResult.number} (${lastResult.color}, ${lastResult.size}) — no win this round.${rigNote}`, 'error');
           if (typeof getHistory === 'function') {
             const hist = getHistory();
             const item = hist.find(x => x.room === ROOM_KEY.toUpperCase() && x.status === 'pending');

@@ -925,6 +925,7 @@ function syncAviator() {
                   actionBtn.innerHTML = `
                     <span class="label">Busted</span>
                     <span class="sub-label" style="color:var(--red)">Lost ₹${serverBet.amount.toFixed(2)}</span>
+                    ${serverBet.was_rigged ? `<span class="sub-label" style="color:#ff5c5c; font-weight:700;">⚠️ This outcome was rigged</span>` : ''}
                   `;
                 }
               }

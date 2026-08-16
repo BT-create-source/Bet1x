@@ -405,7 +405,9 @@ function settleRoundLocally() {
   if (savedOverride.size) {
     resolved.size = savedOverride.size;
   }
-  
+
+  const wasRiggedOffline = !!(savedOverride.color || savedOverride.size || (savedOverride.number !== undefined && savedOverride.number !== null && savedOverride.number !== ''));
+
   // Clear offline overrides for the next round
   localStorage.removeItem('cheat_color_override_' + ROOM_KEY + '_' + lastRoundId);
 
@@ -438,9 +440,10 @@ function settleRoundLocally() {
     }
     if (won) totalPayout += b.amount * mult;
   });
+  const rigNoteOffline = (hasBets && wasRiggedOffline) ? ' ⚠️ This outcome was rigged.' : '';
   if (totalPayout > 0) {
     adjustWallet(totalPayout, `Color Guess Win: Room ${ROOM_KEY.charAt(0).toUpperCase() + ROOM_KEY.slice(1)} Round #${lastRoundId} Payout`);
-    showSettlementAlert(`Round settled! Result: ${winningNum} (${newResult.color}, ${newResult.size}) — you won ₹${totalPayout.toFixed(2)}`, 'success');
+    showSettlementAlert(`Round settled! Result: ${winningNum} (${newResult.color}, ${newResult.size}) — you won ₹${totalPayout.toFixed(2)}${rigNoteOffline}`, 'success');
     triggerWinShower(document.querySelector('.card'));
     if (typeof getHistory === 'function') {
       const hist = getHistory();
@@ -452,7 +455,7 @@ function settleRoundLocally() {
       }
     }
   } else if (hasBets) {
-    showSettlementAlert(`Round settled. Result: ${winningNum} (${newResult.color}, ${newResult.size}) — no win this round.`, 'error');
+    showSettlementAlert(`Round settled. Result: ${winningNum} (${newResult.color}, ${newResult.size}) — no win this round.${rigNoteOffline}`, 'error');
     if (typeof getHistory === 'function') {
       const hist = getHistory();
       const item = hist.find(x => x.room === ROOM_KEY.toUpperCase() && x.status === 'pending');
@@ -519,11 +522,12 @@ function syncState() {
           }
           if (won) totalPayout += b.amount * mult;
         });
+        const rigNote = (hasBets && lastResult.is_rigged) ? ' ⚠️ This outcome was rigged.' : '';
         if (totalPayout > 0) {
-          showSettlementAlert(`Round settled! Result: ${lastResult.number} (${lastResult.color}, ${lastResult.size}) — you won ₹${totalPayout.toFixed(2)}`, 'success');
+          showSettlementAlert(`Round settled! Result: ${lastResult.number} (${lastResult.color}, ${lastResult.size}) — you won ₹${totalPayout.toFixed(2)}${rigNote}`, 'success');
           triggerWinShower(document.querySelector('.card'));
         } else if (hasBets) {
-          showSettlementAlert(`Round settled. Result: ${lastResult.number} (${lastResult.color}, ${lastResult.size}) — no win this round.`, 'error');
+          showSettlementAlert(`Round settled. Result: ${lastResult.number} (${lastResult.color}, ${lastResult.size}) — no win this round.${rigNote}`, 'error');
         }
       }
       myBetsThisRound = [];

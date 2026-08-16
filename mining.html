@@ -373,7 +373,7 @@
         : '';
 
       if (state.status === 'busted') {
-        msgEl.textContent = '💥 Hit a mine — bet lost.';
+        msgEl.textContent = state.was_rigged ? '💥 Hit a mine — bet lost. ⚠️ This outcome was rigged.' : '💥 Hit a mine — bet lost.';
       } else if (state.status === 'cashed') {
         msgEl.textContent = `✅ Cashed out for ₹${state.potential_payout.toFixed(2)}`;
       }
@@ -463,7 +463,7 @@
         const data = await res.json();
         if (data.ok) {
           render(data.state);
-          if (data.hit_mine) msgEl.textContent = '💥 Boom — you hit a mine.';
+          if (data.hit_mine) msgEl.textContent = data.state.was_rigged ? '💥 Boom — you hit a mine. ⚠️ This outcome was rigged.' : '💥 Boom — you hit a mine.';
         } else {
           msgEl.textContent = data.error;
         }
