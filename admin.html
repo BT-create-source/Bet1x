@@ -261,6 +261,9 @@
           betting history.</div>
       </div>
       <div style="display:flex; gap:10px;">
+        <a href="superadmin.html" class="btn btn-ghost"
+          style="padding:6px 12px; font-size:12.5px; text-decoration:none; display:flex; align-items:center; border-color:#5b7fff; color:#8fa3ff;">📊 Super
+          Admin Console</a>
         <a href="parity.html" class="btn btn-ghost"
           style="padding:6px 12px; font-size:12.5px; text-decoration:none; display:flex; align-items:center;">Parity
           Monitor</a>
@@ -823,6 +826,19 @@
               <button type="button" id="botMinesToggleBtn" onclick="toggleBotTakeover('mines')" style="width:100%; background:#1e293b; border:1px solid #475569; color:#cbd5e1; font-weight:900; font-size:11px; padding:6px; border-radius:4px; cursor:pointer;">
                 🤖 ACTIVATE MINES BOT
               </button>
+            </div>
+
+            <!-- Live Rig Suggestion — same "profit if I act now" advisory as Color/Aviator, computed
+                 from real live Mines session data. Always populated, independent of the bot toggle
+                 above, so it's useful for manual detonation decisions even with the bot off. -->
+            <div style="background:#1a130a; border:1px solid var(--gold); border-radius:6px; padding:9px; margin-top:10px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <span style="font-size:10.5px; font-weight:900; color:var(--gold);">💡 LIVE RIG SUGGESTION</span>
+                <span style="font-size:8px; font-weight:800; padding:1px 5px; border-radius:3px; background:#1e293b; color:#94a3b8;">works with bot ON or OFF</span>
+              </div>
+              <div id="adminMinesSuggestionPanel" style="font-size:11.5px; font-family:var(--font-mono); color:#e2e8f0; max-height:220px; overflow-y:auto;">
+                Loading live sessions...
+              </div>
             </div>
           </div>
 
@@ -3094,8 +3110,10 @@
           if (data.success) {
             window.adminMinesActiveUsers = data.users || [];
             window.adminMinesTotalProfit = data.total_profit || 0;
+            window.adminMinesBotActive = !!data.bot_active;
             renderMinesActiveUsersTable();
             updateMinesProfitUI();
+            renderMinesSuggestionPanel();
           }
         })
         .catch(err => {
@@ -3103,6 +3121,76 @@
           renderMinesActiveUsersTable();
           updateMinesProfitUI();
         });
+    };
+
+    // Live Rig Suggestion — the Mines equivalent of Color's "suggested number" and Aviator's "crash
+    // now for +₹X" advisory. Reads the real, currently-active Mines sessions (same data source as the
+    // active-players feed above) and shows, per session, exactly what detonating it right now would
+    // net the house versus letting the player keep going — computed straight from that session's own
+    // live bet/multiplier/payout, not an estimate. Always renders, regardless of whether the Mines bot
+    // toggle is on, so it's useful purely as a manual decision aid too.
+    window.renderMinesSuggestionPanel = function () {
+      const panel = document.getElementById('adminMinesSuggestionPanel');
+      if (!panel) return;
+
+      const sessions = (window.adminMinesActiveUsers || []).filter(u => u.status === 'Active');
+      if (sessions.length === 0) {
+        panel.innerHTML = `<div style="color:var(--text-dim); padding:6px 2px;">No live Mines sessions right now — suggestions appear here the moment a real player starts one.</div>`;
+        return;
+      }
+
+      const botActive = !!window.adminMinesBotActive;
+      const rows = [...sessions]
+        .sort((a, b) => (b.profit_if_detonate_now - b.profit_if_cashout_now) - (a.profit_if_detonate_now - a.profit_if_cashout_now))
+        .map(u => {
+          const swing = u.profit_if_detonate_now - u.profit_if_cashout_now;
+          const targetedTag = u.is_currently_targeted
+            ? `<span style="background:#7f1d1d; color:#fecaca; font-size:8px; font-weight:800; padding:1px 5px; border-radius:3px; margin-left:5px;">🤖 BOT TARGETING THIS USER</span>`
+            : (botActive ? `<span style="background:#1e293b; color:#64748b; font-size:8px; font-weight:800; padding:1px 5px; border-radius:3px; margin-left:5px;">not selected by bot</span>` : '');
+          return `
+            <div style="border:1px solid #242f3d; border-radius:6px; padding:7px 9px; margin-bottom:6px; background:#0d0f12;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div><b style="color:#fff;">${u.username}</b>${targetedTag}</div>
+                <button type="button" onclick="detonateMinesSessionNow('${u.username}')" style="background:#ef4444; color:#fff; font-weight:800; font-size:9.5px; padding:3px 8px; border:none; border-radius:4px; cursor:pointer;">⚡ DETONATE NOW</button>
+              </div>
+              <div style="color:var(--text-dim); margin-top:3px; font-size:10.5px;">
+                Bet ₹${u.bet.toFixed(2)} &middot; ${u.revealed} revealed &middot; ${u.multiplier.toFixed(2)}x &middot; would pay ₹${u.potential_payout.toFixed(2)} if cashed out now
+              </div>
+              <div style="margin-top:3px;">
+                Detonate now: <b style="color:#34d399;">+₹${u.profit_if_detonate_now.toFixed(2)} profit</b>
+                &nbsp;|&nbsp; Let them cash out: <b style="color:${u.profit_if_cashout_now < 0 ? '#f87171' : '#34d399'};">${u.profit_if_cashout_now >= 0 ? '+' : ''}₹${u.profit_if_cashout_now.toFixed(2)}</b>
+                ${swing > 0 ? `&nbsp;|&nbsp; <span style="color:var(--gold);">swing: ₹${swing.toFixed(2)}</span>` : ''}
+              </div>
+            </div>`;
+        }).join('');
+
+      panel.innerHTML = rows;
+    };
+
+    // Reuses the existing, already-live "next-click trap" manual rig mechanism (see
+    // /api/mines/admin/rig, trigger_trap) — this button is just a one-click shortcut aimed at a single
+    // session from the suggestion above, not a new rigging path.
+    window.detonateMinesSessionNow = function (username) {
+      fetch('http://localhost:5000/api/mines/admin/rig', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_users: [username], next_tile: 'mine', trigger_trap: true })
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            showToast(`💥 Detonated ${username}'s live session — ₹${(data.profit_realized || 0).toFixed(2)} profit realized.`, 'success');
+          }
+          // Reset the global next-tile override right away so this one-off action doesn't linger and
+          // affect the NEXT reveal from an unrelated player.
+          fetch('http://localhost:5000/api/mines/admin/rig', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target_users: [], next_tile: '' })
+          }).catch(() => {});
+          fetchMinesActiveUsers();
+        })
+        .catch(() => showToast('Could not reach the server to detonate this session.', 'error'));
     };
 
     window.adminMinesActivePercentage = null;

