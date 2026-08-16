@@ -2934,28 +2934,32 @@
     // Initial load
     setTimeout(() => fetchAndRenderTPRoom(), 1000);
 
-    window.applyBoundaryCheat = function () {
+    window.applyBoundaryCheat = async function () {
       const winner = document.getElementById('cheatBoundaryWinner').value;
       const player = document.getElementById('cheatBoundaryPlayerSelect').value;
       const bias = document.getElementById('cheatBoundaryPlayerBias').value;
       const rigType = document.getElementById('cheatBoundaryRigType').value;
 
-      if (winner) {
-        localStorage.setItem('cheat_boundary_winner', winner);
-      } else {
-        localStorage.removeItem('cheat_boundary_winner');
+      // Winner and rig-type now persist server-side (see /api/boundarybaazi/decide-match) so this
+      // actually reaches real players, not just this admin's own browser as it used to.
+      try {
+        await fetch('/api/game_sync.php?action=admin_set_override', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ game: 'boundary', winner: winner || '', rig_type: rigType || '' })
+        });
+      } catch (e) {
+        showToast('Could not reach the server to apply this override.', 'error');
+        return;
       }
 
+      // Per-player performance bias is still a local, cosmetic-only lever affecting just this admin's
+      // own browser if they ever play a match themselves — it never touches a rigging decision, so it
+      // isn't part of the server-authoritative winner/payout path.
       if (player && bias) {
         localStorage.setItem('cheat_boundary_player_' + player, bias);
       } else if (player && !bias) {
         localStorage.removeItem('cheat_boundary_player_' + player);
-      }
-
-      if (rigType) {
-        localStorage.setItem('cheat_boundary_rig_type', rigType);
-      } else {
-        localStorage.removeItem('cheat_boundary_rig_type');
       }
 
       let summary = [];
@@ -2964,9 +2968,9 @@
       if (rigType) summary.push(`Rig Type: ${rigType === 'platform_profit' ? 'Platform Profit' : 'User Win'}`);
 
       if (summary.length === 0) {
-        // showToast('Cleared Boundary Baazi biases.', 'info');
+        showToast('Cleared Boundary Baazi override.', 'info');
       } else {
-        // showToast(`Applied Boundary Baazi bias: ${summary.join(', ')}`, 'success');
+        showToast(`Applied Boundary Baazi override: ${summary.join(', ')}`, 'success');
       }
     };
 

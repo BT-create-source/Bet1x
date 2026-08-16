@@ -1997,6 +1997,26 @@ app.post('/api/game_sync.php', async (req, res) => {
         create: { key: `bot_takeover_${gameKey}`, data: botTakeoverState[gameKey] }
       });
 
+      // The "global" master switch must reach every individual game's own config server-side, not
+      // just admin.html's own UI (which happens to loop through every game itself today). Every game
+      // is always pre-initialized with an explicit enabled:true/false, so isBotTakeoverActive()'s
+      // per-game check short-circuits before it would ever fall through to a "global" default — a
+      // bare `game:'global'` toggle with no per-game cascade would otherwise silently rig nothing.
+      // Cascading here makes the backend correct on its own, independent of any particular frontend.
+      if (gameKey === 'global') {
+        for (const k of Object.keys(botTakeoverState)) {
+          if (k === 'global') continue;
+          botTakeoverState[k] = { enabled: isEnabled, profit_pct: Math.max(1, Math.min(100, pct)) };
+          try {
+            await prisma.gameState.upsert({
+              where: { key: `bot_takeover_${k}` },
+              update: { data: botTakeoverState[k] },
+              create: { key: `bot_takeover_${k}`, data: botTakeoverState[k] }
+            });
+          } catch (e) { console.error(`Error cascading global bot state to ${k}:`, e.message); }
+        }
+      }
+
       // Immediately refresh the live-targeted-subset engine so the very first toggle takes effect
       // right away instead of waiting for the next 4s tick (the interval keeps it fresh afterward).
       if (gameKey === 'global') {
@@ -2106,9 +2126,20 @@ app.post('/api/game_sync.php', async (req, res) => {
 
       res.json({ success: true, new_balance: newBal });
     } else if (action === 'admin_set_override') {
-      const { game, room, color, number, size, rig_type, crash_point, instant_crash } = req.body;
+      const { game, room, color, number, size, rig_type, crash_point, instant_crash, winner } = req.body;
 
-      if (game === 'color_guess') {
+      if (game === 'boundary') {
+        // Server-persisted manual override for Boundary Baazi's match winner — replaces the old
+        // localStorage-only "cheat" flags, which only ever affected the admin's own browser and could
+        // never reach a real remote player. Read by /api/boundarybaazi/decide-match.
+        const overrides = { winner: winner || '', rig_type: rig_type || '' };
+        await prisma.gameState.upsert({
+          where: { key: 'boundary_override' },
+          update: { data: overrides },
+          create: { key: 'boundary_override', data: overrides }
+        });
+        res.json({ success: true });
+      } else if (game === 'color_guess') {
         const overrideKey = `color_guess_overrides_${room}`;
         const overrides = { color: color || '', number: number || '', size: size || '', rig_type: rig_type || '' };
         
@@ -4467,8 +4498,16 @@ app.get('/api/cricket/history', async (req, res) => {
 // ========================================================================
 
 // POST /api/boundarybaazi/place-bet — Place a bet on batting outcome
+// In-memory per-match authoritative winner decisions, keyed by the client's match round id
+// (matchState.roundId). Written once by /decide-match right when betting locks for that match,
+// read by /settle so a "winner_A"/"winner_B" bet's outcome is a real server fact the client cannot
+// override — closing the gap where Boundary Baazi used to let the browser simulate and self-report
+// its own match result. Short-lived by nature (one match lasts a few minutes), so in-memory is fine —
+// same pattern as MINES_USER_SESSIONS elsewhere in this file.
+const BOUNDARY_MATCH_DECISIONS = {};
+
 app.post('/api/boundarybaazi/place-bet', async (req, res) => {
-  const { username, bet_amount, bet_type, selection } = req.body;
+  const { username, bet_amount, bet_type, selection, match_id, odds } = req.body;
   const betAmt = parseFloat(bet_amount);
   if (!username || isNaN(betAmt) || betAmt <= 0 || !bet_type) {
     return res.status(400).json({ error: 'Invalid bet details.' });
@@ -4493,7 +4532,10 @@ app.post('/api/boundarybaazi/place-bet', async (req, res) => {
       data: {
         username, game: 'boundarybaazi', bet_amount: betAmt,
         status: 'active',
-        metadata: { bet_type, selection }
+        // match_id ties this bet to a specific match's server-decided winner (see /decide-match);
+        // odds is stored here so /settle always pays exactly what was offered at bet time, never a
+        // caller-supplied multiplier.
+        metadata: { bet_type, selection, match_id: match_id || null, odds: parseFloat(odds) || 2.0 }
       }
     });
 
@@ -4504,35 +4546,156 @@ app.post('/api/boundarybaazi/place-bet', async (req, res) => {
   }
 });
 
-// POST /api/boundarybaazi/settle — Settle a bet
+// POST /api/boundarybaazi/cancel-bet — Refund an active, not-yet-settled bet (betting still open)
+app.post('/api/boundarybaazi/cancel-bet', async (req, res) => {
+  const { bet_id, username } = req.body;
+  if (!bet_id || !username) return res.status(400).json({ error: 'bet_id and username required.' });
+  try {
+    const gameBet = await prisma.gameBet.findUnique({ where: { id: bet_id } });
+    if (!gameBet || gameBet.status !== 'active') return res.status(400).json({ error: 'Bet not found or already settled.' });
+    if (gameBet.username.toLowerCase() !== String(username).toLowerCase()) {
+      return res.status(403).json({ error: 'This bet does not belong to this user.' });
+    }
+
+    const user = await getOrCreateUser(username);
+    await prisma.user.update({ where: { id: user.id }, data: { wallet_balance: { increment: gameBet.bet_amount } } });
+    await prisma.transaction.create({
+      data: {
+        id: 'BB_CANCEL_' + Date.now(),
+        user: username, type: 'Deposit', amount: gameBet.bet_amount,
+        details: `Boundary Baazi Bet Cancelled — ${gameBet.metadata.bet_type}`,
+        status: 'Completed'
+      }
+    });
+    await prisma.gameBet.update({ where: { id: bet_id }, data: { status: 'cancelled', settled_at: new Date() } });
+
+    const updatedUser = await prisma.user.findUnique({ where: { id: user.id } });
+    res.json({ success: true, balance: updatedUser.wallet_balance });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/boundarybaazi/decide-match — Authoritative match-winner decision, made once betting
+// locks. Mirrors the precedence every other game uses: manual admin override > live bot targeting >
+// fair coin flip. The client's existing ball-by-ball simulation then visually steers its own innings
+// scores toward this exact winner (unchanged logic, just fed a trustworthy source instead of a
+// browser-local "cheat" flag), so what the player watches always matches what they get paid.
+app.post('/api/boundarybaazi/decide-match', async (req, res) => {
+  const { username, match_id } = req.body;
+  if (!username || !match_id) return res.status(400).json({ error: 'username and match_id required.' });
+  try {
+    markUserActive('boundary', username);
+
+    // What did this user actually back on the moneyline for this match?
+    const bets = await prisma.gameBet.findMany({
+      where: { username: { equals: username, mode: 'insensitive' }, game: 'boundarybaazi', status: 'active' }
+    });
+    const matchBets = bets.filter(b => b.metadata && b.metadata.match_id === match_id);
+    const hasWinnerA = matchBets.some(b => b.metadata.bet_type === 'winner' && b.metadata.selection === 'A');
+    const hasWinnerB = matchBets.some(b => b.metadata.bet_type === 'winner' && b.metadata.selection === 'B');
+
+    let winner = null;
+    let was_rigged = false;
+
+    const overrideRecord = await prisma.gameState.findUnique({ where: { key: 'boundary_override' } });
+    const override = overrideRecord ? overrideRecord.data : {};
+
+    if (override && override.winner) {
+      winner = override.winner;
+      was_rigged = true;
+    } else if (override && override.rig_type && override.rig_type !== 'none') {
+      if (override.rig_type === 'platform_profit') {
+        if (hasWinnerA && !hasWinnerB) winner = 'B';
+        else if (hasWinnerB && !hasWinnerA) winner = 'A';
+        else if (hasWinnerA && hasWinnerB) winner = 'tie';
+      } else if (override.rig_type === 'user_win') {
+        if (hasWinnerA && !hasWinnerB) winner = 'A';
+        else if (hasWinnerB && !hasWinnerA) winner = 'B';
+      }
+      was_rigged = !!winner;
+    } else {
+      const botActive = isBotTakeoverActive('boundary').active;
+      const targeted = botActive && isUserTargeted('boundary', username);
+      if (targeted) {
+        const botDecision = shouldBotRigThisRound('boundary');
+        if (botDecision.shouldRig) {
+          if (hasWinnerA && !hasWinnerB) winner = 'B';
+          else if (hasWinnerB && !hasWinnerA) winner = 'A';
+          else if (hasWinnerA && hasWinnerB) winner = 'tie';
+          was_rigged = !!winner;
+        }
+      }
+    }
+
+    if (!winner) {
+      // Fair round: genuine server coin flip, independent of anything the client could influence.
+      const r = Math.random();
+      winner = r < 0.48 ? 'A' : (r < 0.96 ? 'B' : 'tie');
+      was_rigged = false;
+    }
+
+    BOUNDARY_MATCH_DECISIONS[match_id] = { winner, was_rigged, decided_at: Date.now() };
+    res.json({ success: true, winner, was_rigged });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/boundarybaazi/settle — Settle a bet. For the match-winner market, the outcome is looked
+// up from the server's own /decide-match record for that match — the caller-supplied `won` is only
+// ever used as a fallback for the rare case no decision was recorded, never as the primary source for
+// the market that's actually eligible for rigging. Every other (prop) market still trusts the
+// client's own resolution of its ball-by-ball simulation (unchanged — never part of the rig feature),
+// but payout is always computed from this bet's own stored odds, never a caller-supplied multiplier.
 app.post('/api/boundarybaazi/settle', async (req, res) => {
-  const { bet_id, won, multiplier } = req.body;
+  const { bet_id, won: clientWon } = req.body;
   if (!bet_id) return res.status(400).json({ error: 'bet_id required.' });
   try {
     const gameBet = await prisma.gameBet.findUnique({ where: { id: bet_id } });
     if (!gameBet || gameBet.status !== 'active') return res.status(400).json({ error: 'Bet not found or already settled.' });
 
-    const payout = won ? gameBet.bet_amount * (parseFloat(multiplier) || 2.0) : 0;
+    const meta = gameBet.metadata || {};
+    let won = !!clientWon;
+    let was_rigged = false;
+    let push = false;
+
+    if (meta.bet_type === 'winner' && meta.match_id && BOUNDARY_MATCH_DECISIONS[meta.match_id]) {
+      const decision = BOUNDARY_MATCH_DECISIONS[meta.match_id];
+      if (decision.winner === 'tie') {
+        push = true;
+      } else {
+        won = decision.winner === meta.selection;
+      }
+      was_rigged = decision.was_rigged;
+    }
+
+    const odds = parseFloat(meta.odds) || 2.0;
+    const payout = push ? gameBet.bet_amount : (won ? gameBet.bet_amount * odds : 0);
+    const status = push ? 'push' : (won ? 'won' : 'lost');
+
     await prisma.gameBet.update({
       where: { id: bet_id },
-      data: { status: won ? 'won' : 'lost', payout, settled_at: new Date() }
+      data: { status, payout, settled_at: new Date(), metadata: { ...meta, was_rigged } }
     });
 
-    if (won && payout > 0) {
-      const user = await prisma.user.findFirst({ where: { username: { equals: gameBet.username, mode: 'insensitive' } } });
-      if (user) {
-        await prisma.user.update({ where: { id: user.id }, data: { wallet_balance: { increment: payout } } });
-        await prisma.transaction.create({
-          data: {
-            id: 'BB_WIN_' + Date.now(),
-            user: gameBet.username, type: 'Deposit', amount: payout,
-            details: `Boundary Baazi Win — ${parseFloat(multiplier) || 2.0}x`,
-            status: 'Completed'
-          }
-        });
-      }
+    let balance = null;
+    const user = await prisma.user.findFirst({ where: { username: { equals: gameBet.username, mode: 'insensitive' } } });
+    if (payout > 0 && user) {
+      const updated = await prisma.user.update({ where: { id: user.id }, data: { wallet_balance: { increment: payout } } });
+      balance = updated.wallet_balance;
+      await prisma.transaction.create({
+        data: {
+          id: 'BB_WIN_' + Date.now(),
+          user: gameBet.username, type: 'Deposit', amount: payout,
+          details: push ? `Boundary Baazi Push — Refund` : `Boundary Baazi Win — ${odds}x`,
+          status: 'Completed'
+        }
+      });
+    } else if (user) {
+      balance = user.wallet_balance;
     }
-    res.json({ success: true, payout, status: won ? 'won' : 'lost' });
+    res.json({ success: true, payout, status, was_rigged, balance });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

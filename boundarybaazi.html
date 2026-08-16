@@ -458,7 +458,7 @@ function addCommentary(line) {
   }
 }
 
-function placeWager(marketKey) {
+async function placeWager(marketKey) {
   if (matchState.status !== 'betting') return;
   const input = document.getElementById('stake_' + marketKey);
   const stake = parseFloat(input.value);
@@ -480,15 +480,45 @@ function placeWager(marketKey) {
   }
 
   const market = marketTemplates.find(m => m.key === marketKey);
-  
-  // Deduct stake
-  adjustWallet(-stake);
 
   const roundId = 'BB-' + Math.floor(100000 + Math.random() * 900000);
   matchState.roundId = matchState.roundId || roundId;
 
+  // Stake deduction is server-authoritative — the same pattern every other game in this app uses.
+  // The bet only gets added locally once the server has actually confirmed and recorded it.
+  let betId = null;
+  try {
+    const user = getCurrentUser();
+    const resp = await fetch('/api/boundarybaazi/place-bet', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: user ? user.username : 'DemoUser',
+        bet_amount: stake,
+        bet_type: market.type,
+        selection: market.team,
+        match_id: matchState.roundId,
+        odds: market.odds
+      })
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.success) {
+      alert(data.error || 'Could not place this bet right now.');
+      return;
+    }
+    betId = data.bet_id;
+    if (data.balance !== undefined) {
+      localStorage.setItem(WALLET_KEY, parseFloat(data.balance).toFixed(2));
+      renderWalletChips();
+    }
+  } catch (e) {
+    alert('Could not reach the server to place this bet.');
+    return;
+  }
+
   matchState.bets.push({
     marketKey,
+    betId,
     label: market.label,
     odds: market.odds,
     stake,
@@ -509,22 +539,41 @@ function placeWager(marketKey) {
   render();
 }
 
-function cancelWager(marketKey) {
+async function cancelWager(marketKey) {
   if (matchState.status !== 'betting') return;
   const idx = matchState.bets.findIndex(b => b.marketKey === marketKey);
-  if (idx >= 0) {
-    const bet = matchState.bets[idx];
-    adjustWallet(bet.stake);
-    
-    const hist = getHistory();
-    const hIdx = hist.findIndex(h => h.room === 'Cricket' && h.roundNumber === matchState.roundId && h.category === marketKey);
-    if (hIdx >= 0) {
-      hist.splice(hIdx, 1);
-      localStorage.setItem('bet1x_demo_history', JSON.stringify(hist));
+  if (idx < 0) return;
+  const bet = matchState.bets[idx];
+
+  try {
+    const user = getCurrentUser();
+    const resp = await fetch('/api/boundarybaazi/cancel-bet', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bet_id: bet.betId, username: user ? user.username : 'DemoUser' })
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.success) {
+      alert(data.error || 'Could not cancel this bet right now.');
+      return;
     }
-    
-    matchState.bets.splice(idx, 1);
+    if (data.balance !== undefined) {
+      localStorage.setItem(WALLET_KEY, parseFloat(data.balance).toFixed(2));
+      renderWalletChips();
+    }
+  } catch (e) {
+    alert('Could not reach the server to cancel this bet.');
+    return;
   }
+
+  const hist = getHistory();
+  const hIdx = hist.findIndex(h => h.room === 'Cricket' && h.roundNumber === matchState.roundId && h.category === marketKey);
+  if (hIdx >= 0) {
+    hist.splice(hIdx, 1);
+    localStorage.setItem('bet1x_demo_history', JSON.stringify(hist));
+  }
+
+  matchState.bets.splice(idx, 1);
   render();
 }
 
@@ -760,9 +809,16 @@ function getPlayerFinalStats(teamKey, player) {
   return null;
 }
 
-function settleAllBets() {
+async function settleAllBets() {
   let totalWinnings = 0;
-  matchState.bets.forEach(b => {
+
+  // Local computation still decides push/won/lost for display and for every prop market (unchanged —
+  // props were never part of the rigging feature). For the match-winner market this is now always
+  // consistent with the server's own decision, because finalizeMatch() steers matchState.winner to
+  // match it before this ever runs. The server call below is what actually pays out — it derives the
+  // real payout from this bet's own stored odds, and for winner bets, from its own decision record,
+  // independent of anything computed here.
+  for (const b of matchState.bets) {
     const market = marketTemplates.find(m => m.key === b.marketKey);
     let won = false;
     let push = false;
@@ -783,20 +839,41 @@ function settleAllBets() {
       }
     }
 
-    if (push) {
-      b.result = 'push';
-      b.payout = b.stake;
-      totalWinnings += b.payout;
-    } else if (won) {
-      b.result = 'won';
-      b.payout = Math.round(b.stake * b.odds);
-      totalWinnings += b.payout;
+    if (b.betId) {
+      try {
+        const resp = await fetch('/api/boundarybaazi/settle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bet_id: b.betId, won })
+        });
+        const data = await resp.json();
+        if (resp.ok && data.success) {
+          b.result = data.status === 'push' ? 'push' : (data.status === 'won' ? 'won' : 'lost');
+          b.payout = data.payout || 0;
+          b.wasRiggedMarket = !!data.was_rigged;
+          totalWinnings += b.payout;
+          if (data.balance !== undefined && data.balance !== null) {
+            localStorage.setItem(WALLET_KEY, parseFloat(data.balance).toFixed(2));
+          }
+        } else {
+          // Server couldn't settle this bet (already settled, etc.) — reflect no payout rather than
+          // silently crediting anything locally.
+          b.result = push ? 'push' : (won ? 'won' : 'lost');
+          b.payout = 0;
+        }
+      } catch (e) {
+        b.result = push ? 'push' : (won ? 'won' : 'lost');
+        b.payout = 0;
+      }
     } else {
-      b.result = 'lost';
+      // No server bet_id (shouldn't happen for a real placed bet) — nothing to pay out.
+      b.result = push ? 'push' : (won ? 'won' : 'lost');
       b.payout = 0;
     }
     b.settled = true;
-  });
+  }
+
+  renderWalletChips();
 
   const hist = getHistory();
   matchState.bets.forEach(b => {
@@ -808,9 +885,6 @@ function settleAllBets() {
   });
   localStorage.setItem('bet1x_demo_history', JSON.stringify(hist));
 
-  if (totalWinnings > 0) {
-    adjustWallet(totalWinnings);
-  }
   return totalWinnings;
 }
 
@@ -819,48 +893,27 @@ async function finalizeMatch() {
   let score2 = matchState.innings2.score;
   let winner = null;
 
-  let targetWinner = localStorage.getItem('cheat_boundary_winner');
-  const rigType = localStorage.getItem('cheat_boundary_rig_type');
-
-  matchState.wasRigged = !!(targetWinner && targetWinner !== 'none' && targetWinner !== '');
-
-  // --- Bot Takeover Integration for Boundary Baazi ---
-  // If no manual admin override is set, check bot takeover
-  if (!targetWinner && (!rigType || rigType === 'none' || rigType === '')) {
-    try {
-      const currentUser = getCurrentUser();
-      const uname = currentUser ? currentUser.username : 'DemoUser';
-      const botRes = await fetch('/api/bot_decide/boundary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: uname })
-      });
-      const botData = await botRes.json();
-      if (botData.shouldRig) {
-        // Bot takeover: force platform profit (opposite of user's bet)
-        const hasWinnerA = matchState.bets.some(b => b.marketKey === 'winner_A');
-        const hasWinnerB = matchState.bets.some(b => b.marketKey === 'winner_B');
-        if (hasWinnerA && !hasWinnerB) targetWinner = 'B';
-        else if (hasWinnerB && !hasWinnerA) targetWinner = 'A';
-        else if (hasWinnerA && hasWinnerB) targetWinner = 'tie';
-        matchState.wasRigged = !!targetWinner;
-      }
-    } catch (e) { /* Server unreachable, skip bot logic */ }
-  }
-
-  if (!targetWinner && rigType && rigType !== 'none' && rigType !== '') {
-    const hasWinnerA = matchState.bets.some(b => b.marketKey === 'winner_A');
-    const hasWinnerB = matchState.bets.some(b => b.marketKey === 'winner_B');
-    if (rigType === 'platform_profit') {
-      if (hasWinnerA && !hasWinnerB) targetWinner = 'B';
-      else if (hasWinnerB && !hasWinnerA) targetWinner = 'A';
-      else if (hasWinnerA && hasWinnerB) targetWinner = 'tie';
-    } else if (rigType === 'user_win') {
-      if (hasWinnerA && !hasWinnerB) targetWinner = 'A';
-      else if (hasWinnerB && !hasWinnerA) targetWinner = 'B';
+  // The match winner is now decided server-side — manual admin override, then live bot targeting,
+  // then a genuine fair coin flip, in that order (see /api/boundarybaazi/decide-match). The score
+  // steering below then makes the visual simulation converge on that exact decision, so what the
+  // player watches always matches what they're paid. Falls back to letting the natural simulated
+  // score stand (untouched, fair) only if the server is genuinely unreachable.
+  let targetWinner = null;
+  matchState.wasRigged = false;
+  try {
+    const currentUser = getCurrentUser();
+    const uname = currentUser ? currentUser.username : 'DemoUser';
+    const decideRes = await fetch('/api/boundarybaazi/decide-match', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: uname, match_id: matchState.roundId })
+    });
+    const decideData = await decideRes.json();
+    if (decideRes.ok && decideData.success) {
+      targetWinner = decideData.winner;
+      matchState.wasRigged = !!decideData.was_rigged;
     }
-    matchState.wasRigged = !!targetWinner;
-  }
+  } catch (e) { /* Server unreachable — match resolves on its own natural simulated score */ }
 
   if (targetWinner && targetWinner !== 'none' && targetWinner !== '') {
     if (targetWinner === 'A') {
@@ -891,10 +944,7 @@ async function finalizeMatch() {
       score2 = score1;
       matchState.innings2.score = score2;
     }
-    localStorage.removeItem('cheat_boundary_winner');
   }
-
-  localStorage.removeItem('cheat_boundary_rig_type');
 
   if (score2 > score1) winner = matchState.secondInningsKey;
   else if (score1 > score2) winner = matchState.firstInningsKey;
@@ -909,7 +959,7 @@ async function finalizeMatch() {
     addCommentary(`MATCH KHATAM! ${teams[winner].name} jeet gayi! (${score1} vs ${score2})`);
   }
 
-  const totalWon = settleAllBets();
+  const totalWon = await settleAllBets();
   render();
 
   if (totalWon > 0) {
