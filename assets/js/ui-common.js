@@ -1,36 +1,60 @@
-// Global fetch interceptor to redirect all PHP api requests to the Express backend on port 5000
+/* ---------------------------------------------------------------------------------------------
+ * Backend base URL.
+ *
+ * Every API call used to be rewritten to the literal string "http://localhost:5000", which works on
+ * the developer's laptop and nowhere else: once the site is hosted, that request goes to the
+ * *visitor's* own machine and fails. The backend serves this static site itself, so the default is
+ * now simply the page's own origin and the build runs unchanged on any domain.
+ *
+ * To point the pages at a separate API host, set either of these before loading this file:
+ *     <meta name="bet1x-api-base" content="https://api.example.com">
+ *     <script>window.BET1X_API_BASE = 'https://api.example.com';</script>
+ * That host must also list this site's origin in the backend's CORS_ORIGINS.
+ * ------------------------------------------------------------------------------------------- */
+window.BET1X_API_BASE = (function () {
+  var explicit = window.BET1X_API_BASE;
+  if (!explicit) {
+    var meta = document.querySelector('meta[name="bet1x-api-base"]');
+    if (meta && meta.content) explicit = meta.content;
+  }
+  if (explicit) return String(explicit).replace(/\/+$/, '');
+  // Opened straight off the filesystem there is no origin to talk to, so fall back to a local dev
+  // server. Anywhere else, same-origin.
+  if (window.location.protocol === 'file:') return 'http://localhost:5000';
+  return window.location.origin;
+})();
+
+/* Which localStorage key holds this page's session token. Player pages use the player session; the
+ * operator consoles set window.BET1X_ADMIN_CONSOLE = true before loading this file so that an admin
+ * signed in on the same browser neither clobbers nor borrows a player's session. */
+window.BET1X_TOKEN_KEY = window.BET1X_ADMIN_CONSOLE ? 'bet1x_admin_token' : 'bet1x_auth_token';
+
+// Global fetch interceptor: rewrites the legacy PHP-shaped API paths onto the real backend and
+// attaches the session token.
 const originalFetch = window.fetch;
 window.fetch = function (input, init) {
   let url = typeof input === 'string' ? input : (input instanceof URL ? input.href : (input && input.url));
-  
+  let isApiCall = false;
+
   if (url && (url.includes('api/') || url.includes('.php'))) {
-    // If it's a relative URL or starts with backend/ or api/, redirect to port 5000
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       let cleanPath = url;
-      if (cleanPath.startsWith('../')) cleanPath = cleanPath.substring(3);
+      if (cleanPath.startsWith('./')) cleanPath = cleanPath.substring(2);
+      while (cleanPath.startsWith('../')) cleanPath = cleanPath.substring(3);
+      if (cleanPath.startsWith('/')) cleanPath = cleanPath.substring(1);
       if (cleanPath.startsWith('backend/')) cleanPath = cleanPath.substring(8);
-      
-      if (!cleanPath.startsWith('api/')) {
-        cleanPath = 'api/' + cleanPath;
-      }
-      url = 'http://localhost:5000/' + cleanPath;
+      if (!cleanPath.startsWith('api/')) cleanPath = 'api/' + cleanPath;
+      url = window.BET1X_API_BASE + '/' + cleanPath;
+      isApiCall = true;
+    } else if (url.indexOf(window.BET1X_API_BASE) === 0) {
+      isApiCall = true;
     }
-    
-    // Automatically inject the currently logged-in username into all backend fetches
-    const currentUser = localStorage.getItem('bet1x_current_user');
-    if (currentUser && !url.includes('username=')) {
-      try {
-        const userObj = JSON.parse(currentUser);
-        if (userObj && userObj.username) {
-          const separator = url.includes('?') ? '&' : '?';
-          url += separator + 'username=' + encodeURIComponent(userObj.username);
-        }
-      } catch (e) {}
-    }
+    // The username is deliberately NOT appended any more. The backend derives the acting account
+    // from the signed token, and on an operator session a stray ?username= would silently redirect
+    // an admin action onto whichever player happened to be logged in on this browser.
   }
 
-  // Inject Bearer token header if available
-  const token = localStorage.getItem('bet1x_auth_token');
+  const token = localStorage.getItem(window.BET1X_TOKEN_KEY);
   if (token) {
     if (!init) init = {};
     if (!init.headers) init.headers = {};
@@ -46,18 +70,19 @@ window.fetch = function (input, init) {
       }
     }
   }
-  
-  // Set credentials for cross-origin cookies if needed
+
+  // Same-origin by default. 'include' attaches cookies to third-party hosts, which paired with a
+  // permissive CORS policy is what makes cross-site request forgery possible.
   if (init && !init.credentials) {
-    init.credentials = 'include';
+    init.credentials = (isApiCall && url.indexOf(window.location.origin) !== 0) ? 'omit' : 'same-origin';
   }
-  
+
   return originalFetch(url, init);
 };
 
 function getApiPrefix() {
   const path = window.location.pathname;
-  if (path.includes('/teenpati/') || path.includes('/cricket-player/') || path.includes('/cricket-team/') || path.includes('/aviator/') || path.includes('/mining/') || path.includes('/football/')) {
+  if (path.includes('/teenpati/') || path.includes('/aviator/') || path.includes('/mining/')) {
     return '../';
   }
   return '';
@@ -66,7 +91,7 @@ function getApiPrefix() {
 const WALLET_KEY = 'bet1x_demo_wallet';
 const HISTORY_KEY = 'bet1x_demo_history';
 const CURRENT_USER_KEY = 'bet1x_current_user';
-const AUTH_TOKEN_KEY = 'bet1x_auth_token';
+const AUTH_TOKEN_KEY = window.BET1X_TOKEN_KEY;
 const USERS_KEY = 'bet1x_users';
 const STARTING_BALANCE = 2000;
 
@@ -80,7 +105,7 @@ window.ServerClock = {
   async sync() {
     const t0 = Date.now();
     try {
-      const res = await originalFetch('http://localhost:5000/api/server_time');
+      const res = await originalFetch(window.BET1X_API_BASE + '/api/server_time');
       if (res.ok) {
         const data = await res.json();
         const t1 = Date.now();
@@ -131,7 +156,41 @@ if (typeof originalFetch === 'function') {
   }, 10000);
 }
 
-window.isOfflineMode = false;
+/* ---------------------------------------------------------------------------------------------
+ * Offline demo mode.
+ *
+ * When the backend is unreachable the pages can fall back to a pure-localStorage simulation with
+ * its own balance, its own round results and its own payouts. That is exactly right for a laptop
+ * pitch demo and exactly wrong for a live deployment: a player whose connection blips would be
+ * shown winnings that do not exist on the server and cannot be withdrawn.
+ *
+ * So the fallback is now opt-in. Set window.BET1X_ALLOW_OFFLINE = true (or open the pages over
+ * file://) to get the old demo behaviour; otherwise a backend outage surfaces as an outage.
+ * ------------------------------------------------------------------------------------------- */
+(function () {
+  var allowOffline = window.BET1X_ALLOW_OFFLINE === true || window.location.protocol === 'file:';
+  var offline = false;
+  var warned = false;
+  Object.defineProperty(window, 'isOfflineMode', {
+    configurable: true,
+    get: function () { return offline; },
+    set: function (value) {
+      if (value && !allowOffline) {
+        offline = false;
+        if (!warned) {
+          warned = true;
+          console.warn('[bet1x] Backend unreachable, and offline demo mode is disabled on this deployment.');
+          if (typeof window.showToast === 'function') {
+            window.showToast('Lost connection to the game server. Please refresh in a moment.', 'error');
+          }
+        }
+        return;
+      }
+      offline = !!value;
+    }
+  });
+  window.BET1X_ALLOW_OFFLINE = allowOffline;
+})();
 
 function getUsers() {
   const stored = localStorage.getItem(USERS_KEY);
@@ -231,11 +290,8 @@ function getCurrentGameRoom() {
   if (p.includes('win1')) return 'BECONE';
   if (p.includes('win2')) return 'EMRED';
   if (p.includes('win3')) return 'VIP';
-  if (p.includes('boundarybaazi')) return 'Cricket';
   if (p.includes('teenpatti') || p.includes('teenpati')) return 'Teen Patti';
   if (p.includes('mining')) return 'Mines';
-  if (p.includes('football')) return 'Football';
-  if (p.includes('youreleven')) return 'Your Eleven';
   return null;
 }
 
@@ -405,6 +461,14 @@ function syncUserSession() {
         localStorage.setItem(WALLET_KEY, parseFloat(data.user.wallet_balance).toFixed(2));
       }
       updateAuthHeaderUI();
+    } else {
+      // The server does not recognise this session: the token expired, was revoked, or predates the
+      // move to signed tokens. Clearing it here means the visitor sees the Log In button and can
+      // sign in again, rather than a logged-in header whose every action silently 401s.
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+      localStorage.removeItem(CURRENT_USER_KEY);
+      localStorage.removeItem(WALLET_KEY);
+      updateAuthHeaderUI();
     }
   })
   .catch(() => {});
@@ -414,7 +478,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateAuthHeaderUI();
   syncUserSession();
 
-  // Clean up sub-navbar: remove Admin tab and ensure Football and Mines exist
+  // Clean up sub-navbar: remove Admin tab and ensure Mines exists
   const subNav = document.querySelector('.sub-navbar-links');
   if (subNav) {
     // Always remove Admin tab from sub-navbar
@@ -425,14 +489,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    const hasFootball = Array.from(subNav.querySelectorAll('a')).some(a => a.getAttribute('href') && a.getAttribute('href').includes('football'));
     const prefix = getApiPrefix();
-    if (!hasFootball) {
-      const fbLi = document.createElement('li');
-      fbLi.className = 'sub-navbar-item';
-      fbLi.innerHTML = `<a href="${prefix}football.html" class="sub-navbar-link">Football</a>`;
-      subNav.appendChild(fbLi);
-    }
     const hasMines = Array.from(subNav.querySelectorAll('a')).some(a => a.getAttribute('href') && (a.getAttribute('href').includes('mining') || a.getAttribute('href').includes('mines')));
     if (!hasMines) {
       const mineLi = document.createElement('li');
@@ -690,6 +747,7 @@ window.handleAuthSubmit = function(e, type) {
         localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(data.user));
         localStorage.setItem(WALLET_KEY, (parseFloat(data.user.wallet_balance) || 2000).toFixed(2));
         closeAuthModal();
+        if (window.SoundFX) SoundFX.play('login');
         showToast(`Welcome back, ${data.user.username}!`, 'success');
         updateAuthHeaderUI();
         setTimeout(() => { location.reload(); }, 600);
@@ -700,9 +758,18 @@ window.handleAuthSubmit = function(e, type) {
     })
     .catch(err => {
       if (submitBtn) submitBtn.disabled = false;
-      console.warn("Login API error, triggering offline fallback:", err);
+      console.warn("Login API error:", err);
+      // Ask for the offline fallback, but only retry if it was actually granted. The setter refuses
+      // on any deployment that has not opted in, and retrying regardless simply ran the same failing
+      // request again — an unbounded loop that hammered the server and left the player staring at a
+      // form that never responded.
       window.isOfflineMode = true;
-      window.handleAuthSubmit(e, type);
+      if (window.isOfflineMode) {
+        window.handleAuthSubmit(e, type);
+        return;
+      }
+      errEl.textContent = 'Cannot reach the game server. Please check your connection and try again.';
+      errEl.style.display = 'block';
     });
   } else {
     const userInp = document.getElementById('signup-username').value.trim();
@@ -717,8 +784,8 @@ window.handleAuthSubmit = function(e, type) {
       return;
     }
 
-    if (passInp.length < 6) {
-      errEl.textContent = 'Password must be at least 6 characters.';
+    if (passInp.length < 8) {
+      errEl.textContent = 'Password must be at least 8 characters.';
       errEl.style.display = 'block';
       return;
     }
@@ -744,6 +811,7 @@ window.handleAuthSubmit = function(e, type) {
         localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(data.user));
         localStorage.setItem(WALLET_KEY, (parseFloat(data.user.wallet_balance) || 2000).toFixed(2));
         closeAuthModal();
+        if (window.SoundFX) SoundFX.play('login');
         showToast(`Account created successfully! Welcome, ${data.user.username}!`, 'success');
         updateAuthHeaderUI();
         setTimeout(() => { location.reload(); }, 600);
@@ -754,9 +822,18 @@ window.handleAuthSubmit = function(e, type) {
     })
     .catch(err => {
       if (submitBtn) submitBtn.disabled = false;
-      console.warn("Signup API error, triggering offline fallback:", err);
+      console.warn("Signup API error:", err);
+      // Ask for the offline fallback, but only retry if it was actually granted. The setter refuses
+      // on any deployment that has not opted in, and retrying regardless simply ran the same failing
+      // request again — an unbounded loop that hammered the server and left the player staring at a
+      // form that never responded.
       window.isOfflineMode = true;
-      window.handleAuthSubmit(e, type);
+      if (window.isOfflineMode) {
+        window.handleAuthSubmit(e, type);
+        return;
+      }
+      errEl.textContent = 'Cannot reach the game server. Please check your connection and try again.';
+      errEl.style.display = 'block';
     });
   }
 };
@@ -767,6 +844,7 @@ window.openAuthModal = function(tab = 'login') {
   if (overlay) {
     switchAuthTab(tab);
     overlay.classList.add('active');
+    if (window.SoundFX) SoundFX.play('modalOpen');
   }
 };
 
@@ -774,10 +852,17 @@ window.closeAuthModal = function() {
   const overlay = document.getElementById('bet1x-auth-modal');
   if (overlay) {
     overlay.classList.remove('active');
+    if (window.SoundFX) SoundFX.play('modalClose');
   }
 };
 
 window.showToast = function(msg, type = 'success') {
+  if (window.SoundFX) {
+    if (type === 'success') SoundFX.play('success');
+    else if (type === 'error' || type === 'danger') SoundFX.play('error');
+    else SoundFX.play('notification');
+  }
+
   let container = document.getElementById('toast-container');
   if (!container) {
     container = document.createElement('div');
@@ -828,6 +913,7 @@ window.toggleUserDropdown = function(e) {
 };
 
 window.logoutUser = function() {
+  if (window.SoundFX) SoundFX.play('logout');
   if (window.isOfflineMode) {
     localStorage.removeItem(CURRENT_USER_KEY);
     localStorage.removeItem(WALLET_KEY);
@@ -835,7 +921,7 @@ window.logoutUser = function() {
     setTimeout(() => { location.reload(); }, 800);
     return;
   }
-  
+
   const prefix = getApiPrefix();
   fetch(prefix + 'api/auth.php?action=logout')
   .then(() => {

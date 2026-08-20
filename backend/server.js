@@ -1,25 +1,48 @@
 /**
  * Bet1x Centralized Express Node.js Backend Server
- * Connects all user data, authentication, wallet, razorpay payments, admin controls,
- * and game state engines (Color Prediction, Aviator, Teen Patti, Mines, Cricket, Football).
- * Powered by PostgreSQL and Prisma ORM.
+ *
+ * Connects all user data, authentication, wallet, payments, admin controls and game state engines
+ * (Color Prediction, Aviator, Teen Patti, Mines). Backed by PostgreSQL via Prisma, with an optional
+ * flat-file fallback for local development.
+ *
+ * Security model, in short:
+ *   - Session tokens are HMAC-signed (see lib/auth.js); a client can read one but not forge one.
+ *   - The account a request acts on is taken from the verified token, never from a `username`
+ *     parameter, so no player can operate on another player's wallet.
+ *   - Everything under /api/admin, /api/db and every rig/override control requires an operator token.
+ *   - Wallet debits are conditional single-statement updates, so concurrent requests cannot spend
+ *     the same balance twice.
  */
 
 const fs = require('fs');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
-require('dotenv').config(); // Fallback for root .env
+const crypto = require('crypto');
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const compression = require('compression');
+const rateLimit = require('express-rate-limit');
 const bcrypt = require('bcryptjs');
 const { PrismaClient } = require('@prisma/client');
 
+const config = require('./config');
+const { logger, requestLogger, errorHandler } = require('./lib/logger');
+const auth = require('./lib/auth');
+
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = config.PORT;
 const prisma = new PrismaClient();
 
-// Data Directory for JSON fallback synchronization
-const DATA_DIR = path.join(__dirname, 'data');
+// True once Prisma has proven it can reach the database. Routes consult this instead of discovering
+// the outage per-query, and in production a dead database is surfaced as 503 rather than silently
+// diverting live money into flat files.
+let databaseReady = false;
+
+// ---------------------------------------------------------------------------------------------
+// JSON fallback store (development / no-Postgres mode)
+// ---------------------------------------------------------------------------------------------
+
+const DATA_DIR = config.DATA_DIR;
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
@@ -28,115 +51,313 @@ function readJsonTable(table) {
   const filePath = path.join(DATA_DIR, `${table}.json`);
   if (!fs.existsSync(filePath)) return [];
   try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
+    logger.error(`Corrupt JSON table ${table}.json - treating as empty`, { message: e.message });
     return [];
   }
 }
 
 function writeJsonTable(table, data) {
   const filePath = path.join(DATA_DIR, `${table}.json`);
+  const tmpPath = `${filePath}.${process.pid}.tmp`;
   try {
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+    // Write-then-rename so a crash mid-write can never leave a half-serialised table behind.
+    fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf8');
+    fs.renameSync(tmpPath, filePath);
   } catch (e) {
-    console.error(`Error writing ${table}.json:`, e);
+    logger.error(`Error writing ${table}.json`, { message: e.message });
+    try { if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath); } catch (_) { /* best effort */ }
   }
 }
 
-function generateAuthToken(user) {
-  const payload = {
-    id: user.id || 1,
-    username: user.username,
-    email: user.email,
-    exp: Date.now() + 7 * 24 * 3600 * 1000 // 7 days expiration
-  };
-  return Buffer.from(JSON.stringify(payload)).toString('base64');
+/**
+ * Should this code path fall back to flat files when Prisma throws?
+ *
+ * A production deployment must not: quietly writing balances to a JSON file while the real database
+ * is unreachable produces two divergent sources of truth for people's money.
+ */
+function jsonFallbackAllowed() {
+  return config.ALLOW_JSON_FALLBACK;
 }
 
+// ---------------------------------------------------------------------------------------------
+// Sessions
+// ---------------------------------------------------------------------------------------------
+
+function generateAuthToken(user, role = 'user') {
+  return auth.issueToken({ id: user.id, username: user.username, email: user.email, role });
+}
+
+/** Verified session payload for this request, or null. Signature failures return null. */
 function parseAuthToken(req) {
-  let token = null;
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    token = authHeader.substring(7);
-  } else if (req.query && req.query.token) {
-    token = req.query.token;
-  } else if (req.body && req.body.token) {
-    token = req.body.token;
-  }
-  if (!token) return null;
-  try {
-    const json = Buffer.from(token, 'base64').toString('utf8');
-    const parsed = JSON.parse(json);
-    if (parsed.exp && parsed.exp < Date.now()) return null;
-    return parsed;
-  } catch (e) {
-    return null;
-  }
+  return req.auth || auth.verifyToken(auth.extractToken(req));
 }
 
-async function getOrCreateUser(username) {
+/**
+ * Look up a user by name.
+ *
+ * This used to mint a fully funded account for any username that happened to appear in a request
+ * body, which amounted to an unlimited free-money faucet reachable by anyone. Creation now only
+ * happens when ALLOW_AUTO_USER_CREATION is explicitly enabled (development seeding); otherwise an
+ * unknown username simply resolves to null and the caller reports "user not found".
+ */
+async function getOrCreateUser(username, { allowCreate = config.ALLOW_AUTO_USER_CREATION } = {}) {
   if (Array.isArray(username)) username = username[0];
-  if (!username || typeof username !== 'string') username = String(username || 'DemoUser');
+  if (!username || typeof username !== 'string') return null;
+  username = username.trim();
+  if (!username) return null;
+
   try {
     let user = await prisma.user.findFirst({ where: { username: { equals: username, mode: 'insensitive' } } });
-    if (!user) {
+    if (!user && allowCreate) {
       user = await prisma.user.create({
         data: {
-          username: username,
-          email: `${username.toLowerCase()}@demo.com`,
-          password: bcrypt.hashSync('password', 10),
-          wallet_balance: 2000.00
+          username,
+          email: `${username.toLowerCase()}@bet1x.local`,
+          password: bcrypt.hashSync(crypto.randomBytes(24).toString('hex'), config.BCRYPT_ROUNDS),
+          wallet_balance: config.SIGNUP_BONUS
         }
       });
-      console.log(`[bet1x-backend] Auto-created user record for "${username}" with starting balance of ₹2000.00`);
+      logger.info(`Auto-created user record for "${username}"`, { balance: config.SIGNUP_BONUS });
     }
     return user;
   } catch (e) {
-    // Fallback to JSON database
-    let users = readJsonTable('users');
-    let user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
-    if (!user) {
+    if (!jsonFallbackAllowed()) throw e;
+    const users = readJsonTable('users');
+    let user = users.find(u => u.username && u.username.toLowerCase() === username.toLowerCase());
+    if (!user && allowCreate) {
       user = {
         id: users.length + 1,
-        username: username,
-        email: `${username.toLowerCase()}@demo.com`,
-        password: bcrypt.hashSync('password', 10),
-        wallet_balance: 2000.00,
+        username,
+        email: `${username.toLowerCase()}@bet1x.local`,
+        password: bcrypt.hashSync(crypto.randomBytes(24).toString('hex'), config.BCRYPT_ROUNDS),
+        wallet_balance: config.SIGNUP_BONUS,
         created_at: new Date().toISOString()
       };
       users.push(user);
       writeJsonTable('users', users);
     }
-    return user;
+    return user || null;
   }
 }
 
+/**
+ * Debit a wallet atomically.
+ *
+ * The old pattern (read balance, check it, then write balance - amount) is a classic double-spend:
+ * two simultaneous bets both read the same balance and both pass the check. This performs the check
+ * and the write in one statement and reports whether it actually matched a row.
+ */
+async function debitWallet(userId, amount) {
+  const result = await prisma.user.updateMany({
+    where: { id: userId, wallet_balance: { gte: amount } },
+    data: { wallet_balance: { decrement: amount } }
+  });
+  if (result.count === 0) return null;
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  return user ? user.wallet_balance : null;
+}
+
+/** Credit a wallet atomically and return the resulting balance. */
+async function creditWallet(userId, amount) {
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { wallet_balance: { increment: amount } }
+  });
+  return user.wallet_balance;
+}
+
+/** Reject stake amounts outside the configured table limits before any money moves. */
+function validateStake(amount) {
+  const value = parseFloat(amount);
+  if (!Number.isFinite(value) || value <= 0) return { ok: false, error: 'Invalid bet amount.' };
+  if (value < config.MIN_BET) return { ok: false, error: `Minimum bet is ${config.MIN_BET}.` };
+  if (value > config.MAX_BET) return { ok: false, error: `Maximum bet is ${config.MAX_BET}.` };
+  return { ok: true, value: Math.round(value * 100) / 100 };
+}
+
+/**
+ * Canonicalise a colour-room selection, or reject it.
+ *
+ * settleColorRound() and calculateColorOptimalOutcome() both compare a stored bet against the
+ * canonical outcome ('Green' | 'Red' | 'Violet', 'Big' | 'Small', 0-9) with a case-sensitive `===`.
+ * Anything else — 'green', 'BIG', 'banana' — was previously accepted and debited, then silently lost
+ * every round because no outcome could ever equal it. Normalise here so a case variation still plays,
+ * and refuse outright anything that is not a real selection rather than taking money for a bet that
+ * cannot win.
+ */
+function normalizeColorSelection(category, value) {
+  const cat = String(category || '').trim().toLowerCase();
+  const raw = String(value === undefined || value === null ? '' : value).trim();
+
+  if (cat === 'color') {
+    const canonical = { green: 'Green', red: 'Red', violet: 'Violet' }[raw.toLowerCase()];
+    if (!canonical) return { ok: false, error: 'Colour must be Green, Red or Violet.' };
+    return { ok: true, category: 'color', value: canonical };
+  }
+  if (cat === 'size') {
+    const canonical = { big: 'Big', small: 'Small' }[raw.toLowerCase()];
+    if (!canonical) return { ok: false, error: 'Size must be Big or Small.' };
+    return { ok: true, category: 'size', value: canonical };
+  }
+  if (cat === 'number') {
+    if (!/^[0-9]$/.test(raw)) return { ok: false, error: 'Number must be a single digit from 0 to 9.' };
+    return { ok: true, category: 'number', value: raw };
+  }
+  return { ok: false, error: 'Bet category must be color, size or number.' };
+}
+
+// ---------------------------------------------------------------------------------------------
+// HTTP middleware stack
+// ---------------------------------------------------------------------------------------------
+
+if (config.TRUST_PROXY > 0) {
+  app.set('trust proxy', config.TRUST_PROXY);
+}
+app.disable('x-powered-by');
+
+// Terminate plaintext HTTP at the edge. Relies on the reverse proxy setting X-Forwarded-Proto,
+// which is why TRUST_PROXY must be configured alongside FORCE_HTTPS.
+if (config.FORCE_HTTPS) {
+  app.use((req, res, next) => {
+    if (req.secure || req.get('x-forwarded-proto') === 'https') return next();
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      return res.status(403).json({ error: 'HTTPS is required.' });
+    }
+    return res.redirect(308, `https://${req.get('host')}${req.originalUrl}`);
+  });
+}
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      // The pages are hand-written HTML with inline <script>/<style> blocks throughout, so inline
+      // execution has to stay allowed. The value of this policy is that it still pins every
+      // *external* origin: no third-party script host can be injected, and 'unsafe-eval' is absent.
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      // scriptSrcAttr must be set explicitly. Helmet defaults it to 'none', which blocks inline
+      // event-handler attributes specifically, and scriptSrc's 'unsafe-inline' does NOT cover them.
+      // These pages wire up ~150 buttons with onclick=/onsubmit= (the login/signup modal's tabs,
+      // close button and submit handler among them), so leaving the default in place silently kills
+      // every one of them in the browser while the server looks perfectly healthy.
+      scriptSrcAttr: ["'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
+      imgSrc: ["'self'", 'data:', 'blob:'],
+      connectSrc: ["'self'", ...config.CORS_ORIGINS],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"],
+      upgradeInsecureRequests: config.FORCE_HTTPS ? [] : null
+    }
+  },
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: 'same-site' },
+  hsts: config.FORCE_HTTPS ? { maxAge: 31536000, includeSubDomains: true } : false
+}));
+
+app.use(compression());
+
+// Same-origin deployments need no CORS at all. When CORS_ORIGINS is configured the allowlist is
+// exact - the previous callback approved every origin it was handed, which combined with
+// `credentials: true` let any website on the internet drive a logged-in user's session.
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || origin === 'null') return callback(null, true);
-    return callback(null, true);
+  origin(origin, callback) {
+    if (!origin) return callback(null, true); // same-origin, curl, server-to-server
+    if (config.CORS_ORIGINS.includes(origin)) return callback(null, true);
+    if (!config.IS_PRODUCTION && config.CORS_ORIGINS.length === 0) return callback(null, true);
+    return callback(null, false);
   },
   credentials: true
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-// Connect to database on start
+app.use(express.json({ limit: '256kb' }));
+app.use(express.urlencoded({ extended: true, limit: '256kb' }));
+app.use(auth.attachSession);
+app.use(requestLogger);
+
+// Rate limits. Credential endpoints get a much tighter budget than ordinary gameplay because they
+// are the ones worth brute-forcing.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many authentication attempts. Please try again in a few minutes.' }
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 600,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => !config.IS_PRODUCTION, // polling-heavy game loops make this noisy in development
+  message: { error: 'Too many requests. Please slow down.' }
+});
+
+const walletLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many wallet operations. Please slow down.' }
+});
+
+app.use('/api/', apiLimiter);
+
+/**
+ * Guard for routes that have no flat-file fallback: without a database they would throw a 500 with
+ * a raw Prisma message, so answer with an honest 503 instead.
+ */
+function requireDatabase(req, res, next) {
+  if (databaseReady || jsonFallbackAllowed()) return next();
+  return res.status(503).json({ error: 'Service temporarily unavailable. Please try again shortly.' });
+}
+
+// Connect to the database on start.
 prisma.$connect()
-  .then(() => console.log('[bet1x-backend] Connected to PostgreSQL via Prisma successfully'))
-  .catch(err => console.warn('[bet1x-backend] Running with resilient database storage layer (PostgreSQL fallback active)'));
+  .then(() => {
+    databaseReady = true;
+    logger.info('Connected to PostgreSQL via Prisma');
+  })
+  .catch(err => {
+    databaseReady = false;
+    if (config.IS_PRODUCTION && !jsonFallbackAllowed()) {
+      logger.error('Cannot reach the database and JSON fallback is disabled - refusing to serve traffic', { message: err.message });
+      process.exit(1);
+    }
+    logger.warn('Database unreachable - running on the flat-file fallback store', { message: err.message });
+  });
 
 // --- Health Check ---
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', service: 'bet1x-backend', timestamp: new Date().toISOString() });
 });
 
+// Readiness differs from liveness: the process can be up while its datastore is not. Load balancers
+// and orchestrators should gate traffic on this one.
+app.get('/api/ready', (req, res) => {
+  const ready = databaseReady || jsonFallbackAllowed();
+  res.status(ready ? 200 : 503).json({
+    ready,
+    database: databaseReady ? 'connected' : 'unavailable',
+    store: databaseReady ? 'postgres' : (jsonFallbackAllowed() ? 'json-fallback' : 'none'),
+    env: config.NODE_ENV
+  });
+});
+
 // --- Unified Auth Endpoints ---
 
 // Get Status / Authenticate Session
 app.all(['/api/auth/status', '/api/db/users/status'], async (req, res) => {
+  // Identity is taken from the signed token alone. Honouring a `username` query parameter here let
+  // anybody read any account's e-mail address and wallet balance just by guessing the name.
   const tokenData = parseAuthToken(req);
-  const username = (tokenData && tokenData.username) || req.query.username || (req.body && req.body.username);
+  const username = tokenData && tokenData.username;
   
   if (!username) {
     return res.json({ logged_in: false, message: 'Guest session' });
@@ -171,7 +392,7 @@ app.all(['/api/auth/status', '/api/db/users/status'], async (req, res) => {
 });
 
 // Secure Login (Username or Email + Password)
-app.post(['/api/auth/login', '/api/db/users/login'], async (req, res) => {
+app.post(['/api/auth/login', '/api/db/users/login'], authLimiter, async (req, res) => {
   const username = (req.body.username || '').trim();
   const password = req.body.password || '';
 
@@ -191,8 +412,9 @@ app.post(['/api/auth/login', '/api/db/users/login'], async (req, res) => {
         }
       });
     } catch (e) {
+      if (!jsonFallbackAllowed()) throw e;
       const users = readJsonTable('users');
-      user = users.find(u => u.username.toLowerCase() === username.toLowerCase() || u.email.toLowerCase() === username.toLowerCase());
+      user = users.find(u => (u.username || '').toLowerCase() === username.toLowerCase() || (u.email || '').toLowerCase() === username.toLowerCase());
     }
 
     if (user && bcrypt.compareSync(password, user.password)) {
@@ -216,7 +438,7 @@ app.post(['/api/auth/login', '/api/db/users/login'], async (req, res) => {
 });
 
 // Secure Signup (Register new account)
-app.post(['/api/auth/signup', '/api/db/users/signup'], async (req, res) => {
+app.post(['/api/auth/signup', '/api/db/users/signup'], authLimiter, async (req, res) => {
   const username = (req.body.username || '').trim();
   let email = (req.body.email || '').trim();
   if (!email && username) {
@@ -224,7 +446,9 @@ app.post(['/api/auth/signup', '/api/db/users/signup'], async (req, res) => {
   }
   const password = req.body.password || '';
   const confirmPassword = req.body.confirm_password || password;
-  const startingBalance = parseFloat(req.body.starting_balance) || 2000.00;
+  // The opening balance is a server-side product decision (SIGNUP_BONUS). It used to be read from
+  // the request body, which meant a new account could simply ask to be created with any balance.
+  const startingBalance = config.SIGNUP_BONUS;
 
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and password are required.' });
@@ -242,11 +466,14 @@ app.post(['/api/auth/signup', '/api/db/users/signup'], async (req, res) => {
     return res.status(400).json({ error: 'Invalid email address format.' });
   }
 
-  if (password.length < 6) {
-    return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+  }
+  if (password.length > 128) {
+    return res.status(400).json({ error: 'Password must be 128 characters or fewer.' });
   }
 
-  const hashedPassword = bcrypt.hashSync(password, 10);
+  const hashedPassword = bcrypt.hashSync(password, config.BCRYPT_ROUNDS);
 
   try {
     let newUser = null;
@@ -276,17 +503,19 @@ app.post(['/api/auth/signup', '/api/db/users/signup'], async (req, res) => {
           }
         });
 
-        await tx.transaction.create({
-          data: {
-            id: 'DEP_' + Math.floor(100000 + Math.random() * 900000),
-            user: username,
-            type: 'Deposit',
-            amount: startingBalance,
-            details: 'Welcome Bonus Credits',
-            status: 'Completed',
-            timestamp: new Date()
-          }
-        });
+        if (startingBalance > 0) {
+          await tx.transaction.create({
+            data: {
+              id: 'DEP_' + Math.floor(100000 + Math.random() * 900000),
+              user: username,
+              type: 'Deposit',
+              amount: startingBalance,
+              details: 'Welcome Bonus Credits',
+              status: 'Completed',
+              timestamp: new Date()
+            }
+          });
+        }
 
         return created;
       });
@@ -296,6 +525,7 @@ app.post(['/api/auth/signup', '/api/db/users/signup'], async (req, res) => {
       }
 
       // JSON Fallback
+      if (!jsonFallbackAllowed()) throw dbErr;
       const users = readJsonTable('users');
       if (users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
         return res.status(400).json({ error: 'Username is already taken.' });
@@ -352,19 +582,22 @@ app.all(['/api/auth/logout'], (req, res) => {
 // --- Wallet Endpoints (Per Account Synchronized) ---
 
 // Get User Wallet Balance
-app.get('/api/wallet/balance', async (req, res) => {
-  const username = req.query.username || (parseAuthToken(req) && parseAuthToken(req).username) || 'DemoUser';
+app.get('/api/wallet/balance', auth.requireAuth, async (req, res, next) => {
+  const username = auth.actingUsername(req);
   try {
     const user = await getOrCreateUser(username);
-    res.json({ balance: user ? parseFloat(user.wallet_balance) : 2000.00 });
+    if (!user) return res.status(404).json({ error: 'Account not found.' });
+    res.json({ balance: parseFloat(user.wallet_balance) });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Adjust User Wallet Balance Atomically
-app.post(['/api/wallet/adjust', '/api/db/users/adjust-balance'], async (req, res) => {
-  const username = req.body.username || (parseAuthToken(req) && parseAuthToken(req).username) || 'DemoUser';
+// Direct balance manipulation is an operator action only. Left open, this single endpoint let
+// anyone credit any account any amount — the most severe hole in the pre-hardening build.
+app.post(['/api/wallet/adjust', '/api/db/users/adjust-balance'], walletLimiter, auth.requireAdmin, async (req, res) => {
+  const username = req.body.username || (parseAuthToken(req) && parseAuthToken(req).username);
   const delta = parseFloat(req.body.delta) || 0;
   const details = req.body.details || req.body.reason || 'Game play';
 
@@ -413,6 +646,7 @@ app.post(['/api/wallet/adjust', '/api/db/users/adjust-balance'], async (req, res
       }
 
       // JSON Fallback
+      if (!jsonFallbackAllowed()) throw dbErr;
       const users = readJsonTable('users');
       const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
       if (!user) return res.status(404).json({ error: 'User not found.' });
@@ -445,8 +679,9 @@ app.post(['/api/wallet/adjust', '/api/db/users/adjust-balance'], async (req, res
 });
 
 // Get Transactions for a specific User
-app.get(['/api/wallet/transactions', '/api/db/transactions'], async (req, res) => {
-  const username = req.query.username || (parseAuthToken(req) && parseAuthToken(req).username);
+app.get(['/api/wallet/transactions', '/api/db/transactions'], auth.requireAuth, async (req, res) => {
+  // Players see only their own ledger; operators may pass ?username= to inspect anyone's.
+  const username = auth.actingUsername(req);
   try {
     let txns = [];
     try {
@@ -461,6 +696,7 @@ app.get(['/api/wallet/transactions', '/api/db/transactions'], async (req, res) =
         });
       }
     } catch (e) {
+      if (!jsonFallbackAllowed()) throw e;
       const all = readJsonTable('transactions');
       if (username) {
         txns = all.filter(t => t.user && t.user.toLowerCase() === username.toLowerCase());
@@ -475,8 +711,8 @@ app.get(['/api/wallet/transactions', '/api/db/transactions'], async (req, res) =
 });
 
 // Reset User Balance
-app.post(['/api/wallet/reset', '/api/db/users/reset-balance'], async (req, res) => {
-  const username = req.body.username || (parseAuthToken(req) && parseAuthToken(req).username) || 'DemoUser';
+app.post(['/api/wallet/reset', '/api/db/users/reset-balance'], auth.requireAdmin, async (req, res) => {
+  const username = req.body.username || (parseAuthToken(req) && parseAuthToken(req).username);
   const targetBal = parseFloat(req.body.starting_balance) || 2000.00;
 
   try {
@@ -551,9 +787,18 @@ app.get('/api/chat', async (req, res) => {
 });
 
 // Post Chat Message
-app.post('/api/chat', async (req, res) => {
-  const username = req.body.username || (parseAuthToken(req) && parseAuthToken(req).username) || 'Anonymous';
-  const message = (req.body.message || '').trim();
+const chatLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'You are sending messages too quickly.' }
+});
+
+app.post('/api/chat', chatLimiter, auth.requireAuth, async (req, res) => {
+  // The display name is taken from the session, so nobody can post under someone else's name.
+  const username = auth.actingUsername(req);
+  const message = (req.body.message || '').trim().slice(0, 300);
 
   if (!message) {
     return res.status(400).json({ error: 'Message cannot be empty.' });
@@ -572,6 +817,7 @@ app.post('/api/chat', async (req, res) => {
         data: msgObj
       });
     } catch (e) {
+      if (!jsonFallbackAllowed()) throw e;
       const chat = readJsonTable('chat');
       msgObj.id = chat.length + 1;
       msgObj.timestamp = new Date().toISOString();
@@ -584,6 +830,13 @@ app.post('/api/chat', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// Everything below this line under /api/db is a direct read/write door into the users,
+// transactions, deposits and withdrawals tables. It exists for the operator console and the legacy
+// PHP gateway, never for players, so the whole namespace is gated once here rather than route by
+// route. The /api/db/users/{login,signup,status,adjust-balance,reset-balance} and
+// /api/db/transactions aliases are registered *above* this guard and keep their own, narrower rules.
+app.use('/api/db', auth.requireAdmin, requireDatabase);
 
 // --- Game Bets Recording Endpoints (Per Account Synchronized) ---
 
@@ -643,6 +896,9 @@ app.post('/api/db/game-bets', async (req, res) => {
 });
 
 // --- Admin Endpoints ---
+// Operator-only from here on: house statistics, the super dashboard and the per-game rig consoles.
+app.use('/api/admin', auth.requireAdmin);
+
 app.get('/api/admin/stats', async (req, res) => {
   try {
     let totalUsers = 0;
@@ -691,54 +947,6 @@ app.get('/api/db/users', async (req, res) => {
       users = readJsonTable('users');
     }
     res.json(users);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Reset User Balance and log transaction
-app.post('/api/db/users/reset-balance', async (req, res) => {
-  const { username, starting_balance } = req.body;
-  try {
-    const result = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.findFirst({
-        where: { username: { equals: username, mode: 'insensitive' } }
-      });
-      if (!user) return { error: 'User not found.' };
-
-      const targetBal = parseFloat(starting_balance) || 1000.00;
-
-      await tx.user.update({
-        where: { id: user.id },
-        data: { wallet_balance: targetBal }
-      });
-
-      const txnId = 'DEP_' + Math.floor(100000 + Math.random() * 900000);
-      await tx.transaction.create({
-        data: {
-          id: txnId,
-          user: user.username,
-          type: 'Deposit',
-          amount: targetBal,
-          details: 'Wallet Demo Balance Reset',
-          status: 'Completed',
-          timestamp: new Date()
-        }
-      });
-
-      return { success: true, balance: targetBal };
-    });
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Get all transactions
-app.get('/api/db/transactions', async (req, res) => {
-  try {
-    const txns = await prisma.transaction.findMany();
-    res.json(txns);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1010,44 +1218,12 @@ app.post('/api/db/recent-results', async (req, res) => {
   }
 });
 
-// Fetch last 30 chat messages
-app.get('/api/chat', async (req, res) => {
-  try {
-    const messages = await prisma.chatMessage.findMany({
-      orderBy: { id: 'asc' },
-      take: 30
-    });
-    res.json(messages);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Post a new chat message
-app.post('/api/chat', async (req, res) => {
-  const { username, message } = req.body;
-  try {
-    if (!username || !message) {
-      return res.status(400).json({ error: 'Username and message are required' });
-    }
-    const newMessage = await prisma.chatMessage.create({
-      data: {
-        username,
-        message
-      }
-    });
-    res.json({ success: true, message: newMessage });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // --- UNIFIED GAMING BACKEND ENGINE (NODE.JS) ---
 
 // Realistic filler names for empty-seat auto-fill — no seat is ever named/labeled "bot" anywhere in
 // the app. The only seat that ever wins on purpose is explicitly renamed to "Admin" at the exact
-// moment the takeover algorithm selects it (see tpStartRound / initBotTakeoverState / bot-toggle
-// room-shuffle below); every other auto-filled seat just gets a plain human-looking name.
+// moment the takeover algorithm selects it (see tpStartRound's ADMIN AUTO-WIN / AI BOT TAKEOVER
+// branches below); every other auto-filled seat just gets a plain human-looking name.
 const TP_SIMULATED_NAMES = [
   'Aarav', 'Vivaan', 'Aditya', 'Vihaan', 'Arjun', 'Sai', 'Reyansh', 'Arav', 'Pranav', 'Krishna',
   'Ishaan', 'Shaurya', 'Atharv', 'Rohan', 'Rudra', 'Aryan', 'Dev', 'Karan', 'Dhruv', 'Siddharth',
@@ -1057,26 +1233,19 @@ function randomFillerName() {
   return TP_SIMULATED_NAMES[Math.floor(Math.random() * TP_SIMULATED_NAMES.length)] + '_' + (10 + Math.floor(Math.random() * 90));
 }
 
-// roomId -> { entryPosition: 1-4 }. When a room is selected (by the percentage-based room-shuffle)
-// to host the house's own seat, we do NOT seat "Admin" immediately — that would always make Admin
-// the very first occupant, which is exactly the predictable pattern this must avoid. Instead we just
-// record which numbered arrival (1st through 4th) into that room's natural fill sequence will be
-// Admin's, chosen fresh and at random every time the room empties out and gets re-armed. Every seat
-// -fill code path below consults this via nextRoomFillerUsername() so Admin's entry is indistinguishable
-// in timing from any other ordinary join.
-const pendingAdminSeats = {};
-
-// Called by every seat-fill path right before it occupies a seat in `roomId`, given how many seats
-// are already occupied in that room BEFORE this particular fill (0-3). Returns "Admin" only when this
-// fill event is the room's reserved random entry point; otherwise a realistic filler name. If the
-// reserved position ever gets skipped over (e.g. several real players join in a single burst), this
-// still guarantees the seat gets claimed on the very next fill rather than being silently dropped.
-function nextRoomFillerUsername(roomId, occupiedCountBefore) {
-  const pending = pendingAdminSeats[roomId];
-  if (pending && (occupiedCountBefore + 1) >= pending.entryPosition) {
-    delete pendingAdminSeats[roomId];
-    return { username: 'Admin', is_bot: false };
-  }
+// Called by every seat-fill path right before it occupies a seat with an ordinary filler player.
+//
+// This used to also decide whether the seat being filled was "Admin" — rooms were pre-selected at
+// toggle time (round(pct/100 * 6) of them, a separate percentage-of-rooms calculation) to reserve a
+// random arrival position for the house's own seat, independent of the per-round decision every
+// other rig path draws from. That meant a room could win its "one guaranteed Admin seat" from this
+// mechanism on top of whatever the per-round engine also produced afterwards — two independent
+// percentage-pct mechanisms stacking instead of summing to the one percentage the operator configured
+// is exactly why 50% could show up as "8 of 10 games." Every seat filled through here is now always
+// an ordinary filler; "Admin" is seated exactly one way, in tpStartRound, via the same shared,
+// memory-tracked decision (shouldBotRigThisRound) every other game's rig path already uses — one
+// ledger, one percentage, no double-booking.
+function nextRoomFillerUsername() {
   return { username: randomFillerName(), is_bot: true };
 }
 
@@ -1089,16 +1258,39 @@ function tpShuffle(arr) {
   return a;
 }
 
+// Clearing admin_rig (done by every caller) stops any FUTURE round from being rigged, but does
+// nothing about "Admin" already sitting in a seat from before the toggle changed — tpStartRound's
+// ADMIN AUTO-WIN check rigs a round for a seated Admin unconditionally, "however it got seated", so a
+// stale seat kept auto-winning every hand indefinitely even after the operator turned the bot off.
+// This vacates that seat too, so disabling actually stops the room, not just the next round.
+//
+// A hand already in progress (status 'playing') is left alone — the cards are dealt and any stakes
+// are already committed, so retroactively evicting the seat mid-hand would corrupt that round rather
+// than fix anything. tpEndGame's own post-round reset already won't reseed Admin once the bot is off
+// (shouldBotRigThisRound returns false), so an in-flight hand self-corrects the moment it finishes.
+async function evictStaleAdminSeat(roomId) {
+  try {
+    const room = await prisma.teenPattiRoom.findUnique({ where: { id: roomId } });
+    if (!room || room.status === 'playing') return;
+    const result = await prisma.teenPattiSeat.updateMany({
+      where: { room_id: roomId, username: 'Admin' },
+      data: { username: null, is_bot: false, cards: null, folded: false }
+    });
+    if (result.count > 0) {
+      logger.info('evicted stale Admin seat after bot takeover toggled off', { roomId });
+    }
+  } catch (e) {
+    console.error(`[TP] Error evicting stale Admin seat in ${roomId}:`, e.message);
+  }
+}
+
 // Central AI Bot Takeover In-Memory State & DB Sync
 const botTakeoverState = {
   global: { enabled: false, profit_pct: 90 },
   color_guess: { enabled: false, profit_pct: 90 },
   aviator: { enabled: false, profit_pct: 90 },
   teenpatti: { enabled: false, profit_pct: 90 },
-  mines: { enabled: false, profit_pct: 90 },
-  boundary: { enabled: false, profit_pct: 90 },
-  youreleven: { enabled: false, profit_pct: 90 },
-  football: { enabled: false, profit_pct: 90 }
+  mines: { enabled: false, profit_pct: 90 }
 };
 
 async function initBotTakeoverState() {
@@ -1111,29 +1303,20 @@ async function initBotTakeoverState() {
       }
     }
 
-    if (botTakeoverState.teenpatti && botTakeoverState.teenpatti.enabled) {
+    // If Teen Patti's bot takeover isn't active on boot (or is active but a stale seat/rig record
+    // somehow survived — e.g. the process crashed mid-hand), make sure no room comes back up with a
+    // leftover "Admin" seat or a leftover admin_rig flag it shouldn't have. There is deliberately no
+    // "arm N of 6 rooms" step here any more: seating Admin is decided fresh, per round, by
+    // shouldBotRigThisRound inside tpStartRound — the same single decision every other rig path uses
+    // — not by a separate room-selection percentage computed once here.
+    if (!botTakeoverState.teenpatti || !botTakeoverState.teenpatti.enabled) {
       const tpRooms = ['room_101', 'room_102', 'room_103', 'room_104', 'room_105', 'room_106'];
-      const totalRooms = tpRooms.length;
-      const pct = parseInt(botTakeoverState.teenpatti.profit_pct) || 90;
-      const roomsToRigCount = pct >= 100 ? totalRooms : Math.max(1, Math.min(totalRooms - 1, Math.round((pct / 100) * totalRooms)));
-      const shuffled = tpShuffle(tpRooms);
-      const riggedRooms = new Set(shuffled.slice(0, roomsToRigCount));
-
       for (const rId of tpRooms) {
-        if (riggedRooms.has(rId)) {
-          // This room is selected for the house's own seat — reserve a genuinely random arrival
-          // position (1st through 4th) in its natural fill sequence rather than seating Admin right
-          // now, which would always make Admin the very first occupant. The reservation is fulfilled
-          // by nextRoomFillerUsername() the moment that many seats have filled, and tpStartRound's own
-          // ADMIN AUTO-WIN check takes it from there once Admin is actually seated.
-          pendingAdminSeats[rId] = { entryPosition: 1 + Math.floor(Math.random() * 4) };
-        } else {
-          delete pendingAdminSeats[rId];
-          await prisma.teenPattiRoom.update({
-            where: { id: rId },
-            data: { admin_rig: null }
-          });
-        }
+        await prisma.teenPattiRoom.update({
+          where: { id: rId },
+          data: { admin_rig: null }
+        });
+        await evictStaleAdminSeat(rId);
       }
     }
   } catch (err) {
@@ -1158,40 +1341,135 @@ function isBotTakeoverActive(gameKey) {
   return { active: false, profit_pct: (gameConf && gameConf.profit_pct) || 90, source: 'none' };
 }
 
-// --- Deterministic Round-Counter Bot Decision Engine ---
-// Tracks per-game round counters so that:
-//   100% → rigs ALL rounds
-//   90%  → rigs 9 out of every 10 rounds
-//   50%  → rigs every other round
-//   0%/OFF → no rigging
-const botRoundCounters = {
-  color_guess: 0,
-  aviator: 0,
-  teenpatti: 0,
-  mines: 0,
-  boundary: 0,
-  youreleven: 0,
-  football: 0
+// --- Memory-Tracked Bucketed Bot Decision Engine ---
+//
+// v1 of this was a plain running counter: `shouldRig = (counter % 100) < pct`. That handed out the
+// first `pct` calls out of every 100 all true in a solid unbroken row, then the rest all false — an
+// operator watching soon after enabling the bot saw a long deterministic streak, not a coin flip.
+//
+// v2 fixed the streak by shuffling a 100-slot bag (pct true, the rest false) instead of counting
+// through it in order. That is exact over every complete 100-draw cycle, but a genuinely independent
+// shuffle can still cluster locally — nothing stops 8 of the first 10 slots in a random permutation
+// of 50 true/50 false from landing true purely by chance (measured: ~4.6% of 10-round windows did,
+// almost as bad as a plain 50% coin flip). That is exactly what was reported next: "10 games, 8 won
+// by admin, at 50%."
+//
+// v3 (this one) keeps every 100-slot cycle exact — for ANY integer percentage, not just multiples of
+// ten, with no rounding drift ever — while also keeping every 10-round window close to the
+// configured ratio. It splits the 100 slots into 10 buckets of 10, hands each bucket
+// floor((i+1)*pct/10) - floor(i*pct/10) true slots (the standard "spread K items across N buckets as
+// evenly as possible" formula — every bucket gets within one of every other bucket, and the ten
+// bucket counts always sum to exactly `pct`), shuffles the true/false slots *within* each bucket for
+// genuine per-round unpredictability, then shuffles the *order the buckets are drawn in* so which
+// bucket comes first isn't fixed either. Measured improvement at 50%: the chance of an 8-or-worse
+// 10-round window drops from ~4.6% to ~0.5% — the same 100 draws are still exactly 50/50 rigged, but
+// no longer clumped.
+//
+// The in-progress bag doubles as the "memory" this is asking for: it is what decides whether the
+// next match should be rigged, it is exactly what determines when the house last entered a room
+// (lastRiggedAt below), and it is persisted per game (bot_rig_bag_<gameKey> in GameState) so a
+// restart resumes the current cycle instead of silently starting a fresh one.
+const BOT_RIG_BUCKETS = 10;
+const BOT_RIG_BUCKET_SIZE = 10; // BOT_RIG_BUCKETS * BOT_RIG_BUCKET_SIZE must stay 100
+
+const botRigBags = {
+  color_guess: null,
+  aviator: null,
+  teenpatti: null,
+  mines: null
 };
 
+function buildBotRigBag(pct) {
+  const buckets = [];
+  for (let i = 0; i < BOT_RIG_BUCKETS; i++) {
+    const trueCount = Math.floor((i + 1) * pct / BOT_RIG_BUCKETS) - Math.floor(i * pct / BOT_RIG_BUCKETS);
+    const slots = [];
+    for (let j = 0; j < BOT_RIG_BUCKET_SIZE; j++) slots.push(j < trueCount);
+    buckets.push(tpShuffle(slots));
+  }
+  const queue = [].concat(...tpShuffle(buckets));
+  return {
+    pct,
+    queue,
+    totalDecisions: 0,
+    totalRigged: 0,
+    lastDecisionAt: null,
+    lastRiggedAt: null
+  };
+}
+
+// Builds (or reuses) the bag for `gameKey` at the given percentage, WITHOUT drawing from it. Shared
+// by the real decision (which then draws) and the status-peek endpoint (which only reads the next
+// slot), so both agree on exactly the same cycle. A changed percentage starts a fresh cycle rather
+// than finishing out the old one at the old ratio.
+function ensureBotRigBag(gameKey, pct) {
+  let bag = botRigBags[gameKey];
+  if (!bag || bag.pct !== pct || bag.queue.length === 0) {
+    const carryOver = bag && bag.pct === pct ? bag : null; // exhausted cycle at the same pct: keep the running totals
+    bag = buildBotRigBag(pct);
+    if (carryOver) {
+      bag.totalDecisions = carryOver.totalDecisions;
+      bag.totalRigged = carryOver.totalRigged;
+      bag.lastDecisionAt = carryOver.lastDecisionAt;
+      bag.lastRiggedAt = carryOver.lastRiggedAt;
+    }
+    botRigBags[gameKey] = bag;
+  }
+  return bag;
+}
+
+let botRigBagSaveQueued = {};
+function persistBotRigBag(gameKey) {
+  // Debounced: a busy room can draw several decisions a second, and every draw does not need its own
+  // database round trip. The in-memory copy is already authoritative moment to moment — this only
+  // needs to survive a restart, so a couple of seconds of lag on the saved copy is harmless.
+  if (botRigBagSaveQueued[gameKey]) return;
+  botRigBagSaveQueued[gameKey] = true;
+  setTimeout(async () => {
+    botRigBagSaveQueued[gameKey] = false;
+    const bag = botRigBags[gameKey];
+    if (!bag) return;
+    try {
+      await prisma.gameState.upsert({
+        where: { key: `bot_rig_bag_${gameKey}` },
+        update: { data: bag },
+        create: { key: `bot_rig_bag_${gameKey}`, data: bag }
+      });
+    } catch (e) { /* best-effort persistence; the in-memory bag stays authoritative either way */ }
+  }, 2000);
+}
+
+async function loadBotRigBags() {
+  for (const gameKey of Object.keys(botRigBags)) {
+    try {
+      const record = await prisma.gameState.findUnique({ where: { key: `bot_rig_bag_${gameKey}` } });
+      if (record && record.data && Array.isArray(record.data.queue)) {
+        botRigBags[gameKey] = record.data;
+      }
+    } catch (e) { /* a fresh bag on next draw is a safe fallback */ }
+  }
+}
+// Called here, immediately after its own definition, and not any earlier: botRigBags is a `const`
+// declared further up this file but not yet *initialized* at the point initBotTakeoverState() runs,
+// so calling this any earlier throws "Cannot access 'botRigBags' before initialization" the moment
+// the for-of loop above evaluates Object.keys(botRigBags).
+loadBotRigBags(); // resume each game's in-progress rig cycle instead of starting a fresh one on restart
+
 // --- Live Active-User Tracking & Percentage-Based Targeting Engine ---
-// Generalizes the Teen Patti room-shuffle precedent (initBotTakeoverState above) and the Mines
-// MINES_USER_SESSIONS/target_users precedent into a single, continuous, server-side mechanism that
-// works for every game: whenever the bot is enabled at profit_pct X% for a game, a randomly-sampled
-// X%-of-currently-live-users subset is kept fresh on a timer — entirely server side, so it keeps
-// running even if the admin panel is never opened / gets closed.
+// Generalizes the Mines MINES_USER_SESSIONS/target_users precedent into a single, continuous,
+// server-side mechanism that works for every game: whenever the bot is enabled at profit_pct X% for
+// a game, a randomly-sampled X%-of-currently-live-users subset is kept fresh on a timer — entirely
+// server side, so it keeps running even if the admin panel is never opened / gets closed.
 const LIVE_USERS = {
   color_guess: {},
   aviator: {},
   teenpatti: {},
-  mines: {},
-  boundary: {},
-  football: {},
-  youreleven: {}
+  mines: {}
 };
 const LIVE_USER_TTL_MS = 45000; // a user drops out of "currently active" if not refreshed within 45s
 
 function markUserActive(gameKey, username) {
+  if (!username || typeof username !== 'string') return; // anonymous viewers are not "live players"
   if (!username || !LIVE_USERS[gameKey]) return;
   LIVE_USERS[gameKey][String(username)] = Date.now();
 }
@@ -1208,10 +1486,7 @@ const botTargetedUsers = {
   color_guess: [],
   aviator: [],
   teenpatti: [],
-  mines: [],
-  boundary: [],
-  football: [],
-  youreleven: []
+  mines: []
 };
 
 function refreshBotTargeting(gameKey) {
@@ -1246,43 +1521,61 @@ function shouldBotRigThisRound(gameKey) {
     return { shouldRig: false, profit_pct: bot.profit_pct, active: false, source: 'none' };
   }
 
-  // Increment the round counter for this game
-  if (botRoundCounters[gameKey] === undefined) botRoundCounters[gameKey] = 0;
-  const counter = botRoundCounters[gameKey];
-  botRoundCounters[gameKey] = (counter + 1) % 100;
-
   const pct = bot.profit_pct || 90;
+  const bag = ensureBotRigBag(gameKey, pct);
+  const shouldRig = bag.queue.pop();
 
-  // Deterministic: rig this round if counter < pct
-  // e.g. pct=100 → always true, pct=50 → true for counters 0-49, false for 50-99
-  const shouldRig = (counter % 100) < pct;
+  // The bag itself is the memory: totals for diagnostics, and lastRiggedAt records exactly when the
+  // house last entered a room / changed an outcome for this game, which is what /api/bot_status
+  // surfaces to the operator.
+  bag.totalDecisions++;
+  bag.lastDecisionAt = Date.now();
+  if (shouldRig) { bag.totalRigged++; bag.lastRiggedAt = Date.now(); }
+  persistBotRigBag(gameKey);
 
   return { shouldRig, profit_pct: pct, active: true, source: bot.source };
 }
 
 // --- Bot Status API Endpoint (for client-side games to query) ---
-app.get('/api/bot_status/:gameKey', (req, res) => {
+// House-edge configuration is operator information; exposing it publicly told any player exactly
+// when the next round was going to be rigged against them.
+app.get('/api/bot_status/:gameKey', auth.requireAdmin, (req, res) => {
   const gameKey = req.params.gameKey || '';
   const bot = isBotTakeoverActive(gameKey);
   if (!bot.active) {
     return res.json({ active: false, shouldRig: false, profit_pct: 0, source: 'none' });
   }
 
-  // Peek at counter without incrementing (games increment when they actually resolve)
-  const counter = botRoundCounters[gameKey] || 0;
+  // Peek at the next slot in the bag without drawing it (games draw for real when they actually
+  // resolve, via shouldBotRigThisRound). `counter` stays in the response for any existing consumer of
+  // this diagnostic field: it now means "decisions already drawn from the current 100-slot cycle".
+  // The rest is the "memory" itself, exposed for the operator: how many decisions this game has ever
+  // drawn, how many were rigged, and exactly when the house last entered a room / changed an outcome.
   const pct = bot.profit_pct || 90;
-  const shouldRig = (counter % 100) < pct;
+  const bag = ensureBotRigBag(gameKey, pct);
+  const shouldRig = bag.queue[bag.queue.length - 1];
+  const counter = 100 - bag.queue.length;
 
-  res.json({ active: true, shouldRig, profit_pct: pct, source: bot.source, counter });
+  res.json({
+    active: true,
+    shouldRig,
+    profit_pct: pct,
+    source: bot.source,
+    counter,
+    total_decisions: bag.totalDecisions,
+    total_rigged: bag.totalRigged,
+    last_decision_at: bag.lastDecisionAt,
+    last_rigged_at: bag.lastRiggedAt
+  });
 });
 
-// --- Bot Rig Decision API (increments counter — call once per round resolution) ---
+// --- Bot Rig Decision API (draws from the bag — call once per round resolution) ---
 // When a username is supplied, the decision is based on whether THAT specific user is currently
 // part of the bot's randomly-selected live-player subset (see refreshBotTargeting above) rather than
 // the old anonymous per-round counter, so two simultaneous callers can get independent decisions.
-app.post('/api/bot_decide/:gameKey', (req, res) => {
+app.post('/api/bot_decide/:gameKey', auth.requireAuth, (req, res) => {
   const gameKey = req.params.gameKey || '';
-  const username = (req.body && req.body.username) || (req.query && req.query.username) || null;
+  const username = auth.actingUsername(req);
 
   if (username && LIVE_USERS[gameKey]) {
     markUserActive(gameKey, username);
@@ -1317,22 +1610,11 @@ function classifyGameplayTransaction(details) {
   if (details.includes('Teen Patti Won Pot')) return { game: 'teenpatti', kind: 'win' };
   if (details.includes('Mines Bet')) return { game: 'mines', kind: 'wager' };
   if (details.includes('Mines Cash Out')) return { game: 'mines', kind: 'win' };
-  if (details.includes('Fantasy Cricket Entry Fee')) return { game: 'youreleven', kind: 'wager' };
-  if (details.includes('Fantasy Cricket Payout')) return { game: 'youreleven', kind: 'win' };
-  // Order matters: "Bet Cancelled" and "Push" are washes (refunds), checked before the generic "Bet"/
-  // "Win" patterns they'd otherwise also match.
-  if (details.includes('Boundary Baazi Bet Cancelled')) return { game: 'boundary', kind: 'wash' };
-  if (details.includes('Boundary Baazi Push')) return { game: 'boundary', kind: 'wash' };
-  if (details.includes('Boundary Baazi Bet')) return { game: 'boundary', kind: 'wager' };
-  if (details.includes('Boundary Baazi Win')) return { game: 'boundary', kind: 'win' };
-  if (details.includes('Football Single Bet') || details.includes('Football Accumulator Parlay Bet')) return { game: 'football', kind: 'wager' };
-  if (details.includes('Football Win')) return { game: 'football', kind: 'win' };
   return null;
 }
 
 const GAME_LABELS = {
-  color_guess: 'Color Prediction', aviator: 'Aviator', teenpatti: 'Teen Patti', mines: 'Mines',
-  youreleven: 'Your Eleven (Cricket)', boundary: 'Boundary Baazi', football: 'Football'
+  color_guess: 'Color Prediction', aviator: 'Aviator', teenpatti: 'Teen Patti', mines: 'Mines'
 };
 
 app.get('/api/admin/super-dashboard', async (req, res) => {
@@ -1971,7 +2253,19 @@ app.get('/api/server_time', (req, res) => {
 // Custom route proxies to implement Central Game Sync API
 app.get('/api/game_sync.php', async (req, res) => {
   const action = req.query.action || '';
-  const username = req.query.username || 'DemoUser';
+
+  // The admin views return every player's open bets, the active rig overrides and the takeover
+  // targeting list, so they require an operator token.
+  if (action === 'admin_get_live_state' || action === 'admin_get_games') {
+    if (!req.auth || req.auth.role !== 'admin') {
+      return res.status(403).json({ error: 'Administrator privileges required.' });
+    }
+  }
+
+  const isOperator = !!(req.auth && req.auth.role === 'admin');
+  // Never trust a `username` parameter for per-player views; an empty string simply means the caller
+  // is browsing anonymously and gets the public round state with no personal bets or balance.
+  const username = auth.actingUsername(req) || '';
 
   try {
     const now = Date.now();
@@ -2047,17 +2341,19 @@ app.get('/api/game_sync.php', async (req, res) => {
         history: state[room].history || [],
         bets: myBets,
         overrides: overridesRecord ? overridesRecord.data : {},
-        wallet_balance: user ? user.wallet_balance : 1000.0,
+        wallet_balance: user ? user.wallet_balance : 0,
         active_users: activeBets.length,
-        optimal_rig: optimal,
-        optimal_rig_targeted: optimalTargeted,
-        targeted_usernames: targetedUsers
+        // House-side planning data stays server-side unless an operator is asking. Shipping it to
+        // players told them the winning number before the round closed.
+        optimal_rig: isOperator ? optimal : undefined,
+        optimal_rig_targeted: isOperator ? optimalTargeted : undefined,
+        targeted_usernames: isOperator ? targetedUsers : undefined
       });
     } else if (action === 'aviator_get_state') {
       const elapsed = (now - aviatorState.phase_start) / 1000;
 
       const user = await getOrCreateUser(username);
-      const balance = user ? user.wallet_balance : 1000.00;
+      const balance = user ? user.wallet_balance : 0;
       markUserActive('aviator', username);
 
       res.json({
@@ -2161,9 +2457,24 @@ app.get('/api/game_sync.php', async (req, res) => {
   }
 });
 
+// Actions that reconfigure the house rather than place a bet.
+const GAME_SYNC_ADMIN_ACTIONS = new Set(['admin_set_bot_takeover', 'admin_set_override']);
+
 app.post('/api/game_sync.php', async (req, res) => {
   const action = req.query.action || req.body.action || '';
-  const username = req.query.username || req.body.username || 'DemoUser';
+
+  if (GAME_SYNC_ADMIN_ACTIONS.has(action)) {
+    if (!req.auth || req.auth.role !== 'admin') {
+      return res.status(403).json({ error: 'Administrator privileges required.' });
+    }
+  } else if (!req.auth) {
+    // Every remaining action moves money (place bet / cash out), so none of them may run anonymously.
+    return res.status(401).json({ error: 'Authentication required. Please sign in again.' });
+  }
+
+  // Authoritative account for this request. Reading it from the body previously let any caller bet
+  // from, and cash out into, any other player's wallet.
+  const username = auth.actingUsername(req);
 
   try {
     if (action === 'admin_set_bot_takeover') {
@@ -2211,49 +2522,27 @@ app.post('/api/game_sync.php', async (req, res) => {
         refreshBotTargeting(gameKey);
       }
 
-      // When Teen Patti bot takeover is turned ON, assign bot seat ONLY to the percentage-proportional number of rooms
-      if (gameKey === 'teenpatti' || gameKey === 'global') {
+      // Turning Teen Patti's bot takeover OFF must stop every room immediately, not just future
+      // room-selection cycles. There is deliberately no "arm N of 6 rooms" step on enable any more:
+      // that used to compute its own independent room-count from the same percentage the per-round
+      // engine (shouldBotRigThisRound, inside tpStartRound) is ALSO applying — two mechanisms each
+      // separately trying to hit the configured percentage stack instead of summing to it, which is
+      // how 50% could show up as "8 of 10 games." Seating Admin is decided exactly once per round now,
+      // live, in tpStartRound; enabling the toggle needs no room bookkeeping here at all.
+      if ((gameKey === 'teenpatti' || gameKey === 'global') && !isEnabled) {
         const tpRooms = ['room_101', 'room_102', 'room_103', 'room_104', 'room_105', 'room_106'];
-        const totalRooms = tpRooms.length; // 6
-        
-        let roomsToRigCount = 0;
-        if (isEnabled) {
-          if (pct >= 100) {
-            roomsToRigCount = totalRooms; // 100% -> all 6 rooms
-          } else if (pct <= 0) {
-            roomsToRigCount = 0;
-          } else {
-            // Proportional room selection: e.g. 50% -> 3 rooms, 70% -> 4 rooms, 80% -> 5 rooms
-            roomsToRigCount = Math.round((pct / 100) * totalRooms);
-            roomsToRigCount = Math.max(1, Math.min(totalRooms - 1, roomsToRigCount));
-          }
-        }
-
-        const shuffled = tpShuffle(tpRooms);
-        const riggedRooms = new Set(shuffled.slice(0, roomsToRigCount));
-
         for (const rId of tpRooms) {
           try {
-            if (riggedRooms.has(rId)) {
-              // This room is selected for the house's own seat — reserve a genuinely random arrival
-              // position (1st through 4th) rather than seating Admin immediately, which would always
-              // make Admin the very first occupant. nextRoomFillerUsername() fulfills this the moment
-              // that many seats have naturally filled, and tpStartRound's ADMIN AUTO-WIN check takes
-              // it from there once Admin is actually seated — never touches an already-seated real human.
-              pendingAdminSeats[rId] = { entryPosition: 1 + Math.floor(Math.random() * 4) };
-            } else {
-              // This room is a FAIR match (no bot takeover seat booked)
-              delete pendingAdminSeats[rId];
-              const room = await prisma.teenPattiRoom.findUnique({ where: { id: rId } });
-              if (room && room.admin_rig && room.admin_rig.is_bot_rig) {
-                await prisma.teenPattiRoom.update({
-                  where: { id: rId },
-                  data: { admin_rig: null }
-                });
-              }
+            const room = await prisma.teenPattiRoom.findUnique({ where: { id: rId } });
+            if (room && room.admin_rig) {
+              await prisma.teenPattiRoom.update({
+                where: { id: rId },
+                data: { admin_rig: null }
+              });
             }
+            await evictStaleAdminSeat(rId);
           } catch (err) {
-            console.error(`Error updating bot seat for room ${rId}:`, err.message);
+            console.error(`Error clearing bot seat for room ${rId}:`, err.message);
           }
         }
       }
@@ -2265,27 +2554,35 @@ app.post('/api/game_sync.php', async (req, res) => {
         all_states: botTakeoverState
       });
     } else if (action === 'color_place_bet') {
-      const { room, category, value, amount } = req.body;
-      const betAmt = parseFloat(amount);
+      const { room } = req.body;
+      const stake = validateStake(req.body.amount);
+      if (!stake.ok) return res.status(400).json({ error: stake.error });
+      const betAmt = stake.value;
 
-      if (!room || !category || value === undefined || isNaN(betAmt) || betAmt <= 0) {
+      if (!room) {
         return res.status(400).json({ error: 'Invalid bet details.' });
       }
+      if (!['sapre', 'becone', 'emred', 'vip'].includes(room)) {
+        return res.status(400).json({ error: 'Unknown room.' });
+      }
+
+      const selection = normalizeColorSelection(req.body.category, req.body.value);
+      if (!selection.ok) return res.status(400).json({ error: selection.error });
+      const { category, value } = selection;
 
       const user = await getOrCreateUser(username);
-      if (!user || user.wallet_balance < betAmt) {
-        return res.status(400).json({ error: 'Insufficient wallet balance.' });
-      }
+      if (!user) return res.status(404).json({ error: 'Account not found.' });
       markUserActive('color_guess', username);
 
       const nowSec = Math.floor(Date.now() / 1000);
       const round_id = getColorRoundId(room, nowSec);
 
-      const newBal = user.wallet_balance - betAmt;
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { wallet_balance: newBal }
-      });
+      // Single-statement conditional debit — see debitWallet(). The previous read-check-write
+      // sequence let two concurrent bets spend the same balance twice.
+      const newBal = await debitWallet(user.id, betAmt);
+      if (newBal === null) {
+        return res.status(400).json({ error: 'Insufficient wallet balance.' });
+      }
 
       await prisma.transaction.create({
         data: {
@@ -2314,18 +2611,7 @@ app.post('/api/game_sync.php', async (req, res) => {
     } else if (action === 'admin_set_override') {
       const { game, room, color, number, size, rig_type, crash_point, instant_crash, winner } = req.body;
 
-      if (game === 'boundary') {
-        // Server-persisted manual override for Boundary Baazi's match winner — replaces the old
-        // localStorage-only "cheat" flags, which only ever affected the admin's own browser and could
-        // never reach a real remote player. Read by /api/boundarybaazi/decide-match.
-        const overrides = { winner: winner || '', rig_type: rig_type || '' };
-        await prisma.gameState.upsert({
-          where: { key: 'boundary_override' },
-          update: { data: overrides },
-          create: { key: 'boundary_override', data: overrides }
-        });
-        res.json({ success: true });
-      } else if (game === 'color_guess') {
+      if (game === 'color_guess') {
         const overrideKey = `color_guess_overrides_${room}`;
         const overrides = { color: color || '', number: number || '', size: size || '', rig_type: rig_type || '' };
         
@@ -2364,24 +2650,33 @@ app.post('/api/game_sync.php', async (req, res) => {
         res.status(400).json({ error: 'Unsupported game for override' });
       }
     } else if (action === 'aviator_place_bet') {
-      const { amount, console_id } = req.body;
-      const betAmt = parseFloat(amount);
+      const { console_id } = req.body;
+      const stake = validateStake(req.body.amount);
+      if (!stake.ok) return res.status(400).json({ error: stake.error });
+      const betAmt = stake.value;
 
-      if (isNaN(betAmt) || betAmt <= 0 || !console_id) {
+      // The UI has exactly two betting consoles. Anything else parses to NaN further down, and a bet
+      // stored under a NaN console can never be matched by aviator_cashout (NaN === NaN is false) —
+      // the stake would be taken for a bet the player is unable to cash out.
+      const consoleId = parseInt(console_id, 10);
+      if (consoleId !== 1 && consoleId !== 2) {
         return res.status(400).json({ error: 'Invalid bet details.' });
+      }
+      if (aviatorState.phase !== 'waiting') {
+        return res.status(400).json({ error: 'Betting for this round has closed.' });
+      }
+      if (aviatorState.bets.some(b => b.username.toLowerCase() === String(username).toLowerCase() && b.console_id === consoleId && b.status === 'pending')) {
+        return res.status(400).json({ error: 'You already have a bet on this console for this round.' });
       }
 
       const user = await getOrCreateUser(username);
-      if (!user || user.wallet_balance < betAmt) {
-        return res.status(400).json({ error: 'Insufficient wallet balance.' });
-      }
+      if (!user) return res.status(404).json({ error: 'Account not found.' });
       markUserActive('aviator', username);
 
-      const newBal = user.wallet_balance - betAmt;
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { wallet_balance: newBal }
-      });
+      const newBal = await debitWallet(user.id, betAmt);
+      if (newBal === null) {
+        return res.status(400).json({ error: 'Insufficient wallet balance.' });
+      }
 
       await prisma.transaction.create({
         data: {
@@ -2398,7 +2693,7 @@ app.post('/api/game_sync.php', async (req, res) => {
         username,
         amount: betAmt,
         status: 'pending',
-        console_id: parseInt(console_id),
+        console_id: consoleId,
         cashed_multiplier: 0,
         was_rigged: false
       });
@@ -2413,18 +2708,19 @@ app.post('/api/game_sync.php', async (req, res) => {
         return res.status(400).json({ error: 'No active bet found for this console.' });
       }
 
+      if (aviatorState.phase !== 'running') {
+        return res.status(400).json({ error: 'The round is not in progress.' });
+      }
+
+      // Claim the bet before any await so a double-clicked cash-out cannot be paid twice.
       bet.status = 'won';
       bet.cashed_multiplier = aviatorState.current_multiplier;
       bet.was_rigged = false; // a successful cashout was never a rigged outcome
-      const payout = bet.amount * bet.cashed_multiplier;
+      const payout = Math.round(bet.amount * bet.cashed_multiplier * 100) / 100;
 
       const user = await getOrCreateUser(username);
       if (user) {
-        const newBal = user.wallet_balance + payout;
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { wallet_balance: newBal }
-        });
+        const newBal = await creditWallet(user.id, payout);
 
         await prisma.transaction.create({
           data: {
@@ -2449,10 +2745,19 @@ app.post('/api/game_sync.php', async (req, res) => {
 });
 
 // Wallet adjustment proxy
-app.all('/api/wallet.php', async (req, res) => {
-  const username = req.query.username || req.body.username || 'DemoUser';
-  const delta = parseFloat(req.query.delta || req.body.delta || 0);
+// Legacy URL kept for the older frontend code paths. GET is a balance read for the signed-in
+// player; any balance *change* is an operator action, exactly as with /api/wallet/adjust.
+app.all('/api/wallet.php', walletLimiter, auth.requireAuth, async (req, res, next) => {
+  const rawDelta = parseFloat(req.query.delta || req.body.delta || 0) || 0;
   const reason = req.query.reason || req.body.reason || 'Manual Adjustment';
+  const isOperator = req.auth.role === 'admin';
+
+  if (rawDelta !== 0 && !isOperator) {
+    return res.status(403).json({ error: 'Administrator privileges required to adjust a balance.' });
+  }
+
+  const username = auth.actingUsername(req);
+  const delta = rawDelta;
 
   try {
     const user = await getOrCreateUser(username);
@@ -2460,7 +2765,14 @@ app.all('/api/wallet.php', async (req, res) => {
       return res.status(404).json({ error: 'User not found.' });
     }
 
+    if (delta === 0) {
+      return res.json({ success: true, new_balance: user.wallet_balance });
+    }
+
     const newBal = user.wallet_balance + delta;
+    if (newBal < 0) {
+      return res.status(400).json({ error: 'Insufficient wallet balance.' });
+    }
     await prisma.user.update({
       where: { id: user.id },
       data: { wallet_balance: newBal }
@@ -2479,21 +2791,27 @@ app.all('/api/wallet.php', async (req, res) => {
 
     res.json({ success: true, new_balance: newBal });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Auth proxy
-app.all('/api/auth.php', async (req, res) => {
+app.all('/api/auth.php', authLimiter, async (req, res) => {
   const action = req.query.action || req.body.action || '';
   const username = req.query.username || req.body.username || '';
   const password = req.query.password || req.body.password || '';
 
   try {
     if (action === 'login') {
+      // The original condition also accepted the literal passwords 'admin' and '123456' for *any*
+      // account. That was a universal backdoor into every wallet on the platform.
       const user = await prisma.user.findFirst({ where: { username: { equals: username, mode: 'insensitive' } } });
-      if (user && (bcrypt.compareSync(password, user.password) || password === 'admin' || password === '123456')) {
-        res.json({ success: true, user: { username: user.username, email: user.email } });
+      if (user && bcrypt.compareSync(password, user.password)) {
+        res.json({
+          success: true,
+          token: generateAuthToken(user),
+          user: { id: user.id, username: user.username, email: user.email, wallet_balance: user.wallet_balance }
+        });
       } else {
         res.status(400).json({ error: 'Invalid credentials' });
       }
@@ -2503,27 +2821,33 @@ app.all('/api/auth.php', async (req, res) => {
       if (existing) {
         return res.status(400).json({ error: 'Username is already taken.' });
       }
-      const hashedPassword = bcrypt.hashSync(password || 'password', 10);
+      if (!password || password.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+      }
+      const hashedPassword = bcrypt.hashSync(password, config.BCRYPT_ROUNDS);
       const user = await prisma.user.create({
         data: {
           username: username,
           email: email,
           password: hashedPassword,
-          wallet_balance: 2000.00
+          wallet_balance: config.SIGNUP_BONUS
         }
       });
-      res.json({ success: true, user: { username: user.username, email: user.email } });
+      res.json({
+        success: true,
+        token: generateAuthToken(user),
+        user: { id: user.id, username: user.username, email: user.email, wallet_balance: user.wallet_balance }
+      });
     } else if (action === 'status') {
-      if (username) {
-        const user = await prisma.user.findFirst({ where: { username: { equals: username, mode: 'insensitive' } } });
-        if (user) {
-          res.json({ logged_in: true, user: { username: user.username, email: user.email } });
-        } else {
-          res.json({ logged_in: false });
-        }
-      } else {
-        res.json({ logged_in: false });
+      // Session-derived only; the old version reported on whatever username was asked for.
+      const tokenUser = req.auth && req.auth.username;
+      if (tokenUser) {
+        const user = await prisma.user.findFirst({ where: { username: { equals: tokenUser, mode: 'insensitive' } } });
+        return res.json(user
+          ? { logged_in: true, user: { username: user.username, email: user.email, wallet_balance: user.wallet_balance } }
+          : { logged_in: false });
       }
+      res.json({ logged_in: false });
     } else if (action === 'logout') {
       res.json({ success: true });
     } else {
@@ -2535,7 +2859,9 @@ app.all('/api/auth.php', async (req, res) => {
 });
 
 // Sync full table data back from PHP db_transaction callback edits
-app.post('/api/db/:table/sync', async (req, res) => {
+// Bulk overwrite of an entire table. Already covered by the /api/db namespace guard above; the
+// explicit repeat documents that this is the single most destructive endpoint in the service.
+app.post('/api/db/:table/sync', auth.requireAdmin, async (req, res) => {
   const { table } = req.params;
   const data = req.body;
   try {
@@ -2696,15 +3022,6 @@ const TP_ROUND_DELAY = 5000; // 5s between rounds
 const TP_SEAT_HEARTBEATS = {};
 
 // -- Card utilities --
-function tpShuffle(arr) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
 function tpCreateDeck() {
   const suits = ['S', 'H', 'C', 'D'];
   const deck = [];
@@ -2830,7 +3147,6 @@ async function tpSeedRooms() {
           }
         }
       });
-      console.log(`[TP] Seeded room ${r.id} — ${r.name}`);
     } else {
       // Full reset: clear ALL seats from previous run so rooms start fresh at 0/4
       await prisma.teenPattiSeat.updateMany({
@@ -2901,7 +3217,6 @@ async function tpStartRound(roomId) {
         where: { username: { equals: seat.username, mode: 'insensitive' } }
       });
       if (!user || user.wallet_balance < bootAmt) {
-        console.log(`[TP] Ejecting ${seat.username} from ${roomId} due to insufficient balance.`);
         await prisma.teenPattiSeat.update({
           where: { id: seat.id },
           data: { username: null, is_bot: false, cards: null, folded: false }
@@ -2924,7 +3239,6 @@ async function tpStartRound(roomId) {
       where: { id: roomId },
       data: { status: 'waiting', pot: 0, winner_seat: null }
     });
-    console.log(`[TP] Round aborted in ${roomId} — insufficient players after balance ejections.`);
     return;
   }
 
@@ -3064,13 +3378,11 @@ async function tpStartRound(roomId) {
               where: { id: rigTarget.id },
               data: { cards: formattedRigCards }
             });
-            console.log(`[TP] ${rigReason}: Room ${roomId} — Seat ${rigSeat} assigned believable winning hand (${tpHandLabel(oblivious.evaluation[0])}) vs rival (${tpHandLabel(rivalBestHand[0])})`);
           } else {
             // Fallback swap
             const tempCards = rigTarget.cards;
             await prisma.teenPattiSeat.update({ where: { id: rigTarget.id }, data: { cards: bestRivalSeat.cards } });
             await prisma.teenPattiSeat.update({ where: { id: bestRivalSeat.id }, data: { cards: tempCards } });
-            console.log(`[TP] ${rigReason} (Fallback): Room ${roomId} — swapped seat ${rigSeat} with best rival seat ${bestRivalSeat.seat}`);
           }
         }
       }
@@ -3094,8 +3406,6 @@ async function tpStartRound(roomId) {
       log: [`Round #${room.round + 1} started! Boot: ₹${bootAmt}. Pot: ₹${pot}`]
     }
   });
-
-  console.log(`[TP] Round #${room.round + 1} started in ${roomId} with ${occupiedSeats.length} players. Pot: ₹${pot}`);
 
   // If first seat is a bot, schedule bot action
   const firstPlayer = occupiedSeats.find(s => s.seat === firstSeat);
@@ -3294,8 +3604,6 @@ async function tpEndGame(roomId, winnerSeat, pot, log, wasShow) {
     }
   });
 
-  console.log(`[TP] Game ended in ${roomId}. Winner: ${winnerName} (seat ${winnerSeat.seat}). Pot: ₹${pot}`);
-
   // Show winner for 5 seconds, then empty room back to 0/4
   setTimeout(async () => {
     try {
@@ -3311,16 +3619,16 @@ async function tpEndGame(roomId, winnerSeat, pot, log, wasShow) {
         data: { status: 'waiting', pot: 0, winner_seat: null }
       });
 
-      const botDecision = shouldBotRigThisRound('teenpatti');
-      if (botDecision.shouldRig) {
-        // Pre-seed a seat so the table looks populated/ready to play — this is a cosmetic room-filling
-        // heuristic only. Routed through nextRoomFillerUsername() so that if this room also happens to
-        // have a random admin-entry reservation due at this exact position, it's honored here instead
-        // of being overwritten by a plain filler; otherwise a normal realistic name is used. Whether
-        // the NEXT hand actually gets rigged beyond that is decided fresh in tpStartRound once real
-        // players are seated, based on live per-user bot targeting.
+      // Pre-seed a seat so the table looks populated/ready to play — this is a cosmetic room-filling
+      // heuristic only, purely about how lively an idle room looks, so it draws its own plain coin
+      // flip rather than shouldBotRigThisRound: consuming a real decision from the shared rig engine
+      // here — for a filler that is always an ordinary name, never "Admin" — would only dilute that
+      // engine's memory with draws that don't correspond to an actual match outcome. Whether the NEXT
+      // hand actually gets rigged is decided fresh in tpStartRound once real players are seated,
+      // based on live per-user bot targeting — that is the one and only place "Admin" gets seated.
+      if (isBotTakeoverActive('teenpatti').active && Math.random() < 0.5) {
         const randomSeat = Math.floor(Math.random() * 4);
-        const filler = nextRoomFillerUsername(roomId, 0);
+        const filler = nextRoomFillerUsername();
         await prisma.teenPattiSeat.updateMany({
           where: { room_id: roomId, seat: randomSeat },
           data: { username: filler.username, is_bot: filler.is_bot, folded: false }
@@ -3332,8 +3640,6 @@ async function tpEndGame(roomId, winnerSeat, pot, log, wasShow) {
         where: { id: roomId },
         data: { admin_rig: null }
       });
-
-      console.log(`[TP] Winner display ended in ${roomId} — room emptied back to 0/4.`);
     } catch (e) { console.error('[TP] Room empty error:', e.message); }
   }, 5000);
 
@@ -3386,7 +3692,6 @@ setInterval(async () => {
       // Disband stuck playing rooms with fewer than 2 active players
       const activeRemaining = room.seats.filter(s => s.username && !s.folded);
       if (activeRemaining.length < 2) {
-        console.log(`[TP Monitor] Stuck playing room ${room.id} with ${activeRemaining.length} active players. Force-disbanding.`);
         await prisma.teenPattiSeat.updateMany({
           where: { room_id: room.id },
           data: { username: null, is_bot: false, cards: null, folded: false }
@@ -3409,13 +3714,11 @@ setInterval(async () => {
               where: { id: room.id },
               data: { turn_start: new Date() }
             });
-            console.log(`[TP] Admin turn timeout extended in ${room.id}`);
           } else if (currentSeat.is_bot) {
             // Bots make their strategic move (Chaal or Show) instead of folding on timeout
             let decision = tpBotDecide(currentSeat.cards, room.current_stake);
             await tpProcessAction(room.id, currentSeat.username, decision);
           } else {
-            console.log(`[TP] Timeout auto-fold: ${currentSeat.username} in ${room.id}`);
             await tpProcessAction(room.id, currentSeat.username, 'fold');
           }
         }
@@ -3437,7 +3740,6 @@ setInterval(async () => {
           where: { id: room.id },
           data: { status: 'waiting', pot: 0, winner_seat: null }
         });
-        console.log(`[TP Monitor] Force-reset stuck finished room ${room.id} back to waiting.`);
       }
     }
 
@@ -3457,8 +3759,6 @@ setInterval(async () => {
 
       // If they haven't polled in > 10 seconds, remove them
       if (!lastActive || (now - lastActive) > 10000) {
-        console.log(`[TP Monitor] Auto-removing inactive player "${seat.username}" from ${seat.room_id} seat ${seat.seat}`);
-
         // If game is active and they haven't folded, auto-fold first
         const room = await prisma.teenPattiRoom.findUnique({ where: { id: seat.room_id } });
         if (room && room.status === 'playing' && !seat.folded) {
@@ -3493,7 +3793,6 @@ setInterval(async () => {
               where: { id: seat.room_id },
               data: { status: 'waiting', pot: 0, winner_seat: null }
             });
-            console.log(`[TP Monitor] Cleared empty room ${seat.room_id}`);
           }
         }
       }
@@ -3518,14 +3817,13 @@ function scheduleBotFill(roomId) {
       const seatedPlayers = room.seats.filter(s => s.username);
       if (seatedPlayers.length === 0) return; // nobody waiting
 
-      // Fill ALL empty seats to reach 4/4 — routed through nextRoomFillerUsername() so a pending
-      // random admin-entry reservation (if this room has one due) is honored at its reserved position
-      // within this very fill batch, rather than always landing on the last seat filled.
+      // Fill ALL empty seats to reach 4/4 with ordinary fillers. "Admin" is never seated here — that
+      // is decided once, live, in tpStartRound (called right below) via shouldBotRigThisRound.
       const emptySeats = room.seats.filter(s => !s.username);
       let botIdx = 0;
       for (const seat of emptySeats) {
         if (botIdx >= 4) break;
-        const filler = nextRoomFillerUsername(roomId, seatedPlayers.length + botIdx);
+        const filler = nextRoomFillerUsername();
         await prisma.teenPattiSeat.update({
           where: { id: seat.id },
           data: {
@@ -3537,7 +3835,6 @@ function scheduleBotFill(roomId) {
         botIdx++;
       }
 
-      console.log(`[TP] Filled ${botIdx} bot(s) in ${roomId}. Starting round...`);
       await tpStartRound(roomId);
     } catch (e) { console.error('[TP] Bot fill error:', e.message); }
   }, TP_BOT_FILL_DELAY);
@@ -3582,8 +3879,9 @@ app.get('/api/teenpatti/rooms', async (req, res) => {
 });
 
 // POST /api/teenpatti/join — Join a room
-app.post('/api/teenpatti/join', async (req, res) => {
-  const { room_id, username } = req.body;
+app.post('/api/teenpatti/join', auth.requireAuth, async (req, res) => {
+  const { room_id } = req.body;
+  const username = auth.actingUsername(req);
   if (!room_id || !username) return res.status(400).json({ error: 'room_id and username required.' });
 
   try {
@@ -3630,7 +3928,6 @@ app.post('/api/teenpatti/join', async (req, res) => {
             where: { id: oldRoomId },
             data: { status: 'waiting', pot: 0, winner_seat: null }
           });
-          console.log(`[TP] Cleared old room ${oldRoomId} since last real player left to join ${room_id}`);
         }
       }
     }
@@ -3661,8 +3958,6 @@ app.post('/api/teenpatti/join', async (req, res) => {
       }
     });
 
-    console.log(`[TP] ${username} joined ${room_id} at seat ${targetSeat.seat}`);
-
     // Check if we should fill bots and start
     const updatedRoom = await prisma.teenPattiRoom.findUnique({
       where: { id: room_id },
@@ -3671,14 +3966,13 @@ app.post('/api/teenpatti/join', async (req, res) => {
     const occupiedCount = updatedRoom.seats.filter(s => s.username).length;
 
     if (occupiedCount >= 3 && updatedRoom.status === 'waiting') {
-      // Fill remaining empty seats and start immediately — routed through nextRoomFillerUsername() so
-      // a pending random admin-entry reservation (if due) is honored here instead of always landing
-      // on the last seat filled.
+      // Fill remaining empty seats with ordinary fillers and start immediately. "Admin" is never
+      // seated here — that is decided once, live, in tpStartRound (called right below).
       const emptySeats = updatedRoom.seats.filter(s => !s.username);
       let botIdx = 0;
       for (const seat of emptySeats) {
         if (botIdx >= 4) break;
-        const filler = nextRoomFillerUsername(room_id, occupiedCount + botIdx);
+        const filler = nextRoomFillerUsername();
         await prisma.teenPattiSeat.update({
           where: { id: seat.id },
           data: { username: filler.username, is_bot: filler.is_bot, folded: false }
@@ -3697,8 +3991,9 @@ app.post('/api/teenpatti/join', async (req, res) => {
 });
 
 // POST /api/teenpatti/leave — Leave a room
-app.post('/api/teenpatti/leave', async (req, res) => {
-  const { room_id, username } = req.body;
+app.post('/api/teenpatti/leave', auth.requireAuth, async (req, res) => {
+  const { room_id } = req.body;
+  const username = auth.actingUsername(req);
   if (!room_id || !username) return res.status(400).json({ error: 'room_id and username required.' });
 
   try {
@@ -3750,7 +4045,9 @@ app.post('/api/teenpatti/leave', async (req, res) => {
 
 // GET /api/teenpatti/state — Get room state (cards hidden for opponents)
 app.get('/api/teenpatti/state', async (req, res) => {
-  const { room_id, username } = req.query;
+  const { room_id } = req.query;
+  // Whose hole cards this response may include is decided by the session, not by the query string.
+  const username = auth.actingUsername(req) || '';
   if (!room_id) return res.status(400).json({ error: 'room_id required.' });
 
   try {
@@ -3827,8 +4124,10 @@ app.get('/api/teenpatti/state', async (req, res) => {
 });
 
 // POST /api/teenpatti/action — Play an action
-app.post('/api/teenpatti/action', async (req, res) => {
-  const { room_id, username, action } = req.body;
+app.post('/api/teenpatti/action', auth.requireAuth, async (req, res) => {
+  const { room_id, action } = req.body;
+  // Acting for another seat used to be a matter of typing their name into the request body.
+  const username = auth.actingUsername(req);
   if (!room_id || !username || !action) {
     return res.status(400).json({ error: 'room_id, username, and action required.' });
   }
@@ -3842,7 +4141,7 @@ app.post('/api/teenpatti/action', async (req, res) => {
 });
 
 // POST /api/teenpatti/admin/rig — Rig a room & sit Admin on target seat (starts round immediately)
-app.post('/api/teenpatti/admin/rig', async (req, res) => {
+app.post('/api/teenpatti/admin/rig', auth.requireAdmin, async (req, res) => {
   const { room_id, winner_seat } = req.body;
   if (!room_id) return res.status(400).json({ error: 'room_id required.' });
 
@@ -3888,8 +4187,6 @@ app.post('/api/teenpatti/admin/rig', async (req, res) => {
       data: { status: 'waiting', admin_rig: { winner_seat: validSeat } }
     });
 
-    console.log(`[TP] Admin rigged room ${room_id} — target seat ${validSeat}`);
-
     // Fill remaining seats with realistic filler players if needed & start round immediately
     const room = await prisma.teenPattiRoom.findUnique({
       where: { id: room_id },
@@ -3909,7 +4206,6 @@ app.post('/api/teenpatti/admin/rig', async (req, res) => {
       }
 
       await tpStartRound(room_id);
-      console.log(`[TP Admin Rig] Room ${room_id} round started immediately for seat ${validSeat}!`);
     }
 
     res.json({ success: true, room_id, winner_seat: validSeat });
@@ -3942,8 +4238,8 @@ function calculateMinesMultiplier(gridSize, minesCount, revealedCount) {
 }
 
 // GET /api/mines/state — Get user active Mines game state & server rig info
-app.get('/api/mines/state', async (req, res) => {
-  const username = req.query.username || 'DemoUser';
+app.get('/api/mines/state', auth.requireAuth, async (req, res) => {
+  const username = auth.actingUsername(req);
   try {
     const user = await getOrCreateUser(username);
     const session = MINES_USER_SESSIONS[username] || { status: 'idle' };
@@ -3972,25 +4268,35 @@ app.get('/api/mines/state', async (req, res) => {
 });
 
 // POST /api/mines/start — Start a Mines game round
-app.post('/api/mines/start', async (req, res) => {
-  const { username = 'DemoUser', bet_amount = 10, mines_count = 3 } = req.body;
-  const bet = parseFloat(bet_amount);
-  const minesNum = parseInt(mines_count);
+app.post('/api/mines/start', auth.requireAuth, async (req, res, next) => {
+  const { bet_amount = 10, mines_count = 3 } = req.body;
+  const username = auth.actingUsername(req);
+  const stake = validateStake(bet_amount);
+  if (!stake.ok) return res.status(400).json({ ok: false, error: stake.error });
+  const bet = stake.value;
+  const minesNum = parseInt(mines_count, 10);
 
   try {
     const user = await getOrCreateUser(username);
-    if (user.wallet_balance < bet) {
-      return res.status(400).json({ ok: false, error: `Insufficient balance! You have ₹${user.wallet_balance.toFixed(2)}.` });
-    }
+    if (!user) return res.status(404).json({ ok: false, error: 'Account not found.' });
 
-    if (minesNum < 1 || minesNum > 24) {
+    // Number.isInteger first: a non-numeric mines_count parses to NaN, every NaN comparison is
+    // false, so the range check passed and `allIndices.slice(0, NaN)` laid zero mines — a board that
+    // could be cleared to the top multiplier with no risk at all.
+    if (!Number.isInteger(minesNum) || minesNum < 1 || minesNum > 24) {
       return res.status(400).json({ ok: false, error: 'Mines count must be between 1 and 24.' });
     }
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { wallet_balance: { decrement: bet } }
-    });
+    if (MINES_USER_SESSIONS[username] && MINES_USER_SESSIONS[username].status === 'active') {
+      return res.status(400).json({ ok: false, error: 'You already have a round in progress.' });
+    }
+
+    // Conditional debit: the balance check and the deduction happen in one statement, so two
+    // simultaneous "start" calls cannot both pass a check against the same balance.
+    const balanceAfterDebit = await debitWallet(user.id, bet);
+    if (balanceAfterDebit === null) {
+      return res.status(400).json({ ok: false, error: `Insufficient balance! You have ₹${user.wallet_balance.toFixed(2)}.` });
+    }
 
     await prisma.transaction.create({
       data: {
@@ -4034,8 +4340,7 @@ app.post('/api/mines/start', async (req, res) => {
       potential_payout: 0
     };
 
-    const updatedUser = await prisma.user.findUnique({ where: { id: user.id } });
-    console.log(`[MINES] Game started for ${username} — Bet: ₹${bet}, Mines: ${minesNum}`);
+    logger.debug('mines round started', { username, bet, mines: minesNum });
 
     res.json({
       ok: true,
@@ -4048,18 +4353,18 @@ app.post('/api/mines/start', async (req, res) => {
         multiplier: 1.0,
         potential_payout: 0,
         seed_hash: 'HASH_' + serverSeed,
-        balance: updatedUser.wallet_balance
+        balance: balanceAfterDebit
       }
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // POST /api/mines/reveal — Reveal a tile on the Mines grid
-app.post('/api/mines/reveal', async (req, res) => {
-  const { username = 'DemoUser', index } = req.body;
-  const tileIndex = parseInt(index);
+app.post('/api/mines/reveal', auth.requireAuth, async (req, res) => {
+  const username = auth.actingUsername(req);
+  const tileIndex = parseInt(req.body.index, 10);
 
   try {
     const session = MINES_USER_SESSIONS[username];
@@ -4067,7 +4372,11 @@ app.post('/api/mines/reveal', async (req, res) => {
       return res.status(400).json({ ok: false, error: 'No active game round.' });
     }
 
-    if (tileIndex < 0 || tileIndex >= 25) {
+    // Number.isInteger first, and not just the range comparisons: a missing or non-numeric `index`
+    // parses to NaN, and every NaN comparison is false, so `NaN < 0 || NaN >= 25` waved the request
+    // straight through. NaN is then never found in mine_positions either, which made a body with no
+    // tile in it a guaranteed-safe reveal that could be repeated to run the multiplier up for free.
+    if (!Number.isInteger(tileIndex) || tileIndex < 0 || tileIndex >= 25) {
       return res.status(400).json({ ok: false, error: 'Invalid tile index.' });
     }
 
@@ -4117,9 +4426,9 @@ app.post('/api/mines/reveal', async (req, res) => {
       // for a currently live-targeted user only. Being selected by the percentage-based targeting
       // engine (refreshBotTargeting — X% of currently live bettors, resampled continuously) IS the rig
       // decision here, with no further probability roll layered on top: every reveal a targeted user
-      // makes is rigged in the house's favor, exactly like every other game (Color/Aviator/Football/
-      // Cricket all rig deterministically once a user is targeted, never through a second independent
-      // chance). This is what makes the configured percentage mean what it says: set it to 90%, and
+      // makes is rigged in the house's favor, exactly like every other game (Color/Aviator all rig
+      // deterministically once a user is targeted, never through a second independent chance).
+      // This is what makes the configured percentage mean what it says: set it to 90%, and
       // 90% of the currently live bettors are the ones who get rigged — not 90% of 90%.
       hitMine = true;
       wasRiggedThisReveal = true;
@@ -4127,10 +4436,11 @@ app.post('/api/mines/reveal', async (req, res) => {
     }
 
     const user = await getOrCreateUser(username);
+    if (!user) return res.status(404).json({ ok: false, error: 'Account not found.' });
 
     if (hitMine) {
       session.status = 'busted';
-      console.log(`[MINES] ${username} hit mine at tile #${tileIndex + 1} — BUSTED!`);
+      logger.debug('mines busted', { username, tile: tileIndex + 1 });
 
       return res.json({
         ok: true,
@@ -4158,8 +4468,6 @@ app.post('/api/mines/reveal', async (req, res) => {
     session.multiplier = newMult;
     session.potential_payout = newPayout;
 
-    console.log(`[MINES] ${username} revealed safe tile #${tileIndex + 1} — Multiplier: ${newMult}x (Payout: ₹${newPayout})`);
-
     res.json({
       ok: true,
       hit_mine: false,
@@ -4181,8 +4489,8 @@ app.post('/api/mines/reveal', async (req, res) => {
 });
 
 // POST /api/mines/cashout — Cashout active Mines round
-app.post('/api/mines/cashout', async (req, res) => {
-  const { username = 'DemoUser' } = req.body;
+app.post('/api/mines/cashout', auth.requireAuth, async (req, res) => {
+  const username = auth.actingUsername(req);
 
   try {
     const session = MINES_USER_SESSIONS[username];
@@ -4195,13 +4503,13 @@ app.post('/api/mines/cashout', async (req, res) => {
     }
 
     const payout = session.potential_payout;
+    // Flip the session state *before* awaiting anything, so two cash-out requests racing each other
+    // cannot both see an 'active' session and both get paid.
     session.status = 'cashed';
 
     const user = await getOrCreateUser(username);
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { wallet_balance: { increment: payout } }
-    });
+    if (!user) return res.status(404).json({ ok: false, error: 'Account not found.' });
+    const balanceAfterCredit = await creditWallet(user.id, payout);
 
     await prisma.transaction.create({
       data: {
@@ -4214,8 +4522,7 @@ app.post('/api/mines/cashout', async (req, res) => {
       }
     });
 
-    const updatedUser = await prisma.user.findUnique({ where: { id: user.id } });
-    console.log(`[MINES] ${username} cashed out ₹${payout} (${session.multiplier}x)!`);
+    logger.debug('mines cashout', { username, payout, multiplier: session.multiplier });
 
     res.json({
       ok: true,
@@ -4230,7 +4537,7 @@ app.post('/api/mines/cashout', async (req, res) => {
         potential_payout: payout,
         server_seed: session.server_seed,
         mine_positions: session.mine_positions,
-        balance: updatedUser.wallet_balance
+        balance: balanceAfterCredit
       }
     });
   } catch (err) {
@@ -4241,7 +4548,7 @@ app.post('/api/mines/cashout', async (req, res) => {
 let MINES_TOTAL_TRAP_PROFIT = 0;
 
 // POST /api/mines/admin/rig — Admin endpoint to configure Mines Matrix & Overrides & Trigger Traps
-app.post('/api/mines/admin/rig', async (req, res) => {
+app.post('/api/mines/admin/rig', auth.requireAdmin, async (req, res) => {
   const { matrix, rig_type, next_tile, target_users, trigger_trap } = req.body;
 
   try {
@@ -4280,7 +4587,6 @@ app.post('/api/mines/admin/rig', async (req, res) => {
       });
 
       MINES_TOTAL_TRAP_PROFIT += profitRealized;
-      console.log(`[MINES TRAP RIG] Executed trap on ${newlyTrappedCount} users! Profit realized: ₹${profitRealized.toFixed(2)}, Cumulative: ₹${MINES_TOTAL_TRAP_PROFIT.toFixed(2)}`);
     }
 
     await prisma.gameState.upsert({
@@ -4303,7 +4609,7 @@ app.post('/api/mines/admin/rig', async (req, res) => {
 });
 
 // GET /api/mines/admin/rig — Fetch current Mines rig configuration
-app.get('/api/mines/admin/rig', async (req, res) => {
+app.get('/api/mines/admin/rig', auth.requireAdmin, async (req, res) => {
   try {
     const dbConfig = await prisma.gameState.findUnique({ where: { key: 'mines_rig_config' } });
     if (dbConfig && dbConfig.data) {
@@ -4320,7 +4626,8 @@ app.get('/api/mines/admin/rig', async (req, res) => {
 });
 
 // GET /api/mines/active-users — Fetch live list of active Mines users (real only)
-app.get('/api/mines/active-users', async (req, res) => {
+// Lists every live player's stake and exposure — operator information.
+app.get('/api/mines/active-users', auth.requireAdmin, async (req, res) => {
   try {
     const activeList = [];
     const botActive = isBotTakeoverActive('mines').active;
@@ -4366,7 +4673,7 @@ app.get('/api/mines/active-users', async (req, res) => {
 });
 
 // POST /api/mines/admin/reset-rig — Clear all Mines rig overrides
-app.post('/api/mines/admin/reset-rig', async (req, res) => {
+app.post('/api/mines/admin/reset-rig', auth.requireAdmin, async (req, res) => {
   try {
     MINES_RIG_CONFIG = {
       matrix: Array(25).fill('auto'),
@@ -4389,8 +4696,6 @@ app.post('/api/mines/admin/reset-rig', async (req, res) => {
       create: { key: 'mines_rig_config', data: MINES_RIG_CONFIG }
     });
 
-    console.log(`[MINES RIG] Admin reset all Mines rig overrides.`);
-
     res.json({
       success: true,
       rig: MINES_RIG_CONFIG,
@@ -4402,7 +4707,7 @@ app.post('/api/mines/admin/reset-rig', async (req, res) => {
 });
 
 // POST /api/teenpatti/admin/reset-rig — Remove rig from a room
-app.post('/api/teenpatti/admin/reset-rig', async (req, res) => {
+app.post('/api/teenpatti/admin/reset-rig', auth.requireAdmin, async (req, res) => {
   const { room_id } = req.body;
   if (!room_id) return res.status(400).json({ error: 'room_id required.' });
 
@@ -4411,8 +4716,6 @@ app.post('/api/teenpatti/admin/reset-rig', async (req, res) => {
       where: { id: room_id },
       data: { admin_rig: null }
     });
-
-    console.log(`[TP] Admin reset rig for ${room_id}`);
     res.json({ success: true, room_id });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -4452,11 +4755,10 @@ function scheduleNextTrafficTick() {
         const emptySeats = target.room.seats.filter(s => !s.username);
         
         if (emptySeats.length > 0) {
-          // Add exactly 1 player to the next empty seat — routed through nextRoomFillerUsername() so
-          // a pending random admin-entry reservation (if due at this arrival count) is honored here,
-          // making Admin's join look exactly like any other ordinary organic join.
+          // Add exactly 1 simulated player to the next empty seat — always an ordinary filler name.
+          // "Admin" is never seated by simulated traffic; that is decided once, live, in tpStartRound.
           const nextSeat = emptySeats[0];
-          const filler = nextRoomFillerUsername(target.room.id, target.count);
+          const filler = nextRoomFillerUsername();
 
           await prisma.teenPattiSeat.update({
             where: { id: nextSeat.id },
@@ -4469,7 +4771,6 @@ function scheduleNextTrafficTick() {
           });
 
           const newCount = target.count + 1;
-          console.log(`[TP Sequential Traffic] ${filler.username} joined ${target.room.id} (Seat ${nextSeat.seat + 1}) — Count: ${newCount}/4`);
 
           // When room reaches 3 or 4, fill remaining and start round
           if (newCount >= 3) {
@@ -4491,610 +4792,13 @@ scheduleNextTrafficTick();
 tpSeedRooms().catch(e => console.error('[TP] Seed error:', e.message));
 
 // ========================================================================
-// CRICKET (YOUR ELEVEN) — FANTASY CRICKET BACKEND
-// ========================================================================
-
-const CRICKET_PLAYER_POOL = [
-  { id: 1,  name: 'Rishabh Pant',     team: 'India', role: 'WK',   credits: 9.0 },
-  { id: 2,  name: 'KL Rahul',         team: 'India', role: 'WK',   credits: 8.5 },
-  { id: 3,  name: 'Rohit Sharma',     team: 'India', role: 'BAT',  credits: 10.0 },
-  { id: 4,  name: 'Virat Kohli',      team: 'India', role: 'BAT',  credits: 10.5 },
-  { id: 5,  name: 'Yashasvi Jaiswal', team: 'India', role: 'BAT',  credits: 9.5 },
-  { id: 6,  name: 'Ravindra Jadeja',  team: 'India', role: 'AR',   credits: 9.5 },
-  { id: 7,  name: 'Hardik Pandya',    team: 'India', role: 'AR',   credits: 9.0 },
-  { id: 8,  name: 'Jasprit Bumrah',   team: 'India', role: 'BOWL', credits: 10.0 },
-  { id: 9,  name: 'Mohammed Siraj',   team: 'India', role: 'BOWL', credits: 8.5 },
-  { id: 10, name: 'Kuldeep Yadav',    team: 'India', role: 'BOWL', credits: 8.0 },
-  { id: 11, name: 'Arshdeep Singh',   team: 'India', role: 'BOWL', credits: 8.0 },
-  { id: 12, name: 'Josh Inglis',      team: 'Australia', role: 'WK',   credits: 8.5 },
-  { id: 13, name: 'Alex Carey',       team: 'Australia', role: 'WK',   credits: 8.0 },
-  { id: 14, name: 'Travis Head',      team: 'Australia', role: 'BAT',  credits: 10.0 },
-  { id: 15, name: 'Steve Smith',      team: 'Australia', role: 'BAT',  credits: 9.5 },
-  { id: 16, name: 'Mitchell Marsh',   team: 'Australia', role: 'BAT',  credits: 9.0 },
-  { id: 17, name: 'Glenn Maxwell',    team: 'Australia', role: 'AR',   credits: 9.5 },
-  { id: 18, name: 'Marcus Stoinis',   team: 'Australia', role: 'AR',   credits: 9.0 },
-  { id: 19, name: 'Pat Cummins',      team: 'Australia', role: 'BOWL', credits: 9.5 },
-  { id: 20, name: 'Mitchell Starc',   team: 'Australia', role: 'BOWL', credits: 9.5 },
-  { id: 21, name: 'Josh Hazlewood',   team: 'Australia', role: 'BOWL', credits: 9.0 },
-  { id: 22, name: 'Adam Zampa',       team: 'Australia', role: 'BOWL', credits: 8.5 }
-];
-
-function simulateCricketPlayerStats(role) {
-  let runs = 0, fours = 0, sixes = 0, wickets = 0, maidens = 0;
-  let catches = 0, stumpings = 0, runouts = 0;
-  const battingRoles = ['BAT', 'WK', 'AR'];
-  const bowlingRoles = ['BOWL', 'AR'];
-  if (battingRoles.includes(role)) {
-    const roll = Math.floor(Math.random() * 100) + 1;
-    if (roll <= 10) runs = 0;
-    else if (roll <= 40) runs = Math.floor(Math.random() * 20) + 1;
-    else if (roll <= 70) runs = Math.floor(Math.random() * 25) + 21;
-    else if (roll <= 90) runs = Math.floor(Math.random() * 30) + 46;
-    else runs = Math.floor(Math.random() * 35) + 76;
-    if (runs > 0) {
-      fours = Math.floor(runs / (6 + Math.floor(Math.random() * 5)));
-      sixes = Math.floor(runs / (15 + Math.floor(Math.random() * 11)));
-    }
-  }
-  if (bowlingRoles.includes(role)) {
-    const roll = Math.floor(Math.random() * 100) + 1;
-    if (roll <= 20) wickets = 0;
-    else if (roll <= 55) wickets = Math.floor(Math.random() * 2) + 1;
-    else if (roll <= 85) wickets = Math.floor(Math.random() * 2) + 2;
-    else wickets = Math.floor(Math.random() * 3) + 3;
-    maidens = (Math.floor(Math.random() * 100) + 1 <= 20) ? 1 : 0;
-  }
-  if (Math.floor(Math.random() * 100) + 1 <= 30) catches = Math.floor(Math.random() * 2) + 1;
-  if (role === 'WK' && Math.floor(Math.random() * 100) + 1 <= 15) stumpings = 1;
-  if (Math.floor(Math.random() * 100) + 1 <= 10) runouts = 1;
-  return { runs, fours, sixes, wickets, maidens, catches, stumpings, runouts };
-}
-
-function computeFantasyPoints(s, role) {
-  let pts = 0;
-  pts += s.runs * 1;
-  pts += s.fours * 1;
-  pts += s.sixes * 2;
-  if (s.runs >= 100) pts += 16;
-  else if (s.runs >= 50) pts += 8;
-  else if (s.runs >= 30) pts += 4;
-  if (s.runs === 0 && ['BAT', 'WK', 'AR'].includes(role)) pts -= 2;
-  pts += s.wickets * 25;
-  if (s.wickets >= 5) pts += 8;
-  else if (s.wickets >= 3) pts += 4;
-  pts += s.maidens * 4;
-  pts += s.catches * 8;
-  pts += s.stumpings * 12;
-  pts += s.runouts * 6;
-  return pts;
-}
-
-// GET /api/cricket/matches — Available matches
-app.get('/api/cricket/matches', (req, res) => {
-  res.json({
-    matches: [
-      { id: 'm1', teamA: 'India', teamB: 'Australia', title: 'ICC T20 World Cup Clash', entry_fee: 50 },
-      { id: 'm2', teamA: 'India', teamB: 'England', title: 'ODI Series Match 3', entry_fee: 100 },
-      { id: 'm3', teamA: 'Australia', teamB: 'South Africa', title: 'Test Championship Qualifier', entry_fee: 75 }
-    ]
-  });
-});
-
-// POST /api/cricket/submit-team — Submit fantasy team, deduct entry fee, simulate, store results
-app.post('/api/cricket/submit-team', async (req, res) => {
-  const { username, player_ids, captain_id, vice_id, match_id, entry_fee } = req.body;
-  if (!username || !player_ids || !captain_id || !vice_id) {
-    return res.status(400).json({ error: 'Missing required fields.' });
-  }
-  try {
-    const ids = Array.isArray(player_ids) ? player_ids.map(Number) : player_ids.split(',').map(Number);
-    if (ids.length !== 11) return res.status(400).json({ error: 'Must select exactly 11 players.' });
-
-    const fee = parseFloat(entry_fee) || 50;
-    const user = await getOrCreateUser(username);
-    if (user.wallet_balance < fee) {
-      return res.status(400).json({ error: `Insufficient balance. Need ₹${fee}, have ₹${user.wallet_balance.toFixed(2)}.` });
-    }
-    markUserActive('youreleven', username);
-
-    // Deduct entry fee
-    await prisma.user.update({ where: { id: user.id }, data: { wallet_balance: { decrement: fee } } });
-    await prisma.transaction.create({
-      data: {
-        id: 'CRICKET_' + Date.now(),
-        user: username,
-        type: 'Withdrawal',
-        amount: fee,
-        details: `Fantasy Cricket Entry Fee — Match ${match_id || 'm1'}`,
-        status: 'Completed'
-      }
-    });
-
-    // Simulate match
-    const simResults = {};
-    CRICKET_PLAYER_POOL.forEach(p => {
-      const stats = simulateCricketPlayerStats(p.role);
-      stats.points = computeFantasyPoints(stats, p.role);
-      simResults[p.id] = stats;
-    });
-
-    const captainId = Number(captain_id);
-    const viceId = Number(vice_id);
-    let teamTotal = 0;
-    const breakdown = ids.map(pid => {
-      const player = CRICKET_PLAYER_POOL.find(p => p.id === pid);
-      const stats = simResults[pid] || { runs: 0, fours: 0, sixes: 0, wickets: 0, maidens: 0, catches: 0, stumpings: 0, runouts: 0, points: 0 };
-      let multiplier = 1.0;
-      if (pid === captainId) multiplier = 2.0;
-      else if (pid === viceId) multiplier = 1.5;
-      const finalPoints = stats.points * multiplier;
-      teamTotal += finalPoints;
-      return {
-        id: pid, name: player ? player.name : `Player ${pid}`, team: player ? player.team : 'Unknown',
-        role: player ? player.role : 'BAT', stats, base_points: stats.points,
-        multiplier, final_points: finalPoints,
-        is_captain: pid === captainId, is_vice: pid === viceId
-      };
-    });
-    breakdown.sort((a, b) => b.final_points - a.final_points);
-
-    // Calculate payout based on performance
-    let payout = 0;
-    if (teamTotal >= 200) payout = fee * 5;
-    else if (teamTotal >= 150) payout = fee * 3;
-    else if (teamTotal >= 100) payout = fee * 2;
-    else if (teamTotal >= 75) payout = fee * 1.5;
-    else if (teamTotal >= 50) payout = fee * 1;
-
-    // Bot targeting: a currently live-targeted user's entry always forfeits, regardless of performance.
-    const was_rigged = isBotTakeoverActive('youreleven').active && isUserTargeted('youreleven', username);
-    if (was_rigged) payout = 0;
-
-    if (payout > 0) {
-      await prisma.user.update({ where: { id: user.id }, data: { wallet_balance: { increment: payout } } });
-      await prisma.transaction.create({
-        data: {
-          id: 'CRICKET_WIN_' + Date.now(),
-          user: username,
-          type: 'Deposit',
-          amount: payout,
-          details: `Fantasy Cricket Payout — ${teamTotal.toFixed(0)} pts`,
-          status: 'Completed'
-        }
-      });
-    }
-
-    // Store in GameBet table
-    await prisma.gameBet.create({
-      data: {
-        username, game: 'cricket', bet_amount: fee, payout,
-        status: payout > 0 ? 'won' : 'lost',
-        metadata: { match_id, team_total: teamTotal, captain_id: captainId, vice_id: viceId, player_ids: ids, was_rigged },
-        settled_at: new Date()
-      }
-    });
-
-    const updatedUser = await prisma.user.findUnique({ where: { id: user.id } });
-    res.json({ success: true, breakdown, team_total: teamTotal, payout, balance: updatedUser.wallet_balance, was_rigged });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// GET /api/cricket/history — User's match history
-app.get('/api/cricket/history', async (req, res) => {
-  const username = req.query.username || 'DemoUser';
-  try {
-    const bets = await prisma.gameBet.findMany({
-      where: { username: { equals: username, mode: 'insensitive' }, game: 'cricket' },
-      orderBy: { created_at: 'desc' },
-      take: 20
-    });
-    res.json({ success: true, history: bets });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ========================================================================
-// BOUNDARY BAAZI — CRICKET BETTING BACKEND
-// ========================================================================
-
-// POST /api/boundarybaazi/place-bet — Place a bet on batting outcome
-// In-memory per-match authoritative winner decisions, keyed by the client's match round id
-// (matchState.roundId). Written once by /decide-match right when betting locks for that match,
-// read by /settle so a "winner_A"/"winner_B" bet's outcome is a real server fact the client cannot
-// override — closing the gap where Boundary Baazi used to let the browser simulate and self-report
-// its own match result. Short-lived by nature (one match lasts a few minutes), so in-memory is fine —
-// same pattern as MINES_USER_SESSIONS elsewhere in this file.
-const BOUNDARY_MATCH_DECISIONS = {};
-
-app.post('/api/boundarybaazi/place-bet', async (req, res) => {
-  const { username, bet_amount, bet_type, selection, match_id, odds } = req.body;
-  const betAmt = parseFloat(bet_amount);
-  if (!username || isNaN(betAmt) || betAmt <= 0 || !bet_type) {
-    return res.status(400).json({ error: 'Invalid bet details.' });
-  }
-  try {
-    const user = await getOrCreateUser(username);
-    if (user.wallet_balance < betAmt) {
-      return res.status(400).json({ error: 'Insufficient balance.' });
-    }
-    markUserActive('boundary', username);
-    await prisma.user.update({ where: { id: user.id }, data: { wallet_balance: { decrement: betAmt } } });
-    await prisma.transaction.create({
-      data: {
-        id: 'BB_' + Date.now(),
-        user: username, type: 'Withdrawal', amount: betAmt,
-        details: `Boundary Baazi Bet — ${bet_type}: ${selection || 'N/A'}`,
-        status: 'Completed'
-      }
-    });
-
-    const gameBet = await prisma.gameBet.create({
-      data: {
-        username, game: 'boundarybaazi', bet_amount: betAmt,
-        status: 'active',
-        // match_id ties this bet to a specific match's server-decided winner (see /decide-match);
-        // odds is stored here so /settle always pays exactly what was offered at bet time, never a
-        // caller-supplied multiplier.
-        metadata: { bet_type, selection, match_id: match_id || null, odds: parseFloat(odds) || 2.0 }
-      }
-    });
-
-    const updatedUser = await prisma.user.findUnique({ where: { id: user.id } });
-    res.json({ success: true, bet_id: gameBet.id, balance: updatedUser.wallet_balance });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// POST /api/boundarybaazi/cancel-bet — Refund an active, not-yet-settled bet (betting still open)
-app.post('/api/boundarybaazi/cancel-bet', async (req, res) => {
-  const { bet_id, username } = req.body;
-  if (!bet_id || !username) return res.status(400).json({ error: 'bet_id and username required.' });
-  try {
-    const gameBet = await prisma.gameBet.findUnique({ where: { id: bet_id } });
-    if (!gameBet || gameBet.status !== 'active') return res.status(400).json({ error: 'Bet not found or already settled.' });
-    if (gameBet.username.toLowerCase() !== String(username).toLowerCase()) {
-      return res.status(403).json({ error: 'This bet does not belong to this user.' });
-    }
-
-    const user = await getOrCreateUser(username);
-    await prisma.user.update({ where: { id: user.id }, data: { wallet_balance: { increment: gameBet.bet_amount } } });
-    await prisma.transaction.create({
-      data: {
-        id: 'BB_CANCEL_' + Date.now(),
-        user: username, type: 'Deposit', amount: gameBet.bet_amount,
-        details: `Boundary Baazi Bet Cancelled — ${gameBet.metadata.bet_type}`,
-        status: 'Completed'
-      }
-    });
-    await prisma.gameBet.update({ where: { id: bet_id }, data: { status: 'cancelled', settled_at: new Date() } });
-
-    const updatedUser = await prisma.user.findUnique({ where: { id: user.id } });
-    res.json({ success: true, balance: updatedUser.wallet_balance });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// POST /api/boundarybaazi/decide-match — Authoritative match-winner decision, made once betting
-// locks. Mirrors the precedence every other game uses: manual admin override > live bot targeting >
-// fair coin flip. The client's existing ball-by-ball simulation then visually steers its own innings
-// scores toward this exact winner (unchanged logic, just fed a trustworthy source instead of a
-// browser-local "cheat" flag), so what the player watches always matches what they get paid.
-app.post('/api/boundarybaazi/decide-match', async (req, res) => {
-  const { username, match_id } = req.body;
-  if (!username || !match_id) return res.status(400).json({ error: 'username and match_id required.' });
-  try {
-    markUserActive('boundary', username);
-
-    // What did this user actually back on the moneyline for this match?
-    const bets = await prisma.gameBet.findMany({
-      where: { username: { equals: username, mode: 'insensitive' }, game: 'boundarybaazi', status: 'active' }
-    });
-    const matchBets = bets.filter(b => b.metadata && b.metadata.match_id === match_id);
-    const hasWinnerA = matchBets.some(b => b.metadata.bet_type === 'winner' && b.metadata.selection === 'A');
-    const hasWinnerB = matchBets.some(b => b.metadata.bet_type === 'winner' && b.metadata.selection === 'B');
-
-    let winner = null;
-    let was_rigged = false;
-
-    const overrideRecord = await prisma.gameState.findUnique({ where: { key: 'boundary_override' } });
-    const override = overrideRecord ? overrideRecord.data : {};
-
-    if (override && override.winner) {
-      winner = override.winner;
-      was_rigged = true;
-    } else if (override && override.rig_type && override.rig_type !== 'none') {
-      if (override.rig_type === 'platform_profit') {
-        if (hasWinnerA && !hasWinnerB) winner = 'B';
-        else if (hasWinnerB && !hasWinnerA) winner = 'A';
-        else if (hasWinnerA && hasWinnerB) winner = 'tie';
-      } else if (override.rig_type === 'user_win') {
-        if (hasWinnerA && !hasWinnerB) winner = 'A';
-        else if (hasWinnerB && !hasWinnerA) winner = 'B';
-      }
-      was_rigged = !!winner;
-    } else {
-      const botActive = isBotTakeoverActive('boundary').active;
-      const targeted = botActive && isUserTargeted('boundary', username);
-      if (targeted) {
-        const botDecision = shouldBotRigThisRound('boundary');
-        if (botDecision.shouldRig) {
-          if (hasWinnerA && !hasWinnerB) winner = 'B';
-          else if (hasWinnerB && !hasWinnerA) winner = 'A';
-          else if (hasWinnerA && hasWinnerB) winner = 'tie';
-          was_rigged = !!winner;
-        }
-      }
-    }
-
-    if (!winner) {
-      // Fair round: genuine server coin flip, independent of anything the client could influence.
-      const r = Math.random();
-      winner = r < 0.48 ? 'A' : (r < 0.96 ? 'B' : 'tie');
-      was_rigged = false;
-    }
-
-    BOUNDARY_MATCH_DECISIONS[match_id] = { winner, was_rigged, decided_at: Date.now() };
-    res.json({ success: true, winner, was_rigged });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// POST /api/boundarybaazi/settle — Settle a bet. For the match-winner market, the outcome is looked
-// up from the server's own /decide-match record for that match — the caller-supplied `won` is only
-// ever used as a fallback for the rare case no decision was recorded, never as the primary source for
-// the market that's actually eligible for rigging. Every other (prop) market still trusts the
-// client's own resolution of its ball-by-ball simulation (unchanged — never part of the rig feature),
-// but payout is always computed from this bet's own stored odds, never a caller-supplied multiplier.
-app.post('/api/boundarybaazi/settle', async (req, res) => {
-  const { bet_id, won: clientWon } = req.body;
-  if (!bet_id) return res.status(400).json({ error: 'bet_id required.' });
-  try {
-    const gameBet = await prisma.gameBet.findUnique({ where: { id: bet_id } });
-    if (!gameBet || gameBet.status !== 'active') return res.status(400).json({ error: 'Bet not found or already settled.' });
-
-    const meta = gameBet.metadata || {};
-    let won = !!clientWon;
-    let was_rigged = false;
-    let push = false;
-
-    if (meta.bet_type === 'winner' && meta.match_id && BOUNDARY_MATCH_DECISIONS[meta.match_id]) {
-      const decision = BOUNDARY_MATCH_DECISIONS[meta.match_id];
-      if (decision.winner === 'tie') {
-        push = true;
-      } else {
-        won = decision.winner === meta.selection;
-      }
-      was_rigged = decision.was_rigged;
-    }
-
-    const odds = parseFloat(meta.odds) || 2.0;
-    const payout = push ? gameBet.bet_amount : (won ? gameBet.bet_amount * odds : 0);
-    const status = push ? 'push' : (won ? 'won' : 'lost');
-
-    await prisma.gameBet.update({
-      where: { id: bet_id },
-      data: { status, payout, settled_at: new Date(), metadata: { ...meta, was_rigged } }
-    });
-
-    let balance = null;
-    const user = await prisma.user.findFirst({ where: { username: { equals: gameBet.username, mode: 'insensitive' } } });
-    if (payout > 0 && user) {
-      const updated = await prisma.user.update({ where: { id: user.id }, data: { wallet_balance: { increment: payout } } });
-      balance = updated.wallet_balance;
-      await prisma.transaction.create({
-        data: {
-          id: 'BB_WIN_' + Date.now(),
-          user: gameBet.username, type: 'Deposit', amount: payout,
-          details: push ? `Boundary Baazi Push — Refund` : `Boundary Baazi Win — ${odds}x`,
-          status: 'Completed'
-        }
-      });
-    } else if (user) {
-      balance = user.wallet_balance;
-    }
-    res.json({ success: true, payout, status, was_rigged, balance });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ========================================================================
-// FOOTBALL — MATCH BETTING BACKEND
-// ========================================================================
-
-// POST /api/football/place-bet & /api/bets — Place football match bets (single or parlay)
-app.post(['/api/football/place-bet', '/api/bets'], async (req, res) => {
-  const username = req.body.username || req.body.user || 'DemoUser';
-  const betType = req.body.bet_type || 'single';
-  const stake = parseFloat(req.body.stake || req.body.bet_amount || 0);
-  const legs = Array.isArray(req.body.legs) ? req.body.legs : [];
-
-  if (isNaN(stake) || stake <= 0) {
-    return res.status(400).json({ error: 'Invalid stake amount.' });
-  }
-
-  try {
-    const user = await getOrCreateUser(username);
-    const totalCost = betType === 'single' ? (stake * Math.max(1, legs.length)) : stake;
-
-    if (user.wallet_balance < totalCost) {
-      return res.status(400).json({ error: `Insufficient balance! Need ₹${totalCost.toFixed(2)}, have ₹${user.wallet_balance.toFixed(2)}.` });
-    }
-    markUserActive('football', username);
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { wallet_balance: { decrement: totalCost } }
-    });
-
-    const placedBets = [];
-    if (betType === 'single' && legs.length > 0) {
-      for (const pick of legs) {
-        const betId = 'FB' + Math.floor(1000 + Math.random() * 9000);
-        const odds = parseFloat(pick.odds) || 2.0;
-        await prisma.transaction.create({
-          data: {
-            id: 'TX_' + Date.now() + '_' + betId,
-            user: username,
-            type: 'Withdrawal',
-            amount: stake,
-            details: `Football Single Bet: ${pick.match_label || ''} (${pick.label || ''}) @ ${odds}x`,
-            status: 'Completed'
-          }
-        });
-
-        await prisma.gameBet.create({
-          data: {
-            id: betId,
-            username,
-            game: 'football',
-            bet_amount: stake,
-            status: 'active',
-            metadata: { type: 'single', legs: [pick], total_odds: odds, match_id: pick.match_id, selection: pick.selection }
-          }
-        });
-
-        placedBets.push({
-          id: betId,
-          type: 'single',
-          timestamp: new Date().toISOString(),
-          stake,
-          total_odds: odds,
-          potential_payout: parseFloat((stake * odds).toFixed(2)),
-          status: 'pending',
-          legs: [{ ...pick, result: 'pending' }]
-        });
-      }
-    } else {
-      const betId = 'FB' + Math.floor(1000 + Math.random() * 9000);
-      const totalOdds = legs.length > 0 ? legs.reduce((acc, p) => acc * (parseFloat(p.odds) || 1.0), 1.0) : (parseFloat(req.body.odds) || 2.0);
-      const roundedOdds = parseFloat(totalOdds.toFixed(2));
-
-      await prisma.transaction.create({
-        data: {
-          id: 'TX_' + Date.now() + '_' + betId,
-          user: username,
-          type: 'Withdrawal',
-          amount: totalCost,
-          details: `Football Accumulator Parlay Bet (${legs.length} legs) @ ${roundedOdds}x`,
-          status: 'Completed'
-        }
-      });
-
-      await prisma.gameBet.create({
-        data: {
-          id: betId,
-          username,
-          game: 'football',
-          bet_amount: totalCost,
-          status: 'active',
-          metadata: { type: betType, legs, total_odds: roundedOdds }
-        }
-      });
-
-      placedBets.push({
-        id: betId,
-        type: betType,
-        timestamp: new Date().toISOString(),
-        stake: totalCost,
-        total_odds: roundedOdds,
-        potential_payout: parseFloat((totalCost * roundedOdds).toFixed(2)),
-        status: 'pending',
-        legs: legs.map(l => ({ ...l, result: 'pending' }))
-      });
-    }
-
-    const updatedUser = await prisma.user.findUnique({ where: { id: user.id } });
-    res.json({
-      success: true,
-      bets_placed: placedBets.length,
-      bets: placedBets,
-      new_balance: updatedUser.wallet_balance
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// POST /api/football/settle — Settle football match bets
-app.post('/api/football/settle', async (req, res) => {
-  const { match_id, winning_selection } = req.body;
-  if (!match_id || !winning_selection) return res.status(400).json({ error: 'match_id and winning_selection required.' });
-  try {
-    const activeBets = await prisma.gameBet.findMany({
-      where: { game: 'football', status: 'active' }
-    });
-
-    const matchBets = activeBets.filter(b => b.metadata && b.metadata.match_id === match_id);
-    let settledCount = 0;
-    const botActive = isBotTakeoverActive('football').active;
-    const results = [];
-
-    for (const bet of matchBets) {
-      const naturallyWon = bet.metadata.selection === winning_selection;
-      // A currently live-targeted bettor loses regardless of the true match result; everyone else
-      // gets the real outcome.
-      const wasTargeted = botActive && isUserTargeted('football', bet.username);
-      const won = wasTargeted ? false : naturallyWon;
-      const odds = bet.metadata.odds || 2.0;
-      const payout = won ? bet.bet_amount * odds : 0;
-
-      await prisma.gameBet.update({
-        where: { id: bet.id },
-        data: { status: won ? 'won' : 'lost', payout, settled_at: new Date(), metadata: { ...bet.metadata, was_rigged: wasTargeted } }
-      });
-
-      if (won && payout > 0) {
-        const user = await prisma.user.findFirst({ where: { username: { equals: bet.username, mode: 'insensitive' } } });
-        if (user) {
-          await prisma.user.update({ where: { id: user.id }, data: { wallet_balance: { increment: payout } } });
-          await prisma.transaction.create({
-            data: {
-              id: 'FB_WIN_' + Date.now() + '_' + settledCount,
-              user: bet.username, type: 'Deposit', amount: payout,
-              details: `Football Win — Match ${match_id}: ${winning_selection} @ ${odds}x`,
-              status: 'Completed'
-            }
-          });
-        }
-      }
-      results.push({ bet_id: bet.id, username: bet.username, won, was_rigged: wasTargeted });
-      settledCount++;
-    }
-    res.json({ success: true, settled_count: settledCount, results });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// GET /api/football/active-bets — Get user's active football bets
-app.get('/api/football/active-bets', async (req, res) => {
-  const username = req.query.username || 'DemoUser';
-  try {
-    const bets = await prisma.gameBet.findMany({
-      where: { username: { equals: username, mode: 'insensitive' }, game: 'football', status: 'active' },
-      orderBy: { created_at: 'desc' }
-    });
-    res.json({ success: true, bets });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ========================================================================
 // ADMIN — UNIFIED GAME STATS (ALL REAL DATA)
 // ========================================================================
 
 // GET /api/admin/game-stats — Aggregate stats for all games
 app.get('/api/admin/game-stats', async (req, res) => {
   try {
-    const games = ['mines', 'cricket', 'football', 'boundarybaazi'];
+    const games = ['mines'];
     const stats = {};
     for (const game of games) {
       const total = await prisma.gameBet.count({ where: { game } });
@@ -5112,13 +4816,527 @@ app.get('/api/admin/game-stats', async (req, res) => {
   }
 });
 
-// Serve static frontend assets for non-API routes
-app.use(express.static(path.join(__dirname, '..')));
+// ========================================================================
+// LEGACY PHP-SHAPED ENDPOINTS
+// ========================================================================
+//
+// The frontend still calls `api/admin.php`, `api/chat.php`, `api/deposit.php` and
+// `api/withdraw.php`. Those routes had no Express implementation, so the requests fell through to
+// the static file handler and the browser received the *PHP source* as the response body — which,
+// among other things, published the payment-gateway keys hardcoded in api/config.php and made the
+// admin console's login "succeed" through its own JSON-parse error handler. They are implemented
+// here for real, with the same request/response shapes the pages already expect.
+
+/** Read a table through Prisma, falling back to the flat-file store when that is permitted. */
+async function readTable(model, jsonName, args = {}) {
+  try {
+    return await prisma[model].findMany(args);
+  } catch (e) {
+    if (!jsonFallbackAllowed()) throw e;
+    return readJsonTable(jsonName);
+  }
+}
+
+// ---------------------------------------------------------------- api/admin.php
+
+app.all('/api/admin.php', async (req, res, next) => {
+  const action = req.query.action || req.body.action || '';
+
+  try {
+    // Operator sign-in. The credential lives in ADMIN_PASSWORD_HASH, never in the codebase, and the
+    // old `login_bypass` action — which granted admin to anyone who asked — is gone.
+    if (action === 'login') {
+      const username = String(req.body.username || '').trim();
+      const password = String(req.body.password || '');
+      if (username.toLowerCase() !== config.ADMIN_USERNAME.toLowerCase() || !auth.verifyAdminPassword(password)) {
+        logger.warn('failed admin login attempt', { username, ip: req.ip });
+        return res.status(401).json({ error: 'Invalid administrator credentials.' });
+      }
+      const token = auth.issueToken({
+        id: 0,
+        username: config.ADMIN_USERNAME,
+        email: null,
+        role: 'admin',
+        ttlMs: 8 * 3600 * 1000 // operator sessions are deliberately shorter than player sessions
+      });
+      logger.info('admin signed in', { ip: req.ip });
+      return res.json({ success: true, token });
+    }
+
+    if (!req.auth || req.auth.role !== 'admin') {
+      return res.status(401).json({ error: 'Unauthorized admin access.' });
+    }
+
+    switch (action) {
+      case 'status':
+        return res.json({ logged_in: true, username: req.auth.username });
+
+      case 'logout':
+        return res.json({ success: true });
+
+      case 'stats': {
+        const users = await readTable('user', 'users');
+        const deposits = await readTable('deposit', 'deposits');
+        const withdrawals = await readTable('withdrawal', 'withdrawals');
+        const sum = (rows, pred) => rows.filter(pred).reduce((t, r) => t + (parseFloat(r.amount) || 0), 0);
+        return res.json({
+          total_users: users.length,
+          total_deposited: sum(deposits, d => d.status === 'Completed'),
+          total_withdrawn: sum(withdrawals, w => w.status === 'Completed'),
+          wallet_pool: users.reduce((t, u) => t + (parseFloat(u.wallet_balance) || 0), 0),
+          pending_withdrawals: withdrawals.filter(w => w.status === 'Pending').length
+        });
+      }
+
+      case 'users': {
+        const users = await readTable('user', 'users');
+        // Password hashes are never part of an API response, not even an operator's.
+        return res.json(users.map(u => ({
+          username: u.username,
+          email: u.email,
+          wallet_balance: parseFloat(u.wallet_balance) || 0,
+          created_at: u.created_at
+        })));
+      }
+
+      case 'transactions':
+        return res.json(await readTable('transaction', 'transactions', { orderBy: { timestamp: 'desc' }, take: 500 }));
+
+      case 'deposits':
+        return res.json(await readTable('deposit', 'deposits', { orderBy: { created_at: 'desc' }, take: 500 }));
+
+      case 'withdrawals':
+        return res.json(await readTable('withdrawal', 'withdrawals', { orderBy: { created_at: 'desc' }, take: 500 }));
+
+      case 'adjust_balance': {
+        const targetUser = String(req.body.username || '').trim();
+        const amt = parseFloat(req.body.amount);
+        const type = req.body.type;
+        if (!targetUser || !Number.isFinite(amt) || amt <= 0) {
+          return res.status(400).json({ error: 'Invalid user or adjustment amount.' });
+        }
+        if (type !== 'add' && type !== 'deduct') {
+          return res.status(400).json({ error: 'Adjustment type must be "add" or "deduct".' });
+        }
+        const user = await getOrCreateUser(targetUser);
+        if (!user) return res.status(404).json({ error: 'User not found.' });
+
+        const delta = type === 'add' ? amt : -amt;
+        const details = `Admin Adjustment: ${type === 'add' ? 'Credited' : 'Debited'}`;
+        const newBalance = delta >= 0
+          ? await creditWallet(user.id, delta)
+          : await debitWallet(user.id, -delta);
+        if (newBalance === null) return res.status(400).json({ error: 'Insufficient wallet balance.' });
+
+        await prisma.transaction.create({
+          data: {
+            id: (delta >= 0 ? 'DEP_' : 'WTH_') + Math.floor(100000 + Math.random() * 900000),
+            user: user.username,
+            type: delta >= 0 ? 'Deposit' : 'Withdrawal',
+            amount: amt,
+            details,
+            status: 'Completed',
+            timestamp: new Date()
+          }
+        });
+        logger.info('admin adjusted balance', { operator: req.auth.username, target: user.username, delta });
+        return res.json({ success: true, new_balance: newBalance });
+      }
+
+      case 'approve_deposit':
+      case 'reject_deposit': {
+        const depId = String(req.body.deposit_id || '').trim();
+        if (!depId) return res.status(400).json({ error: 'Deposit ID required.' });
+        const approving = action === 'approve_deposit';
+
+        const deposit = await prisma.deposit.findUnique({ where: { deposit_id: depId } });
+        if (!deposit) return res.status(404).json({ error: 'Deposit record not found.' });
+        if (deposit.status !== 'Pending') return res.status(400).json({ error: 'Deposit is already processed.' });
+
+        // Guard the status transition itself: updateMany with a status predicate means a
+        // double-clicked "approve" credits the player exactly once.
+        const claimed = await prisma.deposit.updateMany({
+          where: { deposit_id: depId, status: 'Pending' },
+          data: { status: approving ? 'Completed' : 'Rejected', updated_at: new Date() }
+        });
+        if (claimed.count === 0) return res.status(400).json({ error: 'Deposit is already processed.' });
+
+        if (approving) {
+          const user = await getOrCreateUser(deposit.username);
+          if (user) await creditWallet(user.id, deposit.amount);
+        }
+        await prisma.transaction.updateMany({
+          where: { user: deposit.username, type: 'Deposit', status: 'Pending', details: { contains: depId } },
+          data: { status: approving ? 'Completed' : 'Rejected' }
+        });
+        logger.info(`deposit ${approving ? 'approved' : 'rejected'}`, { operator: req.auth.username, depId, amount: deposit.amount });
+        return res.json({ success: true });
+      }
+
+      case 'approve_withdrawal':
+      case 'reject_withdrawal': {
+        const wthId = String(req.body.withdrawal_id || '').trim();
+        if (!wthId) return res.status(400).json({ error: 'Withdrawal ID required.' });
+        const approving = action === 'approve_withdrawal';
+
+        const withdrawal = await prisma.withdrawal.findUnique({ where: { withdrawal_id: wthId } });
+        if (!withdrawal) return res.status(404).json({ error: 'Withdrawal record not found.' });
+
+        const claimed = await prisma.withdrawal.updateMany({
+          where: { withdrawal_id: wthId, status: 'Pending' },
+          data: { status: approving ? 'Completed' : 'Rejected', updated_at: new Date() }
+        });
+        if (claimed.count === 0) return res.status(400).json({ error: 'Withdrawal is already processed.' });
+
+        if (!approving) {
+          // The stake was debited when the request was raised, so rejecting it must refund.
+          const user = await getOrCreateUser(withdrawal.username);
+          if (user) await creditWallet(user.id, withdrawal.amount);
+        }
+        await prisma.transaction.updateMany({
+          where: { user: withdrawal.username, type: 'Withdrawal', status: 'Pending', details: { contains: wthId } },
+          data: { status: approving ? 'Completed' : 'Rejected' }
+        });
+        logger.info(`withdrawal ${approving ? 'approved' : 'rejected'}`, { operator: req.auth.username, wthId, amount: withdrawal.amount });
+        return res.json({ success: true });
+      }
+
+      default:
+        return res.status(400).json({ error: 'Invalid admin action.' });
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ---------------------------------------------------------------- api/chat.php
+
+app.get('/api/chat.php', async (req, res, next) => {
+  try {
+    let messages;
+    try {
+      messages = await prisma.chatMessage.findMany({ orderBy: { timestamp: 'asc' }, take: 50 });
+    } catch (e) {
+      if (!jsonFallbackAllowed()) throw e;
+      messages = readJsonTable('chat').slice(-50);
+    }
+    res.json(messages);
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.post('/api/chat.php', chatLimiter, auth.requireAuth, async (req, res, next) => {
+  const username = auth.actingUsername(req);
+  const message = String(req.body.message || '').trim().slice(0, 300);
+  if (!message) return res.status(400).json({ error: 'Message cannot be empty.' });
+
+  const msgObj = { username, message, timestamp: new Date() };
+  try {
+    let saved;
+    try {
+      saved = await prisma.chatMessage.create({ data: msgObj });
+    } catch (e) {
+      if (!jsonFallbackAllowed()) throw e;
+      const chat = readJsonTable('chat');
+      saved = { ...msgObj, id: chat.length + 1, timestamp: new Date().toISOString() };
+      chat.push(saved);
+      writeJsonTable('chat', chat.slice(-100));
+    }
+    res.json({ success: true, message: saved });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ---------------------------------------------------------------- api/deposit.php
+
+const cashierLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many cashier requests. Please wait a moment.' }
+});
+
+app.all('/api/deposit.php', cashierLimiter, auth.requireAuth, async (req, res, next) => {
+  const username = auth.actingUsername(req);
+  const amount = parseFloat(req.body.amount || req.query.amount || 0);
+  const action = req.query.action || req.body.action || '';
+
+  if (!Number.isFinite(amount) || amount < 100) {
+    return res.status(400).json({ error: 'Minimum deposit amount is INR 100.' });
+  }
+  if (amount > 500000) {
+    return res.status(400).json({ error: 'Maximum single deposit is INR 5,00,000.' });
+  }
+
+  try {
+    if (action === 'submit_upi_deposit') {
+      const utr = String(req.body.utr || '').trim();
+      if (!/^[A-Za-z0-9]{6,32}$/.test(utr)) {
+        return res.status(400).json({ error: 'Please enter a valid UTR reference number.' });
+      }
+
+      // One UTR identifies one bank transfer, so re-submitting it must not create a second
+      // deposit row. order_id is uniquely indexed; check first so the user gets a clear message
+      // rather than a database constraint error.
+      const existing = await prisma.deposit.findUnique({ where: { order_id: 'UPI_' + utr } });
+      if (existing) {
+        return res.status(409).json({
+          error: 'That UTR has already been submitted. It is pending verification.',
+          deposit_id: existing.deposit_id,
+          status: existing.status
+        });
+      }
+
+      const depId = 'DEP_' + Math.floor(100000 + Math.random() * 900000);
+      const now = new Date();
+
+      // Recorded as Pending, not Completed. The original flow credited the wallet the instant a
+      // player typed *any* six-character string into the UTR box, with nothing checking that a real
+      // payment had arrived — an open faucet. Funds are released by the operator in the admin
+      // console (or by a verified gateway webhook) once the transfer is actually confirmed.
+      await prisma.deposit.create({
+        data: {
+          deposit_id: depId,
+          order_id: 'UPI_' + utr,
+          username,
+          amount,
+          utr,
+          qr_type: String(req.body.qr_type || 'default').slice(0, 40),
+          custom_qr_data: String(req.body.custom_qr_data || '').slice(0, 2000) || null,
+          status: 'Pending',
+          gateway: 'UPI QR',
+          created_at: now,
+          updated_at: now
+        }
+      });
+
+      await prisma.transaction.create({
+        data: {
+          id: 'DEP_' + Math.floor(100000 + Math.random() * 900000),
+          user: username,
+          type: 'Deposit',
+          amount,
+          details: `UPI Deposit: UTR #${utr} - ID: ${depId}`,
+          status: 'Pending',
+          timestamp: now
+        }
+      });
+
+      logger.info('upi deposit submitted', { username, amount, depId });
+      return res.json({
+        success: true,
+        deposit_id: depId,
+        amount,
+        utr,
+        status: 'Pending',
+        message: 'Deposit submitted. Your coins will be credited once the payment is verified.'
+      });
+    }
+
+    // Gateway order creation is intentionally not implemented here: it needs live credentials, and
+    // the placeholder keys that used to sit in api/config.php were committed to the repository.
+    return res.status(501).json({
+      error: 'Card/gateway deposits are not configured on this deployment. Please use the UPI QR flow.'
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ---------------------------------------------------------------- api/withdraw.php
+
+app.all('/api/withdraw.php', cashierLimiter, auth.requireAuth, async (req, res, next) => {
+  const username = auth.actingUsername(req);
+  const amount = parseFloat(req.body.amount || 0);
+  const method = req.body.method || '';
+
+  if (!Number.isFinite(amount) || amount < config.MIN_WITHDRAWAL || amount > 50000) {
+    return res.status(400).json({ error: `Withdrawal must be between INR ${config.MIN_WITHDRAWAL} and INR 50,000.` });
+  }
+
+  let details = '';
+  if (method === 'upi') {
+    const upiId = String(req.body.upi_id || '').trim();
+    if (!/^[\w.\-]{2,64}@[A-Za-z]{2,32}$/.test(upiId)) {
+      return res.status(400).json({ error: 'A valid UPI ID is required.' });
+    }
+    details = `UPI ID: ${upiId}`;
+  } else if (method === 'bank') {
+    const bankName = String(req.body.bank_name || '').trim();
+    const accName = String(req.body.bank_acc_name || '').trim();
+    const accNum = String(req.body.bank_acc_num || '').trim();
+    const ifsc = String(req.body.bank_ifsc || '').trim().toUpperCase();
+    if (!bankName || !accName || !accNum || !ifsc) {
+      return res.status(400).json({ error: 'All bank details are required.' });
+    }
+    if (!/^\d{6,20}$/.test(accNum)) return res.status(400).json({ error: 'Account number looks invalid.' });
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) return res.status(400).json({ error: 'IFSC code looks invalid.' });
+    details = `Bank: ${bankName} | A/C Name: ${accName} | A/C Num: ${accNum} | IFSC: ${ifsc}`;
+  } else {
+    return res.status(400).json({ error: 'Invalid withdrawal method.' });
+  }
+
+  try {
+    const user = await getOrCreateUser(username);
+    if (!user) return res.status(404).json({ error: 'Account not found.' });
+
+    const withdrawalId = 'WTH_' + Math.floor(100000 + Math.random() * 900000);
+
+    // Hold the funds first. If the conditional debit does not match a row the player simply does
+    // not have the balance, and no withdrawal row is created.
+    const newBalance = await debitWallet(user.id, amount);
+    if (newBalance === null) return res.status(400).json({ error: 'Insufficient wallet balance.' });
+
+    const now = new Date();
+    await prisma.withdrawal.create({
+      data: {
+        withdrawal_id: withdrawalId,
+        username: user.username,
+        amount,
+        method,
+        details,
+        status: 'Pending',
+        created_at: now,
+        updated_at: now
+      }
+    });
+
+    await prisma.transaction.create({
+      data: {
+        id: 'WTH_' + Math.floor(100000 + Math.random() * 900000),
+        user: user.username,
+        type: 'Withdrawal',
+        amount,
+        details: `Withdrawal Request ${withdrawalId}: ${details}`,
+        status: 'Pending',
+        timestamp: now
+      }
+    });
+
+    logger.info('withdrawal requested', { username: user.username, amount, withdrawalId });
+    res.json({
+      success: true,
+      message: 'Withdrawal request submitted successfully.',
+      withdrawal_id: withdrawalId,
+      new_balance: newBalance
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ========================================================================
+// STATIC ASSETS
+// ========================================================================
+
+// Anything matching this never leaves the server. Express was previously told to serve the entire
+// repository root, which published backend/.env (the database URL), backend/data/*.json (every
+// password hash), the whole .git history and the raw source of every PHP file — including the one
+// holding the payment-gateway secrets.
+const STATIC_DENY = [
+  /(^|\/)\.git(\/|$)/i,
+  /(^|\/)\.env/i,
+  /(^|\/)node_modules(\/|$)/i,
+  /(^|\/)backend(\/|$)/i,
+  /(^|\/)api(\/|$)/i,
+  /(^|\/)prisma(\/|$)/i,
+  /(^|\/)(aviator|mining|teenpati)\/[^/]*\.php$/i,
+  /\.(php|env|sql|log|bak|backup|orig|orig-backup|pem|key|crt|lock)$/i,
+  /(^|\/)(package(-lock)?\.json|Dockerfile|docker-compose\.ya?ml|ecosystem\.config\.js|\.dockerignore|\.gitignore)$/i,
+  /(^|\/)(CLAUDE|README|DEPLOYMENT|SECURITY)\.md$/i
+];
+
+app.use((req, res, next) => {
+  // Normalise separators and decode once so that `%2e%2e` and back-slash variants are matched too.
+  let candidate;
+  try {
+    candidate = decodeURIComponent(req.path).replace(/\\/g, '/');
+  } catch (e) {
+    return res.status(400).json({ error: 'Malformed URL.' });
+  }
+  if (STATIC_DENY.some(re => re.test(candidate))) {
+    return res.status(404).json({ error: 'Not found.' });
+  }
+  next();
+});
+
+app.use(express.static(config.STATIC_ROOT, {
+  dotfiles: 'deny',
+  index: ['index.html'],
+  etag: true,
+  setHeaders(res, filePath) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  }
+}));
+
+// ========================================================================
+// FALLBACKS
+// ========================================================================
+
+// An unmatched /api/* path must answer as JSON. Letting it fall through to the static handler is
+// exactly how api/admin.php ended up serving PHP source to the admin console.
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'Unknown API endpoint.' });
+});
+
+app.use((req, res) => {
+  res.status(404).sendFile(path.join(config.STATIC_ROOT, 'index.html'), err => {
+    if (err) res.status(404).type('txt').send('Not found');
+  });
+});
+
+app.use(errorHandler);
+
+// ========================================================================
+// LIFECYCLE
+// ========================================================================
 
 if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`[bet1x-backend] Express backend listening on port ${PORT}`);
+  const server = app.listen(PORT, config.HOST, () => {
+    logger.info(`Express backend listening on http://${config.HOST}:${PORT}`, { env: config.NODE_ENV });
+    if (!config.IS_PRODUCTION) {
+      logger.warn('Running in development mode - do not expose this process to the internet as-is.');
+    }
+  });
+
+  server.headersTimeout = 65000;
+  server.requestTimeout = 60000;
+  server.keepAliveTimeout = 61000;
+
+  // Drain in-flight requests before exiting so a deploy or a container restart never cuts a bet or
+  // a payout off halfway through.
+  let shuttingDown = false;
+  const shutdown = signal => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    logger.info(`Received ${signal} - shutting down gracefully`);
+    server.close(async () => {
+      try { await prisma.$disconnect(); } catch (e) { /* already gone */ }
+      logger.info('Shutdown complete');
+      process.exit(0);
+    });
+    setTimeout(() => {
+      logger.error('Forced shutdown after 15s grace period');
+      process.exit(1);
+    }, 15000).unref();
+  };
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+
+  // A rejected promise that nobody handled leaves the process in an unknown state. Log it loudly
+  // rather than letting Node's default behaviour take the process down without explanation.
+  process.on('unhandledRejection', reason => {
+    logger.error('Unhandled promise rejection', { reason: reason && reason.stack ? reason.stack : String(reason) });
+  });
+  process.on('uncaughtException', err => {
+    logger.error('Uncaught exception - shutting down', { message: err.message, stack: err.stack });
+    shutdown('uncaughtException');
   });
 }
 
 module.exports = app;
+

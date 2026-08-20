@@ -470,9 +470,6 @@
     <li class="sub-navbar-item"><a href="win2.html" class="sub-navbar-link">Emred</a></li>
     <li class="sub-navbar-item"><a href="win3.html" class="sub-navbar-link">VIP</a></li>
     <li class="sub-navbar-item"><a href="teenpatti.html" class="sub-navbar-link active">Teen Patti</a></li>
-    <li class="sub-navbar-item"><a href="boundarybaazi.html" class="sub-navbar-link">Boundary Baazi</a></li>
-    <li class="sub-navbar-item"><a href="youreleven.html" class="sub-navbar-link">Your Eleven</a></li>
-    <li class="sub-navbar-item"><a href="football.html" class="sub-navbar-link">Football</a></li>
     <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
   </ul>
 </div>
@@ -537,13 +534,16 @@
 </div>
 
 <script src="assets/js/ui-common.js"></script>
+<script src="assets/js/sound-fx.js"></script>
 <script>
-const API = (window.location.protocol === 'http:' || window.location.protocol === 'https:') && window.location.hostname
-  ? `${window.location.protocol}//${window.location.hostname}:5000`
-  : 'http://localhost:5000';
+// The backend serves this page, so the API lives on the page's own origin. Pinning port 5000
+// broke the moment the site sat behind a reverse proxy on 80/443.
+const API = window.BET1X_API_BASE || (window.location.protocol === 'file:' ? 'http://localhost:5000' : window.location.origin);
 let currentRoom = null;
 let pollInterval = null;
-let isOfflineMode = false;
+// No local isOfflineMode here on purpose: a page-scoped `let` of that name shadows the guarded
+// window.isOfflineMode accessor in ui-common.js, which is what decides whether the localStorage
+// simulation is allowed to run at all.
 
 // === OFFLINE SIMULATION VARIABLES ===
 let offlineRoomState = null;
@@ -863,7 +863,7 @@ async function startOfflineRound() {
   // --- Bot Takeover Integration for Teen Patti ---
   let botShouldRig = false;
   try {
-    const botRes = await fetch('/api/bot_decide/teenpatti', { method: 'POST' });
+    const botRes = await fetch('api/bot_decide/teenpatti', { method: 'POST' });
     const botData = await botRes.json();
     botShouldRig = botData.shouldRig === true;
   } catch (e) { /* Server unreachable, skip bot logic */ }
@@ -894,6 +894,8 @@ async function startOfflineRound() {
       s.cards = dealCards(deck, 3);
     });
   }
+  SoundFX.play('cardShuffle');
+  setTimeout(() => SoundFX.play('cardDeal'), 380);
 
   offlineRoomState.seats.forEach(s => {
     const evaluation = evalHand(s.cards);
@@ -1083,6 +1085,7 @@ function cardWrapperHtml(card, index, isFlipped) {
 }
 
 // === RENDER GAME STATE ===
+let tpLastRenderedStatus = null;
 function renderGameState(state) {
   // Header Info
   document.getElementById('tpGameRoomName').textContent = state.name;
@@ -1096,6 +1099,21 @@ function renderGameState(state) {
     localStorage.setItem('bet1x_demo_wallet', state.wallet_balance.toFixed(2));
     if (typeof renderWalletChips === 'function') renderWalletChips();
   }
+
+  // Edge-triggered sound cues for round transitions — waiting -> playing is the shuffle+deal,
+  // and any transition into 'finished' is the showdown settling (once per player, personal
+  // win/lose — a big pot gets the fuller jackpot fanfare instead of a plain win chime).
+  if (state.status === 'playing' && tpLastRenderedStatus === 'waiting') {
+    SoundFX.play('cardShuffle');
+    setTimeout(() => SoundFX.play('cardDeal'), 380);
+  } else if (state.status === 'finished' && tpLastRenderedStatus !== 'finished') {
+    SoundFX.play('showdown');
+    if (state.my_seat !== null && state.my_seat !== undefined && state.winner_name) {
+      const isMeWinner = state.winner_name.toLowerCase() === getUsername().toLowerCase();
+      setTimeout(() => SoundFX.play(isMeWinner ? (state.pot >= 2000 ? 'bigWin' : 'win') : 'lose'), 200);
+    }
+  }
+  tpLastRenderedStatus = state.status;
 
   const waitingEl = document.getElementById('tpWaiting');
   const tableEl = document.getElementById('tpTableArea');
@@ -1250,6 +1268,9 @@ async function doAction(action) {
   if (!currentRoom) return;
 
   const username = getUsername();
+  if (action === 'chaal') SoundFX.play('chipStack');
+  else if (action === 'fold') SoundFX.play('fold');
+  else if (action === 'show') SoundFX.play('showdown');
 
   // Disable buttons immediately
   const btns = document.querySelectorAll('#controls button');

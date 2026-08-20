@@ -182,6 +182,7 @@ a { color: inherit; }
 .btn-ghost { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
 .btn-ghost:hover { border-color: var(--text-faint); }
 .btn-gold { background: var(--gold); color: #2b1e00; }
+.btn-gold:hover { filter: brightness(1.08); }
 .btn-block { width: 100%; justify-content: center; }
 .btn:disabled { opacity: .4; cursor: not-allowed; }
 
@@ -2412,6 +2413,7 @@ body.exchange-theme .footer {
   background-position: center;
   background-color: var(--surface);
   transition: transform 0.3s ease;
+  pointer-events: none;
 }
 .game-card-item:hover .game-card-img {
   transform: scale(1.05);
@@ -2425,6 +2427,7 @@ body.exchange-theme .footer {
   border-top: 1px solid var(--border);
   background: var(--surface-2);
   transition: background-color 0.2s;
+  pointer-events: none;
 }
 .game-card-item:hover .game-card-title {
   background: var(--border);

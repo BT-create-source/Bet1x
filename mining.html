@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="assets/css/style.css">
   <script src="assets/js/dummy-data.js"></script>
   <script src="assets/js/ui-common.js"></script>
+  <script src="assets/js/sound-fx.js"></script>
   <style>
     body {
       margin: 0;
@@ -185,9 +186,6 @@
       <li class="sub-navbar-item"><a href="win2.html" class="sub-navbar-link">Emred</a></li>
       <li class="sub-navbar-item"><a href="win3.html" class="sub-navbar-link">VIP</a></li>
       <li class="sub-navbar-item"><a href="teenpatti.html" class="sub-navbar-link">Teen Patti</a></li>
-      <li class="sub-navbar-item"><a href="boundarybaazi.html" class="sub-navbar-link">Boundary Baazi</a></li>
-      <li class="sub-navbar-item"><a href="youreleven.html" class="sub-navbar-link">Your Eleven</a></li>
-      <li class="sub-navbar-item"><a href="football.html" class="sub-navbar-link">Football</a></li>
       <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link active">Mines</a></li>
     </ul>
   </div>
@@ -313,7 +311,7 @@
     async function refreshState() {
       const username = getMinesUsername();
       try {
-        const res = await fetch(`http://localhost:5000/api/mines/state?username=${encodeURIComponent(username)}`);
+        const res = await fetch(`api/mines/state?username=${encodeURIComponent(username)}`);
         const data = await res.json();
         if (data.ok) render(data.state);
       } catch (e) {
@@ -324,10 +322,26 @@
       }
     }
 
+    let minesLastStatus = null;
+    let minesLastRevealedCount = 0;
     function render(state) {
       balanceEl.textContent = '₹' + state.balance.toFixed(2);
       multiplierEl.textContent = state.multiplier.toFixed(2) + 'x';
       payoutEl.textContent = '₹' + state.potential_payout.toFixed(2);
+
+      // Sound cues: a new safe tile revealed (pitch rises with the streak, like a
+      // slot machine building anticipation), or the round just ended (busted/cashed —
+      // a big multiplier cash-out gets the fuller jackpot fanfare instead of a plain one).
+      const revealedCount = (state.revealed || []).length;
+      if (state.status === 'active' && revealedCount > minesLastRevealedCount) {
+        SoundFX.play('gemReveal', { streak: revealedCount });
+      } else if (state.status === 'busted' && minesLastStatus !== 'busted') {
+        SoundFX.play('mineHit');
+      } else if (state.status === 'cashed' && minesLastStatus !== 'cashed') {
+        SoundFX.play(state.multiplier >= 5 ? 'bigWin' : 'cashout');
+      }
+      minesLastStatus = state.status;
+      minesLastRevealedCount = revealedCount;
 
       const rigBadge = document.getElementById('minesRigSyncBadge');
       if (rigBadge) {
@@ -389,7 +403,7 @@
       const username = getMinesUsername();
 
       try {
-        const res = await fetch('http://localhost:5000/api/mines/start', {
+        const res = await fetch('api/mines/start', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username, bet_amount: bet, mines_count: mines })
@@ -397,6 +411,7 @@
         const data = await res.json();
         if (data.ok) {
           msgEl.textContent = 'Game started — reveal a tile!';
+          SoundFX.play('betPlace');
           render(data.state);
         } else {
           msgEl.textContent = data.error || 'Failed to start game.';
@@ -446,6 +461,7 @@
           };
 
           msgEl.textContent = 'Game started — reveal a tile!';
+          SoundFX.play('betPlace');
           render(offlineMinesState);
         }
       }
@@ -455,7 +471,7 @@
       const username = getMinesUsername();
 
       try {
-        const res = await fetch('http://localhost:5000/api/mines/reveal', {
+        const res = await fetch('api/mines/reveal', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username, index })
@@ -509,7 +525,7 @@
           // Query server for bot rig decision (deterministic round counter)
           let botShouldRig = false;
           try {
-            const botRes = await fetch('/api/bot_decide/mines', { method: 'POST' });
+            const botRes = await fetch('api/bot_decide/mines', { method: 'POST' });
             const botData = await botRes.json();
             botShouldRig = botData.shouldRig === true;
           } catch (e) { /* Server unreachable, skip bot logic */ }
@@ -548,7 +564,7 @@
       const username = getMinesUsername();
 
       try {
-        const res = await fetch('http://localhost:5000/api/mines/cashout', {
+        const res = await fetch('api/mines/cashout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username })

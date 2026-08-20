@@ -244,8 +244,6 @@
       <a href="win2.html">Emred</a>
       <a href="win3.html">VIP</a>
       <a href="teenpatti.html">Teen Patti</a>
-      <a href="youreleven.html">Your Eleven</a>
-      <a href="boundarybaazi.html">Boundary Baazi</a>
       <a href="aviator.html">Aviator</a>
       <a href="parity.html" class="active">Admin</a>
       <span class="wallet-chip" data-wallet-chip>₹ 0.00</span>
@@ -881,176 +879,6 @@
         </div>
       </div>
 
-      <!-- Cricket Betting & Fantasy Rigging Consoles (Side-by-Side Grid) -->
-      <div style="margin-top:16px; border-top:1px solid #242f3d; padding-top:16px;">
-        <h4 style="margin:0 0 12px; color:var(--gold); text-transform:uppercase; letter-spacing:0.5px; font-size:13.5px; display:flex; align-items:center; gap:6px;">
-          <span>🏏 Cricket Betting & Fantasy Rigging Consoles</span>
-        </h4>
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:12px; align-items:start;">
-
-          <!-- Card 1: Boundary Baazi Cricket Bias -->
-          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:0; width:100%;">
-            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">🏏 Boundary Baazi Cricket Bias</h4>
-
-            <div style="background:#0d0f12; padding:10px; border-radius:6px; margin-bottom:16px;">
-              <div style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; font-weight:700;">Active Cricket Predictions</div>
-              <div id="cheatBoundaryActiveBets" style="font-size:13px; font-family:var(--font-mono); color:#fff; max-height:100px; overflow-y:auto;">Loading active wagers...</div>
-            </div>
-
-            <div class="cashier-input-group" style="margin-bottom:12px;">
-              <label for="cheatBoundaryWinner">Force Match Outcome</label>
-              <select id="cheatBoundaryWinner" class="cashier-input" style="background:#0d0f12; color:#fff;">
-                <option value="">-- No Outcome Override --</option>
-                <option value="A">India wins</option>
-                <option value="B">Australia wins</option>
-                <option value="tie">Match ends in Tie</option>
-              </select>
-            </div>
-
-            <div class="cashier-input-group" style="margin-bottom:12px;">
-              <label for="cheatBoundaryPlayerSelect">Target Player to Bias</label>
-              <select id="cheatBoundaryPlayerSelect" class="cashier-input" style="background:#0d0f12; color:#fff;">
-                <option value="">-- Select Player --</option>
-                <option value="rohit_sharma">Rohit Sharma (India)</option>
-                <option value="virat_kohli">Virat Kohli (India)</option>
-                <option value="travis_head">Travis Head (Australia)</option>
-                <option value="steve_smith">Steve Smith (Australia)</option>
-                <option value="jasprit_bumrah">Jasprit Bowler (India)</option>
-                <option value="pat_cummins">Pat Cummins (Australia)</option>
-              </select>
-            </div>
-
-            <div class="cashier-input-group" style="margin-bottom:12px;">
-              <label for="cheatBoundaryPlayerBias">Bias Type</label>
-              <select id="cheatBoundaryPlayerBias" class="cashier-input" style="background:#0d0f12; color:#fff;">
-                <option value="">-- Select Bias --</option>
-                <option value="success">Force Success (Boundaries/Wickets/Maidens)</option>
-                <option value="fail">Force Failure (Duck / High runs conceded)</option>
-              </select>
-            </div>
-
-            <div class="cashier-input-group" style="margin-bottom:16px;">
-              <label for="cheatBoundaryRigType">Platform Auto-Rig Mode</label>
-              <select id="cheatBoundaryRigType" class="cashier-input" style="background:#0d0f12; color:#fff;">
-                <option value="">-- No Auto-Rig --</option>
-                <option value="platform_profit">Platform Profit (Force user loss)</option>
-                <option value="user_win">User Win (Force user payout)</option>
-              </select>
-            </div>
-
-            <button class="btn btn-gold btn-block" onclick="applyBoundaryCheat()" style="color:#000; font-weight:700;">Apply Cricket Overrides</button>
-
-            <!-- Dedicated AI Bot Takeover Box for Boundary Baazi -->
-            <div style="background:#081c15; border:1px solid #059669; border-radius:6px; padding:9px; margin-top:10px;">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                <span style="font-size:10.5px; font-weight:900; color:#10b981;">🤖 CRICKET BOT TAKEOVER</span>
-                <span id="botBoundaryBadge" style="font-size:8px; font-weight:800; padding:1px 5px; border-radius:3px; background:#1e293b; color:#94a3b8;">STANDBY</span>
-              </div>
-              <div style="display:flex; gap:2px; margin-bottom:6px;">
-                <button type="button" onclick="setBotProfitPercentage('boundary', 100)" class="btn btn-sm bot-pct-boundary" data-pct="100" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">100%</button>
-                <button type="button" onclick="setBotProfitPercentage('boundary', 90)" class="btn btn-sm bot-pct-boundary" data-pct="90" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">90%</button>
-                <button type="button" onclick="setBotProfitPercentage('boundary', 80)" class="btn btn-sm bot-pct-boundary" data-pct="80" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">80%</button>
-                <button type="button" onclick="setBotProfitPercentage('boundary', 70)" class="btn btn-sm bot-pct-boundary" data-pct="70" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">70%</button>
-                <button type="button" onclick="setBotProfitPercentage('boundary', 50)" class="btn btn-sm bot-pct-boundary" data-pct="50" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">50%</button>
-              </div>
-              <button type="button" id="botBoundaryToggleBtn" onclick="toggleBotTakeover('boundary')" style="width:100%; background:#1e293b; border:1px solid #475569; color:#cbd5e1; font-weight:900; font-size:11px; padding:6px; border-radius:4px; cursor:pointer;">
-                🤖 ACTIVATE CRICKET BOT
-              </button>
-            </div>
-          </div>
-
-          <!-- Card 2: Your Eleven Fantasy Player Bias -->
-          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:0; width:100%;">
-            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">🏏 Your Eleven Fantasy Player Bias</h4>
-
-            <div style="background:#0d0f12; padding:10px; border-radius:6px; margin-bottom:16px;">
-              <div style="font-size:11.5px; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; font-weight:700;">Active Fantasy Wagers</div>
-              <div id="cheatYourElevenActiveBets" style="font-size:13px; font-family:var(--font-mono); color:#fff; max-height:100px; overflow-y:auto;">Loading active fantasy bets...</div>
-            </div>
-
-            <div class="cashier-input-group" style="margin-bottom:12px;">
-              <label for="cheatYourElevenPlayerSelect">Target Player to Bias</label>
-              <select id="cheatYourElevenPlayerSelect" class="cashier-input" style="background:#0d0f12; color:#fff;">
-                <option value="">-- Select Fantasy Player --</option>
-                <option value="rohit">Rohit Sharma</option>
-                <option value="virat">Virat Kohli</option>
-                <option value="travis">Travis Head</option>
-                <option value="steve">Steve Smith</option>
-                <option value="bumrah">Jasprit Bumrah</option>
-                <option value="cummins">Pat Cummins</option>
-              </select>
-            </div>
-
-            <div class="cashier-input-group" style="margin-bottom:12px;">
-              <label for="cheatYourElevenBias">Player Performance Bias</label>
-              <select id="cheatYourElevenBias" class="cashier-input" style="background:#0d0f12; color:#fff;">
-                <option value="">-- Select Performance --</option>
-                <option value="high">Force High Score (Huge Boundaries & Wickets)</option>
-                <option value="low">Force Low Score (Duck / Early Out)</option>
-              </select>
-            </div>
-
-            <div class="cashier-input-group" style="margin-bottom:16px;">
-              <label for="cheatYourElevenRigType">Platform Auto-Rig Mode</label>
-              <select id="cheatYourElevenRigType" class="cashier-input" style="background:#0d0f12; color:#fff;">
-                <option value="">-- No Auto-Rig --</option>
-                <option value="platform_profit">Platform Profit (Force user loss)</option>
-                <option value="user_win">User Win (Force 4x Payout)</option>
-              </select>
-            </div>
-
-            <button class="btn btn-gold btn-block" onclick="applyYourElevenCheat()" style="color:#000; font-weight:700;">Apply Fantasy Overrides</button>
-
-            <!-- Dedicated AI Bot Takeover Box for Your Eleven -->
-            <div style="background:#081c15; border:1px solid #059669; border-radius:6px; padding:9px; margin-top:10px;">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                <span style="font-size:10.5px; font-weight:900; color:#10b981;">🤖 FANTASY BOT TAKEOVER</span>
-                <span id="botYourelevenBadge" style="font-size:8px; font-weight:800; padding:1px 5px; border-radius:3px; background:#1e293b; color:#94a3b8;">STANDBY</span>
-              </div>
-              <div style="display:flex; gap:2px; margin-bottom:6px;">
-                <button type="button" onclick="setBotProfitPercentage('youreleven', 100)" class="btn btn-sm bot-pct-youreleven" data-pct="100" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">100%</button>
-                <button type="button" onclick="setBotProfitPercentage('youreleven', 90)" class="btn btn-sm bot-pct-youreleven" data-pct="90" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">90%</button>
-                <button type="button" onclick="setBotProfitPercentage('youreleven', 80)" class="btn btn-sm bot-pct-youreleven" data-pct="80" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">80%</button>
-                <button type="button" onclick="setBotProfitPercentage('youreleven', 70)" class="btn btn-sm bot-pct-youreleven" data-pct="70" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">70%</button>
-                <button type="button" onclick="setBotProfitPercentage('youreleven', 50)" class="btn btn-sm bot-pct-youreleven" data-pct="50" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">50%</button>
-              </div>
-              <button type="button" id="botYourelevenToggleBtn" onclick="toggleBotTakeover('youreleven')" style="width:100%; background:#1e293b; border:1px solid #475569; color:#cbd5e1; font-weight:900; font-size:11px; padding:6px; border-radius:4px; cursor:pointer;">
-                🤖 ACTIVATE FANTASY BOT
-              </button>
-            </div>
-          </div>
-
-          <!-- Card 3: Football Betting Bias -->
-          <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:0; width:100%;">
-            <h4 style="margin:0 0 12px; color:var(--gold); border-bottom:1px solid #242f3d; padding-bottom:8px;">⚽ Football Betting Bias</h4>
-
-            <div style="background:#0d0f12; padding:10px; border-radius:6px; margin-bottom:16px; font-size:11.5px; color:var(--text-dim); line-height:1.5;">
-              Football's bot targeting is wired server-side (<code>/api/football/settle</code>) — a
-              currently live-targeted bettor forfeits regardless of the true match result. It's fully
-              testable via the API today; live-page settlement is not yet routed through it.
-            </div>
-
-            <!-- Dedicated AI Bot Takeover Box for Football -->
-            <div style="background:#081c15; border:1px solid #059669; border-radius:6px; padding:9px; margin-top:10px;">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                <span style="font-size:10.5px; font-weight:900; color:#10b981;">🤖 FOOTBALL BOT TAKEOVER</span>
-                <span id="botFootballBadge" style="font-size:8px; font-weight:800; padding:1px 5px; border-radius:3px; background:#1e293b; color:#94a3b8;">STANDBY</span>
-              </div>
-              <div style="display:flex; gap:2px; margin-bottom:6px;">
-                <button type="button" onclick="setBotProfitPercentage('football', 100)" class="btn btn-sm bot-pct-football" data-pct="100" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">100%</button>
-                <button type="button" onclick="setBotProfitPercentage('football', 90)" class="btn btn-sm bot-pct-football" data-pct="90" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">90%</button>
-                <button type="button" onclick="setBotProfitPercentage('football', 80)" class="btn btn-sm bot-pct-football" data-pct="80" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">80%</button>
-                <button type="button" onclick="setBotProfitPercentage('football', 70)" class="btn btn-sm bot-pct-football" data-pct="70" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">70%</button>
-                <button type="button" onclick="setBotProfitPercentage('football', 50)" class="btn btn-sm bot-pct-football" data-pct="50" style="padding:2px 4px; font-size:9.5px; font-weight:bold; border-radius:3px; background:#11221b; color:#a7f3d0; border:1px solid #059669; cursor:pointer; flex:1;">50%</button>
-              </div>
-              <button type="button" id="botFootballToggleBtn" onclick="toggleBotTakeover('football')" style="width:100%; background:#1e293b; border:1px solid #475569; color:#cbd5e1; font-weight:900; font-size:11px; padding:6px; border-radius:4px; cursor:pointer;">
-                🤖 ACTIVATE FOOTBALL BOT
-              </button>
-            </div>
-          </div>
-
-        </div>
-      </div>
     </div> <!-- End of admin-cheats -->
   </div> <!-- End of admin-card -->
 
@@ -1089,23 +917,19 @@
     bet1x pitch — Admin. Secure client-side state logging for demonstrating real-money operations.
   </div>
 
+  <script>
+    // Loaded before ui-common.js: it makes the shared fetch interceptor attach the *operator*
+    // session token (bet1x_admin_token) instead of the player one, so an admin and a player can be
+    // signed in on the same browser without either borrowing the other's privileges.
+    window.BET1X_ADMIN_CONSOLE = true;
+  </script>
   <script src="assets/js/dummy-data.js"></script>
   <script src="assets/js/ui-common.js"></script>
+  <script src="assets/js/sound-fx.js"></script>
   <script>
-    // Global fetch interceptor to append admin_token for cookie-less local dev session support (e.g. file:// protocol)
-    (function() {
-      const originalFetch = window.fetch;
-      window.fetch = function(url, options) {
-        if (typeof url === 'string' && (url.includes('api/admin.php') || url.includes('api/game_sync.php'))) {
-          const token = localStorage.getItem('bet1x_admin_token') || '';
-          if (token) {
-            const separator = url.includes('?') ? '&' : '?';
-            url = `${url}${separator}admin_token=${encodeURIComponent(token)}`;
-          }
-        }
-        return originalFetch(url, options);
-      };
-    })();
+    // The operator token travels in the Authorization header (see ui-common.js). It is deliberately
+    // never appended to the query string, where it would end up in web-server access logs, browser
+    // history and Referer headers.
 
     let activeEditUsername = null;
 
@@ -1116,25 +940,14 @@
       if (typeof fetchMinesActiveUsers === 'function') fetchMinesActiveUsers();
     });
 
+    // Access is decided by the server, every time. The old version unlocked the console whenever
+    // localStorage happened to contain the literal string "authenticated" — a value any visitor
+    // could type into their own dev tools.
     function checkAdminSession() {
-      const token = localStorage.getItem('bet1x_admin_token') || '';
-      if (window.isOfflineMode || token === 'authenticated') {
-        localStorage.setItem('bet1x_admin_logged_in', 'true');
-        localStorage.setItem('bet1x_admin_token', 'authenticated');
-        removeAdminLoginOverlay();
-        loadStats();
-        renderAllTabs();
-
-        const savedTab = localStorage.getItem('admin_active_tab') || 'cheats';
-        switchAdminTab(savedTab);
-        return;
-      }
-
       fetch('api/admin.php?action=status')
         .then(res => res.json())
         .then(data => {
           if (data.logged_in) {
-            localStorage.setItem('bet1x_admin_token', 'authenticated');
             localStorage.setItem('bet1x_admin_logged_in', 'true');
             removeAdminLoginOverlay();
             loadStats();
@@ -1143,6 +956,8 @@
             const savedTab = localStorage.getItem('admin_active_tab') || 'cheats';
             switchAdminTab(savedTab);
           } else {
+            localStorage.removeItem('bet1x_admin_token');
+            localStorage.removeItem('bet1x_admin_logged_in');
             showAdminLoginOverlay();
           }
         })
@@ -1172,7 +987,6 @@
             </div>
             <div id="adminLoginError" style="color:var(--red); font-size:12px; margin-top:10px; display:none;">Invalid credentials.</div>
             <button type="submit" class="btn btn-gold btn-block" style="margin-top:20px; color:#000; font-weight:700; height:45px;">Authenticate Session</button>
-            <button type="button" class="btn btn-block" onclick="bypassAdminLogin()" style="margin-top:10px; background:#1e293b; border:1px solid #475569; color:#fff; font-weight:700; height:40px; cursor:pointer;">⚡ Dev Mode Bypass</button>
           </form>
         </div>
       `;
@@ -1204,20 +1018,8 @@
       const user = document.getElementById('adminUser').value;
       const pass = document.getElementById('adminPass').value;
       const errEl = document.getElementById('adminLoginError');
-
-      if (window.isOfflineMode) {
-        if (user === 'admin' && pass === 'admin') {
-          removeAdminLoginOverlay();
-          localStorage.setItem('bet1x_admin_logged_in', 'true');
-          loadStats();
-          renderAllTabs();
-          showToast('Authenticated as Administrator (Demo Mode).', 'success');
-        } else {
-          errEl.textContent = 'Invalid administrator credentials (use admin/admin in offline mode).';
-          errEl.style.display = 'block';
-        }
-        return;
-      }
+      const submitBtn = e.target ? e.target.querySelector('button[type="submit"]') : null;
+      if (submitBtn) submitBtn.disabled = true;
 
       const body = new URLSearchParams();
       body.append('username', user);
@@ -1230,8 +1032,11 @@
       })
         .then(res => res.json())
         .then(data => {
-          if (data.success) {
-            localStorage.setItem('bet1x_admin_token', 'authenticated');
+          if (submitBtn) submitBtn.disabled = false;
+          if (data.success && data.token) {
+            // The server-issued, HMAC-signed operator token. Every subsequent admin request carries
+            // it in the Authorization header and is re-verified server-side.
+            localStorage.setItem('bet1x_admin_token', data.token);
             localStorage.setItem('bet1x_admin_logged_in', 'true');
             removeAdminLoginOverlay();
             checkAdminSession();
@@ -1242,21 +1047,19 @@
           }
         })
         .catch(() => {
-          errEl.textContent = 'Server response error.';
+          if (submitBtn) submitBtn.disabled = false;
+          errEl.textContent = 'Could not reach the server.';
           errEl.style.display = 'block';
         });
     };
 
-    window.bypassAdminLogin = function () {
-      localStorage.setItem('bet1x_admin_token', 'authenticated');
-      localStorage.setItem('bet1x_admin_logged_in', 'true');
-      removeAdminLoginOverlay();
-      checkAdminSession();
-      loadStats();
-      renderAllTabs();
-      showToast('Bypassed authentication (Dev Mode).', 'success');
-      
-      fetch('api/admin.php?action=login_bypass', { method: 'POST' }).catch(() => {});
+    // "Dev Mode Bypass" used to grant full operator access to anyone who clicked it, with no
+    // credential at all. There is no client-side path into this console any more.
+    window.adminLogout = function () {
+      localStorage.removeItem('bet1x_admin_token');
+      localStorage.removeItem('bet1x_admin_logged_in');
+      fetch('api/admin.php?action=logout').catch(() => {});
+      location.reload();
     };
 
     function switchAdminTab(tabId, btnEl) {
@@ -1333,9 +1136,6 @@
       renderUsers();
       renderTxnHistory();
       renderWagers();
-      if (typeof fetchAndPopulateFootballMatches === 'function') {
-        fetchAndPopulateFootballMatches();
-      }
       if (typeof pollLiveAdminGames === 'function') {
         pollLiveAdminGames();
       }
@@ -1911,10 +1711,6 @@
         gameType = 'Teen Patti';
       } else if (details.includes('Mines')) {
         gameType = 'Mines';
-      } else if (details.includes('Football')) {
-        gameType = 'Football Betting';
-      } else if (details.includes('Cricket') || details.includes('Boundary') || details.includes('Predictor')) {
-        gameType = 'Cricket Predictor';
       }
 
       const roundMatch = details.match(/Round\s*#?([A-Za-z0-9_]+)/i) || details.match(/#([0-9]+)/);
@@ -1943,9 +1739,6 @@
         } else if (gameType.includes('Mines')) {
           if (details.includes('Cash Out')) selection = 'Mines Cashout';
           else selection = 'Mines Wager';
-        } else if (gameType.includes('Football')) {
-          if (details.includes('Win')) selection = 'Match Win Payout';
-          else selection = 'Football Bet';
         }
       }
 
@@ -1959,7 +1752,7 @@
       if (window.isOfflineMode) {
         tbody.innerHTML = '';
         const txns = JSON.parse(localStorage.getItem('bet1x_transactions') || '[]');
-        const wagers = txns.filter(t => t.details && (t.details.includes('Teen Patti') || t.details.includes('Cricket') || t.details.includes('Color Room') || t.details.includes('Color Guess') || t.details.includes('Aviator') || t.details.includes('Vimaan') || t.details.includes('Wager') || t.details.includes('Mines') || t.details.includes('Football')));
+        const wagers = txns.filter(t => t.details && (t.details.includes('Teen Patti') || t.details.includes('Cricket') || t.details.includes('Color Room') || t.details.includes('Color Guess') || t.details.includes('Aviator') || t.details.includes('Vimaan') || t.details.includes('Wager') || t.details.includes('Mines')));
         if (wagers.length === 0) {
           tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-dim); padding:16px;">No game bets logs found.</td></tr>`;
           return;
@@ -1989,7 +1782,7 @@
         .then(res => res.json())
         .then(txns => {
           tbody.innerHTML = '';
-          const wagers = txns.filter(t => t.details && (t.details.includes('Teen Patti') || t.details.includes('Cricket') || t.details.includes('Color Room') || t.details.includes('Color Guess') || t.details.includes('Aviator') || t.details.includes('Vimaan') || t.details.includes('Wager') || t.details.includes('Mines') || t.details.includes('Football')));
+          const wagers = txns.filter(t => t.details && (t.details.includes('Teen Patti') || t.details.includes('Cricket') || t.details.includes('Color Room') || t.details.includes('Color Guess') || t.details.includes('Aviator') || t.details.includes('Vimaan') || t.details.includes('Wager') || t.details.includes('Mines')));
 
           if (wagers.length === 0) {
             tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-dim); padding:16px;">No game bets logs found.</td></tr>`;
@@ -2018,18 +1811,6 @@
     }
 
     // Cheat Console active bets live sync
-
-    window.updateCheatBoundaryBets = function () {
-      const history = JSON.parse(localStorage.getItem('bet1x_demo_history') || '[]');
-      const active = history.filter(b => b.room === 'Cricket' && b.status === 'pending');
-
-      let userText = 'User: No active wagers.';
-      if (active.length > 0) {
-        userText = active.map(b => `Bet: ${b.value} - ₹${b.amount}`).join('<br>');
-      }
-
-      document.getElementById('cheatBoundaryActiveBets').innerHTML = userText;
-    };
 
     window.selectedRigColor = '';
     window.selectedRigNumber = '';
@@ -2746,7 +2527,7 @@
     async function fetchAndRenderTPRoom() {
       const roomId = window.activeTeenPattiRoom || 'room_101';
       try {
-        const res = await fetch(`http://localhost:5000/api/teenpatti/state?room_id=${roomId}`);
+        const res = await fetch(`api/teenpatti/state?room_id=${roomId}`);
         const state = await res.json();
         if (state.error) return;
 
@@ -2835,7 +2616,7 @@
         }
 
         // Update rig button based on admin_rig state or bot takeover state
-        const roomsRes = await fetch('http://localhost:5000/api/teenpatti/rooms');
+        const roomsRes = await fetch('api/teenpatti/rooms');
         const rooms = await roomsRes.json();
 
         const isRigged = state.admin_rig && state.admin_rig.winner_seat !== undefined;
@@ -2905,7 +2686,7 @@
       if (winnerSeat === undefined) return;
 
       try {
-        const res = await fetch('http://localhost:5000/api/teenpatti/admin/rig', {
+        const res = await fetch('api/teenpatti/admin/rig', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ room_id: roomId, winner_seat: winnerSeat })
@@ -2927,7 +2708,7 @@
       const roomId = window.activeTeenPattiRoom || 'room_101';
 
       try {
-        const res = await fetch('http://localhost:5000/api/teenpatti/admin/reset-rig', {
+        const res = await fetch('api/teenpatti/admin/reset-rig', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ room_id: roomId })
@@ -2950,142 +2731,6 @@
     // Initial load
     setTimeout(() => fetchAndRenderTPRoom(), 1000);
 
-    window.applyBoundaryCheat = async function () {
-      const winner = document.getElementById('cheatBoundaryWinner').value;
-      const player = document.getElementById('cheatBoundaryPlayerSelect').value;
-      const bias = document.getElementById('cheatBoundaryPlayerBias').value;
-      const rigType = document.getElementById('cheatBoundaryRigType').value;
-
-      // Winner and rig-type now persist server-side (see /api/boundarybaazi/decide-match) so this
-      // actually reaches real players, not just this admin's own browser as it used to.
-      try {
-        await fetch('/api/game_sync.php?action=admin_set_override', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ game: 'boundary', winner: winner || '', rig_type: rigType || '' })
-        });
-      } catch (e) {
-        showToast('Could not reach the server to apply this override.', 'error');
-        return;
-      }
-
-      // Per-player performance bias is still a local, cosmetic-only lever affecting just this admin's
-      // own browser if they ever play a match themselves — it never touches a rigging decision, so it
-      // isn't part of the server-authoritative winner/payout path.
-      if (player && bias) {
-        localStorage.setItem('cheat_boundary_player_' + player, bias);
-      } else if (player && !bias) {
-        localStorage.removeItem('cheat_boundary_player_' + player);
-      }
-
-      let summary = [];
-      if (winner) summary.push(`Winner: ${winner === 'tie' ? 'Tie' : (winner === 'A' ? 'India' : 'Australia')}`);
-      if (player && bias) summary.push(`Player ${player}: ${bias}`);
-      if (rigType) summary.push(`Rig Type: ${rigType === 'platform_profit' ? 'Platform Profit' : 'User Win'}`);
-
-      if (summary.length === 0) {
-        showToast('Cleared Boundary Baazi override.', 'info');
-      } else {
-        showToast(`Applied Boundary Baazi override: ${summary.join(', ')}`, 'success');
-      }
-    };
-
-    window.applyFootballCheat = function () {
-      const matchId = document.getElementById('cheatFootballMatchSelect').value;
-      const winner = document.getElementById('cheatFootballWinner').value;
-      const ou = document.getElementById('cheatFootballOverUnder').value;
-      const rigType = document.getElementById('cheatFootballRigType').value;
-
-      if (winner) localStorage.setItem('cheat_football_winner_' + matchId, winner);
-      else localStorage.removeItem('cheat_football_winner_' + matchId);
-
-      if (ou) localStorage.setItem('cheat_football_over_under_' + matchId, ou);
-      else localStorage.removeItem('cheat_football_over_under_' + matchId);
-
-      if (rigType) localStorage.setItem('cheat_football_rig_type', rigType);
-      else localStorage.removeItem('cheat_football_rig_type');
-
-      let summary = [];
-      if (winner) summary.push(`Winner: ${winner}`);
-      if (ou) summary.push(`Goals: ${ou}`);
-      if (rigType) summary.push(`Rig: ${rigType}`);
-
-      // showToast(`Applied Football Match #${matchId} override: ${summary.join(', ') || 'Cleared all biases'}`, 'success');
-      updateFootballBiasUI();
-    };
-
-    window.clearFootballCheat = function () {
-      const matchId = document.getElementById('cheatFootballMatchSelect').value;
-      document.getElementById('cheatFootballWinner').value = '';
-      document.getElementById('cheatFootballOverUnder').value = '';
-      document.getElementById('cheatFootballRigType').value = '';
-      localStorage.removeItem('cheat_football_winner_' + matchId);
-      localStorage.removeItem('cheat_football_over_under_' + matchId);
-      localStorage.removeItem('cheat_football_rig_type');
-      // showToast(`Cleared Football Match #${matchId} overrides.`, 'info');
-      updateFootballBiasUI();
-    };
-
-    window.updateFootballBiasUI = function () {
-      const matchSelectEl = document.getElementById('cheatFootballMatchSelect');
-      if (!matchSelectEl) return;
-      const matchId = matchSelectEl.value;
-
-      const winner = localStorage.getItem('cheat_football_winner_' + matchId) || '';
-      const ou = localStorage.getItem('cheat_football_over_under_' + matchId) || '';
-      const rigType = localStorage.getItem('cheat_football_rig_type') || '';
-
-      const winSelectEl = document.getElementById('cheatFootballWinner');
-      const ouSelectEl = document.getElementById('cheatFootballOverUnder');
-      const rigSelectEl = document.getElementById('cheatFootballRigType');
-
-      if (winSelectEl && document.activeElement !== winSelectEl) winSelectEl.value = winner;
-      if (ouSelectEl && document.activeElement !== ouSelectEl) ouSelectEl.value = ou;
-      if (rigSelectEl && document.activeElement !== rigSelectEl) rigSelectEl.value = rigType;
-
-      const bannerEl = document.getElementById('adminFootballActiveOverrideBanner');
-      if (bannerEl) {
-        let summaryParts = [];
-        if (winner) summaryParts.push(`Winner: <b style="color:var(--gold); font-size:14px;">${winner.toUpperCase()}</b>`);
-        if (ou) summaryParts.push(`Goals: <b style="color:var(--gold); font-size:14px;">${ou.toUpperCase()}</b>`);
-        if (rigType) summaryParts.push(`Auto-Rig: <b style="color:var(--gold); font-size:14px;">${rigType}</b>`);
-
-        if (summaryParts.length > 0) {
-          bannerEl.style.display = 'block';
-          bannerEl.style.background = 'rgba(201, 160, 84, 0.14)';
-          bannerEl.style.border = '1px solid var(--gold)';
-          bannerEl.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-              <div>
-                <div style="font-size:10px; color:var(--gold); text-transform:uppercase; font-weight:800; letter-spacing:0.5px;">ACTIVE FIXED OVERRIDE (MATCH #${matchId})</div>
-                <div style="font-size:13.5px; font-weight:700; color:#fff; margin-top:2px;">
-                  ${summaryParts.join(' &nbsp;•&nbsp; ')}
-                </div>
-                <div style="font-size:11px; color:var(--text-dim); margin-top:2px;">
-                  This outcome is fixed and will settle match #${matchId} accordingly.
-                </div>
-              </div>
-              <button onclick="clearFootballCheat()" class="btn btn-sm" style="background:rgba(231,76,60,0.15); border:1px solid #e74c3c; color:#e74c3c; font-weight:bold; padding:4px 10px; font-size:11.5px; border-radius:4px; cursor:pointer;">
-                ✕ Clear Rig
-              </button>
-            </div>
-          `;
-        } else {
-          bannerEl.style.display = 'block';
-          bannerEl.style.background = '#0d0f12';
-          bannerEl.style.border = '1px dashed #242f3d';
-          bannerEl.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <div style="font-size:11.5px; color:var(--text-dim);">
-                🎲 <b>Outcome Status:</b> NO BIAS (Fair Random Match Simulation)
-              </div>
-              <span style="font-size:10.5px; color:var(--text-dim);">Select options below to fix outcome</span>
-            </div>
-          `;
-        }
-      }
-    };
-
     // --- MINES (MINING) SYSTEM & PERCENTAGE TRAP RIGGING ---
     let minesMatrixState = Array(25).fill('auto');
     window.adminMinesActiveUsers = [];
@@ -3104,7 +2749,7 @@
     };
 
     window.fetchMinesActiveUsers = function () {
-      fetch('http://localhost:5000/api/mines/active-users')
+      fetch('api/mines/active-users')
         .then(res => res.json())
         .then(data => {
           if (data.success) {
@@ -3171,7 +2816,7 @@
     // /api/mines/admin/rig, trigger_trap) — this button is just a one-click shortcut aimed at a single
     // session from the suggestion above, not a new rigging path.
     window.detonateMinesSessionNow = function (username) {
-      fetch('http://localhost:5000/api/mines/admin/rig', {
+      fetch('api/mines/admin/rig', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ target_users: [username], next_tile: 'mine', trigger_trap: true })
@@ -3183,7 +2828,7 @@
           }
           // Reset the global next-tile override right away so this one-off action doesn't linger and
           // affect the NEXT reveal from an unrelated player.
-          fetch('http://localhost:5000/api/mines/admin/rig', {
+          fetch('api/mines/admin/rig', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ target_users: [], next_tile: '' })
@@ -3220,7 +2865,7 @@
       const selectedUsernames = Array.from(window.adminMinesSelectedUsers);
       localStorage.setItem('cheat_mines_target_users', JSON.stringify(selectedUsernames));
 
-      fetch('http://localhost:5000/api/mines/admin/rig', {
+      fetch('api/mines/admin/rig', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ target_users: selectedUsernames })
@@ -3276,7 +2921,7 @@
         b.style.color = '#fff';
       });
 
-      fetch('http://localhost:5000/api/mines/admin/rig', {
+      fetch('api/mines/admin/rig', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ target_users: [] })
@@ -3306,7 +2951,7 @@
       const selectedUsernames = Array.from(window.adminMinesSelectedUsers);
       localStorage.setItem('cheat_mines_target_users', JSON.stringify(selectedUsernames));
 
-      fetch('http://localhost:5000/api/mines/admin/rig', {
+      fetch('api/mines/admin/rig', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ target_users: selectedUsernames })
@@ -3344,7 +2989,7 @@
         .filter(u => selectedUsernames.includes(u.username) && u.status === 'Active')
         .reduce((sum, u) => sum + (parseFloat(u.bet) || 0), 0);
 
-      fetch('http://localhost:5000/api/mines/admin/rig', {
+      fetch('api/mines/admin/rig', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -3589,7 +3234,7 @@
       if (select1) select1.value = '';
       if (select2) select2.value = '';
 
-      fetch('http://localhost:5000/api/mines/admin/reset-rig', { method: 'POST' })
+      fetch('api/mines/admin/reset-rig', { method: 'POST' })
         .then(res => res.json())
         .then(() => fetchMinesActiveUsers())
         .catch(() => {});
@@ -3619,7 +3264,7 @@
       if (rigTypeSelect1 && rigTypeSelect1.value !== val) rigTypeSelect1.value = val;
       if (rigTypeSelect2 && rigTypeSelect2.value !== val) rigTypeSelect2.value = val;
 
-      fetch('http://localhost:5000/api/mines/admin/rig', {
+      fetch('api/mines/admin/rig', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -3696,151 +3341,6 @@
       }
     };
 
-    window.applyYourElevenCheat = function () {
-      const player = document.getElementById('cheatYourElevenPlayerSelect').value;
-      const bias = document.getElementById('cheatYourElevenBias').value;
-      const rigType = document.getElementById('cheatYourElevenRigType').value;
-
-      if (player && bias) {
-        localStorage.setItem('cheat_youreleven_player_' + player, bias);
-      } else if (player) {
-        localStorage.removeItem('cheat_youreleven_player_' + player);
-      }
-
-      if (rigType) localStorage.setItem('cheat_youreleven_rig_type', rigType);
-      else localStorage.removeItem('cheat_youreleven_rig_type');
-
-      let summary = [];
-      if (player && bias) summary.push(`Player ${player}: ${bias}`);
-      if (rigType) summary.push(`Rig: ${rigType}`);
-
-      showToast(`Applied Fantasy Eleven override: ${summary.join(', ') || 'Cleared'}`, 'success');
-    };
-
-    // Dynamic Gradient Generator for Teams
-    function getGradientForTeam(name) {
-      if (!name) name = "Unknown";
-      let hash = 0;
-      for (let i = 0; i < name.length; i++) {
-        hash = name.charCodeAt(i) + ((hash << 5) - hash);
-      }
-      const h = Math.abs(hash % 360);
-      return `linear-gradient(135deg, hsl(${h}, 60%, 35%), hsl(${(h + 40) % 360}, 60%, 20%))`;
-    }
-
-    // Consistent Dynamic Odds Generator seeded by match id
-    function generateOddsForMatch(match) {
-      let seed = match.id || 1;
-      const rand = (min, max) => {
-        const x = Math.sin(seed++) * 10000;
-        return min + (x - Math.floor(x)) * (max - min);
-      };
-      
-      const home = parseFloat(rand(1.3, 3.8).toFixed(2));
-      const away = parseFloat(rand(1.5, 4.2).toFixed(2));
-      const draw = parseFloat(rand(2.8, 3.9).toFixed(2));
-      const over25 = parseFloat(rand(1.5, 2.4).toFixed(2));
-      const under25 = parseFloat(rand(1.5, 2.4).toFixed(2));
-      const btts_yes = parseFloat(rand(1.4, 2.1).toFixed(2));
-      const btts_no = parseFloat(rand(1.6, 2.3).toFixed(2));
-      
-      return { home, draw, away, over25, under25, btts_yes, btts_no };
-    }
-
-    // Fetch and populate football matches in admin dropdown and localStorage
-    window.fetchAndPopulateFootballMatches = function() {
-      fetch('http://localhost:3000/api/matches')
-        .then(res => res.json())
-        .then(data => {
-          const apiMatches = data.matches || [];
-          const localMatches = JSON.parse(localStorage.getItem('bet1x_football_matches_v2') || '[]');
-          
-          const updatedMatches = apiMatches.map((m, index) => {
-            const local = localMatches.find(lm => lm.id === m.id);
-            
-            let league = 'ucl';
-            const code = m.competition?.code?.toLowerCase() || '';
-            if (code === 'pl') league = 'epl';
-            else if (code === 'pd') league = 'laliga';
-            else if (code === 'sa') league = 'seriea';
-            else if (code === 'bl1') league = 'bundesliga';
-            else if (code === 'ded') league = 'ded';
-
-            const apiStatus = m.status?.toLowerCase() === 'finished' ? 'finished' : (m.status?.toLowerCase() === 'in_play' || m.status?.toLowerCase() === 'live' ? 'live' : 'scheduled');
-            
-            const finalStatus = (local && local.status === 'finished') ? 'finished' : apiStatus;
-            const finalScore = (local && local.status === 'finished') ? local.score : (m.score?.fullTime?.home !== null && m.score?.fullTime?.home !== undefined ? [m.score.fullTime.home, m.score.fullTime.away] : null);
-
-            return {
-              id: m.id || (index + 1),
-              league: league,
-              league_label: m.competition?.name ? `${m.competition.name}` : 'UEFA Champions League',
-              home: m.homeTeam?.name || 'Home Team',
-              away: m.awayTeam?.name || 'Away Team',
-              home_bg: getGradientForTeam(m.homeTeam?.name),
-              away_bg: getGradientForTeam(m.awayTeam?.name),
-              home_code: m.homeTeam?.tla || m.homeTeam?.name?.slice(0, 3).toUpperCase() || 'HM',
-              away_code: m.awayTeam?.tla || m.awayTeam?.name?.slice(0, 3).toUpperCase() || 'AW',
-              status: finalStatus,
-              time_label: m.utcDate ? new Date(m.utcDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' UTC' : '20:00 UTC',
-              score: finalScore,
-              odds: generateOddsForMatch(m)
-            };
-          });
-
-          // Keep mock matches that are not in the api
-          const mockMatches = localMatches.filter(lm => !apiMatches.some(am => am.id === lm.id));
-          const finalMatches = [...mockMatches, ...updatedMatches];
-
-          localStorage.setItem('bet1x_football_matches_v2', JSON.stringify(finalMatches));
-
-          // Populate match select dropdown for cheats
-          const select = document.getElementById('cheatFootballMatchSelect');
-          if (select) {
-            const currentVal = select.value;
-            select.innerHTML = finalMatches.map(m => `
-              <option value="${m.id}">${m.home} vs ${m.away} (${m.league_label.replace('', '')})</option>
-            `).join('');
-            if (currentVal && finalMatches.some(m => String(m.id) === String(currentVal))) {
-              select.value = currentVal;
-            }
-            if (typeof updateFootballBiasUI === 'function') updateFootballBiasUI();
-          }
-        })
-        .catch(err => {
-          console.error('Failed to populate football matches in admin:', err);
-        });
-    };
-
-    window.updateCheatFootballBets = function () {
-      const bets = JSON.parse(localStorage.getItem('bet1x_football_bets_v2') || localStorage.getItem('bet1x_football_bets') || '[]');
-      const el = document.getElementById('cheatFootballActiveBets');
-      if (!el) return;
-
-      if (bets.length > 0) {
-        const list = bets.slice(0, 3).map(b => {
-          if (b.legs && b.legs.length > 1) {
-            const legsStr = b.legs.map(l => `${l.label || l.selection} (${l.result.toUpperCase()})`).join(', ');
-            return `Accumulator (<b>${b.legs.length} Legs</b>) - Stake: ₹${b.stake} | Status: <b>${b.status.toUpperCase()}</b><br><span style="font-size:11px; color:var(--text-dim); margin-left:12px;">• ${legsStr}</span>`;
-          } else {
-            const leg = b.legs ? b.legs[0] : null;
-            return `Single Bet - Stake: ₹${b.stake} | Pick: ${leg ? (leg.label || leg.selection) : 'Match'} (${b.status.toUpperCase()})`;
-          }
-        }).join('<br>');
-        el.innerHTML = list;
-      } else {
-        el.innerHTML = 'Rahul K.: ₹100 on Real Madrid Win<br>Priya S.: ₹250 on Over 2.5 Goals<br>Aman***: ₹50 on FC Barcelona';
-      }
-
-      const lastRes = JSON.parse(localStorage.getItem('cheat_football_last_result') || 'null');
-      const banner = document.getElementById('adminFootballLastResultBanner');
-      const body = document.getElementById('adminFootballLastResultBody');
-      if (lastRes && banner && body) {
-        banner.style.display = 'block';
-        body.textContent = `${lastRes.home} ${lastRes.score[0]} - ${lastRes.score[1]} ${lastRes.away} (${(lastRes.score[0] + lastRes.score[1]) >= 3 ? 'Over 2.5' : 'Under 2.5'})`;
-      }
-    };
-
     window.updateCheatMinesBets = function () {
       if (typeof fetchMinesActiveUsers === 'function') {
         fetchMinesActiveUsers();
@@ -3848,12 +3348,6 @@
       if (typeof initMinesMatrix === 'function' && document.getElementById('adminMinesGridMatrix') && !document.getElementById('adminMinesGridMatrix').children.length) {
         initMinesMatrix();
       }
-    };
-
-    window.updateCheatYourElevenBets = function () {
-      const el = document.getElementById('cheatYourElevenActiveBets');
-      if (!el) return;
-      el.innerHTML = 'Suresh T.: ₹100 Contest Entry (Capt: Rohit Sharma)<br>Divya***: ₹250 Contest Entry (Capt: Virat Kohli)';
     };
 
     window.pollLiveAdminGames = function () {
@@ -3934,10 +3428,7 @@
       color_guess: { enabled: false, profit_pct: 90 },
       aviator: { enabled: false, profit_pct: 90 },
       teenpatti: { enabled: false, profit_pct: 90 },
-      mines: { enabled: false, profit_pct: 90 },
-      boundary: { enabled: false, profit_pct: 90 },
-      youreleven: { enabled: false, profit_pct: 90 },
-      football: { enabled: false, profit_pct: 90 }
+      mines: { enabled: false, profit_pct: 90 }
     };
     // Populated from admin_get_live_state's bot_targeted_users / live_users_count — used by
     // renderAllBotTakeoverUI() to show "(N of M live)" next to each game's bot badge.
@@ -3956,7 +3447,7 @@
       window.adminBotTakeoverState[gameKey].profit_pct = curPct;
 
       if (gameKey === 'global') {
-        const allKeys = ['color_guess', 'aviator', 'teenpatti', 'mines', 'boundary', 'youreleven', 'football'];
+        const allKeys = ['color_guess', 'aviator', 'teenpatti', 'mines'];
         allKeys.forEach(k => {
           if (!window.adminBotTakeoverState[k]) window.adminBotTakeoverState[k] = { enabled: false, profit_pct: 90 };
           window.adminBotTakeoverState[k].enabled = newState;
@@ -4030,10 +3521,7 @@
         { key: 'color_guess', btnId: 'botColorToggleBtn', badgeId: 'botColorBadge', label: 'COLOR' },
         { key: 'aviator', btnId: 'botAviatorToggleBtn', badgeId: 'botAviatorBadge', label: 'AVIATOR' },
         { key: 'teenpatti', btnId: 'botTeenpattiToggleBtn', badgeId: 'botTeenpattiBadge', label: 'TEEN PATTI' },
-        { key: 'mines', btnId: 'botMinesToggleBtn', badgeId: 'botMinesBadge', label: 'MINES' },
-        { key: 'boundary', btnId: 'botBoundaryToggleBtn', badgeId: 'botBoundaryBadge', label: 'CRICKET' },
-        { key: 'youreleven', btnId: 'botYourelevenToggleBtn', badgeId: 'botYourelevenBadge', label: 'FANTASY' },
-        { key: 'football', btnId: 'botFootballToggleBtn', badgeId: 'botFootballBadge', label: 'FOOTBALL' }
+        { key: 'mines', btnId: 'botMinesToggleBtn', badgeId: 'botMinesBadge', label: 'MINES' }
       ];
 
       games.forEach(g => {
@@ -4303,10 +3791,7 @@
     // Auto-polling live update loop for Admin matches and bets
     setInterval(() => {
       pollLiveAdminGames();
-      if (typeof updateCheatBoundaryBets === 'function') updateCheatBoundaryBets();
-      if (typeof updateCheatFootballBets === 'function') updateCheatFootballBets();
       if (typeof updateCheatMinesBets === 'function') updateCheatMinesBets();
-      if (typeof updateCheatYourElevenBets === 'function') updateCheatYourElevenBets();
     }, 300);
 
     // Global high-resolution progress ticker

@@ -340,8 +340,6 @@
       <a href="win2.html">Emred</a>
       <a href="win3.html">VIP</a>
       <a href="teenpatti.html">Teen Patti</a>
-      <a href="youreleven.html">Your Eleven</a>
-      <a href="boundarybaazi.html">Boundary Baazi</a>
       <a href="aviator.html">Aviator</a>
       <a href="parity.html">Admin</a>
       <span class="wallet-chip" data-wallet-chip>₹ 0.00</span>
@@ -580,6 +578,7 @@
 
   <script src="assets/js/dummy-data.js"></script>
   <script src="assets/js/ui-common.js"></script>
+  <script src="assets/js/sound-fx.js"></script>
   <script>
     // Redirect logic if logged out
     document.addEventListener('DOMContentLoaded', () => {
@@ -915,7 +914,10 @@
         }
 
         closeGateway('qr');
-        showToast(`Deposit successful! ₹${selectedDepositAmt.toFixed(2)} has been credited to your wallet.`, 'success');
+        // Deposits are credited by the operator once the transfer is verified, so the wallet does
+        // not move here. The old flow credited instantly on any typed UTR, with nothing checking
+        // that a payment had actually arrived.
+        showToast(data.message || `Deposit of ₹${selectedDepositAmt.toFixed(2)} submitted. It will be credited once the payment is verified.`, 'info');
         refreshCashierWallet();
         renderTransactions();
       })

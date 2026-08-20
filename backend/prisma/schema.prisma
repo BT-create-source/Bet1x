@@ -123,7 +123,7 @@ model TeenPattiSeat {
 model GameBet {
   id         String    @id @default(uuid())
   username   String
-  game       String                              // 'mines', 'cricket', 'football', 'boundarybaazi'
+  game       String                              // 'mines'
   bet_amount Float
   payout     Float     @default(0)
   status     String    @default("active")        // active, won, lost, cashed

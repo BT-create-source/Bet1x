@@ -1,13 +1,27 @@
 {
   "name": "wormhole-bwa59na",
   "version": "1.0.0",
-  "description": "Bet1x Gaming Platform & Casino Backend",
+  "private": true,
+  "description": "bet1x gaming platform - Express API and static frontend served from one process",
   "main": "backend/server.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "dev": "node backend/server.js",
     "start": "node backend/server.js",
-    "backend": "cd backend && node server.js",
-    "football": "cd football-live-app && npm run dev"
+    "dev": "node backend/server.js",
+    "backend": "node backend/server.js",
+    "test": "node backend/test_backend.js",
+    "test:e2e": "node backend/test_e2e.js",
+    "install:backend": "npm --prefix backend ci --omit=dev",
+    "prisma:generate": "npm --prefix backend exec -- prisma generate",
+    "prisma:migrate": "npm --prefix backend exec -- prisma migrate deploy",
+    "prisma:studio": "npm --prefix backend exec -- prisma studio",
+    "secret": "node -e \"console.log(require('crypto').randomBytes(48).toString('hex'))\"",
+    "hash-admin-password": "node -e \"const p=process.argv[1]; if(!p){console.error('usage: npm run hash-admin-password -- <password>');process.exit(1)} console.log(require('./backend/node_modules/bcryptjs').hashSync(p,12))\"",
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up -d",
+    "docker:logs": "docker compose logs -f app"
   },
   "keywords": [],
   "author": "",

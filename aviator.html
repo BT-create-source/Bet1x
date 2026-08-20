@@ -34,9 +34,6 @@
     <li class="sub-navbar-item"><a href="win2.html" class="sub-navbar-link">Emred</a></li>
     <li class="sub-navbar-item"><a href="win3.html" class="sub-navbar-link">VIP</a></li>
     <li class="sub-navbar-item"><a href="teenpatti.html" class="sub-navbar-link">Teen Patti</a></li>
-    <li class="sub-navbar-item"><a href="boundarybaazi.html" class="sub-navbar-link">Boundary Baazi</a></li>
-    <li class="sub-navbar-item"><a href="youreleven.html" class="sub-navbar-link">Your Eleven</a></li>
-    <li class="sub-navbar-item"><a href="football.html" class="sub-navbar-link">Football</a></li>
     <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
   </ul>
 </div>
@@ -164,6 +161,7 @@
 
 <script src="assets/js/dummy-data.js"></script>
 <script src="assets/js/ui-common.js"></script>
+<script src="assets/js/sound-fx.js"></script>
 
 <script>
 // Load custom airplane image
@@ -183,6 +181,7 @@ function initAudio() {
 
 function playSound(type) {
   try {
+    if (window.SoundFX && SoundFX.isMuted()) return;
     initAudio();
     if (audioCtx.state === 'suspended') {
       audioCtx.resume();
@@ -231,6 +230,7 @@ function playSound(type) {
 
 function startEngineSound(pitchFactor = 1.0) {
   try {
+    if (window.SoundFX && SoundFX.isMuted()) { stopEngineSound(); return; }
     initAudio();
     if (!engineOsc) {
       engineOsc = audioCtx.createOscillator();
@@ -542,7 +542,7 @@ window.handleBtnClick = function(consoleId) {
       showAlert('danger', 'Insufficient balance!');
       return;
     }
-    playSound('click');
+    SoundFX.play('betPlace');
     
     if (window.isOfflineMode) {
       b.status = 'wagered';
@@ -609,7 +609,7 @@ window.handleBtnClick = function(consoleId) {
     
   } else if (b.status === 'wagered') {
     // Cancel prior to start
-    playSound('click');
+    SoundFX.play('betCancel');
     adjustWallet(b.wagered, 'Aviator Wager Cancelled');
     b.status = 'none';
 
@@ -629,8 +629,8 @@ window.handleBtnClick = function(consoleId) {
       <span class="sub-label">₹${amount.toFixed(2)}</span>
     `;
   } else if (b.status === 'active') {
-    // Cashout!
-    playSound('cashout');
+    // Cashout! A big multiplier gets the fuller jackpot fanfare instead of the plain chime.
+    SoundFX.play(currentMultiplier >= 5 ? 'bigWin' : 'cashout');
     
     if (window.isOfflineMode) {
       b.status = 'none';
@@ -956,6 +956,9 @@ let lastRenderedRoundId = null;
 let crashSoundPlayed = false;
 let roundLossesHandled = false;
 let consolesResetForFlight = false;
+let lastAviatorTickSec = null;
+let lastMilestoneMult = 1;
+const MILESTONE_STEPS = [2, 5, 10, 25, 50, 100];
 
 function gameTick() {
   try {
@@ -981,9 +984,11 @@ function gameTick() {
           resetConsolesForNewRound();
           disableBetPlacementsDuringFlight();
           consolesResetForFlight = true;
+          SoundFX.play('takeoff');
         }
         crashSoundPlayed = false;
         roundLossesHandled = false;
+        lastMilestoneMult = 1;
       } else if (phase === 'waiting') {
         // Server says new round lobby started
         resetConsolesForNewRound();
@@ -1003,6 +1008,12 @@ function gameTick() {
       overlaySubDisplay.textContent = `Next round in ${remaining.toFixed(1)}s`;
       drawWaitingCanvas(elapsed / waitingWindow);
 
+      const wholeSec = Math.ceil(remaining);
+      if (wholeSec !== lastAviatorTickSec) {
+        lastAviatorTickSec = wholeSec;
+        if (wholeSec > 0 && wholeSec <= 5) SoundFX.play(wholeSec <= 2 ? 'tickUrgent' : 'tick');
+      }
+
     } else if (phase === 'running') {
       // Compute multiplier locally for smooth 60fps animation, but clamp to server crashPoint
       const flightTime = (now - phaseStart) / 1000;
@@ -1018,6 +1029,14 @@ function gameTick() {
       handleAutoCashouts(currentMultiplier);
       updateMockBets(currentMultiplier);
       startEngineSound(currentMultiplier);
+
+      // A sparse bright "ding" the instant the multiplier crosses a milestone —
+      // never more than once per step, so it can't spam on 60fps re-renders.
+      const nextStep = MILESTONE_STEPS.find(s => s > lastMilestoneMult);
+      if (nextStep && currentMultiplier >= nextStep) {
+        lastMilestoneMult = nextStep;
+        SoundFX.play('milestone');
+      }
 
     } else if (phase === 'crashed') {
       overlay.className = 'aviator-overlay crashed';

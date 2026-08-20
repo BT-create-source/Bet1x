@@ -13,17 +13,20 @@ if (count(get_included_files()) === 1) {
     exit('Forbidden');
 }
 
-// Razorpay Credentials (Test keys by default)
-define('RAZORPAY_KEY_ID', 'rzp_test_zG8h2Xb2Z9j2KL');
-define('RAZORPAY_KEY_SECRET', 'kY8H3lK9h2jS9lZ8Xm2B9zN3');
-define('RAZORPAY_WEBHOOK_SECRET', 'bet1x_secure_webhook_secret_2026');
+// Payment gateway credentials come from the environment. They used to be hardcoded here, in a
+// file that the static server happily handed to anyone who requested /api/config.php.
+// Those literal values are in this repository's git history and must be treated as compromised.
+define('RAZORPAY_KEY_ID', getenv('RAZORPAY_KEY_ID') ?: '');
+define('RAZORPAY_KEY_SECRET', getenv('RAZORPAY_KEY_SECRET') ?: '');
+define('RAZORPAY_WEBHOOK_SECRET', getenv('RAZORPAY_WEBHOOK_SECRET') ?: '');
 
 // Starting balance for new signups
 define('STARTING_BALANCE', 1000.00);
 
-// Admin Credentials
-define('ADMIN_USER', 'admin');
-define('ADMIN_PASS_HASH', password_hash('admin', PASSWORD_BCRYPT)); // Securely hashed default password
+// Admin credentials. The previous line hashed the literal password "admin" at runtime, so the
+// hash looked secure while the password was public.
+define('ADMIN_USER', getenv('ADMIN_USERNAME') ?: 'admin');
+define('ADMIN_PASS_HASH', getenv('ADMIN_PASSWORD_HASH') ?: '');
 
 // Database JSON directories
 define('DATA_DIR', __DIR__ . '/data');

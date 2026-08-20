@@ -26,9 +26,6 @@
     <li class="sub-navbar-item"><a href="win2.html" class="sub-navbar-link active">Emred</a></li>
     <li class="sub-navbar-item"><a href="win3.html" class="sub-navbar-link">VIP</a></li>
     <li class="sub-navbar-item"><a href="teenpatti.html" class="sub-navbar-link">Teen Patti</a></li>
-    <li class="sub-navbar-item"><a href="boundarybaazi.html" class="sub-navbar-link">Boundary Baazi</a></li>
-    <li class="sub-navbar-item"><a href="youreleven.html" class="sub-navbar-link">Your Eleven</a></li>
-    <li class="sub-navbar-item"><a href="football.html" class="sub-navbar-link">Football</a></li>
     <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
   </ul>
 </div>
@@ -123,6 +120,7 @@
 
 <script src="assets/js/dummy-data.js"></script>
 <script src="assets/js/ui-common.js"></script>
+<script src="assets/js/sound-fx.js"></script>
 <script>
 const ROOM_KEY = 'emred';
 const ROOM_DURATION = 180;
@@ -300,7 +298,6 @@ function updateBetButtonsSummary(aggs) {
 
 let lastRoundId = null;
 let current_time_left = ROOM_DURATION;
-let isOffline = false;
 
 function formatTime(sec) {
   const m = Math.floor(sec / 60).toString().padStart(2, '0');
@@ -325,6 +322,7 @@ if (ringFg) {
   ringFg.style.transition = 'none';
 }
 
+let lastTickSec = null;
 function tickVisualProgress() {
   const roomState = (typeof ServerClock !== 'undefined' && ServerClock.getRoomState)
     ? ServerClock.getRoomState(ROOM_KEY, ROOM_DURATION)
@@ -339,6 +337,14 @@ function tickVisualProgress() {
 
   const visualTimeLeft = roomState.time_left;
   const activeRoundId = roomState.round_id;
+
+  // A quiet last-5-seconds countdown tick, once per second, matching the
+  // moment stakes actually freeze (see updateSubmitState's 5s threshold).
+  const wholeSec = Math.ceil(visualTimeLeft);
+  if (wholeSec !== lastTickSec) {
+    lastTickSec = wholeSec;
+    if (wholeSec > 0 && wholeSec <= 5) SoundFX.play('tickUrgent');
+  }
 
   current_time_left = visualTimeLeft;
   if (ringTime) ringTime.textContent = formatTime(visualTimeLeft);
@@ -417,6 +423,7 @@ function settleRoundLocally() {
   resultsBody.insertBefore(tr, resultsBody.firstChild);
   if (resultsBody.children.length > 10) resultsBody.lastChild.remove();
   let totalPayout = 0;
+  let hasBigMult = false;
   let hasBets = myBetsThisRound.length > 0;
   myBetsThisRound.forEach(b => {
     let won = false, mult = 0;
@@ -438,12 +445,13 @@ function settleRoundLocally() {
         }
       }
     }
-    if (won) totalPayout += b.amount * mult;
+    if (won) { totalPayout += b.amount * mult; if (mult >= 4.5) hasBigMult = true; }
   });
   const rigNoteOffline = (hasBets && wasRiggedOffline) ? ' ⚠️ This outcome was rigged.' : '';
   if (totalPayout > 0) {
     adjustWallet(totalPayout, `Color Guess Win: Room ${ROOM_KEY.charAt(0).toUpperCase() + ROOM_KEY.slice(1)} Round #${lastRoundId} Payout`);
     showSettlementAlert(`Round settled! Result: ${winningNum} (${newResult.color}, ${newResult.size}) — you won ₹${totalPayout.toFixed(2)}${rigNoteOffline}`, 'success');
+    SoundFX.play(hasBigMult ? 'bigWin' : 'win');
     triggerWinShower(document.querySelector('.card'));
     if (typeof getHistory === 'function') {
       const hist = getHistory();
@@ -456,6 +464,7 @@ function settleRoundLocally() {
     }
   } else if (hasBets) {
     showSettlementAlert(`Round settled. Result: ${winningNum} (${newResult.color}, ${newResult.size}) — no win this round.${rigNoteOffline}`, 'error');
+    SoundFX.play('lose');
     if (typeof getHistory === 'function') {
       const hist = getHistory();
       const item = hist.find(x => x.room === ROOM_KEY.toUpperCase() && x.status === 'pending');
@@ -478,7 +487,7 @@ function syncState() {
   .then(res => res.json())
   .then(data => {
     if (data.error) return;
-    isOffline = false;
+    window.isOfflineMode = false;
     
     if (data.server_time && typeof ServerClock !== 'undefined') {
       const serverNow = data.server_time;
@@ -499,6 +508,7 @@ function syncState() {
         : null;
       if (lastResult) {
         let totalPayout = 0;
+        let hasBigMult = false;
         let hasBets = myBetsThisRound.length > 0;
         myBetsThisRound.forEach(b => {
           let won = false, mult = 0;
@@ -520,14 +530,16 @@ function syncState() {
               }
             }
           }
-          if (won) totalPayout += b.amount * mult;
+          if (won) { totalPayout += b.amount * mult; if (mult >= 4.5) hasBigMult = true; }
         });
         const rigNote = (hasBets && lastResult.is_rigged) ? ' ⚠️ This outcome was rigged.' : '';
         if (totalPayout > 0) {
           showSettlementAlert(`Round settled! Result: ${lastResult.number} (${lastResult.color}, ${lastResult.size}) — you won ₹${totalPayout.toFixed(2)}${rigNote}`, 'success');
+          SoundFX.play(hasBigMult ? 'bigWin' : 'win');
           triggerWinShower(document.querySelector('.card'));
         } else if (hasBets) {
           showSettlementAlert(`Round settled. Result: ${lastResult.number} (${lastResult.color}, ${lastResult.size}) — no win this round.${rigNote}`, 'error');
+          SoundFX.play('lose');
         }
       }
       myBetsThisRound = [];
@@ -556,7 +568,10 @@ function syncState() {
   })
   .catch(err => {
     console.error("Error syncing color room state:", err);
-    isOffline = true;
+    // Requests the localStorage simulation. ui-common.js only grants it where offline demo mode is
+    // enabled; on a normal deployment the setter refuses, the player is told the connection dropped,
+    // and bets keep going to the server instead of being swallowed locally.
+    window.isOfflineMode = true;
   });
 }
 
@@ -565,7 +580,7 @@ placeBetBtn.addEventListener('click', () => {
     showAlert('Insufficient virtual coin balance.', 'error');
     return;
   }
-  if (isOffline) {
+  if (window.isOfflineMode) {
     adjustWallet(-selectedAmount, `Color Guess Wager: Room ${ROOM_KEY.charAt(0).toUpperCase() + ROOM_KEY.slice(1)} Round #${lastRoundId} Selection: ${selectedCat} (${selectedVal})`);
     
     const activeBetsKey = `bet1x_offline_active_bets_${ROOM_KEY}_${lastRoundId}`;
@@ -583,6 +598,7 @@ placeBetBtn.addEventListener('click', () => {
     myBetsThisRound.push({ category: selectedCat, value: selectedVal, amount: selectedAmount });
     renderMyBets();
     showAlert(`Bet placed: ${selectedCat.toUpperCase()} · ${selectedVal} for ₹${selectedAmount.toFixed(2)}`, 'success');
+    SoundFX.play('betPlace');
     if (typeof pushHistory === 'function') {
       pushHistory({ room: ROOM_KEY.toUpperCase(), roundNumber: lastRoundId, category: selectedCat, value: selectedVal, amount: selectedAmount, status: 'pending' });
     }
@@ -607,6 +623,7 @@ placeBetBtn.addEventListener('click', () => {
       renderMyBets();
       setWallet(data.new_balance);
       showAlert(`Bet placed: ${selectedCat.toUpperCase()} · ${selectedVal} for ₹${selectedAmount.toFixed(2)}`, 'success');
+      SoundFX.play('betPlace');
       if (typeof pushHistory === 'function') {
         pushHistory({ room: ROOM_KEY.toUpperCase(), roundNumber: lastRoundId, category: selectedCat, value: selectedVal, amount: selectedAmount, status: 'pending' });
       }

@@ -994,7 +994,7 @@ switch ($action) {
         }
 
         $bot_states = [];
-        $bot_game_keys = ['global', 'color_guess', 'aviator', 'teenpatti', 'mines', 'boundary', 'youreleven'];
+        $bot_game_keys = ['global', 'color_guess', 'aviator', 'teenpatti', 'mines'];
         foreach ($bot_game_keys as $bgk) {
             $db_bot = db_api_request('GET', '/api/db/state/bot_takeover_' . $bgk);
             $bot_states[$bgk] = is_array($db_bot) ? $db_bot : ['enabled' => false, 'profit_pct' => 90];
@@ -1173,7 +1173,7 @@ switch ($action) {
         db_api_request('POST', '/api/db/state/bot_takeover_' . $game, ['data' => $state]);
 
         $all_states = [];
-        $bot_game_keys = ['global', 'color_guess', 'aviator', 'teenpatti', 'mines', 'boundary', 'youreleven'];
+        $bot_game_keys = ['global', 'color_guess', 'aviator', 'teenpatti', 'mines'];
         foreach ($bot_game_keys as $bgk) {
             if ($bgk === $game) {
                 $all_states[$bgk] = $state;

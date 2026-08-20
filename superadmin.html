@@ -322,11 +322,21 @@
 </div>
 
 <script>
-const API = 'http://localhost:5000';
-const GAME_ORDER = ['color_guess', 'aviator', 'teenpatti', 'mines', 'youreleven', 'boundary', 'football'];
+// Same origin as the page: the backend serves this console itself. Override with
+// window.BET1X_API_BASE only when the API is hosted separately.
+const API = window.BET1X_API_BASE || (window.location.protocol === 'file:' ? 'http://localhost:5000' : window.location.origin);
+
+// This console reads operator-only endpoints, so every request carries the admin session token
+// issued by the Admin Panel's login.
+function adminFetch(path, options) {
+  options = options || {};
+  const token = localStorage.getItem('bet1x_admin_token');
+  options.headers = Object.assign({}, options.headers, token ? { Authorization: 'Bearer ' + token } : {});
+  return fetch(API + path, options);
+}
+const GAME_ORDER = ['color_guess', 'aviator', 'teenpatti', 'mines'];
 const GAME_LABELS = {
-  color_guess: 'Color Prediction', aviator: 'Aviator', teenpatti: 'Teen Patti', mines: 'Mines',
-  youreleven: 'Your Eleven', boundary: 'Boundary Baazi', football: 'Football'
+  color_guess: 'Color Prediction', aviator: 'Aviator', teenpatti: 'Teen Patti', mines: 'Mines'
 };
 let knownTxIds = new Set();
 let firstLoad = true;
@@ -514,7 +524,14 @@ function drawProfitChart(d) {
 
 async function loadDashboard() {
   try {
-    const res = await fetch(API + '/api/admin/super-dashboard');
+    const res = await adminFetch('/api/admin/super-dashboard');
+    if (res.status === 401 || res.status === 403) {
+      // The operator session expired or was never established - send them back to sign in.
+      localStorage.removeItem('bet1x_admin_logged_in');
+      document.getElementById('gate').style.display = '';
+      document.getElementById('dashboard').style.display = 'none';
+      return;
+    }
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const d = await res.json();
 
@@ -535,7 +552,10 @@ async function loadDashboard() {
 }
 
 function checkGateAndInit() {
-  const loggedIn = localStorage.getItem('bet1x_admin_logged_in') === 'true';
+  // A token has to actually be present; the server re-verifies it on every request anyway, so this
+  // only decides whether to show the dashboard shell or the "sign in on the Admin Panel" notice.
+  const loggedIn = localStorage.getItem('bet1x_admin_logged_in') === 'true'
+    && !!localStorage.getItem('bet1x_admin_token');
   if (!loggedIn) return;
   document.getElementById('gate').style.display = 'none';
   document.getElementById('dashboard').style.display = 'block';
