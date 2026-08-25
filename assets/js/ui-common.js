@@ -368,20 +368,24 @@ function updateAuthHeaderUI() {
   const user = getCurrentUser();
   const prefix = getApiPrefix();
   
+  // Colors below are CSS custom properties, not literals, specifically so this one shared
+  // template renders correctly on both the original dark exchange-header (e.g. parity.html,
+  // which has no body.exchange-theme class) and the 2026-08-25 reskinned pages (docs/NEW-DESIGN)
+  // without any per-page branching here.
   if (user && user.username) {
     authArea.innerHTML = `
-      <div style="display:flex; align-items:center; gap:10px; color:#ffffff; font-size:13.5px; flex-wrap:wrap; justify-content:flex-end;">
+      <div style="display:flex; align-items:center; gap:10px; color:var(--text); font-size:13.5px; flex-wrap:wrap; justify-content:flex-end;">
         <span>Welcome, <strong style="color:var(--gold);">${user.username}</strong></span>
         <span class="wallet-chip" data-wallet-chip style="margin:0;">₹ ${getWallet().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         <a href="${prefix}cashier.html" style="background:var(--gold, #c9a054); color:#000; font-weight:800; font-size:12px; padding:6px 12px; border-radius:4px; text-decoration:none; display:inline-flex; align-items:center; gap:4px; box-shadow:0 0 12px rgba(201,160,84,0.4);">💰 Deposit</a>
-        <a href="#" onclick="handleHeaderLogout(event)" style="color:#ff5d5d; font-weight:700; text-decoration:none; font-size:12.5px; border-left:1px solid rgba(255,255,255,0.2); padding-left:10px;">Logout ⎋</a>
+        <a href="#" onclick="handleHeaderLogout(event)" style="color:var(--red); font-weight:700; text-decoration:none; font-size:12.5px; border-left:1px solid var(--border); padding-left:10px;">Logout ⎋</a>
       </div>
     `;
   } else {
     authArea.innerHTML = `
       <div class="header-guest-wrap" style="display:flex; align-items:center; gap:8px;">
-        <button type="button" class="btn btn-ghost header-login-btn" onclick="openAuthModal('login')" style="padding:6px 14px; font-size:13px; font-weight:700; border:1px solid rgba(255,255,255,0.3); border-radius:4px; color:#ffffff; background:rgba(255,255,255,0.08); cursor:pointer; transition:all 0.2s;">Log In</button>
-        <button type="button" class="btn btn-primary header-signup-btn" onclick="openAuthModal('signup')" style="padding:6px 14px; font-size:13px; font-weight:800; background:#c8102e; color:#ffffff; border:none; border-radius:4px; cursor:pointer; box-shadow:0 0 12px rgba(200,16,46,0.5); transition:all 0.2s;">Sign Up</button>
+        <button type="button" class="btn btn-ghost header-login-btn" onclick="openAuthModal('login')" style="padding:6px 14px; font-size:13px; font-weight:700; border:1px solid var(--border); border-radius:4px; color:var(--text); background:var(--surface-2); cursor:pointer; transition:all 0.2s;">Log In</button>
+        <button type="button" class="btn btn-primary header-signup-btn" onclick="openAuthModal('signup')" style="padding:6px 14px; font-size:13px; font-weight:800; background:var(--red); color:#ffffff; border:none; border-radius:4px; cursor:pointer; box-shadow:0 0 12px var(--red-soft); transition:all 0.2s;">Sign Up</button>
       </div>
     `;
   }
