@@ -6,9 +6,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 "bet1x" is a multi-game prediction/casino web platform: color prediction (Sapre/Becone/Emred/VIP rooms),
 an Aviator-style crash game, Teen Patti, Mines, plus a cashier (deposit/withdraw) and an admin dashboard
-for house control. (The platform previously also included two cricket games — "Your Eleven" fantasy
-cricket and "Boundary Baazi" cricket betting, wired to the cricketdata.org live match API — but both were
-fully removed, including their backend routes, admin rigging consoles, and cricketdata.org integration.)
+for house control. Two cricket games — "Your 11" fantasy cricket and "Boundary Baazi" ball-by-ball
+prediction — are being **rebuilt** from scratch in `backend/lib/cricket/` against the Roanuz push
+feed. An earlier pair of cricket games on the cricketdata.org API was fully removed first, so no code
+is shared with them and nothing about that older integration still applies. The rebuild is additive
+and gated behind `CRICKET_ENABLED`: with the flag off, not one route is mounted and not one timer
+starts. See `docs/CRICKET-BUILD-BRIEF.md` (the live progress tracker), `docs/YOUR11-SCOPE.md` and
+`docs/PHASE0-AUDIT.md`.
+
+Inside `backend/lib/cricket/`, one shared pipeline feeds both games: `collector.js` (the single push
+webhook) writes every ball to a permanent append-only log (`event-log.js`), and `live-state.js`
+rebuilds all derived state by **recomputing from the whole log on every update**, never by
+incrementing — which is what makes a dropped or out-of-order delivery harmless. On top of that sit
+`contests.js` + `scoring.js` + `credits.js` + `house-entry.js` (Your 11) and `boundary.js` (Boundary
+Baazi). Every tunable number lives in `config-store.js` and reports as awaiting client sign-off until
+an operator edits it. Only Your 11 has a house-edge path, keyed `youreleven`; Boundary Baazi is a
+parimutuel pool with no house position, so it has no rig path at all and `test_rigging.js` asserts
+that positively.
 The `README.md` describes an earlier "pitch demo, no backend" mode (pure HTML/CSS/JS with localStorage);
 the repo has since grown a real backend, so treat the README's "no backend" framing as historical/optional
 rather than how the app currently runs.
@@ -23,9 +37,9 @@ rather than how the app currently runs.
 - **Prisma** (schema at `backend/prisma/schema.prisma`, needs `DATABASE_URL` in `backend/.env`):
   `cd backend && npx prisma generate`, `npx prisma migrate dev`, `npx prisma studio`. The server boots and
   runs fine even without a reachable Postgres — see the JSON-fallback note below.
-- **Tests**: two standalone suites, no Jest/Mocha — each boots the Express app in-process on an
-  ephemeral port and drives it over real HTTP, writing to whatever `DATABASE_URL` points at (use a
-  development database).
+- **Tests**: three standalone suites, no Jest/Mocha. The first two boot the Express app in-process on
+  an ephemeral port and drive it over real HTTP, writing to whatever `DATABASE_URL` points at (use a
+  development database); the third needs neither a server nor a database.
   - `npm test` (`backend/test_backend.js`) — security/regression: token forgery, cross-account wallet
     access, unauthenticated admin and rig endpoints, double-spend races, and static exposure of
     `.env`/`.git`/PHP source. Fast.
@@ -33,6 +47,45 @@ rather than how the app currently runs.
     every game, checking the wallet arithmetic after each step, plus the deposit/withdrawal approval
     lifecycle. It waits on the real game loops (30s colour rounds, Aviator's flight), so budget about
     two minutes.
+  - `npm run test:rig` (`backend/test_rigging.js`) — the house-edge engine: asserts that a configured
+    percentage actually means that proportion, in the right unit for each game (live tables for Teen
+    Patti, per-room cycles for Colour Prediction, rounds for Aviator, live players for Mines), that no
+    room/table/player is starved or favoured, and that disabling the bot stops everything. Drives the
+    engine functions directly via `require('./server.js')._houseEdgeInternals`, so it runs in about a
+    second. This is the suite that would have caught the historical "configured 50% behaved like 80%"
+    bugs; add a case here before changing anything in the takeover engine.
+  - `npm run test:cricket` (`backend/test_cricket.js`) — the cricket pipeline and the Your 11 money
+    maths. Needs neither a server nor a database: it drives the modules directly against an
+    in-memory store. Asserts the guarantee the whole design rests on (a shuffled, duplicated event
+    stream produces byte-identical state), extras/wicket-attribution arithmetic, webhook signature
+    rejection, the 90-second stall detector, and — for contests — prize-table validation, lineup
+    legality, tie-aware ranking, and that allocated prizes always total exactly the pool.
+  - `npm run test:cricket:e2e` (`backend/test_cricket_e2e.js`) — both cricket games played over real
+    HTTP against a real Express app, wallet and database, with `CRICKET_ENABLED` forced on and a
+    simulated push feed hitting the actual (unsigned, dev-mode) webhook route — the same kind of
+    full-journey check `test_e2e.js` does for the other games, which didn't exist for cricket before
+    2026-08-24. Covers the confirmed-XI auto-substitution end to end (two independent entries, one
+    of them budget-constrained), the Boundary Baazi lock/resolve cycle including a wide colliding
+    with its own legal re-bowl, the innings-break transition, the reconciliation hold on
+    `match_end` and an operator's forced settle past it, and settlement idempotency — reconciling
+    every wallet balance to the paisa throughout. Also proves the OTHER Roanuz delivery shape (a
+    real gzip-compressed full-match snapshot, redelivered to check idempotency) over the real
+    webhook route. Needs a real dev database; run it before trusting a change to either game's
+    money path.
+  - `node backend/cricket_validate.js --demo` — a self-verifying demo of the Section 9 parallel-run
+    validation harness (`backend/lib/cricket/parallel-validation.js`), built before there was any
+    live match to point it at. `node backend/cricket_validate.js <fixtureKey>` runs it for real once
+    a fixture has recorded ball events and an `official_scorecard`.
+- **Cricket has no paid Roanuz access yet, so the whole pipeline is built to make that a non-issue.**
+  `backend/lib/cricket/roanuz.js` never calls `fetch` directly — every call goes through
+  `roanuz-transport.js`'s `HttpTransport` (real network) or `MockTransport` (canned,
+  documentation-shaped responses, no network). `config.ROANUZ_TRANSPORT` picks between them and, left
+  unset, resolves itself from whether `ROANUZ_API_TOKEN`/`ROANUZ_PROJECT_KEY` are set — dropping in
+  real credentials is the entire flip from mock to live. `snapshot-adapter.js` similarly adapts
+  Roanuz's documented full-match-state push payload into the discrete per-ball events the rest of
+  the pipeline already expects, at the boundary, so nothing downstream needed to change. See the
+  2026-08-24 amendments in `docs/CRICKET-BUILD-BRIEF.md` for what's confirmed against Roanuz's real
+  docs vs. still a documented best guess, and that file's Section 12 for the exact go-live checklist.
 - No bundler/build step for the frontend — pages are plain HTML/CSS/JS served as-is.
 
 ## Architecture
@@ -74,8 +127,28 @@ as the primary store, but nearly every DB call is wrapped in try/catch that fall
 usable with zero database setup.
 
 **House-edge "bot takeover" system**: `botTakeoverState` holds per-game (and one global) admin toggles with a
-profit percentage; `shouldBotRigThisRound(gameKey)` uses a deterministic per-game round counter (not RNG) so
-that, e.g., a 90% setting rigs exactly 9 of every 10 rounds. Aviator's crash point, Color Prediction's
+profit percentage. A game key absent from `botTakeoverState` is never active — not even under the
+global switch — which is both what stops a URL-supplied `:gameKey` typo drawing real rig decisions
+and what guarantees Boundary Baazi has no rig path. The percentage is applied in whichever unit is actually concurrent for that game, which
+differs per game and is the thing to get right when touching any of this:
+- **Aviator** — one global round and one tick loop, so there are no concurrent instances; the percentage
+  applies to successive rounds via `shouldBotRigThisRound('aviator')`, a bucketed 100-slot bag (not RNG)
+  that is exact over every cycle and avoids local clustering. When a round is rigged,
+  `pickAviatorCrashPoint` sets the crash point from the stake actually exposed, and an in-flight erosion
+  check crashes the moment a cash-out starts eating the round's profit. Both can only lower a crash point,
+  never raise one, and `AVIATOR_SMART_CRASH=false` reverts to the original fixed random band.
+- **Colour Prediction** — four rooms on 30s/60s/180s/300s clocks, each drawing from its **own** 100-slot
+  cycle (`shouldBotRigThisRound('color_guess', 'color_guess:<room>')`), so the fast room cannot consume the
+  slow room's rigged slots. `calculateColorOptimalOutcome` then picks the genuinely max-profit number.
+- **Teen Patti** — six concurrent tables, so the percentage means *tables*: `refreshInstanceTargeting`
+  selects P% of the tables that currently have a real player, and being selected **is** the rig decision.
+  There is deliberately no second probability roll and no separate room-arming pass — stacking two
+  percentage mechanisms here is what once turned a configured 50% into "8 of 10 games".
+- **Mines** — one board per player, so a live player *is* a live game; `refreshBotTargeting` picks P% of
+  live players and every reveal by a targeted player busts.
+
+`GET /api/admin/rig-audit` (admin-only) reports observed-vs-configured percentages per game and per room
+from `backend/lib/rig-audit.js`, which records every decision as it happens. Aviator's crash point, Color Prediction's
 winning number, and Teen Patti's winning seat all consult this before resolving a round. `admin.html` is the
 control surface for these toggles/overrides, exposed via `/api/bot_status/:gameKey` and
 `/api/bot_decide/:gameKey`, and per-game admin rig endpoints (e.g. `/api/mines/admin/rig`,

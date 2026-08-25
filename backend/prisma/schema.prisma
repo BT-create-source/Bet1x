@@ -134,3 +134,232 @@ model GameBet {
   @@index([username, game])
   @@index([game, status])
 }
+
+// =================================================================================================
+// CRICKET — shared pipeline for Your 11 and Boundary Baazi
+//
+// Everything below is additive; no model above is altered. Per-game config (scoring rules, credit
+// weights, house-entry trajectory bands) is NOT modelled here — it lives in the existing GameState
+// table under `cricket:*` keys, which is already this codebase's idiom for editable game config.
+//
+// Note: run `npx prisma validate`, not `npx prisma format`, on this file. The formatter reflows
+// whitespace across every model including the pre-existing ones, which produces a noisy diff for no
+// semantic gain.
+// =================================================================================================
+
+/// One match. Keyed by the provider's own match key, never by date+teams, so a rescheduled fixture
+/// updates this row instead of creating a duplicate.
+model CricketFixture {
+  key                  String    @id                       // Roanuz match key
+  tournament_key       String
+  name                 String
+  short_name           String?
+  format               String                              // T20 | ODI | TEST | T10
+  venue                String?
+  team_a_key           String
+  team_a_name          String
+  team_b_key           String
+  team_b_name          String
+  start_time           DateTime
+  status               String    @default("scheduled")     // scheduled|toss|live|completed|abandoned
+  toss_at              DateTime?
+  lineups_confirmed_at DateTime?                           // teams lock on THIS, never on a timer
+  completed_at         DateTime?
+  last_event_at        DateTime?                           // drives the stall monitor
+  official_scorecard   Json?                               // settlement reconciliation reference
+  editorial            Json?                               // admin-authored pitch report / weather / news
+  created_at           DateTime  @default(now())
+  updated_at           DateTime  @updatedAt
+
+  squad    CricketSquadPlayer[]
+  events   CricketBallEvent[]
+  credits  CricketPlayerCredit[]
+  contests CricketContest[]
+  boundary BoundaryRound[]
+
+  @@index([tournament_key, start_time])
+  @@index([status, start_time])
+}
+
+/// Full announced squad. `in_confirmed_xi` is set only by the toss event from the push feed — the
+/// squad list alone never gates a team lock.
+model CricketSquadPlayer {
+  id              Int      @id @default(autoincrement())
+  fixture_key     String
+  player_key      String
+  name            String
+  role            String                                   // WK | BAT | AR | BOWL
+  team_key        String
+  in_confirmed_xi Boolean  @default(false)
+  is_substitute   Boolean  @default(false)                 // IPL Impact Player
+  batting_style   String?
+  bowling_style   String?
+  updated_at      DateTime @updatedAt
+
+  fixture CricketFixture @relation(fields: [fixture_key], references: [key])
+
+  @@unique([fixture_key, player_key])
+  @@index([fixture_key, role])
+}
+
+/// The permanent, append-only ball event log.
+///
+/// Rows here are never updated and never deleted. The provider retains only 8 weeks of history on
+/// the Standard licence, so this is the sole durable record — every score, every fantasy point and
+/// every settlement is recomputed from it. `event_id` is the provider's own id, which makes a
+/// duplicate delivery a no-op rather than a double-write.
+///
+/// This model has no JSON-file fallback: `writeJsonTable` rewrites a whole file per write, which is
+/// the wrong shape for a permanently growing log. Routes touching it use `requireDatabase`.
+model CricketBallEvent {
+  id          Int      @id @default(autoincrement())
+  event_id    String   @unique                             // provider event id — the dedupe key
+  fixture_key String
+  event_type  String                                       // ball|toss|lineup|innings_break|match_end
+  innings     Int?
+  over        Int?
+  ball        Int?
+  sequence    Int?                                         // provider ordering, when supplied
+  payload     Json
+  received_at DateTime @default(now())
+
+  fixture CricketFixture @relation(fields: [fixture_key], references: [key])
+
+  @@index([fixture_key, innings, over, ball])
+  @@index([fixture_key, received_at])
+  @@index([fixture_key, event_type])
+}
+
+/// Per-player, per-match credit price. Computed by the in-house algorithm; `source` records when an
+/// operator has overridden it, so a mispriced player is fixed by editing a number, not a redeploy.
+model CricketPlayerCredit {
+  id          Int      @id @default(autoincrement())
+  fixture_key String
+  player_key  String
+  credits     Float
+  source      String   @default("algo")                    // algo | admin_override
+  updated_by  String?
+  updated_at  DateTime @updatedAt
+
+  fixture CricketFixture @relation(fields: [fixture_key], references: [key])
+
+  @@unique([fixture_key, player_key])
+}
+
+/// A Your 11 contest. `settled_at` is the idempotency claim for settlement: it is taken with a
+/// conditional updateMany, so a second settlement run pays nothing.
+model CricketContest {
+  id                   String    @id @default(uuid())
+  fixture_key          String
+  name                 String
+  format               String                              // h2h|winner_takes_all|practice|small|mega|private
+  entry_fee            Float
+  rake_pct             Float
+  prize_breakup        Json                                // [{from,to,pct}] — validated to sum to 100
+  min_entrants         Int       @default(2)
+  max_entrants         Int
+  max_entries_per_user Int       @default(1)
+  guaranteed           Boolean   @default(false)           // false = fill-or-cancel, the default policy
+  guaranteed_pool      Float     @default(0)                // advertised pool a guaranteed contest pays even if it under-fills
+  invite_code          String?   @unique                   // private contests only
+  created_by           String?                             // private contests only
+  status               String    @default("open")          // open|locked|settled|voided
+  settled_at           DateTime?
+  voided_at            DateTime?
+  void_reason          String?
+  house_decided        Boolean   @default(false)           // the rig bag has been drawn for this contest
+  house_rigged         Boolean   @default(false)           // ...and it came up rigged
+  created_at           DateTime  @default(now())
+  updated_at           DateTime  @updatedAt
+
+  fixture CricketFixture @relation(fields: [fixture_key], references: [key])
+  entries CricketEntry[]
+
+  @@index([fixture_key, status])
+  @@index([status])
+}
+
+/// One team entered into one contest. `paid_at` is a per-entry idempotency claim so a crash halfway
+/// through a large payout resumes without paying the first half twice.
+model CricketEntry {
+  id           String    @id @default(uuid())
+  contest_id   String
+  username     String
+  team_name    String
+  players      Json                                        // [player_key] — always exactly 11
+  captain      String
+  vice_captain String
+  credits_used Float
+  points       Float     @default(0)
+  rank         Int?
+  prize        Float     @default(0)
+  paid_at      DateTime?
+  is_house     Boolean   @default(false)                   // the takeover engine's entrant
+  display_name String?                                           // leaderboard name; the house entry's must be indistinguishable
+  entry_index  Int       @default(1)                       // nth team by this user in this contest
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  contest CricketContest @relation(fields: [contest_id], references: [id])
+
+  @@unique([contest_id, username, entry_index])
+  @@index([contest_id, points])
+  @@index([username])
+}
+
+/// One Boundary Baazi market: the prediction on a single delivery.
+///
+/// `delivery_key` is "innings:over:ball" and is unique per fixture, so a redelivered feed message
+/// finds the existing round instead of opening a second market on the same ball.
+///
+/// The status machine is the scoring-integrity mechanism, not bookkeeping. A round accepts stakes
+/// only while `open`; it moves to `locked` on the feed's own ball-start event, never on a timer.
+/// A broadcast runs seconds behind the feed, so a time-based lock would let someone betting off a
+/// delayed stream answer after already seeing the outcome.
+model BoundaryRound {
+  id           String    @id @default(uuid())
+  fixture_key  String
+  delivery_key String                                        // innings:over:ball
+  innings      Int
+  over         Int
+  ball         Int
+  question     String
+  options      Json                                          // [{ key, label }]
+  rake_pct     Float
+  status       String    @default("open")                    // open|locked|resolved|voided
+  outcome      String?                                       // the winning option key
+  pool         Float     @default(0)
+  rake         Float     @default(0)
+  paid         Float     @default(0)
+  locked_at    DateTime?
+  resolved_at  DateTime?                                     // the idempotency claim for settlement
+  voided_at    DateTime?
+  void_reason  String?
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  fixture CricketFixture @relation(fields: [fixture_key], references: [key])
+  bets    BoundaryBet[]
+
+  @@unique([fixture_key, delivery_key])
+  @@index([fixture_key, status])
+}
+
+/// One stake on one option. `paid_at` is a per-bet idempotency claim, so a crash partway through
+/// paying out a delivery resumes without paying the same bet twice.
+model BoundaryBet {
+  id         String    @id @default(uuid())
+  round_id   String
+  username   String
+  option_key String
+  stake      Float
+  payout     Float     @default(0)
+  won        Boolean   @default(false)
+  paid_at    DateTime?
+  created_at DateTime  @default(now())
+
+  round BoundaryRound @relation(fields: [round_id], references: [id])
+
+  @@index([round_id, option_key])
+  @@index([username])
+}

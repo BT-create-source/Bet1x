@@ -4,7 +4,7 @@
     "username": "DemoUser",
     "email": "demouser@bet1x.com",
     "password": "$2a$10$e8wFp1Oa8zZkK9wQn3kU2.Pj4d/cT6aG7h9I1kLmNoPqRsTuVwXyZ",
-    "wallet_balance": 2000.0,
+    "wallet_balance": 2000,
     "created_at": "2026-08-15 12:00:00"
   },
   {
@@ -12,7 +12,63 @@
     "username": "admin",
     "email": "admin@bet1x.com",
     "password": "$2a$10$e8wFp1Oa8zZkK9wQn3kU2.Pj4d/cT6aG7h9I1kLmNoPqRsTuVwXyZ",
-    "wallet_balance": 10000.0,
+    "wallet_balance": 10000,
     "created_at": "2026-08-15 12:00:00"
+  },
+  {
+    "id": 3,
+    "username": "samt2zfo6rp32",
+    "email": "samt2zfo6rp32@example.com",
+    "password": "$2b$12$X31v/cegYLdjzbk3qel2GOm/8oY3B3UdW/ftrq4Y.fYlB6zgmTlAa",
+    "wallet_balance": 2000,
+    "created_at": "2026-08-21T13:26:17.992Z"
+  },
+  {
+    "id": 4,
+    "username": "samt31puscp56",
+    "email": "samt31puscp56@example.com",
+    "password": "$2b$12$qv44Xnj/LxVYTCHWvWq0L.3RBBMAg3aZJAej3RFDc4DcjWNWtCqJK",
+    "wallet_balance": 2000,
+    "created_at": "2026-08-21T14:30:24.461Z"
+  },
+  {
+    "id": 5,
+    "username": "samt31puscp57",
+    "email": "samt31puscp57@example.com",
+    "password": "$2b$12$z.VuFvhZus9i27J8gL1vfeNutynbpSH.aaeus0JeRtLOEBKnErTUi",
+    "wallet_balance": 2000,
+    "created_at": "2026-08-21T14:30:24.478Z"
+  },
+  {
+    "id": 6,
+    "username": "samt31puscp59",
+    "email": "samt31puscp59@example.com",
+    "password": "$2b$12$Ex4gRi1ZPRGaqcAek1y7seHSymecNrF/VD/A5DLYLSRbKC.nTDgoy",
+    "wallet_balance": 2000,
+    "created_at": "2026-08-21T14:30:25.775Z"
+  },
+  {
+    "id": 7,
+    "username": "samt31puscp58",
+    "email": "samt31puscp58@example.com",
+    "password": "$2b$12$TsA86z0RZSt1RKx10ZXyXemqoh0IYM3wAt3cQuZH0mgj2hgK.c9a6",
+    "wallet_balance": 2000,
+    "created_at": "2026-08-21T14:30:25.796Z"
+  },
+  {
+    "id": 8,
+    "username": "samt327idcp09",
+    "email": "samt327idcp09@example.com",
+    "password": "$2b$12$5iwd4GA3V1yi7xsv13vDF.mG8XZGVqtTCtfrBn3C4cizKdKt3OEa6",
+    "wallet_balance": 2000,
+    "created_at": "2026-08-21T14:43:40.288Z"
+  },
+  {
+    "id": 9,
+    "username": "samt327idcp08",
+    "email": "samt327idcp08@example.com",
+    "password": "$2b$12$YbN6HI45RASszkmUbOCqgeIZ7p8bcqC8v/41y9EtOmuIdczhjTVk6",
+    "wallet_balance": 2000,
+    "created_at": "2026-08-21T14:43:40.309Z"
   }
 ]

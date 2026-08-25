@@ -302,6 +302,7 @@
         <button class="admin-tab-btn" onclick="switchAdminTab('transactions', this)">All Transaction Logs</button>
         <button class="admin-tab-btn" onclick="switchAdminTab('wagers', this)">Game Betting History</button>
         <button class="admin-tab-btn active" onclick="switchAdminTab('cheats', this)">Outcome Bias Console</button>
+        <button class="admin-tab-btn" onclick="switchAdminTab('cricket', this)">Cricket Ops</button>
       </div>
 
       <!-- Tab: Pending UPI Deposits -->
@@ -880,6 +881,114 @@
       </div>
 
     </div> <!-- End of admin-cheats -->
+
+    <!-- Tab 6: Cricket Ops (Your 11 + Boundary Baazi) -->
+    <div id="admin-cricket" class="admin-content">
+      <h3 style="margin-bottom:12px; font-size:16px;">Cricket Pipeline Operations</h3>
+      <p style="font-size:12.5px; color:var(--text-dim); margin-bottom:16px;">
+        Everything below is a no-op unless the backend has <code>CRICKET_ENABLED=true</code>. Fixtures
+        and contests can be created by hand here, so the whole Your 11 / Boundary Baazi pipeline is
+        testable end-to-end before Roanuz credentials exist.
+      </p>
+
+      <div id="cricketHealthBox" class="card" style="margin-bottom:18px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>Feed health</strong>
+          <button class="btn btn-ghost" onclick="cricketLoadHealth()">Refresh</button>
+        </div>
+        <pre id="cricketHealthOut" style="margin-top:10px; font-size:12px; white-space:pre-wrap; color:var(--text-dim);">Not loaded yet.</pre>
+      </div>
+
+      <div class="card" style="margin-bottom:18px;">
+        <strong>Hand-create a fixture</strong>
+        <p style="font-size:11.5px; color:var(--text-dim);">Needed for testing without Roanuz credentials — status/lineups still only ever come from the push feed or the manual lock override below.</p>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; margin-top:10px;">
+          <input id="cfKey" class="cashier-input" placeholder="Fixture key (unique)">
+          <input id="cfFormat" class="cashier-input" placeholder="Format (T20/ODI/TEST)" value="T20">
+          <input id="cfVenue" class="cashier-input" placeholder="Venue">
+          <input id="cfStart" class="cashier-input" type="datetime-local">
+          <input id="cfTeamAKey" class="cashier-input" placeholder="Team A key">
+          <input id="cfTeamAName" class="cashier-input" placeholder="Team A name">
+          <input id="cfTeamBKey" class="cashier-input" placeholder="Team B key">
+          <input id="cfTeamBName" class="cashier-input" placeholder="Team B name">
+        </div>
+        <button class="btn btn-primary" style="margin-top:10px;" onclick="cricketCreateFixture()">Create fixture</button>
+      </div>
+
+      <div class="card" style="margin-bottom:18px;">
+        <strong>Roanuz sync</strong>
+        <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; align-items:center;">
+          <button class="btn btn-ghost" onclick="cricketSyncFixtures()">Sync fixtures (all configured tournaments)</button>
+          <input id="cfSyncSquadKey" class="cashier-input" placeholder="Fixture key" style="max-width:220px;">
+          <button class="btn btn-ghost" onclick="cricketSyncSquad()">Sync squad</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:18px;">
+        <strong>Create a contest</strong>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; margin-top:10px;">
+          <input id="ccFixtureKey" class="cashier-input" placeholder="Fixture key">
+          <input id="ccName" class="cashier-input" placeholder="Contest name">
+          <select id="ccFormat" class="cashier-input">
+            <option value="small">Small League</option>
+            <option value="h2h">Head to Head</option>
+            <option value="winner_takes_all">Winner Takes All</option>
+            <option value="mega">Mega Contest</option>
+            <option value="practice">Practice (free)</option>
+          </select>
+          <input id="ccFee" class="cashier-input" type="number" placeholder="Entry fee" value="50">
+          <input id="ccRake" class="cashier-input" type="number" placeholder="Rake %" value="15">
+          <input id="ccMax" class="cashier-input" type="number" placeholder="Max entrants" value="10">
+          <input id="ccMin" class="cashier-input" type="number" placeholder="Min entrants" value="2">
+          <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-dim);">
+            <input id="ccGuaranteed" type="checkbox"> Guaranteed pool
+          </label>
+          <input id="ccGuaranteedPool" class="cashier-input" type="number" placeholder="Guaranteed pool (if checked)">
+        </div>
+        <textarea id="ccPrizeBreakup" class="cashier-input" style="margin-top:10px; width:100%; min-height:60px; font-family:var(--font-mono);">[{"from":1,"to":1,"pct":50},{"from":2,"to":2,"pct":30},{"from":3,"to":3,"pct":20}]</textarea>
+        <button class="btn btn-primary" style="margin-top:10px;" onclick="cricketCreateContest()">Create contest</button>
+      </div>
+
+      <div class="card" style="margin-bottom:18px;">
+        <strong>Contest actions</strong>
+        <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; align-items:center;">
+          <input id="caContestId" class="cashier-input" placeholder="Contest ID" style="max-width:260px;">
+          <button class="btn btn-ghost" onclick="cricketContestAction('lock')">Lock (fixture-wide)</button>
+          <button class="btn btn-ghost" onclick="cricketContestAction('settle')">Settle</button>
+          <button class="btn btn-gold" onclick="cricketContestAction('settle', true)">Settle (force)</button>
+          <button class="btn btn-ghost" onclick="cricketContestAction('void')">Void</button>
+          <button class="btn btn-gold" onclick="cricketContestAction('house')">Force house entry</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:18px;">
+        <strong>Boundary Baazi</strong>
+        <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; align-items:center;">
+          <input id="cbFixtureKey" class="cashier-input" placeholder="Fixture key" style="max-width:220px;">
+          <button class="btn btn-ghost" onclick="cricketVoidBoundary()">Void open rounds</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:18px;">
+        <strong>Settlement validation</strong>
+        <p style="font-size:11.5px; color:var(--text-dim);">Roanuz has no confirmed field for a final scorecard yet, so this is how one gets recorded until that's checked against a live match (see Section 12 step 8 of the build brief): paste the provider's own post-match scorecard here, then validate the engine's computed score against it before trusting auto-settlement.</p>
+        <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; align-items:center;">
+          <input id="svFixtureKey" class="cashier-input" placeholder="Fixture key" style="max-width:220px;">
+          <button class="btn btn-ghost" onclick="cricketValidateFixture()">Validate</button>
+        </div>
+        <textarea id="svScorecard" class="cashier-input" style="width:100%; min-height:100px; font-family:var(--font-mono); font-size:11.5px; margin-top:10px;" placeholder='{"players": {"player_key": {"runs": 42, "balls_faced": 30, "wickets": 0, "runs_conceded": 0}}}'></textarea>
+        <button class="btn btn-gold" style="margin-top:6px;" onclick="cricketRecordScorecard()">Record official scorecard</button>
+      </div>
+
+      <div class="card" style="margin-bottom:18px;">
+        <strong>Config sign-off</strong>
+        <p style="font-size:11.5px; color:var(--text-dim);">Every section ships with placeholder values (Ground Rule 6). Saving marks a section signed off.</p>
+        <div id="cricketConfigList" style="display:flex; flex-direction:column; gap:14px; margin-top:10px;"></div>
+      </div>
+
+      <pre id="cricketOpsOut" style="font-size:12px; white-space:pre-wrap; color:var(--text-dim); background:var(--bg-soft); border-radius:8px; padding:10px;">Actions log here.</pre>
+    </div>
+
   </div> <!-- End of admin-card -->
 
   </div>
@@ -1083,6 +1192,159 @@
         if (typeof updateAviatorBiasUI === 'function') updateAviatorBiasUI();
         if (typeof fetchMinesActiveUsers === 'function') fetchMinesActiveUsers();
       }
+
+      if (tabId === 'cricket' && typeof cricketOpsInit === 'function') cricketOpsInit();
+    }
+
+    // ---------------------------------------------------------------------------------------- Cricket Ops
+    let cricketOpsLoaded = false;
+    function cricketOpsInit() {
+      if (cricketOpsLoaded) return;
+      cricketOpsLoaded = true;
+      cricketLoadHealth();
+      cricketLoadConfig();
+    }
+
+    function cricketLog(label, data) {
+      const out = document.getElementById('cricketOpsOut');
+      out.textContent = '[' + new Date().toLocaleTimeString() + '] ' + label + '\n' + JSON.stringify(data, null, 2);
+    }
+
+    async function cricketApiGet(path) {
+      const res = await fetch(path);
+      const data = await res.json().catch(() => ({}));
+      return data;
+    }
+    async function cricketApiPost(path, body) {
+      const res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+      const data = await res.json().catch(() => ({}));
+      return data;
+    }
+
+    async function cricketLoadHealth() {
+      const data = await cricketApiGet('api/cricket/admin/health');
+      document.getElementById('cricketHealthOut').textContent = JSON.stringify(data, null, 2);
+    }
+
+    async function cricketCreateFixture() {
+      const startRaw = document.getElementById('cfStart').value;
+      const data = await cricketApiPost('api/cricket/admin/fixtures', {
+        key: document.getElementById('cfKey').value.trim(),
+        format: document.getElementById('cfFormat').value.trim(),
+        venue: document.getElementById('cfVenue').value.trim(),
+        start_time: startRaw ? new Date(startRaw).toISOString() : null,
+        team_a_key: document.getElementById('cfTeamAKey').value.trim(),
+        team_a_name: document.getElementById('cfTeamAName').value.trim(),
+        team_b_key: document.getElementById('cfTeamBKey').value.trim(),
+        team_b_name: document.getElementById('cfTeamBName').value.trim()
+      });
+      cricketLog('create fixture', data);
+    }
+
+    async function cricketSyncFixtures() {
+      const data = await cricketApiPost('api/cricket/admin/sync-fixtures');
+      cricketLog('sync fixtures', data);
+    }
+    async function cricketSyncSquad() {
+      const key = document.getElementById('cfSyncSquadKey').value.trim();
+      const data = await cricketApiPost('api/cricket/admin/sync-squad/' + encodeURIComponent(key));
+      cricketLog('sync squad', data);
+    }
+
+    async function cricketCreateContest() {
+      let breakup = [];
+      try { breakup = JSON.parse(document.getElementById('ccPrizeBreakup').value); } catch (e) {
+        cricketLog('create contest', { ok: false, error: 'Prize breakup is not valid JSON.' });
+        return;
+      }
+      const guaranteed = document.getElementById('ccGuaranteed').checked;
+      const data = await cricketApiPost('api/cricket/admin/contests', {
+        fixture_key: document.getElementById('ccFixtureKey').value.trim(),
+        name: document.getElementById('ccName').value.trim() || 'Contest',
+        format: document.getElementById('ccFormat').value,
+        entry_fee: Number(document.getElementById('ccFee').value),
+        rake_pct: Number(document.getElementById('ccRake').value),
+        max_entrants: Number(document.getElementById('ccMax').value),
+        min_entrants: Number(document.getElementById('ccMin').value),
+        guaranteed,
+        guaranteed_pool: guaranteed ? Number(document.getElementById('ccGuaranteedPool').value) : 0,
+        prize_breakup: breakup
+      });
+      cricketLog('create contest', data);
+    }
+
+    async function cricketContestAction(action, force) {
+      const id = document.getElementById('caContestId').value.trim();
+      if (!id) { cricketLog(action, { ok: false, error: 'Enter a contest ID first.' }); return; }
+      let data;
+      if (action === 'lock') {
+        // Lock is fixture-wide (locks every open contest on the fixture), so this reuses the
+        // fixture key field the contest form above already has filled in.
+        const fixtureKey = document.getElementById('ccFixtureKey').value.trim();
+        data = await cricketApiPost('api/cricket/admin/fixtures/' + encodeURIComponent(fixtureKey) + '/lock');
+      } else if (action === 'settle') {
+        data = await cricketApiPost('api/cricket/admin/contests/' + encodeURIComponent(id) + '/settle', { force: !!force });
+      } else if (action === 'void') {
+        data = await cricketApiPost('api/cricket/admin/contests/' + encodeURIComponent(id) + '/void', { reason: 'operator_console' });
+      } else if (action === 'house') {
+        data = await cricketApiPost('api/cricket/admin/contests/' + encodeURIComponent(id) + '/house');
+      }
+      cricketLog(action, data);
+    }
+
+    async function cricketVoidBoundary() {
+      const key = document.getElementById('cbFixtureKey').value.trim();
+      const data = await cricketApiPost('api/cricket/admin/boundary/' + encodeURIComponent(key) + '/void-open', { reason: 'operator_console' });
+      cricketLog('void boundary rounds', data);
+    }
+
+    async function cricketRecordScorecard() {
+      const key = document.getElementById('svFixtureKey').value.trim();
+      if (!key) { cricketLog('record scorecard', { ok: false, error: 'Enter a fixture key first.' }); return; }
+      let body;
+      try { body = JSON.parse(document.getElementById('svScorecard').value); } catch (e) {
+        cricketLog('record scorecard', { ok: false, error: 'Not valid JSON.' });
+        return;
+      }
+      const data = await cricketApiPost('api/cricket/admin/fixtures/' + encodeURIComponent(key) + '/scorecard', body);
+      cricketLog('record scorecard', data);
+    }
+
+    async function cricketValidateFixture() {
+      const key = document.getElementById('svFixtureKey').value.trim();
+      if (!key) { cricketLog('validate', { ok: false, error: 'Enter a fixture key first.' }); return; }
+      const data = await cricketApiGet('api/cricket/admin/validate/' + encodeURIComponent(key));
+      cricketLog('validate', data);
+    }
+
+    const CRICKET_CONFIG_SECTIONS = ['scoring', 'credits', 'contest', 'house', 'boundary'];
+    async function cricketLoadConfig() {
+      const box = document.getElementById('cricketConfigList');
+      box.innerHTML = '';
+      for (const key of CRICKET_CONFIG_SECTIONS) {
+        const data = await cricketApiGet('api/cricket/admin/config/' + key);
+        const value = data.value || {};
+        const row = document.createElement('div');
+        row.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <strong style="text-transform:capitalize;">${key}</strong>
+            <span class="badge ${value._signed_off ? 'won' : 'pending'}">${value._signed_off ? 'Signed off' : 'PLACEHOLDER — needs sign-off'}</span>
+          </div>
+          <textarea id="cricketCfg_${key}" class="cashier-input" style="width:100%; min-height:120px; font-family:var(--font-mono); font-size:11.5px; margin-top:6px;">${JSON.stringify(value, null, 2)}</textarea>
+          <button class="btn btn-gold" style="margin-top:6px;" onclick="cricketSaveConfig('${key}')">Save &amp; sign off</button>`;
+        box.appendChild(row);
+      }
+    }
+
+    async function cricketSaveConfig(key) {
+      let patch;
+      try { patch = JSON.parse(document.getElementById('cricketCfg_' + key).value); } catch (e) {
+        cricketLog('save config: ' + key, { ok: false, error: 'Not valid JSON.' });
+        return;
+      }
+      const data = await cricketApiPost('api/cricket/admin/config/' + key, patch);
+      cricketLog('save config: ' + key, data);
+      cricketLoadConfig();
     }
 
     function loadStats() {

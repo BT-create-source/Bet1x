@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your 11 — Fantasy Cricket — bet1x</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <script src="assets/js/dummy-data.js"></script>
+  <script src="assets/js/ui-common.js"></script>
+  <script src="assets/js/sound-fx.js"></script>
+  <style>
+    body { padding-bottom: 60px; }
+
+    .y11-wrap { max-width: var(--max-width); margin: 0 auto; padding: 16px; }
+
+    .y11-disabled-note {
+      max-width: var(--max-width); margin: 40px auto; padding: 24px; text-align: center;
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text-dim);
+    }
+
+    .y11-attribution {
+      text-align: center; font-size: 11px; color: var(--text-faint); padding: 16px 0 4px;
+    }
+
+    /* Fixture list */
+    .y11-fixture-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-top: 14px; }
+    .y11-fixture-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 16px; cursor: pointer; transition: transform .15s, border-color .15s;
+    }
+    .y11-fixture-card:hover { transform: translateY(-3px); border-color: var(--gold); }
+    .y11-fixture-teams { font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--text); }
+    .y11-fixture-meta { color: var(--text-dim); font-size: 12px; margin-top: 6px; }
+    .y11-status-row { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
+
+    /* Match header */
+    .y11-match-header {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 18px; margin-top: 14px;
+    }
+    .y11-back-link { color: var(--text-dim); font-size: 13px; text-decoration: none; }
+    .y11-back-link:hover { color: var(--gold); }
+
+    .y11-tabs { display: flex; gap: 4px; margin-top: 16px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+    .y11-tab {
+      background: none; border: none; color: var(--text-dim); font-family: var(--font-display);
+      font-weight: 600; font-size: 13.5px; padding: 10px 16px; cursor: pointer; white-space: nowrap;
+      border-bottom: 2px solid transparent;
+    }
+    .y11-tab.active { color: var(--text); border-bottom-color: var(--green); }
+    .y11-panel { display: none; padding-top: 16px; }
+    .y11-panel.active { display: block; }
+
+    /* Contest chips + cards */
+    .y11-chip-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    .y11-chip {
+      background: var(--surface-2); border: 1px solid var(--border); color: var(--text-dim);
+      padding: 6px 14px; border-radius: 20px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+    }
+    .y11-chip.active { background: var(--gold-soft); color: var(--gold); border-color: var(--gold); }
+
+    .y11-contest-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+    .y11-contest-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; }
+    .y11-contest-fmt { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--violet); }
+    .y11-contest-pool { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--gold); margin: 4px 0; }
+    .y11-contest-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+    .y11-progress-track { background: var(--bg); border-radius: 6px; height: 6px; margin-top: 10px; overflow: hidden; }
+    .y11-progress-fill { background: var(--green); height: 100%; }
+    .y11-contest-card .btn { margin-top: 12px; width: 100%; }
+
+    /* Team builder */
+    .y11-modal-overlay {
+      position: fixed; inset: 0; background: rgba(11,14,29,.85); backdrop-filter: blur(6px);
+      display: none; align-items: center; justify-content: center; z-index: 9999; padding: 16px;
+    }
+    .y11-modal-overlay.active { display: flex; }
+    .y11-modal-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      width: 100%; max-width: 720px; max-height: 90vh; overflow-y: auto; padding: 20px; position: relative;
+    }
+    .y11-modal-close { position: absolute; top: 14px; right: 16px; background: none; border: none; color: var(--text-dim); font-size: 24px; cursor: pointer; }
+
+    .y11-budget-bar { display: flex; justify-content: space-between; align-items: center; background: var(--bg-soft); border-radius: var(--radius-sm); padding: 10px 14px; margin: 12px 0; font-family: var(--font-mono); font-size: 13px; }
+    .y11-role-counts { display: flex; gap: 10px; flex-wrap: wrap; font-size: 11.5px; color: var(--text-dim); margin-bottom: 10px; }
+    .y11-role-counts span.ok { color: var(--green); }
+    .y11-role-counts span.bad { color: var(--red); }
+
+    .y11-player-list { max-height: 320px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+    .y11-player-row {
+      display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--border);
+      cursor: pointer;
+    }
+    .y11-player-row:last-child { border-bottom: none; }
+    .y11-player-row.selected { background: var(--green-soft); }
+    .y11-avatar {
+      width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 12px; color: #06210f; flex-shrink: 0;
+    }
+    .y11-player-name { flex: 1; font-size: 13px; }
+    .y11-player-sub { font-size: 10.5px; color: var(--text-dim); }
+    .y11-player-credits { font-family: var(--font-mono); font-size: 12.5px; color: var(--gold); }
+
+    .y11-cvc-grid { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+    .y11-cvc-chip { position: relative; text-align: center; cursor: pointer; width: 56px; }
+    .y11-cvc-chip .y11-avatar { width: 44px; height: 44px; margin: 0 auto; font-size: 14px; border: 3px solid transparent; }
+    .y11-cvc-chip.captain .y11-avatar { border-color: var(--gold); }
+    .y11-cvc-chip.vc .y11-avatar { border-color: var(--violet); }
+    .y11-cvc-chip .y11-tag { font-size: 9px; font-weight: 700; color: var(--text-dim); display: block; }
+    .y11-cvc-chip.captain .y11-tag { color: var(--gold); }
+    .y11-cvc-chip.vc .y11-tag { color: var(--violet); }
+
+    .y11-error { color: var(--red); font-size: 12.5px; margin-top: 8px; min-height: 16px; }
+
+    /* Points / scoreboard */
+    .y11-score-line { font-family: var(--font-display); font-size: 22px; font-weight: 700; color: var(--text); }
+    .y11-figures-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 10px; }
+    .y11-figures-table th { text-align: left; color: var(--text-dim); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+    .y11-figures-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); color: var(--text); }
+
+    /* Leaderboard */
+    .y11-my-rank { background: var(--gold-soft); border: 1px solid var(--gold); border-radius: var(--radius-sm); padding: 10px 14px; display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 10px; }
+    .y11-lb-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .y11-lb-table th { text-align: left; color: var(--text-dim); padding: 8px; border-bottom: 1px solid var(--border); }
+    .y11-lb-table td { padding: 8px; border-bottom: 1px solid var(--border); }
+    .y11-lb-table tr.mine { background: var(--green-soft); }
+    .y11-top3 { font-weight: 700; }
+
+    .y11-empty { color: var(--text-dim); font-size: 13px; padding: 24px; text-align: center; }
+
+    .y11-form-group { margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px; }
+    .y11-form-group label { font-size: 11.5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; }
+    .y11-form-group input, .y11-form-group select {
+      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      color: var(--text); padding: 10px 12px; font-size: 14px;
+    }
+    .y11-invite-code { font-family: var(--font-mono); font-size: 22px; letter-spacing: .1em; color: var(--gold); text-align: center; padding: 12px; background: var(--bg-soft); border-radius: var(--radius-sm); }
+  </style>
+</head>
+
+<body class="exchange-theme">
+
+  <nav class="navbar exchange-header">
+    <div style="display:flex; align-items:center; gap:12px;">
+      <div class="exchange-logo-box">bet1x<span>.com</span></div>
+    </div>
+    <div id="headerAuthArea"></div>
+  </nav>
+
+  <div class="sub-navbar">
+    <ul class="sub-navbar-links">
+      <li class="sub-navbar-item"><a href="index.html" class="sub-navbar-link">Home</a></li>
+      <li class="sub-navbar-item"><a href="aviator.html" class="sub-navbar-link">Vimaan</a></li>
+      <li class="sub-navbar-item"><a href="win.html" class="sub-navbar-link">Sapre</a></li>
+      <li class="sub-navbar-item"><a href="teenpatti.html" class="sub-navbar-link">Teen Patti</a></li>
+      <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
+      <li class="sub-navbar-item"><a href="youreleven.html" class="sub-navbar-link active">Your 11</a></li>
+      <li class="sub-navbar-item"><a href="boundarybaazi.html" class="sub-navbar-link">Boundary Baazi</a></li>
+    </ul>
+  </div>
+
+  <div class="y11-wrap">
+    <div id="disabledNote" class="y11-disabled-note" style="display:none;">
+      Your 11 isn't switched on for this deployment yet. An operator needs to set
+      <code>CRICKET_ENABLED=true</code> for the backend.
+    </div>
+
+    <!-- Fixtures view -->
+    <div id="viewFixtures">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-top:14px;">
+        <h2 style="margin:0; color:var(--text);">Upcoming &amp; Live Matches</h2>
+        <button class="btn btn-ghost" id="joinByCodeBtnTop" type="button">Join with invite code</button>
+      </div>
+      <div class="y11-fixture-grid" id="fixtureGrid"></div>
+      <div class="y11-empty" id="fixtureEmpty" style="display:none;">No matches are covered right now. Ask an operator to sync fixtures or create one for testing.</div>
+    </div>
+
+    <!-- Match view -->
+    <div id="viewMatch" style="display:none;">
+      <a href="#fixtures" class="y11-back-link">&larr; All matches</a>
+      <div class="y11-match-header" id="matchHeader"></div>
+
+      <div class="y11-tabs">
+        <button class="y11-tab active" data-tab="contests">Contests</button>
+        <button class="y11-tab" data-tab="teams">My Teams</button>
+        <button class="y11-tab" data-tab="points">Points &amp; Scoreboard</button>
+        <button class="y11-tab" data-tab="leaderboard">Leaderboard</button>
+      </div>
+
+      <div class="y11-panel active" id="panelContests">
+        <div class="y11-chip-row" id="contestChips"></div>
+        <div style="display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
+          <button class="btn btn-ghost" id="createPrivateBtn" type="button">Create private contest</button>
+          <button class="btn btn-ghost" id="joinByCodeBtn" type="button">Join with invite code</button>
+        </div>
+        <div class="y11-contest-grid" id="contestGrid"></div>
+        <div class="y11-empty" id="contestEmpty" style="display:none;">No open contests on this match yet.</div>
+      </div>
+
+      <div class="y11-panel" id="panelTeams">
+        <div id="myTeamsList"></div>
+      </div>
+
+      <div class="y11-panel" id="panelPoints">
+        <div id="scoreboardBox"></div>
+      </div>
+
+      <div class="y11-panel" id="panelLeaderboard">
+        <select id="lbContestSelect" class="y11-form-group" style="max-width:320px; margin-bottom:12px;"></select>
+        <div id="leaderboardBox"></div>
+      </div>
+    </div>
+
+    <div class="y11-attribution">Cricket data via Roanuz Sports (cricketapi.com)</div>
+  </div>
+
+  <!-- Team builder modal -->
+  <div class="y11-modal-overlay" id="builderModal">
+    <div class="y11-modal-card">
+      <button class="y11-modal-close" id="builderClose">&times;</button>
+      <h3 id="builderTitle" style="margin-top:0; font-family:var(--font-display);">Build your XI</h3>
+
+      <div class="y11-budget-bar">
+        <span>Credits used: <strong id="builderCreditsUsed">0.0</strong> / <span id="builderCreditsBudget">100</span></span>
+        <span>Players: <strong id="builderCount">0</strong> / 11</span>
+      </div>
+      <div class="y11-role-counts" id="builderRoleCounts"></div>
+
+      <div class="y11-chip-row" id="builderRoleFilter"></div>
+      <div class="y11-player-list" id="builderPlayerList"></div>
+
+      <div id="builderCvcSection" style="display:none;">
+        <h4 style="margin-bottom:6px; font-size:13px; color:var(--text-dim);">Tap a player to set Captain, tap again for Vice-Captain</h4>
+        <div class="y11-cvc-grid" id="builderCvcGrid"></div>
+      </div>
+
+      <div class="y11-form-group">
+        <label>Team name</label>
+        <input type="text" id="builderTeamName" placeholder="My Super XI" maxlength="40">
+      </div>
+
+      <div class="y11-error" id="builderError"></div>
+      <button class="btn btn-primary btn-block" id="builderSubmit" type="button">Submit team</button>
+    </div>
+  </div>
+
+  <!-- Private contest modal -->
+  <div class="y11-modal-overlay" id="privateModal">
+    <div class="y11-modal-card" style="max-width:420px;">
+      <button class="y11-modal-close" id="privateClose">&times;</button>
+      <h3 style="margin-top:0; font-family:var(--font-display);">Create a private contest</h3>
+      <div id="privateForm">
+        <div class="y11-form-group"><label>Contest name</label><input type="text" id="pcName" maxlength="40"></div>
+        <div class="y11-form-group"><label>Entry fee (&#8377;)</label><input type="number" id="pcFee" min="0" step="1" value="50"></div>
+        <div class="y11-form-group"><label>Max entrants</label><input type="number" id="pcMax" min="2" max="1000" value="10"></div>
+        <div class="y11-form-group"><label>Entries allowed per user</label><input type="number" id="pcEntries" min="1" max="20" value="1"></div>
+        <div class="y11-error" id="privateError"></div>
+        <button class="btn btn-primary btn-block" id="privateSubmit" type="button">Create</button>
+      </div>
+      <div id="privateResult" style="display:none;">
+        <p style="color:var(--text-dim); font-size:13px;">Share this code with friends:</p>
+        <div class="y11-invite-code" id="privateCodeOut"></div>
+        <button class="btn btn-ghost btn-block" style="margin-top:14px;" id="privateResultClose" type="button">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Join by code modal -->
+  <div class="y11-modal-overlay" id="codeModal">
+    <div class="y11-modal-card" style="max-width:380px;">
+      <button class="y11-modal-close" id="codeClose">&times;</button>
+      <h3 style="margin-top:0; font-family:var(--font-display);">Join with invite code</h3>
+      <div class="y11-form-group"><label>Invite code</label><input type="text" id="codeInput" maxlength="16" style="text-transform:uppercase;"></div>
+      <div class="y11-error" id="codeError"></div>
+      <button class="btn btn-primary btn-block" id="codeSubmit" type="button">Find contest</button>
+    </div>
+  </div>
+
+  <script>
+    const AVATAR_PALETTE = ['#2ed47a', '#ff4b6e', '#a56bff', '#ffc53d', '#38b6ff', '#ff7b00', '#00f5d4'];
+    function avatarColor(key) {
+      let hash = 0;
+      for (let i = 0; i < key.length; i++) hash = key.charCodeAt(i) + ((hash << 5) - hash);
+      return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length];
+    }
+    function initials(name) {
+      return String(name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+    }
+    function fmtMoney(n) { return '₹' + (Number(n) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function fmtOvers(legalBalls) {
+      const b = Number(legalBalls) || 0;
+      return Math.floor(b / 6) + '.' + (b % 6);
+    }
+    const FORMAT_LABELS = {
+      h2h: 'Head to Head', winner_takes_all: 'Winner Takes All', practice: 'Practice',
+      small: 'Small League', mega: 'Mega Contest', private: 'Private'
+    };
+
+    let fixturesCache = [];
+    let currentFixtureKey = null;
+    let currentFixture = null;
+    let squadCache = [];
+    let squadByKey = new Map();
+    let creditsCache = {};
+    let configCache = null;
+    let contestsCache = [];
+    let contestFilter = 'all';
+    let myEntriesCache = [];
+    let liveStateCache = null;
+    let es = null;
+    let lbThrottleAt = 0;
+
+    let builderContest = null;
+    let builderSelected = new Set();
+    let builderCaptain = null;
+    let builderVc = null;
+    let builderRoleFilter = 'ALL';
+
+    async function apiGet(path) {
+      const res = await fetch(path);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok === false) throw new Error(data.error || ('Request failed (' + res.status + ')'));
+      return data;
+    }
+    async function apiPost(path, body) {
+      const res = await fetch(path, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {})
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok === false) throw new Error(data.error || ('Request failed (' + res.status + ')'));
+      return data;
+    }
+
+    function show(el) { el.style.display = ''; }
+    function hide(el) { el.style.display = 'none'; }
+
+    // ---------------------------------------------------------------------------------------- fixtures
+    async function loadFixtures() {
+      try {
+        const data = await apiGet('api/cricket/fixtures');
+        fixturesCache = data.fixtures || [];
+      } catch (e) {
+        document.getElementById('disabledNote').style.display = 'block';
+        fixturesCache = [];
+      }
+      renderFixtures();
+    }
+
+    function renderFixtures() {
+      const grid = document.getElementById('fixtureGrid');
+      const empty = document.getElementById('fixtureEmpty');
+      grid.innerHTML = '';
+      if (!fixturesCache.length) { show(empty); return; }
+      hide(empty);
+      for (const fx of fixturesCache) {
+        const card = document.createElement('div');
+        card.className = 'y11-fixture-card';
+        const lockChip = fx.lineups_confirmed_at
+          ? '<span class="badge lost">Lineups out</span>'
+          : '<span class="badge pending">Lineups pending</span>';
+        card.innerHTML = `
+          <div class="y11-fixture-teams">${fx.team_a_name} vs ${fx.team_b_name}</div>
+          <div class="y11-fixture-meta">${fx.format || ''} &middot; ${fx.venue || 'Venue TBC'}</div>
+          <div class="y11-fixture-meta">${new Date(fx.start_time).toLocaleString('en-IN')}</div>
+          <div class="y11-status-row">
+            <span class="badge ${fx.status === 'live' ? 'won' : 'pending'}">${(fx.status || 'scheduled').toUpperCase()}</span>
+            ${lockChip}
+          </div>`;
+        card.onclick = () => { location.hash = '#match/' + encodeURIComponent(fx.key) + '/contests'; };
+        grid.appendChild(card);
+      }
+    }
+
+    // ---------------------------------------------------------------------------------------- match view
+    async function openMatch(key, tab) {
+      currentFixtureKey = key;
+      currentFixture = fixturesCache.find(f => f.key === key) || null;
+      hide(document.getElementById('viewFixtures'));
+      show(document.getElementById('viewMatch'));
+
+      renderMatchHeader();
+      try {
+        const [squadRes, creditsRes, configRes, contestsRes] = await Promise.all([
+          apiGet('api/cricket/fixtures/' + encodeURIComponent(key) + '/squad'),
+          apiGet('api/cricket/fixtures/' + encodeURIComponent(key) + '/credits'),
+          apiGet('api/cricket/config'),
+          apiGet('api/cricket/fixtures/' + encodeURIComponent(key) + '/contests')
+        ]);
+        squadCache = squadRes.squad || [];
+        squadByKey = new Map(squadCache.map(p => [String(p.player_key), p]));
+        creditsCache = creditsRes.credits || {};
+        configCache = { contest: configRes.contest, boundary: configRes.boundary };
+        contestsCache = contestsRes.contests || [];
+      } catch (e) {
+        window.showToast && window.showToast(e.message, 'error');
+      }
+
+      await loadMyEntries();
+      renderContests();
+      renderMyTeams();
+      openStream(key);
+      setTab(tab || 'contests');
+    }
+
+    function renderMatchHeader() {
+      const box = document.getElementById('matchHeader');
+      if (!currentFixture) { box.innerHTML = '<div class="y11-empty">Match not found.</div>'; return; }
+      const fx = currentFixture;
+      box.innerHTML = `
+        <div class="y11-fixture-teams" style="font-size:20px;">${fx.team_a_name} vs ${fx.team_b_name}</div>
+        <div class="y11-fixture-meta">${fx.format || ''} &middot; ${fx.venue || 'Venue TBC'} &middot; ${new Date(fx.start_time).toLocaleString('en-IN')}</div>
+        <div class="y11-status-row">
+          <span class="badge ${fx.status === 'live' ? 'won' : 'pending'}">${(fx.status || 'scheduled').toUpperCase()}</span>
+          ${fx.lineups_confirmed_at ? '<span class="badge lost">Teams locked</span>' : '<span class="badge pending">Teams open</span>'}
+        </div>`;
+    }
+
+    function setTab(tab) {
+      document.querySelectorAll('.y11-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+      document.querySelectorAll('.y11-panel').forEach(p => p.classList.remove('active'));
+      const map = { contests: 'panelContests', teams: 'panelTeams', points: 'panelPoints', leaderboard: 'panelLeaderboard' };
+      const panel = document.getElementById(map[tab] || 'panelContests');
+      panel.classList.add('active');
+      if (tab === 'points') renderScoreboard();
+      if (tab === 'leaderboard') renderLeaderboardTab();
+      const parts = ['match', currentFixtureKey, tab];
+      history.replaceState(null, '', '#' + parts.map(encodeURIComponent).join('/'));
+    }
+
+    document.querySelectorAll('.y11-tab').forEach(btn => {
+      btn.addEventListener('click', () => setTab(btn.dataset.tab));
+    });
+
+    // ---------------------------------------------------------------------------------------- contests
+    function renderContests() {
+      const chipRow = document.getElementById('contestChips');
+      const formats = ['all', ...new Set(contestsCache.map(c => c.format))];
+      chipRow.innerHTML = formats.map(f =>
+        `<button class="y11-chip ${f === contestFilter ? 'active' : ''}" data-fmt="${f}">${f === 'all' ? 'All' : (FORMAT_LABELS[f] || f)}</button>`
+      ).join('');
+      chipRow.querySelectorAll('.y11-chip').forEach(chip => {
+        chip.onclick = () => { contestFilter = chip.dataset.fmt; renderContests(); };
+      });
+
+      const grid = document.getElementById('contestGrid');
+      const empty = document.getElementById('contestEmpty');
+      const list = contestsCache.filter(c => contestFilter === 'all' || c.format === contestFilter);
+      grid.innerHTML = '';
+      if (!list.length) { show(empty); return; }
+      hide(empty);
+
+      for (const c of list) {
+        const rake = Number(c.rake_pct) || 0;
+        const pool = c.guaranteed ? c.guaranteed_pool : round2(c.entry_fee * c.entrants * (1 - rake / 100));
+        const first = (c.prize_breakup || []).find(r => r.from === 1);
+        const firstPrize = first ? round2(pool * first.pct / 100) : 0;
+        const fillPct = c.max_entrants ? Math.min(100, (c.entrants / c.max_entrants) * 100) : 0;
+        const myCount = myEntriesCache.filter(e => e.contest_id === c.id).length;
+
+        const card = document.createElement('div');
+        card.className = 'y11-contest-card';
+        card.innerHTML = `
+          <div class="y11-contest-fmt">${FORMAT_LABELS[c.format] || c.format}${c.guaranteed ? ' &middot; Guaranteed' : ''}</div>
+          <div class="y11-contest-pool">${c.entry_fee > 0 ? fmtMoney(pool) : 'Free'}</div>
+          <div class="y11-contest-row"><span>Entry</span><span>${c.entry_fee > 0 ? fmtMoney(c.entry_fee) : 'Free'}</span></div>
+          <div class="y11-contest-row"><span>1st prize</span><span>${firstPrize > 0 ? fmtMoney(firstPrize) : '—'}</span></div>
+          <div class="y11-contest-row"><span>Spots</span><span>${c.entrants}/${c.max_entrants}</span></div>
+          <div class="y11-progress-track"><div class="y11-progress-fill" style="width:${fillPct}%;"></div></div>
+          <button class="btn btn-primary" data-id="${c.id}">${myCount > 0 ? 'Join again' : 'Join'}</button>`;
+        card.querySelector('button').onclick = () => openBuilder(c);
+        grid.appendChild(card);
+      }
+    }
+
+    // ---------------------------------------------------------------------------------------- team builder
+    function round2(n) { return Math.round((Number(n) || 0) * 100) / 100; }
+
+    function openBuilder(contest) {
+      if (!getCurrentUser()) { window.openAuthModal && window.openAuthModal('login'); return; }
+      builderContest = contest;
+      builderSelected = new Set();
+      builderCaptain = null;
+      builderVc = null;
+      builderRoleFilter = 'ALL';
+      document.getElementById('builderTitle').textContent = 'Build your XI — ' + contest.name;
+      document.getElementById('builderCreditsBudget').textContent = (configCache.contest.credit_budget || 100);
+      document.getElementById('builderTeamName').value = '';
+      document.getElementById('builderError').textContent = '';
+      document.getElementById('builderCvcSection').style.display = 'none';
+      renderBuilderRoleFilter();
+      renderBuilderList();
+      renderBuilderSummary();
+      document.getElementById('builderModal').classList.add('active');
+    }
+    function closeBuilder() { document.getElementById('builderModal').classList.remove('active'); }
+    document.getElementById('builderClose').onclick = closeBuilder;
+
+    function renderBuilderRoleFilter() {
+      const roles = ['ALL', 'WK', 'BAT', 'AR', 'BOWL'];
+      const row = document.getElementById('builderRoleFilter');
+      row.innerHTML = roles.map(r => `<button class="y11-chip ${r === builderRoleFilter ? 'active' : ''}" data-role="${r}">${r}</button>`).join('');
+      row.querySelectorAll('.y11-chip').forEach(chip => {
+        chip.onclick = () => { builderRoleFilter = chip.dataset.role; renderBuilderRoleFilter(); renderBuilderList(); };
+      });
+    }
+
+    function renderBuilderList() {
+      const list = document.getElementById('builderPlayerList');
+      const players = squadCache.filter(p => builderRoleFilter === 'ALL' || p.role === builderRoleFilter);
+      list.innerHTML = '';
+      for (const p of players) {
+        const key = String(p.player_key);
+        const row = document.createElement('div');
+        row.className = 'y11-player-row' + (builderSelected.has(key) ? ' selected' : '');
+        const credits = creditsCache[key] != null ? creditsCache[key] : (configCache.credits_default || 8);
+        row.innerHTML = `
+          <div class="y11-avatar" style="background:${avatarColor(key)};">${initials(p.name)}</div>
+          <div><div class="y11-player-name">${p.name}</div><div class="y11-player-sub">${p.team_key} &middot; ${p.role}</div></div>
+          <div style="flex:1;"></div>
+          <div class="y11-player-credits">${Number(credits).toFixed(1)}</div>`;
+        row.onclick = () => toggleBuilderPlayer(key);
+        list.appendChild(row);
+      }
+    }
+
+    function toggleBuilderPlayer(key) {
+      if (builderSelected.has(key)) {
+        builderSelected.delete(key);
+        if (builderCaptain === key) builderCaptain = null;
+        if (builderVc === key) builderVc = null;
+      } else {
+        if (builderSelected.size >= (configCache.contest.squad_size || 11)) {
+          document.getElementById('builderError').textContent = 'You already have 11 players.';
+          return;
+        }
+        builderSelected.add(key);
+        document.getElementById('builderError').textContent = '';
+      }
+      renderBuilderList();
+      renderBuilderSummary();
+    }
+
+    function renderBuilderSummary() {
+      const rules = configCache.contest;
+      let creditsUsed = 0;
+      const roleCounts = {};
+      for (const key of builderSelected) {
+        const p = squadByKey.get(key);
+        const c = creditsCache[key] != null ? creditsCache[key] : 8;
+        creditsUsed += Number(c);
+        if (p) roleCounts[p.role] = (roleCounts[p.role] || 0) + 1;
+      }
+      document.getElementById('builderCreditsUsed').textContent = round2(creditsUsed).toFixed(1);
+      document.getElementById('builderCount').textContent = builderSelected.size;
+
+      const roleBox = document.getElementById('builderRoleCounts');
+      roleBox.innerHTML = Object.entries(rules.role_limits || {}).map(([role, limit]) => {
+        const count = roleCounts[role] || 0;
+        const ok = count >= limit.min && count <= limit.max;
+        return `<span class="${ok ? 'ok' : 'bad'}">${role} ${count} (min ${limit.min}, max ${limit.max})</span>`;
+      }).join('');
+
+      const cvcSection = document.getElementById('builderCvcSection');
+      const cvcGrid = document.getElementById('builderCvcGrid');
+      if (builderSelected.size === (rules.squad_size || 11)) {
+        cvcSection.style.display = 'block';
+        cvcGrid.innerHTML = '';
+        for (const key of builderSelected) {
+          const p = squadByKey.get(key);
+          const chip = document.createElement('div');
+          const isC = builderCaptain === key, isVc = builderVc === key;
+          chip.className = 'y11-cvc-chip' + (isC ? ' captain' : '') + (isVc ? ' vc' : '');
+          chip.innerHTML = `<div class="y11-avatar" style="background:${avatarColor(key)};">${initials(p ? p.name : key)}</div><span class="y11-tag">${isC ? 'C' : isVc ? 'VC' : ''}</span>`;
+          chip.onclick = () => {
+            if (builderCaptain === key) { builderCaptain = null; }
+            else if (builderVc === key) { builderVc = null; }
+            else if (!builderCaptain) { builderCaptain = key; }
+            else if (!builderVc && builderVc !== builderCaptain) { builderVc = key; }
+            renderBuilderSummary();
+          };
+          cvcGrid.appendChild(chip);
+        }
+      } else {
+        cvcSection.style.display = 'none';
+      }
+    }
+
+    document.getElementById('builderSubmit').onclick = async () => {
+      const errEl = document.getElementById('builderError');
+      const rules = configCache.contest;
+      if (builderSelected.size !== (rules.squad_size || 11)) { errEl.textContent = 'Pick exactly 11 players.'; return; }
+      if (!builderCaptain || !builderVc) { errEl.textContent = 'Pick a captain and a vice-captain.'; return; }
+      const teamName = document.getElementById('builderTeamName').value.trim() || (getCurrentUser().username + "'s XI");
+      try {
+        await apiPost('api/cricket/contests/' + builderContest.id + '/join', {
+          players: Array.from(builderSelected), captain: builderCaptain, vice_captain: builderVc, team_name: teamName
+        });
+        SoundFX.play('betPlace');
+        window.showToast && window.showToast('Team submitted!', 'success');
+        closeBuilder();
+        const contestsRes = await apiGet('api/cricket/fixtures/' + encodeURIComponent(currentFixtureKey) + '/contests');
+        contestsCache = contestsRes.contests || [];
+        await loadMyEntries();
+        renderContests();
+        renderMyTeams();
+      } catch (e) {
+        errEl.textContent = e.message;
+      }
+    };
+
+    // ---------------------------------------------------------------------------------------- my teams
+    async function loadMyEntries() {
+      if (!getCurrentUser()) { myEntriesCache = []; return; }
+      try {
+        const data = await apiGet('api/cricket/my-entries');
+        myEntriesCache = (data.entries || []).filter(e => e.contest && e.contest.fixture_key === currentFixtureKey);
+      } catch (e) { myEntriesCache = []; }
+    }
+
+    function renderMyTeams() {
+      const box = document.getElementById('myTeamsList');
+      if (!getCurrentUser()) { box.innerHTML = '<div class="y11-empty">Log in to see your teams.</div>'; return; }
+      if (!myEntriesCache.length) { box.innerHTML = '<div class="y11-empty">You haven\'t entered any contest on this match yet.</div>'; return; }
+      box.innerHTML = myEntriesCache.map(e => `
+        <div class="y11-contest-card" style="margin-bottom:10px;">
+          <div style="display:flex; justify-content:space-between;">
+            <strong>${e.team_name}</strong>
+            <span class="badge ${e.contest && e.contest.status === 'settled' ? 'won' : 'pending'}">${e.contest ? (FORMAT_LABELS[e.contest.format] || e.contest.format) : ''}</span>
+          </div>
+          <div class="y11-contest-row"><span>Credits used</span><span>${Number(e.credits_used).toFixed(1)}</span></div>
+          <div class="y11-contest-row"><span>Points</span><span>${Number(e.points || 0).toFixed(1)}</span></div>
+          ${e.rank ? `<div class="y11-contest-row"><span>Rank</span><span>#${e.rank}</span></div>` : ''}
+          ${e.prize > 0 ? `<div class="y11-contest-row"><span>Prize</span><span>${fmtMoney(e.prize)}</span></div>` : ''}
+        </div>`).join('');
+    }
+
+    // ---------------------------------------------------------------------------------------- points / scoreboard
+    function renderScoreboard() {
+      const box = document.getElementById('scoreboardBox');
+      const st = liveStateCache;
+      if (!st) { box.innerHTML = '<div class="y11-empty">No live data yet for this match.</div>'; return; }
+      let html = '';
+      for (const inn of (st.innings || []).filter(i => !i.super_over)) {
+        html += `<div class="y11-score-line">Innings ${inn.number}: ${inn.runs}/${inn.wickets} (${fmtOvers(inn.legal_balls)} ov)</div>`;
+      }
+      if (!html) html = '<div class="y11-empty">Match hasn\'t started yet.</div>';
+
+      const rows = Object.values(st.match_players || {}).filter(p => squadByKey.has(p.player_key));
+      if (rows.length) {
+        html += `<table class="y11-figures-table"><thead><tr>
+          <th>Player</th><th>Runs</th><th>Balls</th><th>4s/6s</th><th>Wkts</th><th>Overs</th><th>Econ</th>
+        </tr></thead><tbody>`;
+        for (const p of rows) {
+          const name = squadByKey.get(p.player_key) ? squadByKey.get(p.player_key).name : p.player_key;
+          const overs = fmtOvers(p.bowling.balls_bowled);
+          const econ = p.bowling.balls_bowled > 0 ? (p.bowling.runs_conceded / (p.bowling.balls_bowled / 6)).toFixed(2) : '—';
+          html += `<tr><td>${name}</td><td>${p.batting.runs}</td><td>${p.batting.balls_faced}</td>
+            <td>${p.batting.fours}/${p.batting.sixes}</td><td>${p.bowling.wickets}</td><td>${overs}</td><td>${econ}</td></tr>`;
+        }
+        html += '</tbody></table>';
+      }
+      box.innerHTML = html;
+    }
+
+    // ---------------------------------------------------------------------------------------- leaderboard
+    function renderLeaderboardTab() {
+      const sel = document.getElementById('lbContestSelect');
+      const ids = [...new Set(myEntriesCache.map(e => e.contest_id))];
+      if (!ids.length) {
+        sel.innerHTML = '';
+        document.getElementById('leaderboardBox').innerHTML = '<div class="y11-empty">Join a contest to see its leaderboard.</div>';
+        return;
+      }
+      sel.innerHTML = ids.map(id => {
+        const e = myEntriesCache.find(x => x.contest_id === id);
+        return `<option value="${id}">${e && e.contest ? e.contest.name : id}</option>`;
+      }).join('');
+      sel.onchange = () => loadLeaderboard(sel.value);
+      loadLeaderboard(ids[0]);
+    }
+
+    async function loadLeaderboard(contestId) {
+      const box = document.getElementById('leaderboardBox');
+      try {
+        const data = await apiGet('api/cricket/contests/' + contestId + '/leaderboard');
+        const entries = data.entries || data.leaderboard || [];
+        const me = getCurrentUser();
+        const mine = entries.find(e => e.username === (me && me.username));
+        box.innerHTML = (mine ? `<div class="y11-my-rank"><span>Your rank: #${mine.rank || '—'}</span><span>${Number(mine.points || 0).toFixed(1)} pts ${mine.prize > 0 ? '&middot; ' + fmtMoney(mine.prize) : ''}</span></div>` : '') +
+          `<table class="y11-lb-table"><thead><tr><th>Rank</th><th>Team</th><th>Points</th><th>Prize</th></tr></thead><tbody>` +
+          entries.map(e => `<tr class="${me && e.username === me.username ? 'mine' : ''}">
+            <td class="${e.rank <= 3 ? 'y11-top3' : ''}">#${e.rank || '—'}</td>
+            <td>${e.display_name || e.team_name}</td>
+            <td>${Number(e.points || 0).toFixed(1)}</td>
+            <td>${e.prize > 0 ? fmtMoney(e.prize) : '—'}</td>
+          </tr>`).join('') + '</tbody></table>';
+      } catch (e) {
+        box.innerHTML = '<div class="y11-empty">' + e.message + '</div>';
+      }
+    }
+
+    // ---------------------------------------------------------------------------------------- SSE
+    function openStream(fixtureKey) {
+      if (es) { es.close(); es = null; }
+      const url = window.BET1X_API_BASE + '/api/cricket/stream/' + encodeURIComponent(fixtureKey);
+      es = new EventSource(url);
+      es.addEventListener('state', ev => {
+        try { liveStateCache = JSON.parse(ev.data); } catch (e) { return; }
+        if (document.getElementById('panelPoints').classList.contains('active')) renderScoreboard();
+        const now = Date.now();
+        if (now - lbThrottleAt > 5000 && document.getElementById('panelLeaderboard').classList.contains('active')) {
+          lbThrottleAt = now;
+          renderLeaderboardTab();
+        }
+      });
+    }
+
+    // ---------------------------------------------------------------------------------------- private contest / join by code
+    function openPrivateModal() {
+      if (!getCurrentUser()) { window.openAuthModal && window.openAuthModal('login'); return; }
+      document.getElementById('privateForm').style.display = 'block';
+      document.getElementById('privateResult').style.display = 'none';
+      document.getElementById('privateError').textContent = '';
+      document.getElementById('privateModal').classList.add('active');
+    }
+    document.getElementById('createPrivateBtn').onclick = openPrivateModal;
+    document.getElementById('privateClose').onclick = () => document.getElementById('privateModal').classList.remove('active');
+    document.getElementById('privateResultClose').onclick = () => document.getElementById('privateModal').classList.remove('active');
+
+    document.getElementById('privateSubmit').onclick = async () => {
+      const errEl = document.getElementById('privateError');
+      try {
+        const data = await apiPost('api/cricket/contests/private', {
+          fixture_key: currentFixtureKey,
+          name: document.getElementById('pcName').value.trim() || undefined,
+          entry_fee: Number(document.getElementById('pcFee').value),
+          max_entrants: Number(document.getElementById('pcMax').value),
+          max_entries_per_user: Number(document.getElementById('pcEntries').value)
+        });
+        document.getElementById('privateCodeOut').textContent = data.contest.invite_code;
+        document.getElementById('privateForm').style.display = 'none';
+        document.getElementById('privateResult').style.display = 'block';
+        const contestsRes = await apiGet('api/cricket/fixtures/' + encodeURIComponent(currentFixtureKey) + '/contests');
+        contestsCache = contestsRes.contests || [];
+      } catch (e) {
+        errEl.textContent = e.message;
+      }
+    };
+
+    function openCodeModal() {
+      if (!getCurrentUser()) { window.openAuthModal && window.openAuthModal('login'); return; }
+      document.getElementById('codeInput').value = '';
+      document.getElementById('codeError').textContent = '';
+      document.getElementById('codeModal').classList.add('active');
+    }
+    document.getElementById('joinByCodeBtn').onclick = openCodeModal;
+    document.getElementById('joinByCodeBtnTop').onclick = openCodeModal;
+    document.getElementById('codeClose').onclick = () => document.getElementById('codeModal').classList.remove('active');
+
+    document.getElementById('codeSubmit').onclick = async () => {
+      const errEl = document.getElementById('codeError');
+      const code = document.getElementById('codeInput').value.trim();
+      if (!code) { errEl.textContent = 'Enter a code.'; return; }
+      try {
+        const data = await apiGet('api/cricket/contests/private/' + encodeURIComponent(code));
+        document.getElementById('codeModal').classList.remove('active');
+        if (data.contest.fixture_key !== currentFixtureKey) {
+          location.hash = '#match/' + encodeURIComponent(data.contest.fixture_key) + '/contests';
+          setTimeout(() => openBuilder(data.contest), 400);
+        } else {
+          openBuilder(data.contest);
+        }
+      } catch (e) {
+        errEl.textContent = e.message;
+      }
+    };
+
+    // ---------------------------------------------------------------------------------------- router
+    function route() {
+      const hash = location.hash.replace(/^#/, '');
+      if (hash.startsWith('match/')) {
+        const [, key, tab] = hash.split('/').map(decodeURIComponent);
+        openMatch(key, tab);
+      } else {
+        if (es) { es.close(); es = null; }
+        hide(document.getElementById('viewMatch'));
+        show(document.getElementById('viewFixtures'));
+      }
+    }
+    window.addEventListener('hashchange', route);
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      updateAuthHeaderUI();
+      await loadFixtures();
+      route();
+    });
+  </script>
+</body>
+
+</html>

