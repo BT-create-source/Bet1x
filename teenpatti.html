@@ -44,7 +44,7 @@
     padding: 24px 16px;
     width: 100%;
   }
-  .tp-lobby h1 { text-align: center; font-size: 28px; color: var(--gold); margin: 12px 0 4px; }
+  .tp-lobby h1 { text-align: center; font-size: 28px; color: var(--gold-deep); margin: 12px 0 4px; }
   .tp-lobby .subtitle { text-align: center; color: var(--text-dim); font-size: 13px; margin-bottom: 20px; }
   
   .tp-user-bar {
@@ -53,8 +53,8 @@
     padding: 10px 16px; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;
   }
   .tp-user-bar input {
-    background: #0d1117; border: 1px solid var(--border); border-radius: 6px;
-    color: #fff; padding: 8px 12px; font-size: 13px; width: 180px;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); padding: 8px 12px; font-size: 13px; width: 180px;
   }
   .tp-user-bar .wallet-badge {
     font-family: var(--font-mono); font-size: 14px; color: var(--green); font-weight: 700;
@@ -452,7 +452,7 @@
   }
 </style>
 </head>
-<body>
+<body class="exchange-theme">
 
 <nav class="navbar exchange-header">
   <div class="exchange-logo-box">
@@ -703,7 +703,7 @@ function renderRooms(rooms) {
     }
 
     // Room name color
-    const nameColor = isFinished ? 'color: #c9a054;' : (isPlaying || isFull ? 'color: #e9d5ff;' : 'color: var(--gold);');
+    const nameColor = isFinished ? 'color: #c9a054;' : (isPlaying || isFull ? 'color: var(--violet);' : 'color: var(--gold-deep);');
     
     // Player count color
     const playerCountColor = isOpen ? 'color: #10b981; font-weight: bold;' : (isFinished ? 'color: #c9a054; font-weight: bold;' : 'color: #c084fc; font-weight: bold;');
