@@ -1212,7 +1212,7 @@ select {
 }
 .mult-badge.high {
   background: rgba(255, 197, 61, 0.12);
-  color: var(--gold);
+  color: var(--gold-deep);
   border-color: rgba(255, 197, 61, 0.25);
 }
 
@@ -1249,7 +1249,10 @@ select {
   font-family: var(--font-display);
   font-size: 64px;
   font-weight: 700;
-  color: var(--text);
+  /* Fixed light color, not var(--text) — .aviator-stage's backdrop is a hardcoded dark
+     "night sky" gradient regardless of page theme, so its text can't follow the light-
+     theme flip of --text without going dark-on-dark. */
+  color: #fff;
   text-shadow: 0 0 25px rgba(255, 255, 255, 0.15);
 }
 
@@ -1257,6 +1260,13 @@ select {
   color: var(--gold);
   font-size: 32px;
   animation: pulse-waiting 1.5s infinite ease-in-out;
+}
+
+.aviator-overlay .sub-display {
+  /* Same fixed-dark-stage reasoning as .main-display above: this text sits on
+     .aviator-stage's hardcoded night-sky gradient in every state, so it needs a
+     color that doesn't follow --text's light-theme flip to dark maroon. */
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .aviator-overlay.crashed .main-display {
@@ -1272,7 +1282,7 @@ select {
 }
 
 .aviator-overlay.running .main-display {
-  color: var(--text);
+  color: #fff;
   font-size: 72px;
   animation: bounce-scale 0.5s ease-out;
 }
@@ -1329,7 +1339,7 @@ select {
   transition: color 0.15s;
 }
 .console-tab.active {
-  color: var(--gold);
+  color: var(--gold-deep);
   border-bottom: 2px solid var(--gold);
 }
 
@@ -1594,7 +1604,7 @@ select {
   align-items: center;
   justify-content: space-between;
   font-size: 11px;
-  color: var(--text-faint);
+  color: var(--text-dim);
   background: var(--bg-soft);
   border: 1px solid var(--border);
   padding: 8px 14px;
