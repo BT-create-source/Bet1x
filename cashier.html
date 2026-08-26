@@ -35,7 +35,7 @@
     .cashier-tab-btn.active {
       color: #000;
       background: var(--gold);
-      box-shadow: 0 0 10px var(--primary-glow);
+      box-shadow: 0 0 10px var(--gold-soft);
     }
     .cashier-content {
       display: none;
@@ -44,7 +44,7 @@
       display: block;
     }
     .balance-banner {
-      background: linear-gradient(135deg, #1d232b, #13171c);
+      background: linear-gradient(135deg, var(--surface-2), var(--surface));
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 20px;
@@ -63,7 +63,7 @@
     .balance-value {
       font-size: 28px;
       font-weight: 800;
-      color: var(--gold);
+      color: var(--gold-deep);
       font-family: var(--font-display);
     }
     .amount-grid {
@@ -73,7 +73,7 @@
       margin-bottom: 16px;
     }
     .amount-btn {
-      background: #1d232b;
+      background: var(--surface-2);
       border: 1px solid var(--border);
       color: var(--text);
       font-family: var(--font-mono);
@@ -85,7 +85,7 @@
     }
     .amount-btn:hover, .amount-btn.active {
       border-color: var(--gold);
-      color: var(--gold);
+      color: var(--gold-deep);
       background: rgba(201, 160, 84, 0.05);
     }
     .cashier-input-group {
@@ -100,7 +100,7 @@
     }
     .cashier-input {
       width: 100%;
-      background: #0d0f12;
+      background: var(--bg);
       border: 1px solid var(--border);
       color: var(--text);
       padding: 12px 16px;
@@ -124,7 +124,7 @@
       }
     }
     .method-card {
-      background: #1d232b;
+      background: var(--surface-2);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 16px;
@@ -185,7 +185,7 @@
       text-transform: uppercase;
     }
     .badge.completed { background: rgba(46, 204, 113, 0.15); color: #2ecc71; }
-    .badge.pending { background: rgba(201, 160, 84, 0.15); color: var(--gold); }
+    .badge.pending { background: rgba(201, 160, 84, 0.15); color: var(--gold-deep); }
     .badge.rejected { background: rgba(231, 76, 60, 0.15); color: #e74c3c; }
 
     /* Gateway modal overlays */
@@ -215,7 +215,7 @@
       box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
     .gateway-header {
-      background: #1d232b;
+      background: var(--surface-2);
       padding: 16px 20px;
       display: flex;
       justify-content: space-between;
@@ -277,7 +277,7 @@
     .countdown-banner {
       background: rgba(201, 160, 84, 0.1);
       border: 1px dashed var(--gold);
-      color: var(--gold);
+      color: var(--gold-deep);
       padding: 8px;
       text-align: center;
       border-radius: 6px;
@@ -329,22 +329,29 @@
     }
   </style>
 </head>
-<body>
+<body class="exchange-theme">
 
-  <nav class="navbar">
-    <div class="brand"><span class="dot"></span> bet1x</div>
-    <div class="nav-links">
-      <a href="index.html">Dashboard</a>
-      <a href="win.html">Sapre</a>
-      <a href="win1.html">Becone</a>
-      <a href="win2.html">Emred</a>
-      <a href="win3.html">VIP</a>
-      <a href="teenpatti.html">Teen Patti</a>
-      <a href="aviator.html">Aviator</a>
-      <a href="parity.html">Admin</a>
-      <span class="wallet-chip" data-wallet-chip>₹ 0.00</span>
+  <nav class="navbar exchange-header">
+    <div class="exchange-logo-box">
+      bet1x<span>.com</span>
+    </div>
+    <div id="headerAuthArea">
+      <!-- Loaded dynamically by ui-common.js -->
     </div>
   </nav>
+
+  <div class="sub-navbar">
+    <ul class="sub-navbar-links">
+      <li class="sub-navbar-item"><a href="index.html" class="sub-navbar-link">Home</a></li>
+      <li class="sub-navbar-item"><a href="aviator.html" class="sub-navbar-link">Vimaan</a></li>
+      <li class="sub-navbar-item"><a href="win.html" class="sub-navbar-link">Sapre</a></li>
+      <li class="sub-navbar-item"><a href="win1.html" class="sub-navbar-link">Becone</a></li>
+      <li class="sub-navbar-item"><a href="win2.html" class="sub-navbar-link">Emred</a></li>
+      <li class="sub-navbar-item"><a href="win3.html" class="sub-navbar-link">VIP</a></li>
+      <li class="sub-navbar-item"><a href="teenpatti.html" class="sub-navbar-link">Teen Patti</a></li>
+      <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
+    </ul>
+  </div>
 
   <div class="container" style="max-width: 680px;">
     
@@ -387,7 +394,7 @@
         <div class="method-grid" style="grid-template-columns: 1fr;">
           <div class="method-card active" id="method-upi" style="border-color:var(--gold); background:rgba(201,160,84,0.08); padding:16px;">
             <span class="method-icon" style="font-size:26px;">📱</span>
-            <span class="method-title" style="font-size:15px; color:var(--gold);">UPI Payment (QR Code & UTR Verification)</span>
+            <span class="method-title" style="font-size:15px; color:var(--gold-deep);">UPI Payment (QR Code & UTR Verification)</span>
             <span class="method-desc" style="font-size:12px;">Instant Platform QR / Gallery Upload & Admin UTR Verification</span>
           </div>
         </div>
@@ -407,7 +414,7 @@
 
         <div class="cashier-input-group">
           <label for="withdrawMethod">Transfer Mode</label>
-          <select id="withdrawMethod" class="cashier-input" onchange="toggleWithdrawFields()" style="background:#0d0f12; color:var(--text);">
+          <select id="withdrawMethod" class="cashier-input" onchange="toggleWithdrawFields()" style="background:var(--bg); color:var(--text);">
             <option value="upi">UPI Address</option>
             <option value="bank">Bank Transfer</option>
           </select>
@@ -483,10 +490,10 @@
       <div class="gateway-body" id="qr-main-body">
         
         <!-- Payable Amount Display -->
-        <div style="background:#1d232b; padding:12px 16px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border:1px solid var(--border);">
+        <div style="background:var(--surface-2); padding:12px 16px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border:1px solid var(--border);">
           <div>
             <span style="font-size:11px; color:var(--text-dim); text-transform:uppercase; font-weight:700;">Deposit Amount</span>
-            <div id="upiPayableAmt" style="font-size:20px; font-weight:800; color:var(--gold); font-family:var(--font-mono);">₹ 1,000.00</div>
+            <div id="upiPayableAmt" style="font-size:20px; font-weight:800; color:var(--gold-deep); font-family:var(--font-mono);">₹ 1,000.00</div>
           </div>
           <div class="countdown-banner" style="margin-bottom:0; padding:4px 10px; font-size:12px;">
             Timer: <span id="qrTimer">05:00</span>
@@ -510,7 +517,7 @@
               <div class="qr-noise-block" style="opacity: 0.9;"></div>
               <div class="qr-corner-box" style="transform: rotate(270deg);"></div>
             </div>
-            <div style="position: absolute; width: 34px; height: 34px; background:#0d0f12; border:2px solid var(--gold); border-radius:6px; display:flex; align-items:center; justify-content:center;">
+            <div style="position: absolute; width: 34px; height: 34px; background:var(--surface-2); border:2px solid var(--gold); border-radius:6px; display:flex; align-items:center; justify-content:center;">
               <span style="font-size:16px;">₹</span>
             </div>
           </div>
@@ -518,7 +525,7 @@
           <div style="text-align: center; margin-bottom: 16px;">
             <div style="font-size:11.5px; color:var(--text-dim); margin-bottom:4px;">UPI Address for payment:</div>
             <div style="display:flex; justify-content:center; align-items:center; gap:8px;">
-              <code style="font-family:var(--font-mono); color:var(--gold); font-size:14px; font-weight:700; background:#0d0f12; padding:4px 8px; border-radius:4px; border:1px solid var(--border);" id="upiAddressText">pay.bet1x@upi</code>
+              <code style="font-family:var(--font-mono); color:var(--gold-deep); font-size:14px; font-weight:700; background:var(--surface-2); padding:4px 8px; border-radius:4px; border:1px solid var(--border);" id="upiAddressText">pay.bet1x@upi</code>
               <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="copyUpiText()">Copy</button>
             </div>
           </div>
@@ -526,7 +533,7 @@
 
         <!-- Option 2: Upload Custom QR Code / Receipt from Gallery -->
         <div id="qrSourceCustomView" style="display:none; text-align:center; margin-bottom:16px;">
-          <div style="border:2px dashed var(--border); border-radius:8px; padding:16px; background:#0d0f12; margin-bottom:10px;">
+          <div style="border:2px dashed var(--border); border-radius:8px; padding:16px; background:var(--surface-2); margin-bottom:10px;">
             <input type="file" id="customQrFileInput" accept="image/*" style="display:none;" onchange="handleCustomQrUpload(event)">
             <div id="customQrPreviewArea">
               <span style="font-size:32px; display:block; margin-bottom:6px;">📱</span>
@@ -538,8 +545,8 @@
         </div>
 
         <!-- Dummy Payment Trigger / Instructions -->
-        <div style="background:#0d0f12; border:1px solid var(--border); border-radius:6px; padding:10px 12px; margin-bottom:16px; font-size:12px;">
-          <div style="color:var(--gold); font-weight:700; margin-bottom:4px;">💡 Payment Instructions:</div>
+        <div style="background:var(--surface-2); border:1px solid var(--border); border-radius:6px; padding:10px 12px; margin-bottom:16px; font-size:12px;">
+          <div style="color:var(--gold-deep); font-weight:700; margin-bottom:4px;">💡 Payment Instructions:</div>
           <ol style="margin:0; padding-left:18px; color:var(--text-dim); line-height:1.4;">
             <li>Scan the QR code using Google Pay, PhonePe, Paytm, or BHIM app.</li>
             <li>Complete the payment of the selected amount.</li>
@@ -552,7 +559,7 @@
         <div class="cashier-input-group" style="border-top: 1px solid var(--border); padding-top: 16px; margin-bottom:12px;">
           <label for="qrUtrInput" style="display:flex; justify-content:space-between;">
             <span>Enter 12-Digit UPI Ref No. (UTR)</span>
-            <span style="color:var(--gold); font-size:11px;">Required *</span>
+            <span style="color:var(--gold-deep); font-size:11px;">Required *</span>
           </label>
           <input type="text" id="qrUtrInput" class="cashier-input" placeholder="e.g. 627192840582" maxlength="16">
         </div>
@@ -563,7 +570,7 @@
       <div class="holo-loading-overlay" id="qr-loading-body">
         <div class="holo-spinner"></div>
         <div>
-          <h4 id="qrLoaderTitle" style="color:var(--gold); font-size:16px; margin-bottom:6px;">Processing Deposit...</h4>
+          <h4 id="qrLoaderTitle" style="color:var(--gold-deep); font-size:16px; margin-bottom:6px;">Processing Deposit...</h4>
           <p id="qrLoaderDesc" style="color:var(--text-dim); font-size:12px; max-width:280px; margin:0 auto;">Please wait while we verify the UTR and credit your account.</p>
         </div>
       </div>
