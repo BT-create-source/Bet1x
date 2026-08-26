@@ -2141,6 +2141,108 @@ body.exchange-theme .sub-navbar-link.vimaan-tab:hover {
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   Banner Slideshow — full-width infinite horizontal track carousel
+   ═══════════════════════════════════════════════════════════════ */
+.banner-slideshow {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1024 / 341;
+  min-height: 140px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.45);
+  background: #090c17;
+  user-select: none;
+}
+
+.banner-track {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  will-change: transform;
+}
+
+.banner-slide {
+  flex: 0 0 100%;
+  width: 100%;
+  height: 100%;
+  background-size: 100% 100%;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Prev / Next arrows */
+.banner-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.15);
+  font-size: 26px;
+  line-height: 1;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.25s ease, background 0.25s ease, transform 0.2s ease;
+  backdrop-filter: blur(4px);
+}
+.banner-slideshow:hover .banner-arrow {
+  opacity: 1;
+}
+.banner-arrow:hover {
+  background: rgba(0,0,0,0.85);
+  transform: translateY(-50%) scale(1.08);
+}
+.banner-arrow--prev { left: 12px; }
+.banner-arrow--next { right: 12px; }
+
+/* Navigation dots */
+.banner-dots {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  gap: 7px;
+  padding: 4px 10px;
+  background: rgba(0,0,0,0.35);
+  border-radius: var(--radius-pill, 999px);
+  backdrop-filter: blur(4px);
+}
+.banner-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.45);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.banner-dot.active {
+  background: var(--gold, #ffc93c);
+  width: 22px;
+  border-radius: 999px;
+  box-shadow: 0 0 8px rgba(255,201,60,0.6);
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .banner-arrow {
+    width: 32px;
+    height: 32px;
+    font-size: 20px;
+    opacity: 0.8;
+  }
+}
 /* Section header — matches the reference's icon-badge + title + "All >" pattern */
 .exchange-section-header {
   background: none;
@@ -2622,7 +2724,7 @@ body.exchange-theme .footer {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: var(--text-faint);
+  color: var(--text-dim);
   text-decoration: none;
   font-size: 11px;
   font-weight: 700;
