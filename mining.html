@@ -12,18 +12,16 @@
     body {
       margin: 0;
       font-family: system-ui, sans-serif;
-      background: #0b0e14;
-      color: #e8e8e8;
       padding: 0 0 40px;
     }
 
     .banner {
-      background: #1c2531;
-      border: 1px solid #2e3a4a;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
       border-radius: 8px;
       padding: 10px 16px;
       font-size: 13px;
-      color: #9fb3c8;
+      color: var(--text-dim);
       max-width: 900px;
       width: 100%;
       box-sizing: border-box;
@@ -33,7 +31,7 @@
     h1 {
       font-size: 20px;
       margin: 0 0 12px;
-      color: var(--gold);
+      color: var(--gold-deep);
     }
 
     .layout {
@@ -51,29 +49,31 @@
       grid-template-columns: repeat(5, 64px);
       grid-template-rows: repeat(5, 64px);
       gap: 8px;
-      background: #151b24;
+      background: var(--surface-2);
       padding: 16px;
       border-radius: 12px;
-      border: 1px solid #263041;
+      border: 1px solid var(--border);
     }
 
     .tile {
       width: 64px;
       height: 64px;
       border-radius: 8px;
-      border: none;
+      border: 1px solid var(--border);
       cursor: pointer;
-      background: #22303f;
+      background: var(--surface);
       font-size: 24px;
       display: flex;
       align-items: center;
       justify-content: center;
       transition: transform 0.1s;
+      box-shadow: 0 2px 6px rgba(110,20,35,0.08);
     }
 
     .tile:hover:not(:disabled) {
       transform: scale(1.05);
-      background: #2c3e52;
+      background: var(--gold-soft);
+      border-color: var(--gold);
     }
 
     .tile:disabled {
@@ -81,34 +81,37 @@
     }
 
     .tile.safe {
-      background: #1f5c3d;
+      background: var(--green-soft);
+      border-color: var(--green);
     }
 
     .tile.mine {
-      background: #6b1f1f;
+      background: var(--red-soft);
+      border-color: var(--red);
     }
 
     .side {
       width: 260px;
-      background: #151b24;
-      border: 1px solid #263041;
+      background: var(--surface);
+      border: 1px solid var(--border);
       border-radius: 12px;
       padding: 16px;
       display: flex;
       flex-direction: column;
       gap: 10px;
+      box-shadow: var(--shadow-card);
     }
 
     label {
       font-size: 12px;
-      color: #9fb3c8;
+      color: var(--text-dim);
     }
 
     input[type=number],
     select {
-      background: #0e1116;
-      border: 1px solid #33404f;
-      color: #fff;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
       border-radius: 6px;
       padding: 8px 10px;
       font-size: 14px;
@@ -142,27 +145,28 @@
 
     .stat {
       font-size: 14px;
+      color: var(--text);
     }
 
     .stat strong {
-      color: #52d17c;
+      color: #1a9f5a;
     }
 
     .msg {
       min-height: 20px;
       font-size: 13px;
-      color: #9fb3c8;
+      color: var(--text-dim);
     }
 
     .seed {
       font-size: 11px;
-      color: #56637a;
+      color: var(--text-dim);
       word-break: break-all;
     }
   </style>
 </head>
 
-<body>
+<body class="exchange-theme">
 
   <!-- Header -->
   <nav class="navbar exchange-header">
