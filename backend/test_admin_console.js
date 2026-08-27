@@ -150,9 +150,20 @@ async function main() {
 
   const trapVictim = players[1];
   const startBal = (await req('GET', '/api/wallet/balance', { token: trapVictim.token })).data.balance;
-  const board = await req('POST', '/api/mines/start', { token: trapVictim.token, json: { bet_amount: 200, mines_count: 3 } });
-  check('a board can be started for the trap test', board.status === 200, board.data);
-  await req('POST', '/api/mines/reveal', { token: trapVictim.token, json: { index: 0 } }); // become a live session
+  // The trap can only catch a player whose session is still LIVE. Revealing a single fixed tile made
+  // that a coin toss: with 3 mines in 25 tiles the opening reveal busts the board ~12% of the time,
+  // ending the session before the trap is sprung, and the suite then failed intermittently against a
+  // perfectly working trap. Retry the board until an opening reveal actually survives.
+  let board = null;
+  let liveSession = false;
+  for (let attempt = 0; attempt < 6 && !liveSession; attempt++) {
+    board = await req('POST', '/api/mines/start', { token: trapVictim.token, json: { bet_amount: 200, mines_count: 3 } });
+    if (board.status !== 200) break;
+    const opened = await req('POST', '/api/mines/reveal', { token: trapVictim.token, json: { index: attempt } });
+    liveSession = !(opened.data && opened.data.hit_mine);
+  }
+  check('a board can be started for the trap test', board && board.status === 200, board && board.data);
+  check('the trap victim has a live (un-busted) session to catch', liveSession);
 
   const live = await req('GET', '/api/mines/active-users', { token: admin });
   const listed = Array.isArray(live.data.users || live.data.active_users || live.data)
@@ -210,7 +221,11 @@ async function main() {
     const st = await colourState(player.token, 'sapre');
     const hist = (st.data && st.data.history) || [];
     if (hist.length) {
-      const top = hist[0];
+      // history is ordered OLDEST -> NEWEST (win.html renders it with .reverse() for exactly this
+      // reason), so the round that just settled is the LAST element. Reading hist[0] meant watching
+      // the oldest round in a 20-entry rolling window — a round that settled long before the
+      // override was ever set — so this asserted against stale outcomes and failed every run.
+      const top = hist[hist.length - 1];
       if (top && top.roundNumber !== lastRound) {
         if (lastRound !== null) seen.push(top); // skip the round already in flight when we set it
         lastRound = top.roundNumber;
@@ -243,11 +258,19 @@ async function main() {
   await setOverride(admin, { game: 'aviator', crash_point: String(CRASH) });
   const crashes = [];
   let lastPhase = null;
-  const avDeadline = Date.now() + 120000;
+  // The override is consumed at the waiting -> running transition (server.js tickAviator), so it can
+  // only affect a round that TAKES OFF after we set it. A round already in flight has its crash point
+  // already drawn, and counting that one made crashes[0] a pre-override round — which is why this
+  // reported "got 4.68, want 1.37" while crashes[1] was exactly 1.37, i.e. the override had in fact
+  // worked. Gate collection on having seen a 'waiting' phase first, so every crash we measure belongs
+  // to a round that actually started under the override.
+  let sawWaiting = false;
+  const avDeadline = Date.now() + 180000; // longer: we may now skip a whole in-flight round first
   while (Date.now() < avDeadline && crashes.length < 2) {
     const s = await req('GET', '/api/game_sync.php', { token: player.token, query: { action: 'aviator_get_state' } });
     const ph = s.data && s.data.phase;
-    if (ph === 'crashed' && lastPhase !== 'crashed') {
+    if (ph === 'waiting') sawWaiting = true;
+    if (sawWaiting && ph === 'crashed' && lastPhase !== 'crashed') {
       crashes.push(parseFloat(s.data.crash_point));
     }
     lastPhase = ph;

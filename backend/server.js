@@ -781,7 +781,11 @@ app.get(['/api/wallet/transactions', '/api/db/transactions'], auth.requireAuth, 
 // Reset User Balance
 app.post(['/api/wallet/reset', '/api/db/users/reset-balance'], auth.requireAdmin, async (req, res) => {
   const username = req.body.username || (parseAuthToken(req) && parseAuthToken(req).username);
-  const targetBal = parseFloat(req.body.starting_balance) || 2000.00;
+  // Same falsy-zero trap as the bot-takeover percentage: `parseFloat(x) || 2000` credited 2000 to a
+  // player whose balance an operator explicitly reset to 0. Only an absent/unparseable value may
+  // take the default. Negatives are rejected rather than written — no reset should create a debt.
+  const parsedBal = parseFloat(req.body.starting_balance);
+  const targetBal = Number.isFinite(parsedBal) ? Math.max(0, parsedBal) : 2000.00;
 
   try {
     try {
@@ -2870,7 +2874,12 @@ app.post('/api/game_sync.php', async (req, res) => {
       const { game, enabled, profit_pct } = req.body;
       const gameKey = game || 'global';
       const isEnabled = String(enabled) === 'true' || enabled === true;
-      const pct = parseInt(profit_pct) || 90;
+      // `parseInt(x) || 90` silently turned an explicit 0 into 90, because 0 is falsy: an operator
+      // typing 0 to mean "no rigging" got the maximum instead, and the Math.max(1, ...) clamp below
+      // never saw the zero. Only a genuinely absent/unparseable value may fall back to the default;
+      // a real 0 must reach the clamp and become the documented minimum of 1.
+      const parsedPct = parseInt(profit_pct, 10);
+      const pct = Number.isFinite(parsedPct) ? parsedPct : 90;
 
       botTakeoverState[gameKey] = {
         enabled: isEnabled,
