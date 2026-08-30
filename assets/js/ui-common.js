@@ -29,6 +29,36 @@ window.BET1X_API_BASE = (function () {
  * signed in on the same browser neither clobbers nor borrows a player's session. */
 window.BET1X_TOKEN_KEY = window.BET1X_ADMIN_CONSOLE ? 'bet1x_admin_token' : 'bet1x_auth_token';
 
+/* ---------------------------------------------------------------------------------------------
+ * Cricket feature gate (Your 11 / Boundary Baazi).
+ *
+ * Both games are built and their code stays in the repo, but they are not part of the v1 launch.
+ * The single switch is the [data-feature="cricket"] rule at the bottom of assets/css/style.css --
+ * that rule hides every entry point, and this block reads the very same rule (by probing a
+ * throwaway element) rather than carrying a second flag that could drift out of sync with it.
+ *
+ * Anyone who reaches youreleven.html or boundarybaazi.html directly -- a bookmark, a shared link, a
+ * search result -- is sent back to the lobby, because with the backend flag off every API call on
+ * those pages returns 404 and the page would otherwise sit there looking broken.
+ * ------------------------------------------------------------------------------------------- */
+window.BET1X_CRICKET_ENABLED = (function () {
+  try {
+    var probe = document.createElement('div');
+    probe.setAttribute('data-feature', 'cricket');
+    document.documentElement.appendChild(probe);
+    var hidden = window.getComputedStyle(probe).display === 'none';
+    probe.parentNode.removeChild(probe);
+    return !hidden;
+  } catch (e) {
+    return false; // if the gate cannot be read, stay closed rather than exposing a dead page
+  }
+})();
+
+if (!window.BET1X_CRICKET_ENABLED &&
+    /(youreleven|boundarybaazi)\.html$/i.test(window.location.pathname)) {
+  window.location.replace('index.html');
+}
+
 // Global fetch interceptor: rewrites the legacy PHP-shaped API paths onto the real backend and
 // attaches the session token.
 const originalFetch = window.fetch;

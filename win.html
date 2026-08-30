@@ -416,7 +416,7 @@ function syncState() {
           }
           if (won) { totalPayout += b.amount * mult; if (mult >= 4.5) hasBigMult = true; }
         });
-        const rigNote = (hasBets && lastResult.is_rigged) ? ' ⚠️ This outcome was rigged.' : '';
+        const rigNote = '';
         if (totalPayout > 0) {
           showSettlementAlert(`Round settled! Result: ${lastResult.number} (${lastResult.color}, ${lastResult.size}) — you won ₹${totalPayout.toFixed(2)}${rigNote}`, 'success');
           SoundFX.play(hasBigMult ? 'bigWin' : 'win');

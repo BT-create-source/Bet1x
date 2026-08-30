@@ -96,12 +96,12 @@ function requireAuth(req, res, next) {
   next();
 }
 
-/** Reject anyone who is not authenticated as an operator. */
+/** Reject anyone who is not authenticated as an operator or super administrator. */
 function requireAdmin(req, res, next) {
   if (!req.auth) {
     return res.status(401).json({ error: 'Authentication required.' });
   }
-  if (req.auth.role !== 'admin') {
+  if (req.auth.role !== 'admin' && req.auth.role !== 'superadmin') {
     return res.status(403).json({ error: 'Administrator privileges required.' });
   }
   next();
@@ -117,7 +117,7 @@ function requireAdmin(req, res, next) {
  */
 function actingUsername(req) {
   if (!req.auth) return null;
-  if (req.auth.role === 'admin') {
+  if (req.auth.role === 'admin' || req.auth.role === 'superadmin') {
     const target = (req.body && req.body.username) || (req.query && req.query.username);
     if (typeof target === 'string' && target.trim()) return target.trim();
   }
@@ -142,6 +142,24 @@ function verifyAdminPassword(password) {
   return false;
 }
 
+/** Verify a super operator password against SUPERADMIN_PASSWORD_HASH (or the dev-only plaintext fallback). */
+function verifySuperAdminPassword(password) {
+  if (typeof password !== 'string' || !password) return false;
+  if (config.SUPERADMIN_PASSWORD_HASH) {
+    try {
+      return bcrypt.compareSync(password, config.SUPERADMIN_PASSWORD_HASH);
+    } catch (e) {
+      return false;
+    }
+  }
+  if (!config.IS_PRODUCTION && config.SUPERADMIN_PASSWORD_PLAINTEXT) {
+    const a = Buffer.from(password);
+    const b = Buffer.from(config.SUPERADMIN_PASSWORD_PLAINTEXT);
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  }
+  return false;
+}
+
 module.exports = {
   issueToken,
   verifyToken,
@@ -150,5 +168,6 @@ module.exports = {
   requireAuth,
   requireAdmin,
   actingUsername,
-  verifyAdminPassword
+  verifyAdminPassword,
+  verifySuperAdminPassword
 };

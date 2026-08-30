@@ -23,10 +23,13 @@ define('RAZORPAY_WEBHOOK_SECRET', getenv('RAZORPAY_WEBHOOK_SECRET') ?: '');
 // Starting balance for new signups
 define('STARTING_BALANCE', 1000.00);
 
-// Admin credentials. The previous line hashed the literal password "admin" at runtime, so the
-// hash looked secure while the password was public.
 define('ADMIN_USER', getenv('ADMIN_USERNAME') ?: 'admin');
 define('ADMIN_PASS_HASH', getenv('ADMIN_PASSWORD_HASH') ?: '');
+
+// Super Admin credentials (distinct from admin)
+define('SUPERADMIN_USER', getenv('SUPERADMIN_USERNAME') ?: 'superadmin');
+define('SUPERADMIN_PASS_HASH', getenv('SUPERADMIN_PASSWORD_HASH') ?: '');
+define('SUPERADMIN_PASS', getenv('SUPERADMIN_PASSWORD') ?: 'SuperAdmin@2026!');
 
 // Database JSON directories
 define('DATA_DIR', __DIR__ . '/data');

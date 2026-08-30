@@ -12,7 +12,8 @@
 
   <!-- Dismissible top promo strip (docs/NEW-DESIGN section 4.1) -->
   <div class="promo-strip" id="promoStrip">
-    <button type="button" class="promo-strip-close" onclick="document.getElementById('promoStrip').style.display='none';" aria-label="Dismiss">×</button>
+    <button type="button" class="promo-strip-close"
+      onclick="document.getElementById('promoStrip').style.display='none';" aria-label="Dismiss">×</button>
     <span class="promo-strip-text">Get the bet1x experience — all your favourite games, one account</span>
     <a href="#games" class="promo-strip-cta">Explore</a>
   </div>
@@ -51,21 +52,23 @@
               PostgreSQL.</span>
           </div>
         </div>
-        <button type="button" class="ticker-detail-btn" onclick="document.querySelector('.exchange-section-header')?.scrollIntoView({behavior:'smooth'});">Detail</button>
+        <button type="button" class="ticker-detail-btn"
+          onclick="document.querySelector('.exchange-section-header')?.scrollIntoView({behavior:'smooth'});">Detail</button>
       </div>
 
-      <!-- Hero Banner Slideshow -->
+      <!-- Hero Banner Slideshow (Compact & Sleek) -->
       <div class="banner-slideshow" id="bannerSlideshow">
         <div class="banner-track" id="bannerTrack">
+          <div class="banner-slide" style="background-image: url('assets/banners/banner_cyber.jpg');"></div>
+          <div class="banner-slide" style="background-image: url('assets/banners/banner_cricket.jpg');"></div>
           <div class="banner-slide" style="background-image: url('assets/banners/banner1.png');"></div>
           <div class="banner-slide" style="background-image: url('assets/banners/banner2.png');"></div>
           <div class="banner-slide" style="background-image: url('assets/banners/banner3.png');"></div>
-          <div class="banner-slide" style="background-image: url('assets/banners/banner4.png');"></div>
-          <div class="banner-slide" style="background-image: url('assets/banners/banner5.png');"></div>
-          <div class="banner-slide" style="background-image: url('assets/banners/banner1.png');"></div>
+          <div class="banner-slide" style="background-image: url('assets/banners/banner_cyber.jpg');"></div>
         </div>
         <!-- Prev/Next arrows -->
-        <button type="button" class="banner-arrow banner-arrow--prev" id="bannerPrev" aria-label="Previous slide">‹</button>
+        <button type="button" class="banner-arrow banner-arrow--prev" id="bannerPrev"
+          aria-label="Previous slide">‹</button>
         <button type="button" class="banner-arrow banner-arrow--next" id="bannerNext" aria-label="Next slide">›</button>
         <!-- Navigation dots -->
         <div class="banner-dots" id="bannerDots">
@@ -77,138 +80,191 @@
         </div>
       </div>
 
-      <!-- Red Sub Navigation Bar moved here for mobile/desktop layout flow -->
-      <div class="sub-navbar" style="margin-bottom: 12px; border-radius: 4px;">
+      <!-- Quick Sub Navigation Bar -->
+      <div class="sub-navbar" style="margin-bottom: 10px; border-radius: 4px;">
         <ul class="sub-navbar-links">
           <li class="sub-navbar-item"><a href="index.html" class="sub-navbar-link active">Home</a></li>
           <li class="sub-navbar-item"><a href="aviator.html" class="sub-navbar-link">Vimaan</a></li>
           <li class="sub-navbar-item"><a href="win.html" class="sub-navbar-link">Sapre</a></li>
           <li class="sub-navbar-item"><a href="win1.html" class="sub-navbar-link">Becone</a></li>
-          <li class="sub-navbar-item"><a href="win2.html" class="sub-navbar-link">Emred</a></li>
-          <li class="sub-navbar-item"><a href="win3.html" class="sub-navbar-link">VIP</a></li>
           <li class="sub-navbar-item"><a href="teenpatti.html" class="sub-navbar-link">Teen Patti</a></li>
           <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
-          <li class="sub-navbar-item"><a href="youreleven.html" class="sub-navbar-link">Your 11</a></li>
-          <li class="sub-navbar-item"><a href="boundarybaazi.html" class="sub-navbar-link">Boundary Baazi</a></li>
+          <li data-feature="cricket" class="sub-navbar-item"><a href="youreleven.html" class="sub-navbar-link">Your 11</a></li>
+          <li data-feature="cricket" class="sub-navbar-item"><a href="boundarybaazi.html" class="sub-navbar-link">Boundary Baazi</a></li>
+          <li class="sub-navbar-item"><a href="win3.html" class="sub-navbar-link">VIP</a></li>
         </ul>
       </div>
 
-
-
-      <!-- Bottom simulated activity stats -->
-      <div class="card"
-        style="margin-top:20px; color:var(--text); background:var(--surface); border:1px solid var(--border); padding:16px; border-radius:4px;">
-        <h3 style="color:var(--text); margin-top:0;">Global Exchange Stats</h3>
-        <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-top:12px;">
-          <div>Active Players: <strong style="color:var(--green)">14,812</strong></div>
-          <div>Bets Placed Today: <strong style="color:var(--gold-deep)">345,129</strong></div>
-          <div>Total Volume: <strong style="color:var(--violet)">PTS 4,812,050.00</strong></div>
-          <div>Average Payout: <strong>97.2%</strong></div>
-        </div>
-      </div>
-
-      <!-- Secondary red navbar before Game Cards -->
+      <!-- Universe Games Section Header & Category Filter Tabs -->
       <div class="exchange-section-header"
-        style="background: linear-gradient(to right, #b51212, #c8102e); margin-top: 24px; margin-bottom: 0; color: #fff;">
+        style="background: linear-gradient(to right, #b51212, #c8102e); margin-top: 10px; margin-bottom: 0; color: #fff; padding: 7px 12px; font-size: 14px;">
         Universe Games
       </div>
-      <div class="exchange-tabs-bar"
-        style="background:var(--surface); border:1px solid var(--border); border-top:none;">
-        <button class="exchange-tab-btn active">Popular</button>
-        <button class="exchange-tab-btn">Universe Live</button>
-        <button class="exchange-tab-btn">Universe Original</button>
+      <div class="exchange-tabs-bar" id="gameCategoryTabs">
+        <button class="exchange-tab-btn active" data-filter="all">🔥 All Games</button>
+        <button class="exchange-tab-btn" data-filter="crash">⚡ Crash & Fast</button>
+        <button class="exchange-tab-btn" data-filter="cards">🃏 Live Cards</button>
+        <button class="exchange-tab-btn" data-feature="cricket" data-filter="cricket">🏏 Cricket</button>
+        <button class="exchange-tab-btn" data-filter="color">🎨 Color Win</button>
       </div>
 
-      <!-- Category tile grid (docs/NEW-DESIGN section 4.5) — same 7 real games/links as before,
-           restyled as colored icon tiles instead of photo cards. -->
+      <!-- Rich Contextual Game Showcase (Cover Image Boxes, No Emojis) -->
       <div id="games">
-        <div class="game-tile-grid">
-          <a href="aviator.html" class="game-tile game-tile--orange" title="Vimaan (Aviator)">
-            <span class="game-tile-icon">✈️</span>
-            <span class="game-tile-label">Vimaan</span>
+        <div class="game-cards-showcase" id="gamesContainer">
+
+          <!-- Game 1: Vimaan (Aviator Crash) -->
+          <a href="aviator.html" class="game-cover-card" data-category="all crash popular"
+            title="Vimaan (Aviator Crash Game)">
+            <div class="game-cover-card-bg" style="background-image: url('assets/game_vimaan.jpg');"></div>
+            <div class="game-cover-card-overlay"></div>
+            <div class="game-cover-top">
+              <span class="game-badge-category game-badge-category--red">CRASH</span>
+              <span class="game-badge-live"><span class="live-dot"></span>94.7x HOT</span>
+            </div>
+            <div class="game-cover-bottom">
+              <div class="game-cover-title">Vimaan</div>
+              <div class="game-cover-meta">
+                <span>Multipliers</span>
+                <span class="game-cover-action">Play &rsaquo;</span>
+              </div>
+            </div>
           </a>
-          <a href="win.html" class="game-tile game-tile--pink" title="Sapre Color">
-            <span class="game-tile-icon">🎨</span>
-            <span class="game-tile-label">Sapre</span>
+
+          <!-- Game 2: 20-20 Teen Patti -->
+          <a href="teenpatti.html" class="game-cover-card" data-category="all cards popular"
+            title="20-20 Teen Patti Poker">
+            <div class="game-cover-card-bg" style="background-image: url('assets/game_teenpatti.jpg');"></div>
+            <div class="game-cover-card-overlay"></div>
+            <div class="game-cover-top">
+              <span class="game-badge-category game-badge-category--purple">CARDS</span>
+              <span class="game-badge-live"><span class="live-dot"></span>Live Dealer</span>
+            </div>
+            <div class="game-cover-bottom">
+              <div class="game-cover-title">Teen Patti</div>
+              <div class="game-cover-meta">
+                <span>20-20 Poker</span>
+                <span class="game-cover-action">Play &rsaquo;</span>
+              </div>
+            </div>
           </a>
-          <a href="teenpatti.html" class="game-tile game-tile--purple" title="20-20 Teen Patti">
-            <span class="game-tile-icon">🃏</span>
-            <span class="game-tile-label">Teen Patti</span>
+
+          <!-- Game 3: Sapre Color Trading (30s) -->
+          <a href="win.html" class="game-cover-card" data-category="all color popular"
+            title="Sapre Color Prediction (30s)">
+            <div class="game-cover-card-bg" style="background-image: url('assets/game_sapre.jpg');"></div>
+            <div class="game-cover-card-overlay"></div>
+            <div class="game-cover-top">
+              <span class="game-badge-category game-badge-category--green">COLOR 30S</span>
+              <span class="game-badge-live"><span class="live-dot"></span>Rapid</span>
+            </div>
+            <div class="game-cover-bottom">
+              <div class="game-cover-title">Sapre Color</div>
+              <div class="game-cover-meta">
+                <span>30s Prediction</span>
+                <span class="game-cover-action">Play &rsaquo;</span>
+              </div>
+            </div>
           </a>
-          <a href="mining.html" class="game-tile game-tile--teal" title="Mines Game">
-            <span class="game-tile-icon">💣</span>
-            <span class="game-tile-label">Mines</span>
+
+          <!-- Game 4: Mines Game -->
+          <a href="mining.html" class="game-cover-card" data-category="all crash popular"
+            title="Mines Diamond Grid Game">
+            <div class="game-cover-card-bg" style="background-image: url('assets/game_mines.jpg');"></div>
+            <div class="game-cover-card-overlay"></div>
+            <div class="game-cover-top">
+              <span class="game-badge-category game-badge-category--teal">MINES</span>
+              <span class="game-badge-live"><span class="live-dot"></span>98.4% RTP</span>
+            </div>
+            <div class="game-cover-bottom">
+              <div class="game-cover-title">Mines</div>
+              <div class="game-cover-meta">
+                <span>Diamond Matrix</span>
+                <span class="game-cover-action">Play &rsaquo;</span>
+              </div>
+            </div>
           </a>
-        </div>
-        <div class="game-group-card">
-          <a href="win1.html" class="game-tile-mini" title="Becone Color">
-            <span class="game-tile-mini-icon">🌈</span>
-            <span class="game-tile-mini-label">Becone</span>
+
+          <!-- Game 5: Your 11 (Fantasy Cricket) -->
+          <a data-feature="cricket" href="youreleven.html" class="game-cover-card" data-category="all cricket popular"
+            title="Your 11 Fantasy Cricket">
+            <div class="game-cover-card-bg" style="background-image: url('assets/game_youreleven.jpg');"></div>
+            <div class="game-cover-card-overlay"></div>
+            <div class="game-cover-top">
+              <span class="game-badge-category game-badge-category--gold">FANTASY XI</span>
+              <span class="game-badge-live"><span class="live-dot"></span>Active Contest</span>
+            </div>
+            <div class="game-cover-bottom">
+              <div class="game-cover-title">Your 11</div>
+              <div class="game-cover-meta">
+                <span>Cricket League</span>
+                <span class="game-cover-action">Play &rsaquo;</span>
+              </div>
+            </div>
           </a>
-          <a href="youreleven.html" class="game-tile-mini" title="Your 11 (Fantasy Cricket)">
-            <span class="game-tile-mini-icon">🏏</span>
-            <span class="game-tile-mini-label">Your 11</span>
+
+          <!-- Game 6: Boundary Baazi (Live Cricket Prediction) -->
+          <a data-feature="cricket" href="boundarybaazi.html" class="game-cover-card" data-category="all cricket popular"
+            title="Boundary Baazi Live Cricket Prediction">
+            <div class="game-cover-card-bg" style="background-image: url('assets/game_boundary.jpg');"></div>
+            <div class="game-cover-card-overlay"></div>
+            <div class="game-cover-top">
+              <span class="game-badge-category game-badge-category--red">LIVE CRICKET</span>
+              <span class="game-badge-live"><span class="live-dot"></span>Ball-by-Ball</span>
+            </div>
+            <div class="game-cover-bottom">
+              <div class="game-cover-title">Boundary Baazi</div>
+              <div class="game-cover-meta">
+                <span>Over Prediction</span>
+                <span class="game-cover-action">Play &rsaquo;</span>
+              </div>
+            </div>
           </a>
-          <a href="boundarybaazi.html" class="game-tile-mini" title="Boundary Baazi (Cricket Prediction)">
-            <span class="game-tile-mini-icon">🎯</span>
-            <span class="game-tile-mini-label">Boundary</span>
+
+          <!-- Game 7: Becone Color Trading (1m) -->
+          <a href="win1.html" class="game-cover-card" data-category="all color"
+            title="Becone 1-Minute Color Prediction">
+            <div class="game-cover-card-bg" style="background-image: url('assets/game_becone.jpg');"></div>
+            <div class="game-cover-card-overlay"></div>
+            <div class="game-cover-top">
+              <span class="game-badge-category game-badge-category--purple">COLOR 1M</span>
+              <span class="game-badge-live"><span class="live-dot"></span>Speed</span>
+            </div>
+            <div class="game-cover-bottom">
+              <div class="game-cover-title">Becone Color</div>
+              <div class="game-cover-meta">
+                <span>1-Min Rounds</span>
+                <span class="game-cover-action">Play &rsaquo;</span>
+              </div>
+            </div>
           </a>
+
+          <!-- Game 8: VIP High-Roller Room -->
+          <a href="win3.html" class="game-cover-card" data-category="all color cards"
+            title="VIP High-Roller Color Room">
+            <div class="game-cover-card-bg" style="background-image: url('assets/game_sapre.jpg');"></div>
+            <div class="game-cover-card-overlay"></div>
+            <div class="game-cover-top">
+              <span class="game-badge-category game-badge-category--gold">VIP ROOM</span>
+              <span class="game-badge-live"><span class="live-dot"></span>High Stakes</span>
+            </div>
+            <div class="game-cover-bottom">
+              <div class="game-cover-title">VIP Room</div>
+              <div class="game-cover-meta">
+                <span>5-Min Special</span>
+                <span class="game-cover-action">Play &rsaquo;</span>
+              </div>
+            </div>
+          </a>
+
         </div>
       </div>
 
-      <!-- Original photo-card grid, kept for reference/reuse but no longer the primary display -->
-      <div class="games-cards-grid" style="display:none;">
-        <!-- Card 1: Vimaan -->
-        <a href="aviator.html" class="game-card-item">
-          <div class="game-card-img"
-            style="background-image: url('assets/aviator_bg.png'); background-position: center; background-size: cover;">
-          </div>
-          <div class="game-card-title">Vimaan (Aviator)</div>
-        </a>
-        <!-- Card 2: Teen Patti -->
-        <a href="teenpatti.html" class="game-card-item">
-          <div class="game-card-img"
-            style="background-image: url('assets/teenpatti_bg.jpg'); background-position: center; background-size: cover;">
-          </div>
-          <div class="game-card-title">20-20 Teen Patti</div>
-        </a>
-        <!-- Card 3: Sapre Color -->
-        <a href="win.html" class="game-card-item">
-          <div class="game-card-img"
-            style="background-image: url('assets/sapre_bg.png'); background-position: center; background-size: cover;">
-          </div>
-          <div class="game-card-title">Sapre Color</div>
-        </a>
-        <!-- Card 4: Becone Color -->
-        <a href="win1.html" class="game-card-item">
-          <div class="game-card-img"
-            style="background-image: url('assets/becone_bg.png'); background-position: center; background-size: cover;">
-          </div>
-          <div class="game-card-title">Becone Color</div>
-        </a>
-        <!-- Card 8: Mines Mining -->
-        <a href="mining.html" class="game-card-item">
-          <div class="game-card-img"
-            style="background-image: url('assets/mines_bg.png'); background-position: center; background-size: cover;">
-          </div>
-          <div class="game-card-title">Mines Game</div>
-        </a>
-        <!-- Card 9: Your 11 fantasy cricket -->
-        <a href="youreleven.html" class="game-card-item">
-          <div class="game-card-img"
-            style="background: linear-gradient(135deg, #1a9f5a, #0b0e1d); display:flex; align-items:center; justify-content:center; font-family: var(--font-display); font-size:15px; color:#ffffff; text-align:center;">
-            Your 11
-          </div>
-          <div class="game-card-title">Your 11 (Fantasy Cricket)</div>
-        </a>
-        <!-- Card 10: Boundary Baazi ball-by-ball prediction -->
-        <a href="boundarybaazi.html" class="game-card-item">
-          <div class="game-card-img"
-            style="background: linear-gradient(135deg, #7b3ff0, #0b0e1d); display:flex; align-items:center; justify-content:center; font-family: var(--font-display); font-size:15px; color:#ffffff; text-align:center;">
-            Boundary Baazi
-          </div>
-          <div class="game-card-title">Boundary Baazi (Cricket Prediction)</div>
-        </a>
+      <!-- Compact Global Quick Stats Bar -->
+      <div class="exchange-quick-stats">
+        <div class="quick-stat-item">👥 Active: <strong style="color:var(--green)">14,812</strong></div>
+        <div class="quick-stat-item">🎯 Bets Today: <strong style="color:var(--gold-deep)">345,129</strong></div>
+        <div class="quick-stat-item">💰 Volume: <strong style="color:var(--violet)">PTS 4.8M</strong></div>
+        <div class="quick-stat-item">⚡ Payout: <strong style="color:#00e676">97.2%</strong></div>
       </div>
     </main>
 
@@ -222,7 +278,8 @@
         <li class="exchange-menu-item"
           style="background: rgba(201,160,84,0.12); border: 1px solid var(--gold); border-radius:4px; margin-bottom:6px;">
           <a href="cashier.html" style="color:var(--gold-deep); font-weight:800;">💰 Wallet & Deposit <span
-              class="exchange-menu-chevron" style="color:var(--gold-deep);">›</span></a></li>
+              class="exchange-menu-chevron" style="color:var(--gold-deep);">›</span></a>
+        </li>
         <li class="exchange-menu-item"><a href="aviator.html" style="color:var(--red);">Vimaan (Aviator) <span
               class="exchange-menu-chevron">›</span></a></li>
         <li class="exchange-menu-item"><a href="win.html">Sapre (30s Color) <span
@@ -237,9 +294,9 @@
               class="exchange-menu-chevron">›</span></a></li>
         <li class="exchange-menu-item"><a href="mining.html" style="color:var(--gold-deep);">Mines Game <span
               class="exchange-menu-chevron" style="color:var(--gold-deep);">›</span></a></li>
-        <li class="exchange-menu-item"><a href="youreleven.html" style="color:var(--green);">Your 11 (Fantasy Cricket) <span
-              class="exchange-menu-chevron" style="color:var(--green);">›</span></a></li>
-        <li class="exchange-menu-item"><a href="boundarybaazi.html" style="color:var(--violet);">Boundary Baazi <span
+        <li data-feature="cricket" class="exchange-menu-item"><a href="youreleven.html" style="color:var(--green);">Your 11 (Fantasy Cricket)
+            <span class="exchange-menu-chevron" style="color:var(--green);">›</span></a></li>
+        <li data-feature="cricket" class="exchange-menu-item"><a href="boundarybaazi.html" style="color:var(--violet);">Boundary Baazi <span
               class="exchange-menu-chevron" style="color:var(--violet);">›</span></a></li>
         <li class="exchange-menu-item"><a href="parity.html">Admin Monitor <span
               class="exchange-menu-chevron">›</span></a></li>
@@ -280,10 +337,10 @@
     // ═══════ Banner Slideshow (Guaranteed Auto-Sliding Track) ═══════
     (function () {
       const track = document.getElementById('bannerTrack');
-      const dots  = document.querySelectorAll('.banner-dot');
-      const prev  = document.getElementById('bannerPrev');
-      const next  = document.getElementById('bannerNext');
-      const wrap  = document.getElementById('bannerSlideshow');
+      const dots = document.querySelectorAll('.banner-dot');
+      const prev = document.getElementById('bannerPrev');
+      const next = document.getElementById('bannerNext');
+      const wrap = document.getElementById('bannerSlideshow');
       if (!track) return;
 
       const TOTAL_REAL_SLIDES = 5;
@@ -396,12 +453,22 @@
       resetAutoPlay();
     })();
 
-    // Universe Games tabs active class toggle
+    // Universe Games tabs active class toggle & category filter
     const universeTabs = document.querySelectorAll('.exchange-tabs-bar .exchange-tab-btn');
+    const gameCards = document.querySelectorAll('#gamesContainer .game-cover-card');
     universeTabs.forEach(btn => {
       btn.addEventListener('click', () => {
-        btn.parentElement.querySelectorAll('.exchange-tab-btn').forEach(b => b.classList.remove('active'));
+        universeTabs.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
+        const filter = btn.getAttribute('data-filter') || 'all';
+        gameCards.forEach(card => {
+          const cat = card.getAttribute('data-category') || '';
+          if (filter === 'all' || cat.includes(filter)) {
+            card.style.display = 'flex';
+          } else {
+            card.style.display = 'none';
+          }
+        });
       });
     });
 
@@ -541,7 +608,7 @@
             .catch(err => {
               console.warn("Chat server offline, storing message in localStorage:", err);
               chatInput.value = '';
-              
+
               const localMsgs = JSON.parse(localStorage.getItem('bet1x_local_chat_messages') || '[]');
               localMsgs.push({
                 username: user.username,
@@ -621,7 +688,7 @@
         </svg></span>
       <span class="nav-label">Wallet</span>
     </a>
-    <a href="youreleven.html" class="mobile-bottom-nav-item">
+    <a data-feature="cricket" href="youreleven.html" class="mobile-bottom-nav-item">
       <span class="nav-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"
           style="display:block; margin:0 auto;">
           <path
@@ -629,7 +696,7 @@
         </svg></span>
       <span class="nav-label">Your 11</span>
     </a>
-    <a href="boundarybaazi.html" class="mobile-bottom-nav-item">
+    <a data-feature="cricket" href="boundarybaazi.html" class="mobile-bottom-nav-item">
       <span class="nav-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"
           style="display:block; margin:0 auto;">
           <circle cx="12" cy="12" r="9" />
@@ -672,11 +739,11 @@
       </li>
       <li class="exchange-menu-item"><a href="teenpatti.html">Teen Patti <span
             class="exchange-menu-chevron">›</span></a></li>
-      <li class="exchange-menu-item"><a href="mining.html">Mines Game <span
+      <li class="exchange-menu-item"><a href="mining.html">Mines Game <span class="exchange-menu-chevron">›</span></a>
+      </li>
+      <li data-feature="cricket" class="exchange-menu-item"><a href="youreleven.html">Your 11 (Fantasy Cricket) <span
             class="exchange-menu-chevron">›</span></a></li>
-      <li class="exchange-menu-item"><a href="youreleven.html">Your 11 (Fantasy Cricket) <span
-            class="exchange-menu-chevron">›</span></a></li>
-      <li class="exchange-menu-item"><a href="boundarybaazi.html">Boundary Baazi <span
+      <li data-feature="cricket" class="exchange-menu-item"><a href="boundarybaazi.html">Boundary Baazi <span
             class="exchange-menu-chevron">›</span></a></li>
       <li class="exchange-menu-item"><a href="parity.html">Admin Monitor <span
             class="exchange-menu-chevron">›</span></a></li>

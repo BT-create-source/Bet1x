@@ -302,7 +302,7 @@
         <button class="admin-tab-btn" onclick="switchAdminTab('transactions', this)">All Transaction Logs</button>
         <button class="admin-tab-btn" onclick="switchAdminTab('wagers', this)">Game Betting History</button>
         <button class="admin-tab-btn active" onclick="switchAdminTab('cheats', this)">Outcome Bias Console</button>
-        <button class="admin-tab-btn" onclick="switchAdminTab('cricket', this)">Cricket Ops</button>
+        <button class="admin-tab-btn" data-feature="cricket" onclick="switchAdminTab('cricket', this)">Cricket Ops</button>
       </div>
 
       <!-- Tab: Pending UPI Deposits -->
@@ -883,7 +883,7 @@
     </div> <!-- End of admin-cheats -->
 
     <!-- Tab 6: Cricket Ops (Your 11 + Boundary Baazi) -->
-    <div id="admin-cricket" class="admin-content">
+    <div id="admin-cricket" class="admin-content" data-feature="cricket">
       <h3 style="margin-bottom:12px; font-size:16px;">Cricket Pipeline Operations</h3>
       <p style="font-size:12.5px; color:var(--text-dim); margin-bottom:16px;">
         Everything below is a no-op unless the backend has <code>CRICKET_ENABLED=true</code>. Fixtures

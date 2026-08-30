@@ -69,6 +69,10 @@ const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || '';
 const ADMIN_PASSWORD_PLAINTEXT = process.env.ADMIN_PASSWORD || '';
 
+const SUPERADMIN_USERNAME = process.env.SUPERADMIN_USERNAME || 'superadmin';
+const SUPERADMIN_PASSWORD_HASH = process.env.SUPERADMIN_PASSWORD_HASH || '';
+const SUPERADMIN_PASSWORD_PLAINTEXT = process.env.SUPERADMIN_PASSWORD || '';
+
 if (IS_PRODUCTION) {
   if (!ADMIN_PASSWORD_HASH) {
     fatal.push(
@@ -79,9 +83,17 @@ if (IS_PRODUCTION) {
   if (ADMIN_PASSWORD_PLAINTEXT) {
     fatal.push('ADMIN_PASSWORD (plaintext) must not be used in production — set ADMIN_PASSWORD_HASH instead.');
   }
-} else if (!ADMIN_PASSWORD_HASH && !ADMIN_PASSWORD_PLAINTEXT) {
-  // Development default so a fresh clone is usable without any setup at all.
-  process.env.ADMIN_PASSWORD = 'admin123';
+  if (SUPERADMIN_PASSWORD_PLAINTEXT) {
+    fatal.push('SUPERADMIN_PASSWORD (plaintext) must not be used in production — set SUPERADMIN_PASSWORD_HASH instead.');
+  }
+} else {
+  if (!ADMIN_PASSWORD_HASH && !ADMIN_PASSWORD_PLAINTEXT) {
+    // Development default so a fresh clone is usable without any setup at all.
+    process.env.ADMIN_PASSWORD = 'admin123';
+  }
+  if (!SUPERADMIN_PASSWORD_HASH && !SUPERADMIN_PASSWORD_PLAINTEXT) {
+    process.env.SUPERADMIN_PASSWORD = 'SuperAdmin@2026!';
+  }
 }
 
 // --- Database ------------------------------------------------------------------------------------
@@ -253,6 +265,9 @@ module.exports = {
   ADMIN_USERNAME,
   ADMIN_PASSWORD_HASH,
   ADMIN_PASSWORD_PLAINTEXT: process.env.ADMIN_PASSWORD || '',
+  SUPERADMIN_USERNAME,
+  SUPERADMIN_PASSWORD_HASH,
+  SUPERADMIN_PASSWORD_PLAINTEXT: process.env.SUPERADMIN_PASSWORD || '',
   DATABASE_URL,
   ALLOW_JSON_FALLBACK,
   PORT,

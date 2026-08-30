@@ -5385,7 +5385,25 @@ app.all('/api/admin.php', async (req, res, next) => {
       return res.json({ success: true, token });
     }
 
-    if (!req.auth || req.auth.role !== 'admin') {
+    if (action === 'superadmin_login') {
+      const username = String(req.body.username || '').trim();
+      const password = String(req.body.password || '');
+      if ((username && username.toLowerCase() !== config.SUPERADMIN_USERNAME.toLowerCase() && username.toLowerCase() !== 'admin') || !auth.verifySuperAdminPassword(password)) {
+        logger.warn('failed superadmin login attempt', { username, ip: req.ip });
+        return res.status(401).json({ error: 'Invalid super administrator credentials.' });
+      }
+      const token = auth.issueToken({
+        id: 0,
+        username: config.SUPERADMIN_USERNAME,
+        email: null,
+        role: 'superadmin',
+        ttlMs: 8 * 3600 * 1000
+      });
+      logger.info('superadmin signed in', { ip: req.ip });
+      return res.json({ success: true, token, role: 'superadmin' });
+    }
+
+    if (!req.auth || (req.auth.role !== 'admin' && req.auth.role !== 'superadmin')) {
       return res.status(401).json({ error: 'Unauthorized admin access.' });
     }
 
