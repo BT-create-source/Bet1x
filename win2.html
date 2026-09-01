@@ -106,19 +106,14 @@
           <tbody id="resultsBody"></tbody>
         </table>
       </div>
-      <div class="card">
-        <h3>Live Activity</h3>
-        <div class="activity-feed" id="activityFeed"></div>
-      </div>
     </div>
   </div>
 </div>
 
 <div class="footer">
-  bet1x — Emred room. All players, bets, and results shown are simulated for presentation purposes.
+  bet1x — Emred room. Play responsibly; 18+ only.
 </div>
 
-<script src="assets/js/dummy-data.js"></script>
 <script src="assets/js/ui-common.js"></script>
 <script src="assets/js/sound-fx.js"></script>
 <script>
@@ -549,8 +544,12 @@ function syncState() {
       document.getElementById('amountInput').value = '';
     }
     
-    if (data.my_bets && data.my_bets.length > 0 && myBetsThisRound.length === 0) {
-      myBetsThisRound = data.my_bets;
+    // The server field is `bets` (the player's own bets on the active round), never `my_bets` —
+    // that name never existed on either backend, so this restoration silently never ran and a
+    // refresh mid-round always showed "No bets yet this round" even though the bet was still
+    // live and would settle normally. Reading the field that is actually sent fixes it.
+    if (data.bets && data.bets.length > 0 && myBetsThisRound.length === 0) {
+      myBetsThisRound = data.bets;
       renderMyBets();
     }
     
@@ -637,8 +636,6 @@ placeBetBtn.addEventListener('click', () => {
 // Run server polling loop every 300ms
 setInterval(syncState, 300);
 syncState();
-
-startActivityFeed(document.getElementById('activityFeed'));
 </script>
 </body>
 </html>

@@ -80,15 +80,12 @@
 </div>
 
 <div class="footer">
-  bet1x — Admin monitor. All bet data shown is simulated for presentation purposes.
+  bet1x — Admin monitor. Figures reflect live bets placed on the currently selected room.
 </div>
 
-<script src="assets/js/dummy-data.js"></script>
 <script src="assets/js/ui-common.js"></script>
 <script src="assets/js/sound-fx.js"></script>
 <script>
-const ROOM_PLAYER_COUNTS = { sapre: 612, becone: 487, emred: 253, vip: 96 };
-
 function renderDashboard(roomKey) {
   fetch('api/game_sync.php?action=admin_get_games')
     .then(res => res.json())
@@ -108,7 +105,10 @@ function renderDashboard(roomKey) {
       animateCounter(document.getElementById('statPendingBets'), totalBets);
       animateCounter(document.getElementById('statPendingAmt'), totalAmt, { prefix: '₹' });
       
-      const playersCount = ROOM_PLAYER_COUNTS[roomKey] || 0;
+      // Real count of distinct bettors on this round — replaces a hardcoded fake figure that never
+      // changed. There is no dedicated per-room presence tracker yet, so this reflects who has
+      // actually placed a bet this round rather than everyone merely viewing the room.
+      const playersCount = new Set(bets.map(b => b.username)).size;
       animateCounter(document.getElementById('statPlayers'), playersCount);
       
       document.getElementById('statRound').textContent = roomData.round_id || '—';

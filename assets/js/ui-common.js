@@ -557,63 +557,24 @@ function renderPulseStrip(container, results) {
   });
 }
 
-/* ---------------- Countdown ring ---------------- */
-function startCountdownRing(opts) {
-  const { ringFg, timeEl, roundIdEl, durationSeconds, onComplete } = opts;
-  const radius = ringFg.r.baseVal.value;
-  const circumference = 2 * Math.PI * radius;
-  ringFg.style.strokeDasharray = circumference;
-
-  let remaining = durationSeconds;
-  let roundSeq = randomInt(10000, 99999);
-  if (roundIdEl) roundIdEl.textContent = formatRoundId(new Date(), roundSeq);
-
-  function tick() {
-    const pct = remaining / durationSeconds;
-    ringFg.style.strokeDashoffset = circumference * (1 - pct);
-    const m = Math.floor(remaining / 60).toString().padStart(2, '0');
-    const s = Math.floor(remaining % 60).toString().padStart(2, '0');
-    timeEl.textContent = `${m}:${s}`;
-
-    if (remaining <= 0) {
-      if (onComplete) onComplete();
-      remaining = durationSeconds;
-      roundSeq = randomInt(10000, 99999);
-      if (roundIdEl) roundIdEl.textContent = formatRoundId(new Date(), roundSeq);
-      return;
-    }
-    remaining -= 1;
-    setTimeout(tick, 1000);
-  }
-  tick();
-}
-
-/* ---------------- Live activity feed simulation ---------------- */
-function startActivityFeed(container, { intervalMs = 2200, maxItems = 12 } = {}) {
-  function addEvent() {
-    const ev = generateFakeActivityEvent();
-    if (!ev || !ev.user) {
-      return; // Do not render empty dummy events
-    }
-    const item = document.createElement('div');
-    item.className = 'activity-item';
-    const label = ev.category === 'color'
-      ? ev.value
-      : ev.category === 'size'
-        ? ev.value
-        : `Number ${ev.value}`;
-    const cls = ev.category === 'color' ? ev.value.toLowerCase() : '';
-    item.innerHTML = `
-      <span class="user">${ev.user} · ${ev.room}</span>
-      <span class="action ${cls}">₹${ev.amount} on ${label}</span>
-    `;
-    container.prepend(item);
-    while (container.children.length > maxItems) {
-      container.removeChild(container.lastChild);
-    }
-  }
-  return setInterval(addEvent, intervalMs);
-}
+/* ---------------------------------------------------------------------------------------------
+ * Removed with the demo scaffolding:
+ *
+ *   startCountdownRing()  — dead code; nothing had called it since the colour rooms moved to
+ *                           server-driven timers. It also depended on randomInt()/formatRoundId()
+ *                           from dummy-data.js.
+ *
+ *   startActivityFeed()   — drove the "Live Activity" card on the four colour rooms from
+ *                           generateFakeActivityEvent(). That generator had already been emptied,
+ *                           so the card rendered nothing at all and simply sat blank on every room.
+ *                           Fabricating player activity is not an option on a live money site, and
+ *                           the room's own results history already sits directly above it, so the
+ *                           card was removed rather than refilled.
+ *
+ * A genuine room-wide bet feed is possible later — the backend already records every bet per round
+ * in colour state — but it needs a deliberate endpoint that decides what other players' activity is
+ * safe to expose, which is a product decision rather than a cleanup.
+ * ------------------------------------------------------------------------------------------- */
 
 /* ---------------- Animated counters ---------------- */
 function animateCounter(el, target, opts = {}) {
@@ -1305,6 +1266,69 @@ function getAviatorCurrentBets() {
   } catch (e) {
     return [];
   }
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * HTML escaping — the single output-encoding helper for this site.
+ *
+ * Every page builds markup with innerHTML and template literals. Any value that originated from a
+ * user (a chat message, a withdrawal's bank name, an operator-typed reason) MUST pass through this
+ * before it is interpolated, or the browser parses it as markup.
+ *
+ * This is not theoretical. Two live vectors existed before this was added:
+ *   1. A chat message is free-form and rendered into the lobby feed every 3 seconds, so
+ *      `<img src=x onerror=...>` executed in EVERY visitor's browser, operators included.
+ *   2. Withdrawal `bank_name` / `bank_acc_name` were validated only as "not empty", concatenated
+ *      into the stored `details` string, and rendered in the admin Pending Cashouts table — a
+ *      payload aimed squarely at the operator's session.
+ *
+ * The site's CSP deliberately allows inline handlers (`script-src-attr: 'unsafe-inline'`) because
+ * the pages are hand-written with onclick= attributes throughout, so CSP does NOT save us here.
+ * Output encoding is the control.
+ *
+ * Escapes the five XML significant characters. `&` must be replaced first or it would double-encode
+ * the entities produced by the later replacements.
+ * ------------------------------------------------------------------------------------------- */
+function escapeHtml(value) {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+window.escapeHtml = escapeHtml;
+
+/* ---------------------------------------------------------------------------------------------
+ * UPI deposit QR — shared between cashier.html (renders it for a paying customer) and admin.html
+ * (renders a live preview while an operator edits the platform's UPI ID). Both pages load
+ * assets/js/qrcode-gen.js (the vendored kazuhikoarase/qrcode-generator, MIT) before this file.
+ * ------------------------------------------------------------------------------------------- */
+
+// Standard UPI deep link — any UPI app (GPay, PhonePe, Paytm, BHIM...) recognises this scheme and
+// pre-fills the payee and amount when the QR is scanned.
+function buildUpiPaymentUri(upiId, payeeName, amount) {
+  const params = new URLSearchParams();
+  params.set('pa', upiId);
+  params.set('pn', payeeName || 'bet1x');
+  if (amount) params.set('am', Number(amount).toFixed(2));
+  params.set('cu', 'INR');
+  return 'upi://pay?' + params.toString();
+}
+
+// Renders a real, scannable QR code (not a decorative mockup) into `containerEl`, replacing
+// whatever it currently holds. Requires assets/js/qrcode-gen.js to already be loaded.
+function renderUpiQr(containerEl, text, sizePx) {
+  if (!containerEl || typeof qrcode !== 'function') return;
+  containerEl.innerHTML = '';
+  const qr = qrcode(0, 'M'); // type 0 = auto-detect smallest version for the data length
+  qr.addData(text);
+  qr.make();
+  const cellSize = Math.max(2, Math.floor((sizePx || 180) / qr.getModuleCount()));
+  containerEl.innerHTML = qr.createImgTag(cellSize, cellSize * 2);
+  const img = containerEl.querySelector('img');
+  if (img) { img.style.maxWidth = '100%'; img.style.height = 'auto'; img.style.display = 'block'; }
 }
 
 // Automatically forfeit all active/pending bets when leaving any game room

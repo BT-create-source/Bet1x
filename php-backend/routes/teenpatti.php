@@ -152,7 +152,13 @@ function register_teenpatti_routes(Router $app) {
             $updatedRoom = tp_get_room($roomId);
             $occupiedCount = count(array_filter($updatedSeats, function ($s) { return !empty($s['username']); }));
 
-            if ($occupiedCount >= 3 && $updatedRoom['status'] === 'waiting') {
+            if (!cfg('TEENPATTI_AUTO_BOT_FILL')) {
+                // Real players only: start as soon as there are enough to deal — tp_start_round's own
+                // minimum of 2 — and never pad the table with filler names.
+                if ($occupiedCount >= 2 && $updatedRoom['status'] === 'waiting') {
+                    tp_start_round($roomId);
+                }
+            } elseif ($occupiedCount >= 3 && $updatedRoom['status'] === 'waiting') {
                 // Fill remaining empty seats with ordinary fillers and start immediately. "Admin" is
                 // never seated here — that is decided once, live, in tp_start_round.
                 $empty = array_values(array_filter($updatedSeats, function ($s) { return empty($s['username']); }));
@@ -355,14 +361,18 @@ function register_teenpatti_routes(Router $app) {
 
             $room = tp_get_room($roomId);
             if ($room) {
-                $seats = tp_get_seats($roomId);
-                $empty = array_values(array_filter($seats, function ($s) { return empty($s['username']); }));
-                $botIdx = 0;
-                foreach ($empty as $seat) {
-                    if ($botIdx >= 4) break;
-                    tp_update_seat($seat['id'], ['username' => random_filler_name(), 'is_bot' => 1, 'folded' => 0]);
-                    $botIdx++;
+                if (cfg('TEENPATTI_AUTO_BOT_FILL')) {
+                    $seats = tp_get_seats($roomId);
+                    $empty = array_values(array_filter($seats, function ($s) { return empty($s['username']); }));
+                    $botIdx = 0;
+                    foreach ($empty as $seat) {
+                        if ($botIdx >= 4) break;
+                        tp_update_seat($seat['id'], ['username' => random_filler_name(), 'is_bot' => 1, 'folded' => 0]);
+                        $botIdx++;
+                    }
                 }
+                // With Admin now seated, tp_start_round's own >= 2 minimum is all that's needed — real
+                // players already at the table are enough; no filler padding in real-players-only mode.
                 tp_start_round($roomId);
             }
 

@@ -17,6 +17,7 @@ require_once __DIR__ . '/../lib/http.php';
 require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/helpers.php';
 require_once __DIR__ . '/../lib/ratelimit.php';
+require_once __DIR__ . '/../lib/riskcontrols.php';
 require_once __DIR__ . '/chat.php';
 
 /** Read a table, falling back to the flat-file store when that is permitted. */
@@ -164,6 +165,25 @@ function register_legacy_routes(Router $app) {
                                           'withdrawals', 'map_withdrawal'));
                     return;
 
+                case 'get_payment_config': {
+                    $cfg = state_get('payment_config') ?? [];
+                    $res->json(['upi_id' => $cfg['upi_id'] ?? '', 'payee_name' => $cfg['payee_name'] ?? 'bet1x']);
+                    return;
+                }
+
+                case 'set_payment_config': {
+                    $upiId = trim((string)($req->b('upi_id') ?? ''));
+                    $payeeName = trim((string)($req->b('payee_name') ?? '')) ?: 'bet1x';
+                    if ($upiId !== '' && !preg_match('/^[\w.\-]{2,64}@[A-Za-z][\w.\-]{1,64}$/', $upiId)) {
+                        $res->status(400)->json(['error' => 'Enter a valid UPI ID, e.g. yourname@bank.']);
+                        return;
+                    }
+                    $data = ['upi_id' => $upiId, 'payee_name' => $payeeName];
+                    state_set('payment_config', $data);
+                    $res->json(array_merge(['success' => true], $data));
+                    return;
+                }
+
                 case 'adjust_balance': {
                     $targetUser = trim((string)($req->b('username') ?? ''));
                     $amt = js_parse_float($req->b('amount'));
@@ -310,6 +330,15 @@ function register_legacy_routes(Router $app) {
         }
     });
 
+    // The platform's own UPI ID/payee name for the deposit QR code — set once by an operator via the
+    // admin panel (see 'get_payment_config'/'set_payment_config' above) and read here by any
+    // logged-in player so the cashier page can render a real, scannable UPI QR rather than a
+    // decorative placeholder. Not sensitive, so ordinary auth is enough — no admin gate to read it.
+    $app->get('/api/payment-config', 'require_auth', function (Req $req, Res $res) {
+        $cfg = state_get('payment_config') ?? [];
+        $res->json(['upi_id' => $cfg['upi_id'] ?? '', 'payee_name' => $cfg['payee_name'] ?? 'bet1x']);
+    });
+
     // ---------------------------------------------------------------- api/deposit.php
     $app->all('/api/deposit.php', limiter('cashier'), 'require_auth', function (Req $req, Res $res) {
         $username = acting_username($req);
@@ -431,6 +460,20 @@ function register_legacy_routes(Router $app) {
                 $res->status(400)->json(['error' => 'All bank details are required.']);
                 return;
             }
+            // Free-text bank/account-holder names are concatenated into `details`, stored, and then
+            // rendered in the OPERATOR's pending-cashouts table. Before this check they accepted any
+            // bytes at all, which made them a stored-XSS delivery path aimed at the admin session.
+            // Output is escaped too (see escapeHtml in ui-common.js); this is the second layer, and
+            // it also keeps the ledger readable. Letters, digits, space, dot, hyphen, ampersand and
+            // apostrophe cover real Indian bank and account-holder names.
+            if (!preg_match("/^[A-Za-z0-9 .\-&']{2,60}$/u", $bankName)) {
+                $res->status(400)->json(['error' => 'Bank name contains invalid characters.']);
+                return;
+            }
+            if (!preg_match("/^[A-Za-z .\-']{2,60}$/u", $accName)) {
+                $res->status(400)->json(['error' => 'Account holder name contains invalid characters.']);
+                return;
+            }
             if (!preg_match('/^\d{6,20}$/', $accNum)) {
                 $res->status(400)->json(['error' => 'Account number looks invalid.']);
                 return;
@@ -442,6 +485,14 @@ function register_legacy_routes(Router $app) {
             $details = 'Bank: ' . $bankName . ' | A/C Name: ' . $accName . ' | A/C Num: ' . $accNum . ' | IFSC: ' . $ifsc;
         } else {
             $res->status(400)->json(['error' => 'Invalid withdrawal method.']);
+            return;
+        }
+
+        // Abuse checks run here — after the request is well-formed, but BEFORE debit_wallet() below
+        // holds any money. A refusal at this point leaves the player's balance untouched.
+        $riskError = risk_check_withdrawal($username, $amount);
+        if ($riskError !== null) {
+            $res->status(400)->json(['error' => $riskError]);
             return;
         }
 

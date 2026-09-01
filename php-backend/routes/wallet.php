@@ -166,7 +166,7 @@ function register_wallet_routes(Router $app) {
                     q('UPDATE `User` SET `wallet_balance` = ? WHERE `id` = ?', [$targetBal, (int)$user['id']]);
                     $txnId = 'DEP_' . (int) floor(100000 + js_random() * 900000);
                     insert_transaction($txnId, $user['username'], 'Deposit', $targetBal,
-                                       'Wallet Demo Balance Reset', 'Completed');
+                                       'Operator Balance Adjustment', 'Completed');
                 });
             } catch (Throwable $e) {
                 // Note: unlike every other fallback, this one does not consult
@@ -186,7 +186,7 @@ function register_wallet_routes(Router $app) {
                     'user'      => $username,
                     'type'      => 'Deposit',
                     'amount'    => $targetBal,
-                    'details'   => 'Wallet Demo Balance Reset',
+                    'details'   => 'Operator Balance Adjustment',
                     'status'    => 'Completed',
                     'timestamp' => js_iso(),
                 ]);

@@ -456,8 +456,10 @@ function register_gamesync_routes(Router $app) {
                             $state['phase'] = 'crashed';
                             $state['phase_start'] = now_ms();
                             $state['crash_point'] = max(1.00, to_fixed_num($finalCrash, 2));
+                            $state['current_multiplier'] = $state['crash_point']; // stored, not derived, once crashed
                             $state['rigged_this_round'] = true;
                             $state['rigged_targets'] = null;   // manual instant-crash rigs the whole round
+                            $state['admin_locked'] = true;     // an explicit operator action, not the bot engine
 
                             foreach ($state['bets'] as $i => $b) {
                                 if (($b['status'] ?? '') === 'pending') {
@@ -476,7 +478,53 @@ function register_gamesync_routes(Router $app) {
                         tx(function () use ($crashPointRaw) {
                             $state = aviator_load(true);
                             $parsed = js_parse_float($crashPointRaw);
-                            $state['next_override'] = js_truthy($parsed) ? (float)$parsed : null;
+                            $val = js_truthy($parsed) ? (float)$parsed : null;
+
+                            // Sticky, not one-shot: this value now applies to EVERY round from here
+                            // on — this one if one is already flying, and every future takeoff —
+                            // until the operator explicitly clears it (an empty crash_point, which
+                            // sets $val back to null here). See aviator_begin_round() for the takeoff
+                            // side of this; this is only the "a round is already in the air right
+                            // now" half, since a round already flying isn't at a takeoff to catch it.
+                            $state['next_override'] = $val;
+
+                            if ($val !== null && $val >= 1.0 && $state['phase'] === 'running') {
+                                // Fix THIS flight too, not just the ones after it. This is what an
+                                // operator watching the plane and pressing Save Multiplier actually
+                                // means — leaving the flight they were looking at crash on its own
+                                // random point read as "the multiplier box doesn't do anything."
+                                $currentMult = aviator_current_multiplier($state);
+                                if ($val <= $currentMult) {
+                                    // The plane has already passed the requested number — the only
+                                    // honest thing left to do is crash it right now, at the point
+                                    // already reached, exactly like the instant-crash button. The
+                                    // sticky value set above still governs every round after this one.
+                                    $state['crash_point'] = to_fixed_num($currentMult, 2);
+                                    $state['current_multiplier'] = $state['crash_point']; // stored, not derived, once crashed
+                                    $state['phase'] = 'crashed';
+                                    $state['phase_start'] = now_ms();
+                                    foreach ($state['bets'] as $i => $b) {
+                                        if (($b['status'] ?? '') === 'pending') {
+                                            $state['bets'][$i]['status'] = 'lost';
+                                            $state['bets'][$i]['was_rigged'] = true;
+                                        }
+                                    }
+                                    $state['history'][] = (float)$state['crash_point'];
+                                    if (count($state['history']) > 15) {
+                                        array_shift($state['history']);
+                                        $state['history'] = array_values($state['history']);
+                                    }
+                                } else {
+                                    $state['crash_point'] = $val;
+                                }
+                                $state['rigged_this_round'] = true;
+                                $state['rigged_targets'] = null;
+                                $state['admin_locked'] = true;   // immune to the bot's own erosion intercepts
+                            }
+                            // Clearing (val === null) never rewrites a round already flying — it
+                            // keeps whatever crash_point it already had. Only rounds that have not
+                            // yet taken off are affected, so the plane in the air right now doesn't
+                            // suddenly re-roll under the player mid-flight.
                             aviator_save($state);
                         });
                     }

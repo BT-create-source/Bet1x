@@ -321,6 +321,7 @@ function tp_schedule_bot_turn($roomId) {
 
 /** Schedule the 15s fill-and-deal, unless one is already pending. */
 function tp_schedule_bot_fill($roomId) {
+    if (!cfg('TEENPATTI_AUTO_BOT_FILL')) return; // real-players-only mode — never pad a table
     $room = tp_get_room($roomId);
     if (!$room) return;
     if ($room['bot_fill_due_at'] !== null) return;   // already scheduled
@@ -447,7 +448,47 @@ function tp_start_round($roomId) {
         if ($tableDecision['shouldRig']) {
             $botSeat = null;
             foreach ($activeOccupied as $s) { if (!empty($s['is_bot'])) { $botSeat = $s; break; } }
-            $targetSeat = $botSeat !== null ? $botSeat : $activeOccupied[0];
+            $targetSeat = $botSeat;
+
+            if ($targetSeat === null) {
+                // No filler bot is sitting at this table (production runs with none by design — see
+                // TEENPATTI_AUTO_BOT_FILL) — the only honest way for the house to take a cut is to
+                // occupy a seat itself, staking a real boot like anyone else. Falling back to a REAL
+                // player's own seat here moves no money at all: it just relabels which already-seated
+                // player wins their own shared pot back, silently zeroing out the house edge on any
+                // table that fills with real players. If there's nowhere left to sit, this hand is
+                // simply left unrigged below — the house never staked anything in it.
+                $activeSeatNumbers = array_map(function ($s) { return (int)$s['seat']; }, $activeOccupied);
+                $emptySeat = null;
+                foreach ($seats as $s) {
+                    if (!in_array((int)$s['seat'], $activeSeatNumbers, true)) { $emptySeat = $s; break; }
+                }
+                if ($emptySeat !== null) {
+                    try {
+                        $adminUser = get_or_create_user('Admin');
+                        if ($adminUser) {
+                            q('UPDATE `User` SET `wallet_balance` = ? WHERE `id` = ?', [5000.0, (int)$adminUser['id']]);
+                        }
+                        $cards = [$deck[$deckPos++], $deck[$deckPos++], $deck[$deckPos++]];
+                        tp_update_seat($emptySeat['id'], [
+                            'username' => 'Admin', 'is_bot' => 0, 'cards' => js_json_encode($cards),
+                            'folded' => 0, 'balance' => $bootAmt * -1, 'seen' => 0,
+                        ]);
+                        q('UPDATE `User` SET `wallet_balance` = `wallet_balance` - ? WHERE `username` = ?', [$bootAmt, 'Admin']);
+                        insert_transaction(
+                            new_record_id('TP'), 'Admin', 'Withdrawal', $bootAmt,
+                            'Teen Patti Boot — ' . $room['name'] . ' Round #' . ((int)$room['round'] + 1),
+                            'Completed'
+                        );
+                        $pot += $bootAmt;
+                        $emptySeat['username'] = 'Admin';
+                        $emptySeat['is_bot'] = 0;
+                        $occupiedSeats[] = $emptySeat; // keep firstSeat's candidate list consistent, below
+                        $targetSeat = $emptySeat;
+                    } catch (Throwable $e) { log_error('[TP] Error seating Admin for bot-takeover rig: ' . $e->getMessage()); }
+                }
+            }
+
             if ($targetSeat) {
                 $rigSeat = (int)$targetSeat['seat'];
                 $rigReason = "AI BOT TAKEOVER (" . js_num_str($bot['profit_pct']) . "% OF THIS TABLE'S HANDS)";
@@ -911,6 +952,7 @@ function tp_sweep() {
  * Rooms stay open (0/4 -> 1/4 -> 2/4 -> 3/4) for a while before filling to 4/4 and starting.
  */
 function tp_traffic_tick() {
+    if (!cfg('TEENPATTI_AUTO_BOT_FILL')) return; // real-players-only mode — no simulated traffic
     $now = now_ms();
     $nextAt = null;
     try { $rec = state_get('tp_traffic_next_at'); $nextAt = is_array($rec) ? ($rec['at'] ?? null) : null; } catch (Throwable $e) {}

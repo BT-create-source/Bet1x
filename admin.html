@@ -298,6 +298,7 @@
       <div class="admin-tabs">
         <button class="admin-tab-btn" onclick="switchAdminTab('withdrawals', this)">Pending Cashouts</button>
         <button class="admin-tab-btn" onclick="switchAdminTab('deposits', this)">Pending UPI Deposits</button>
+        <button class="admin-tab-btn" onclick="switchAdminTab('paymentsettings', this)">Payment Settings</button>
         <button class="admin-tab-btn" onclick="switchAdminTab('users', this)">User Accounts</button>
         <button class="admin-tab-btn" onclick="switchAdminTab('transactions', this)">All Transaction Logs</button>
         <button class="admin-tab-btn" onclick="switchAdminTab('wagers', this)">Game Betting History</button>
@@ -327,6 +328,37 @@
               <!-- Dynamic -->
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- Tab: Payment Settings (the platform's own UPI ID/QR shown to depositing users) -->
+      <div id="admin-paymentsettings" class="admin-content">
+        <h3 style="margin-bottom:12px; font-size:16px;">Deposit Payment Settings</h3>
+        <p style="font-size:12.5px; color:var(--text-dim); margin-bottom:20px; max-width:520px;">
+          This UPI ID is what customers actually pay into. It is turned into the real, scannable QR
+          code shown on the Cashier deposit page — set it to your own merchant/personal UPI handle
+          before going live. Nothing here touches wallets automatically; deposits still land in the
+          Pending queue for you to verify by UTR and approve above.
+        </p>
+        <div style="display:flex; flex-wrap:wrap; gap:32px; align-items:flex-start;">
+          <div style="flex:1; min-width:260px; max-width:360px;">
+            <div class="cashier-input-group" style="margin-bottom:16px;">
+              <label for="paymentUpiId" style="display:block; color:var(--text-dim); font-size:13px; margin-bottom:8px; font-weight:600;">UPI ID (VPA)</label>
+              <input type="text" id="paymentUpiId" class="cashier-input" style="background:#0d0f12; color:#fff; border:1px solid #242f3d;" placeholder="e.g. yourname@okhdfcbank" oninput="renderPaymentConfigPreview()">
+            </div>
+            <div class="cashier-input-group" style="margin-bottom:16px;">
+              <label for="paymentPayeeName" style="display:block; color:var(--text-dim); font-size:13px; margin-bottom:8px; font-weight:600;">Payee Display Name</label>
+              <input type="text" id="paymentPayeeName" class="cashier-input" style="background:#0d0f12; color:#fff; border:1px solid #242f3d;" placeholder="e.g. bet1x" oninput="renderPaymentConfigPreview()">
+            </div>
+            <button class="btn btn-primary" style="color:#000; font-weight:700; padding:10px 20px;" id="savePaymentConfigBtn" onclick="savePaymentConfig()">Save Payment Settings</button>
+            <div id="paymentConfigStatus" style="margin-top:10px; font-size:12.5px;"></div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:11px; color:var(--text-dim); text-transform:uppercase; font-weight:700; margin-bottom:10px;">Live Preview (₹100 example)</div>
+            <div id="paymentConfigQrPreview" style="background:#fff; padding:14px; border-radius:8px; width:190px; height:190px; display:flex; align-items:center; justify-content:center; margin:0 auto;">
+              <span style="color:#888; font-size:12px;">Enter a UPI ID to preview</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -625,8 +657,11 @@
               <input type="number" id="cheatAviatorMultiplier" class="cashier-input" step="0.01" min="1.00"
                 placeholder="e.g. 1.25" style="background:#0d0f12; color:#fff; padding:6px 8px; font-size:12px; flex:1;"
                 oninput="updateAviatorBiasUI()">
-              <button class="btn btn-gold" onclick="applyAviatorCheat()" style="color:#000; font-weight:700; font-size:11.5px; padding:6px 12px; white-space:nowrap;">Save Multiplier</button>
+              <button id="saveAviatorMultiplierBtn" class="btn btn-gold" onclick="applyAviatorCheat()" style="color:#000; font-weight:700; font-size:11.5px; padding:6px 14px; white-space:nowrap; transition:all 0.2s ease; cursor:pointer;">Save Multiplier</button>
             </div>
+
+            <!-- Active Override Status Banner -->
+            <div id="adminAviatorActiveOverrideBanner" style="margin-bottom:8px; border-radius:5px; padding:8px 10px; transition:all 0.3s ease;"></div>
 
             <button class="btn btn-block" onclick="instantCrashAviator()"
               style="background:#c8102e; color:#fff; font-weight:800; font-size:12.5px; margin-top:2px; box-shadow:0 0 10px rgba(200,16,46,0.4); border:none; padding:8px; cursor:pointer;">💥
@@ -783,7 +818,7 @@
             <!-- LIVE ACTIVE PLAYERS TABLE -->
             <div style="background:#0d0f12; padding:10px; border-radius:8px; border:1px solid #242f3d;">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                <span style="font-size:11px; color:var(--text-dim); text-transform:uppercase; font-weight:bold;">Active Players Feed (Real + Simulated Dummy Users)</span>
+                <span style="font-size:11px; color:var(--text-dim); text-transform:uppercase; font-weight:bold;">Active Players Feed (Live Sessions)</span>
                 <button type="button" onclick="fetchMinesActiveUsers()" style="background:none; border:none; color:var(--gold); font-size:10.5px; cursor:pointer; font-weight:bold;">🔄 Refresh Feed</button>
               </div>
               <div id="cheatMinesActiveBets" style="font-size:12px; font-family:var(--font-mono); color:#fff; max-height:160px; overflow-y:auto;">
@@ -1023,7 +1058,7 @@
   </div>
 
   <div class="footer">
-    bet1x pitch — Admin. Secure client-side state logging for demonstrating real-money operations.
+    bet1x — Operator console. Authorised personnel only; all actions are logged.
   </div>
 
   <script>
@@ -1031,10 +1066,10 @@
     // session token (bet1x_admin_token) instead of the player one, so an admin and a player can be
     // signed in on the same browser without either borrowing the other's privileges.
     window.BET1X_ADMIN_CONSOLE = true;
-  </script>
-  <script src="assets/js/dummy-data.js"></script>
+  </script>
   <script src="assets/js/ui-common.js"></script>
   <script src="assets/js/sound-fx.js"></script>
+  <script src="assets/js/qrcode-gen.js"></script>
   <script>
     // The operator token travels in the Authorization header (see ui-common.js). It is deliberately
     // never appended to the query string, where it would end up in web-server access logs, browser
@@ -1045,6 +1080,12 @@
     document.addEventListener('DOMContentLoaded', () => {
       localStorage.removeItem('cheat_aviator_force_crashed');
       localStorage.removeItem('cheat_aviator_instant_crash');
+      const savedAvMult = localStorage.getItem('cheat_aviator_crash');
+      const avInput = document.getElementById('cheatAviatorMultiplier');
+      if (avInput && savedAvMult) {
+        avInput.value = savedAvMult;
+      }
+      if (typeof updateAviatorBiasUI === 'function') updateAviatorBiasUI();
       checkAdminSession();
       if (typeof fetchMinesActiveUsers === 'function') fetchMinesActiveUsers();
     });
@@ -1194,6 +1235,72 @@
       }
 
       if (tabId === 'cricket' && typeof cricketOpsInit === 'function') cricketOpsInit();
+      if (tabId === 'paymentsettings') loadPaymentConfig();
+    }
+
+    // ---------------------------------------------------------------------------------------- Payment Settings (deposit QR)
+    let paymentConfigLoaded = false;
+
+    async function loadPaymentConfig() {
+      if (paymentConfigLoaded) { renderPaymentConfigPreview(); return; }
+      try {
+        const token = localStorage.getItem('bet1x_admin_token') || '';
+        const res = await fetch('api/admin.php?action=get_payment_config', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json();
+        if (!data.error) {
+          document.getElementById('paymentUpiId').value = data.upi_id || '';
+          document.getElementById('paymentPayeeName').value = data.payee_name || 'bet1x';
+          paymentConfigLoaded = true;
+        }
+      } catch (e) { /* leave fields blank — operator can still type and save */ }
+      renderPaymentConfigPreview();
+    }
+
+    function renderPaymentConfigPreview() {
+      const upiId = document.getElementById('paymentUpiId').value.trim();
+      const payeeName = document.getElementById('paymentPayeeName').value.trim() || 'bet1x';
+      const box = document.getElementById('paymentConfigQrPreview');
+      if (!upiId) {
+        box.innerHTML = '<span style="color:#888; font-size:12px;">Enter a UPI ID to preview</span>';
+        return;
+      }
+      const uri = buildUpiPaymentUri(upiId, payeeName, 100);
+      renderUpiQr(box, uri, 170);
+    }
+
+    async function savePaymentConfig() {
+      const upiId = document.getElementById('paymentUpiId').value.trim();
+      const payeeName = document.getElementById('paymentPayeeName').value.trim() || 'bet1x';
+      const statusEl = document.getElementById('paymentConfigStatus');
+      const btn = document.getElementById('savePaymentConfigBtn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+      try {
+        const token = localStorage.getItem('bet1x_admin_token') || '';
+        const params = new URLSearchParams();
+        params.append('upi_id', upiId);
+        params.append('payee_name', payeeName);
+        const res = await fetch('api/admin.php?action=set_payment_config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Authorization': 'Bearer ' + token },
+          body: params
+        });
+        const data = await res.json();
+        if (data.error) {
+          statusEl.style.color = '#e74c3c';
+          statusEl.textContent = data.error;
+        } else {
+          statusEl.style.color = 'var(--green)';
+          statusEl.textContent = '✓ Saved. Customers will now see this UPI ID on the Cashier deposit QR.';
+          paymentConfigLoaded = true;
+        }
+      } catch (e) {
+        statusEl.style.color = '#e74c3c';
+        statusEl.textContent = 'Network error — could not save.';
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Save Payment Settings'; }
+      }
     }
 
     // ---------------------------------------------------------------------------------------- Cricket Ops
@@ -1398,6 +1505,9 @@
       renderUsers();
       renderTxnHistory();
       renderWagers();
+      if (typeof updateAviatorBiasUI === 'function') {
+        updateAviatorBiasUI();
+      }
       if (typeof pollLiveAdminGames === 'function') {
         pollLiveAdminGames();
       }
@@ -1460,18 +1570,18 @@
             const qrSourceLabel = d.qr_type === 'custom' ? '📁 Gallery Upload' : '🖼️ Platform Default';
             const utrVal = d.utr || d.receipt || 'N/A';
             row.innerHTML = `
-            <td><code>${d.deposit_id}</code></td>
-            <td><b>${d.username}</b></td>
+            <td><code>${escapeHtml(d.deposit_id)}</code></td>
+            <td><b>${escapeHtml(d.username)}</b></td>
             <td style="color:var(--green); font-weight:700; font-family:var(--font-mono);">+₹${parseFloat(d.amount).toFixed(2)}</td>
             <td>
-              <code style="font-family:var(--font-mono); font-weight:bold; color:var(--gold); background:#0d0f12; padding:2px 6px; border-radius:4px; border:1px solid var(--border);">${utrVal}</code>
-              <button class="btn" style="padding:2px 6px; font-size:10px; margin-left:4px;" onclick="navigator.clipboard.writeText('${utrVal}'); showToast('UTR Copied!', 'success');">Copy</button>
+              <code style="font-family:var(--font-mono); font-weight:bold; color:var(--gold); background:#0d0f12; padding:2px 6px; border-radius:4px; border:1px solid var(--border);">${escapeHtml(utrVal)}</code>
+              <button class="btn" style="padding:2px 6px; font-size:10px; margin-left:4px;" onclick="navigator.clipboard.writeText('${escapeHtml(utrVal)}'); showToast('UTR Copied!', 'success');">Copy</button>
             </td>
             <td><span style="font-size:11px; color:var(--text-dim);">${qrSourceLabel}</span></td>
-            <td><span style="font-size:11.5px; color:var(--text-dim);">${d.created_at}</span></td>
+            <td><span style="font-size:11.5px; color:var(--text-dim);">${escapeHtml(d.created_at)}</span></td>
             <td>
-              <button class="btn-action approve" onclick="approveDeposit('${d.deposit_id}')">Approve & Credit Balance</button>
-              <button class="btn-action reject" onclick="rejectDeposit('${d.deposit_id}')" style="margin-left:4px;">Reject</button>
+              <button class="btn-action approve" onclick="approveDeposit('${escapeHtml(d.deposit_id)}')">Approve & Credit Balance</button>
+              <button class="btn-action reject" onclick="rejectDeposit('${escapeHtml(d.deposit_id)}')" style="margin-left:4px;">Reject</button>
             </td>
           `;
             tbody.appendChild(row);
@@ -1623,15 +1733,17 @@
 
           pending.forEach(t => {
             const row = document.createElement('tr');
+            // `details` carries the player's own bank name / account-holder name, so it is
+            // attacker-controlled text landing in the OPERATOR's browser. Escape everything.
             row.innerHTML = `
-            <td><code>${t.withdrawal_id}</code></td>
-            <td><b>${t.username}</b></td>
+            <td><code>${escapeHtml(t.withdrawal_id)}</code></td>
+            <td><b>${escapeHtml(t.username)}</b></td>
             <td style="color:var(--red); font-weight:700; font-family:var(--font-mono);">-₹${parseFloat(t.amount).toFixed(2)}</td>
-            <td>${t.details}</td>
-            <td><span style="font-size:11.5px; color:var(--text-dim);">${t.created_at}</span></td>
+            <td>${escapeHtml(t.details)}</td>
+            <td><span style="font-size:11.5px; color:var(--text-dim);">${escapeHtml(t.created_at)}</span></td>
             <td>
-              <button class="btn-action approve" onclick="approveWithdraw('${t.withdrawal_id}')">Approve</button>
-              <button class="btn-action reject" onclick="rejectWithdraw('${t.withdrawal_id}')" style="margin-left:4px;">Reject</button>
+              <button class="btn-action approve" onclick="approveWithdraw('${escapeHtml(t.withdrawal_id)}')">Approve</button>
+              <button class="btn-action reject" onclick="rejectWithdraw('${escapeHtml(t.withdrawal_id)}')" style="margin-left:4px;">Reject</button>
             </td>
           `;
             tbody.appendChild(row);
@@ -1744,11 +1856,11 @@
         users.forEach(u => {
           const row = document.createElement('tr');
           row.innerHTML = `
-            <td><b>${u.username}</b></td>
-            <td>${u.email || (u.username + '@bet1x.com')}</td>
+            <td><b>${escapeHtml(u.username)}</b></td>
+            <td>${escapeHtml(u.email || (u.username + '@bet1x.com'))}</td>
             <td style="color:var(--gold); font-weight:700; font-family:var(--font-mono);">₹${(parseFloat(u.wallet) || 0).toFixed(2)}</td>
             <td>
-              <button class="btn-action edit" onclick="openBalanceModal('${u.username}')">Adjust Balance</button>
+              <button class="btn-action edit" onclick="openBalanceModal('${escapeHtml(u.username)}')">Adjust Balance</button>
             </td>
           `;
           tbody.appendChild(row);
@@ -1768,11 +1880,11 @@
           users.forEach(u => {
             const row = document.createElement('tr');
             row.innerHTML = `
-            <td><b>${u.username}</b></td>
-            <td>${u.email}</td>
+            <td><b>${escapeHtml(u.username)}</b></td>
+            <td>${escapeHtml(u.email)}</td>
             <td style="color:var(--gold); font-weight:700; font-family:var(--font-mono);">₹${(parseFloat(u.wallet_balance) || 0).toFixed(2)}</td>
             <td>
-              <button class="btn-action edit" onclick="openBalanceModal('${u.username}')">Adjust Balance</button>
+              <button class="btn-action edit" onclick="openBalanceModal('${escapeHtml(u.username)}')">Adjust Balance</button>
             </td>
           `;
             tbody.appendChild(row);
@@ -1909,13 +2021,13 @@
 
           const row = document.createElement('tr');
           row.innerHTML = `
-            <td><code>${t.id}</code></td>
-            <td><b>${t.user}</b></td>
-            <td>${t.type}</td>
+            <td><code>${escapeHtml(t.id)}</code></td>
+            <td><b>${escapeHtml(t.user)}</b></td>
+            <td>${escapeHtml(t.type)}</td>
             <td style="color:${amtColor}; font-weight:700; font-family:var(--font-mono);">${amtPrefix}₹${parseFloat(t.amount).toFixed(2)}</td>
-            <td>${t.details || ''}</td>
-            <td><span class="badge ${badgeCls}">${t.status}</span></td>
-            <td><span style="font-size:11.5px; color:var(--text-dim);">${t.timestamp}</span></td>
+            <td>${escapeHtml(t.details || '')}</td>
+            <td><span class="badge ${badgeCls}">${escapeHtml(t.status)}</span></td>
+            <td><span style="font-size:11.5px; color:var(--text-dim);">${escapeHtml(t.timestamp)}</span></td>
           `;
           tbody.appendChild(row);
         });
@@ -1941,13 +2053,13 @@
 
             const row = document.createElement('tr');
             row.innerHTML = `
-            <td><code>${t.id}</code></td>
-            <td><b>${t.user}</b></td>
-            <td>${t.type}</td>
+            <td><code>${escapeHtml(t.id)}</code></td>
+            <td><b>${escapeHtml(t.user)}</b></td>
+            <td>${escapeHtml(t.type)}</td>
             <td style="color:${amtColor}; font-weight:700; font-family:var(--font-mono);">${amtPrefix}₹${parseFloat(t.amount).toFixed(2)}</td>
-            <td>${t.details}</td>
-            <td><span class="badge ${badgeCls}">${t.status}</span></td>
-            <td><span style="font-size:11.5px; color:var(--text-dim);">${t.timestamp}</span></td>
+            <td>${escapeHtml(t.details)}</td>
+            <td><span class="badge ${badgeCls}">${escapeHtml(t.status)}</span></td>
+            <td><span style="font-size:11.5px; color:var(--text-dim);">${escapeHtml(t.timestamp)}</span></td>
           `;
             tbody.appendChild(row);
           });
@@ -2026,14 +2138,14 @@
 
           const row = document.createElement('tr');
           row.innerHTML = `
-            <td><b>${t.user}</b></td>
-            <td><code>${parsed.roundId}</code></td>
-            <td>${parsed.gameType}</td>
-            <td><span class="badge pending" style="background:#1e293b; color:#fff; border:1px solid #475569;">${parsed.selection}</span></td>
+            <td><b>${escapeHtml(t.user)}</b></td>
+            <td><code>${escapeHtml(parsed.roundId)}</code></td>
+            <td>${escapeHtml(parsed.gameType)}</td>
+            <td><span class="badge pending" style="background:#1e293b; color:#fff; border:1px solid #475569;">${escapeHtml(parsed.selection)}</span></td>
             <td style="font-family:var(--font-mono);">₹${parseFloat(t.amount).toFixed(2)}</td>
-            <td><span class="badge ${badgeCls}">${statusText}</span></td>
+            <td><span class="badge ${badgeCls}">${escapeHtml(statusText)}</span></td>
             <td style="font-family:var(--font-mono); color:${t.type === 'Deposit' ? 'var(--green)' : 'inherit'}; font-weight:700;">₹${t.type === 'Deposit' ? parseFloat(t.amount).toFixed(2) : '0.00'}</td>
-            <td><span style="font-size:11.5px; color:var(--text-dim);">${t.timestamp}</span></td>
+            <td><span style="font-size:11.5px; color:var(--text-dim);">${escapeHtml(t.timestamp)}</span></td>
           `;
           tbody.appendChild(row);
         });
@@ -2058,14 +2170,14 @@
 
             const row = document.createElement('tr');
             row.innerHTML = `
-            <td><b>${t.user}</b></td>
-            <td><code>${parsed.roundId}</code></td>
-            <td>${parsed.gameType}</td>
-            <td><span class="badge pending" style="background:#1e293b; color:#fff; border:1px solid #475569;">${parsed.selection}</span></td>
+            <td><b>${escapeHtml(t.user)}</b></td>
+            <td><code>${escapeHtml(parsed.roundId)}</code></td>
+            <td>${escapeHtml(parsed.gameType)}</td>
+            <td><span class="badge pending" style="background:#1e293b; color:#fff; border:1px solid #475569;">${escapeHtml(parsed.selection)}</span></td>
             <td style="font-family:var(--font-mono);">₹${parseFloat(t.amount).toFixed(2)}</td>
-            <td><span class="badge ${badgeCls}">${statusText}</span></td>
+            <td><span class="badge ${badgeCls}">${escapeHtml(statusText)}</span></td>
             <td style="font-family:var(--font-mono); color:${t.type === 'Deposit' ? 'var(--green)' : 'inherit'}; font-weight:700;">₹${t.type === 'Deposit' ? parseFloat(t.amount).toFixed(2) : '0.00'}</td>
-            <td><span style="font-size:11.5px; color:var(--text-dim);">${t.timestamp}</span></td>
+            <td><span style="font-size:11.5px; color:var(--text-dim);">${escapeHtml(t.timestamp)}</span></td>
           `;
             tbody.appendChild(row);
           });
@@ -2682,26 +2794,33 @@
       const bannerEl = document.getElementById('adminAviatorActiveOverrideBanner');
       if (!bannerEl) return;
 
-      const val = multEl ? multEl.value : '';
       const localVal = localStorage.getItem('cheat_aviator_crash');
-      const activeMult = val || localVal;
+      const inputVal = multEl ? multEl.value.trim() : '';
 
-      if (activeMult && parseFloat(activeMult) >= 1.0) {
+      const savedMult = localVal && parseFloat(localVal) >= 1.0 ? parseFloat(localVal) : null;
+      const currentInputMult = inputVal && parseFloat(inputVal) >= 1.0 ? parseFloat(inputVal) : null;
+      const isUnsaved = currentInputMult !== null && savedMult !== null && currentInputMult !== savedMult;
+
+      if (savedMult !== null) {
         bannerEl.style.display = 'block';
-        bannerEl.style.background = 'rgba(201, 160, 84, 0.14)';
-        bannerEl.style.border = '1px solid var(--gold)';
+        bannerEl.style.background = 'rgba(201, 160, 84, 0.12)';
+        bannerEl.style.border = '1px solid rgba(201, 160, 84, 0.45)';
         bannerEl.innerHTML = `
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
             <div>
-              <div style="font-size:10px; color:var(--gold); text-transform:uppercase; font-weight:800; letter-spacing:0.5px;">ACTIVE FIXED CRASH MULTIPLIER</div>
-              <div style="font-size:14px; font-weight:800; color:#fff; margin-top:2px;">
-                Crash Point: <b style="color:var(--gold); font-family:var(--font-mono); font-size:16px;">${parseFloat(activeMult).toFixed(2)}x</b>
+              <div style="font-size:10px; color:var(--gold); text-transform:uppercase; font-weight:800; letter-spacing:0.5px; display:flex; align-items:center; gap:5px;">
+                <span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#10b981; box-shadow:0 0 6px #10b981;"></span>
+                ACTIVE FIXED CRASH MULTIPLIER
+              </div>
+              <div style="font-size:13.5px; font-weight:800; color:#fff; margin-top:3px;">
+                Current Crash Target: <b style="color:var(--gold); font-family:var(--font-mono); font-size:15px;">${savedMult.toFixed(2)}x</b>
+                ${isUnsaved ? `<span style="font-size:10.5px; color:#fbbf24; margin-left:6px; font-weight:normal;">(Input changed to ${currentInputMult.toFixed(2)}x — click Save)</span>` : ''}
               </div>
               <div style="font-size:11px; color:var(--text-dim); margin-top:2px;">
-                Plane will crash precisely at ${parseFloat(activeMult).toFixed(2)}x.
+                Next Vimaan flight will crash precisely at <b style="color:#a7f3d0;">${savedMult.toFixed(2)}x</b>.
               </div>
             </div>
-            <button onclick="clearAviatorCheat()" class="btn btn-sm" style="background:rgba(231,76,60,0.15); border:1px solid #e74c3c; color:#e74c3c; font-weight:bold; padding:4px 10px; font-size:11.5px; border-radius:4px; cursor:pointer;">
+            <button type="button" onclick="clearAviatorCheat()" class="btn btn-sm" style="background:rgba(231,76,60,0.15); border:1px solid #e74c3c; color:#e74c3c; font-weight:bold; padding:4px 10px; font-size:11px; border-radius:4px; cursor:pointer;">
               ✕ Clear Override
             </button>
           </div>
@@ -2709,43 +2828,104 @@
       } else {
         bannerEl.style.display = 'block';
         bannerEl.style.background = '#0d0f12';
-        bannerEl.style.border = '1px dashed var(--border)';
+        bannerEl.style.border = '1px dashed #242f3d';
         bannerEl.innerHTML = `
           <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div style="font-size:11.5px; color:var(--text-dim);">
+            <div style="font-size:11.5px; color:var(--text-dim); display:flex; align-items:center; gap:6px;">
+              <span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#64748b;"></span>
               🎲 <b>Crash Point Status:</b> UNRIGGED (Fair Random Flight Curve)
             </div>
-            <span style="font-size:10.5px; color:var(--text-dim);">Select options or presets to fix multiplier</span>
+            <span style="font-size:10.5px; color:var(--text-dim);">${currentInputMult ? 'Click Save Multiplier to apply' : 'Enter a multiplier to fix crash'}</span>
           </div>
         `;
       }
     };
 
     window.applyAviatorCheat = function () {
-      const mult = document.getElementById('cheatAviatorMultiplier').value;
-      if (mult) localStorage.setItem('cheat_aviator_crash', mult);
-      else localStorage.removeItem('cheat_aviator_crash');
+      const multInput = document.getElementById('cheatAviatorMultiplier');
+      const mult = multInput ? multInput.value.trim() : '';
+      const saveBtn = document.getElementById('saveAviatorMultiplierBtn');
+      const origText = 'Save Multiplier';
+
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.style.opacity = '0.75';
+        saveBtn.textContent = 'Saving...';
+      }
+
+      if (mult && parseFloat(mult) >= 1.0) {
+        localStorage.setItem('cheat_aviator_crash', mult);
+      } else {
+        localStorage.removeItem('cheat_aviator_crash');
+      }
 
       const params = new URLSearchParams();
       params.append('game', 'aviator');
       params.append('crash_point', mult);
+      const token = localStorage.getItem('bet1x_admin_token') || '';
+      if (token) params.append('token', token);
 
       fetch('api/game_sync.php?action=admin_set_override', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': 'Bearer ' + token
+        },
         body: params
       })
         .then(res => res.json())
         .then(data => {
           if (data.error) {
-            showToast(data.error, 'error');
+            if (saveBtn) {
+              saveBtn.disabled = false;
+              saveBtn.style.opacity = '1';
+              saveBtn.style.background = '#ef4444';
+              saveBtn.style.color = '#ffffff';
+              saveBtn.textContent = 'Failed ✕';
+              setTimeout(() => {
+                saveBtn.style.background = '';
+                saveBtn.style.color = '#000000';
+                saveBtn.textContent = origText;
+              }, 2500);
+            }
+            if (typeof showToast === 'function') showToast(data.error, 'error');
           } else {
-            // Toast removed to prevent spam
-            // showToast(mult ? `Vimaan crash point override applied: ${parseFloat(mult).toFixed(2)}x` : 'Cleared Vimaan crash bias.', 'success');
+            if (saveBtn) {
+              saveBtn.disabled = false;
+              saveBtn.style.opacity = '1';
+              saveBtn.style.background = '#10b981';
+              saveBtn.style.color = '#ffffff';
+              saveBtn.textContent = mult && parseFloat(mult) >= 1.0 ? `Saved ✓ (${parseFloat(mult).toFixed(2)}x)` : 'Cleared ✓';
+              setTimeout(() => {
+                saveBtn.style.background = '';
+                saveBtn.style.color = '#000000';
+                saveBtn.textContent = origText;
+              }, 2500);
+            }
+            if (typeof showToast === 'function') {
+              if (mult && parseFloat(mult) >= 1.0) {
+                showToast(`🎯 Vimaan crash multiplier saved: ${parseFloat(mult).toFixed(2)}x (Flight will crash at ${parseFloat(mult).toFixed(2)}x)`, 'success');
+              } else {
+                showToast('🔄 Vimaan crash multiplier cleared. Flight will run on fair RNG.', 'info');
+              }
+            }
           }
           updateAviatorBiasUI();
         })
         .catch(err => {
+          if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.style.opacity = '1';
+            saveBtn.style.background = '#ef4444';
+            saveBtn.style.color = '#ffffff';
+            saveBtn.textContent = 'Error ✕';
+            setTimeout(() => {
+              saveBtn.style.background = '';
+              saveBtn.style.color = '#000000';
+              saveBtn.textContent = origText;
+            }, 2500);
+          }
+          if (typeof showToast === 'function') showToast('Network error saving multiplier', 'error');
           updateAviatorBiasUI();
         });
     };
@@ -3620,6 +3800,7 @@
         })
         .then(data => {
           if (data.error) return;
+          clearAdminConnectionLost();
 
           if (data.server_time && typeof ServerClock !== 'undefined') {
             ServerClock.clockSkew = Date.now() - data.server_time;
@@ -3680,9 +3861,40 @@
           if (typeof updateAviatorBiasUI === 'function') updateAviatorBiasUI();
         })
         .catch(() => {
-          generateLocalFallbackData();
+          // Deliberately NOT generateLocalFallbackData(). That helper invents Aviator rounds and
+          // Teen Patti tables (complete with a 'DemoUser' player) and paints them into the live
+          // rigging console — so a brief API blip used to leave an operator making real money
+          // decisions against game state that does not exist on the server. An outage must read as
+          // an outage, exactly like the player-side isOfflineMode gate in ui-common.js.
+          showAdminConnectionLost();
         });
     };
+
+    /**
+     * Surface a lost backend connection instead of rendering invented data.
+     *
+     * Idempotent: the banner is created once and then just re-shown, so a poll that keeps failing
+     * every second does not stack duplicates. pollLiveAdminGames() removes it on the next success.
+     */
+    function showAdminConnectionLost() {
+      let bar = document.getElementById('adminConnectionLostBar');
+      if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'adminConnectionLostBar';
+        bar.style.cssText = 'position:fixed; top:0; left:0; right:0; z-index:9999; background:#7f1d1d;'
+          + ' color:#fff; padding:10px 16px; font-size:13px; font-weight:700; text-align:center;'
+          + ' box-shadow:0 2px 10px rgba(0,0,0,0.4);';
+        bar.textContent = '⚠️  Lost connection to the game server — live figures below are STALE. '
+          + 'Do not action deposits, cashouts or rigging until this clears.';
+        document.body.appendChild(bar);
+      }
+      bar.style.display = 'block';
+    }
+
+    function clearAdminConnectionLost() {
+      const bar = document.getElementById('adminConnectionLostBar');
+      if (bar) bar.style.display = 'none';
+    }
 
     // --- Autonomous AI Bot Takeover Client System ---
     window.adminBotTakeoverState = {
@@ -4326,81 +4538,20 @@
       if (typeof fetchAndRenderTPRoom === 'function') fetchAndRenderTPRoom();
     }
 
+    /**
+     * Neutralised on purpose — do not restore the old body.
+     *
+     * This used to fabricate a colour round, an Aviator flight and a full table of Teen Patti
+     * players (including a 'DemoUser') and paint them into the live operator console whenever
+     * the API call failed. On a money console that is worse than showing nothing: the figures
+     * look authoritative, so cashouts and rigging get actioned against state that never existed.
+     *
+     * The caller now calls showAdminConnectionLost() instead. The function is kept as a no-op so
+     * that any stray reference degrades to "nothing happens" rather than a ReferenceError that
+     * would break the surrounding poll handler.
+     */
     function generateLocalFallbackData() {
-      const roomKey = document.getElementById('cheatColorRoomSelect') ? document.getElementById('cheatColorRoomSelect').value : 'sapre';
-      const durations = { sapre: 30, becone: 60, emred: 180, vip: 300 };
-      const dur = durations[roomKey] || 30;
-
-      const nowSec = Math.floor(Date.now() / 1000);
-      const time_left = dur - (nowSec % dur);
-      const roundStart = Math.floor(nowSec / dur) * dur;
-      const dObj = new Date(roundStart * 1000);
-      const yyyy = dObj.getUTCFullYear();
-      const mm = String(dObj.getUTCMonth() + 1).padStart(2, '0');
-      const dd = String(dObj.getUTCDate()).padStart(2, '0');
-      const hh = String(dObj.getUTCHours()).padStart(2, '0');
-      const bucket = String(Math.floor((roundStart % 3600) / dur)).padStart(3, '0');
-      const round_id = `${yyyy}${mm}${dd}${hh}${bucket}`;
-
-      window.adminColorRoundIdVal = round_id;
-      window.adminColorServerTimeLeft = time_left;
-      window.adminColorServerDuration = dur;
-      window.adminColorServerReceivedAt = Date.now();
-
-      const activeBetsKey = `bet1x_offline_active_bets_${roomKey}_${round_id}`;
-      const activeBets = JSON.parse(localStorage.getItem(activeBetsKey) || '[]');
-      const total_stake = activeBets.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
-
-      const savedOverride = JSON.parse(localStorage.getItem('cheat_color_override_' + roomKey + '_' + round_id) || '{}');
-      renderColorGuessUI({
-        round_id: round_id,
-        time_left: time_left,
-        duration: dur,
-        bets: activeBets,
-        total_stake: total_stake,
-        overrides: savedOverride
-      });
-
-      // Render Aviator Fallback
-      const avTime = (Date.now() / 1000) % 18;
-      let avPhase = 'waiting';
-      let avTimeLeft = 8 - avTime;
-      let avMult = 1.00;
-      if (avTime >= 8 && avTime < 14) {
-        avPhase = 'running';
-        avMult = Math.exp(0.06 * (avTime - 8));
-      } else if (avTime >= 14) {
-        avPhase = 'crashed';
-        avMult = Math.exp(0.06 * 6);
-      }
-
-      const avRound = 10000 + Math.floor(Date.now() / 18000);
-      const activeAvBets = JSON.parse(localStorage.getItem('bet1x_offline_aviator_bets_' + avRound) || '[]');
-
-      activeAvBets.forEach(b => {
-        if (avPhase === 'running') {
-          if (b.status === 'pending' && avMult >= b.target_mult) {
-            b.status = 'won';
-            b.cashed_multiplier = b.target_mult;
-          }
-        } else if (avPhase === 'crashed') {
-          if (b.status === 'pending') b.status = 'lost';
-        } else {
-          b.status = 'pending';
-          b.cashed_multiplier = 0;
-        }
-      });
-
-      renderAviatorUI({
-        round_id: avRound,
-        phase: avPhase,
-        time_left: Math.max(0, avTimeLeft),
-        current_multiplier: avMult,
-        bets: activeAvBets
-      });
-
-      // Render Teen Patti Fallback using shared helper
-      renderTeenPattiUI(getSimTeenPattiTables());
+      showAdminConnectionLost();
     }
 
 

@@ -174,6 +174,15 @@ const AVIATOR_SMART_CRASH = bool(process.env.AVIATOR_SMART_CRASH, true);
 // natural-looking multipliers and only genuinely large exposure triggers the tightest crash.
 const AVIATOR_HIGH_STAKE_REF = num(process.env.AVIATOR_HIGH_STAKE_REF, 1000);
 
+// Teen Patti pads any table short of 4 seats with randomly-named NPC fillers (see TP_BOT_FILL_DELAY
+// in server.js) — useful in development so a lone tester can see a full table immediately, but a
+// real-money launch should show only the players who actually sat down. Defaults to on in
+// development (unchanged demo behaviour) and off in production, exactly like ALLOW_JSON_FALLBACK
+// above; a round still starts fine with as few as 2 real players once this is off, it just no
+// longer force-pads to 4. This does not affect the separate "Admin" house seat used for rigging —
+// see the comment above the bot-seat fallback in server.js's tpStartRound.
+const TEENPATTI_AUTO_BOT_FILL = bool(process.env.TEENPATTI_AUTO_BOT_FILL, !IS_PRODUCTION);
+
 // --- Cricket (Your 11 / Boundary Baazi) -------------------------------------------------------------
 
 // Master feature flag for both cricket games. Off by default: with this false no cricket route is
@@ -285,6 +294,7 @@ module.exports = {
   DISABLE_RATE_LIMITS,
   AVIATOR_SMART_CRASH,
   AVIATOR_HIGH_STAKE_REF,
+  TEENPATTI_AUTO_BOT_FILL,
   CRICKET_ENABLED,
   ROANUZ_API_TOKEN,
   ROANUZ_PROJECT_KEY,

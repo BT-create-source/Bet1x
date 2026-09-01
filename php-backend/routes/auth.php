@@ -11,22 +11,61 @@ require_once __DIR__ . '/../lib/http.php';
 require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/helpers.php';
 require_once __DIR__ . '/../lib/ratelimit.php';
+require_once __DIR__ . '/../lib/riskcontrols.php';
 
 function register_auth_routes(Router $app) {
 
     // --- Health check ---
     $app->get('/api/health', function (Req $req, Res $res) {
-        $res->json(['status' => 'ok', 'service' => 'bet1x-backend', 'timestamp' => js_iso()]);
+        // `env` is reported so an operator can confirm from outside that the production cutover
+        // actually took — a deployment still reading a development .env is the single most likely
+        // go-live mistake, and it is otherwise invisible from the browser.
+        $res->json([
+            'status'    => 'ok',
+            'service'   => 'bet1x-backend',
+            'env'       => cfg('NODE_ENV'),
+            'timestamp' => js_iso(),
+        ]);
     });
 
-    // Readiness differs from liveness: the process can be up while its datastore is not.
+    // Readiness differs from liveness: the process can be up while its datastore is not, or while
+    // the cron that advances idle games has silently stopped.
     $app->get('/api/ready', function (Req $req, Res $res) {
-        $ready = db_ready() || json_fallback_allowed();
+        $dbOk = db_ready();
+        $storeOk = $dbOk || json_fallback_allowed();
+
+        // --- Cron freshness -------------------------------------------------------------------
+        // A stopped cron does not break page loads, so nothing else surfaces it. Games simply stop
+        // advancing whenever nobody is polling them: colour rounds never settle, Aviator freezes
+        // mid-phase. Treating a stale heartbeat as not-ready is what lets an uptime monitor catch
+        // that within minutes instead of via customer complaints.
+        $staleAfter = (int) cfg('CRON_STALE_SECONDS', 300);
+        $cronAgeSec = null;
+        $cronOk = true;
+        try {
+            $rec = state_get('cron_last_run');
+            $at = is_array($rec) ? ($rec['at'] ?? null) : null;
+            if ($at !== null) {
+                $cronAgeSec = (int) floor((now_ms() - (int)$at) / 1000);
+                if ($staleAfter > 0) $cronOk = $cronAgeSec <= $staleAfter;
+            } else {
+                // Never recorded. Only a problem once a heartbeat is expected at all — a brand new
+                // deployment legitimately has none until the first minute elapses, so this reports
+                // as unknown rather than failing readiness outright.
+                $cronOk = true;
+            }
+        } catch (Throwable $e) {
+            $cronOk = true;   // never let a monitoring read take the site down
+        }
+
+        $ready = $storeOk && $cronOk;
         $res->status($ready ? 200 : 503)->json([
-            'ready'    => $ready,
-            'database' => db_ready() ? 'connected' : 'unavailable',
-            'store'    => db_ready() ? 'postgres' : (json_fallback_allowed() ? 'json-fallback' : 'none'),
-            'env'      => cfg('NODE_ENV'),
+            'ready'         => $ready,
+            'database'      => $dbOk ? 'connected' : 'unavailable',
+            'store'         => $dbOk ? 'mysql' : (json_fallback_allowed() ? 'json-fallback' : 'none'),
+            'cron'          => $cronAgeSec === null ? 'never-run' : ($cronOk ? 'ok' : 'stale'),
+            'cron_age_sec'  => $cronAgeSec,
+            'env'           => cfg('NODE_ENV'),
         ]);
     });
 
@@ -160,12 +199,21 @@ function register_auth_routes(Router $app) {
             return;
         }
 
+        // Bulk-registration brake. Runs after cheap format validation so a malformed request is
+        // still rejected on its own merits, but before any row is written.
+        $signupIp = risk_client_ip();
+        $signupBlock = risk_check_signup($signupIp);
+        if ($signupBlock !== null) {
+            $res->status(429)->json(['error' => $signupBlock]);
+            return;
+        }
+
         $hashedPassword = hash_password($password);
 
         try {
             $newUser = null;
             try {
-                $newUser = tx(function () use ($username, $email, $hashedPassword, $startingBalance) {
+                $newUser = tx(function () use ($username, $email, $hashedPassword, $startingBalance, $signupIp) {
                     $existing = one('SELECT * FROM `User` WHERE LOWER(`username`) = LOWER(?) OR LOWER(`email`) = LOWER(?) LIMIT 1',
                                     [$username, $email]);
                     if ($existing) {
@@ -175,8 +223,19 @@ function register_auth_routes(Router $app) {
                         throw new RuntimeException('Email is already registered.');
                     }
 
-                    q('INSERT INTO `User` (`username`,`email`,`password`,`wallet_balance`,`created_at`) VALUES (?,?,?,?,?)',
-                      [$username, $email, $hashedPassword, $startingBalance, ms_to_sql()]);
+                    // signup_ip / bonus_credited come from migration-002. Try the full insert first
+                    // and fall back to the original column set, so a database that has not had the
+                    // migration applied yet still registers users instead of 500-ing.
+                    try {
+                        q('INSERT INTO `User` (`username`,`email`,`password`,`wallet_balance`,`created_at`,`signup_ip`,`bonus_credited`)
+                           VALUES (?,?,?,?,?,?,?)',
+                          [$username, $email, $hashedPassword, $startingBalance, ms_to_sql(),
+                           $signupIp, $startingBalance > 0 ? 1 : 0]);
+                    } catch (Throwable $colErr) {
+                        log_debug('signup falling back to pre-migration-002 column set: ' . $colErr->getMessage());
+                        q('INSERT INTO `User` (`username`,`email`,`password`,`wallet_balance`,`created_at`) VALUES (?,?,?,?,?)',
+                          [$username, $email, $hashedPassword, $startingBalance, ms_to_sql()]);
+                    }
                     $created = find_user_ci($username);
 
                     if ($startingBalance > 0) {

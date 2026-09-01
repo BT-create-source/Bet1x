@@ -18,9 +18,21 @@ The two files that make it work:
 | `.htaccess` (repo root) | Sends every `/api/*` request into the PHP front controller, and blocks the paths that must never be served |
 | `php-backend/index.php` | The front controller — the whole API |
 
-**Do not delete `api/`, `aviator/`, `mining/` or `teenpati/`.** They contain the dead PHP layer from
-the original build. The root `.htaccess` makes them unreachable, and deleting them is a separate
-decision. It does mean the `.htaccess` is load-bearing: see §6.
+**The dead PHP layer has been removed.** `api/`, `aviator/`, `mining/`, `teenpati/` and
+`backend/api/` contained an older, unused PHP implementation that the root `.htaccess` had to keep
+unreachable. Two things made that worth deleting rather than merely blocking:
+
+* `api/config.php` and `backend/api/config.php` carried a **hardcoded superadmin password**. The
+  only thing standing between that and the public internet was a rewrite rule.
+* Under PHP, Apache would *execute* those files rather than leak them as text, so a single
+  `.htaccess` mistake — mod_rewrite unavailable, a botched edit — meant the old login logic running
+  against the old config.
+
+Deleting them is safe because the API rewrite is unconditional (`RewriteRule ^api/.*$` has no `!-f`
+guard), so `/api/*` reaches the front controller whether or not a matching file exists. The denial
+rules for those paths are left in `.htaccess` as belt-and-braces in case anything is ever restored.
+
+The `.htaccess` is still load-bearing for `backend/`, `node_modules/`, `.env` and `.git` — see §6.
 
 ---
 
@@ -73,6 +85,55 @@ Password hashes carry over untouched — see §5.
 
 ## 3. Configuration
 
+### Generate the production .env — do not hand-edit the development one
+
+The most likely way to go live insecurely is to upload the development `.env`. Every fail-fast guard
+in `config.php` only runs when `NODE_ENV=production`, and the development file sets
+`NODE_ENV=development` — so the entire safety net sits switched off, with a placeholder `APP_SECRET`
+(forgeable session tokens), a plaintext `admin123` password, and `DISABLE_RATE_LIMITS=true`.
+
+Generate a correct one instead:
+
+```bash
+php php-backend/tools/make-production-env.php \
+    --domain=https://yourdomain.com \
+    --db-name=cpaneluser_bet1x --db-user=cpaneluser_bet1x --db-pass='...'
+```
+
+It writes `php-backend/.env.production` (mode 0600) with a 96-character `APP_SECRET`, bcrypt hashes
+for both operator accounts, HTTPS forced, an exact CORS allowlist, rate limits on, JSON fallback off,
+`SIGNUP_BONUS=0`, and the withdrawal controls enabled. **It prints the two operator passwords once —
+save them immediately**, only the hashes are written to disk.
+
+Then on the server:
+
+```bash
+mv php-backend/.env.production php-backend/.env && chmod 600 php-backend/.env
+```
+
+Confirm the cutover actually took — this is invisible from the browser otherwise:
+
+```bash
+curl -s https://SITE/api/health     # must show "env":"production"
+```
+
+And confirm the old credentials are dead (must return 401):
+
+```bash
+curl -s -X POST https://SITE/api/admin.php -d 'action=login&username=admin&password=admin123'
+```
+
+### Apply the risk-control migration
+
+```bash
+mysql -u DBUSER -p DBNAME < php-backend/sql/migration-002-risk-controls.sql
+```
+
+Additive and safe on a live database. Without it the withdrawal/abuse checks degrade to permissive
+rather than erroring, so applying it is what actually switches them on.
+
+
+
 ```bash
 cp php-backend/.env.example php-backend/.env
 ```
@@ -105,6 +166,46 @@ and the traffic that reads a game is what advances it. What stops is an *idle* s
 Patti lobby never fills, a colour round that ends with nobody watching does not settle until the
 next visitor arrives, and Aviator sits in whatever phase it was in when the last player left. The
 cron runs exactly the same functions those requests would have, so an unattended site keeps running.
+
+### Detecting a dead cron
+
+Because none of the above breaks page loads, a stopped cron is otherwise silent — you would find out
+from customer complaints. Each completed tick now records a heartbeat, and `/api/ready` turns it
+into an alertable signal:
+
+```bash
+curl -s https://SITE/api/ready
+```
+
+```json
+{"ready":true,"database":"connected","store":"mysql","cron":"ok","cron_age_sec":12,"env":"production"}
+```
+
+Once the heartbeat is older than `CRON_STALE_SECONDS` (default 300s — four missed runs), the same
+endpoint returns **HTTP 503** with `"cron":"stale"`. Point any uptime monitor at `/api/ready` and
+alert on non-200; that one check covers both a dead database and a dead cron.
+
+### The nightly backup
+
+Add a second cron job, offset from the minute tick so the two never overlap:
+
+```bash
+17 3 * * * /usr/local/bin/php /home/USERNAME/public_html/php-backend/cron/backup.php >/dev/null 2>&1
+```
+
+Set `BACKUP_DIR` to a path **outside** `public_html` — the dumps contain every password hash on the
+platform. The script writes a compressed `mysqldump`, prunes anything older than `BACKUP_KEEP_DAYS`
+(default 14), and treats a dump under 2 KB as a failure, deleting it rather than leaving a truncated
+file to be mistaken for a good backup.
+
+**Test the restore before you need it.** An untested restore is a guess:
+
+```bash
+gunzip -c backups/bet1x-YYYY-MM-DD-HHMM.sql.gz | mysql -u DBUSER -p SCRATCH_DB
+```
+
+Then compare `SELECT COUNT(*) FROM User` and `SELECT SUM(wallet_balance) FROM User` against the live
+database — total wallet liability is the number that must match exactly.
 
 ---
 

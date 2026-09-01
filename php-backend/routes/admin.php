@@ -163,7 +163,11 @@ function register_admin_routes(Router $app) {
      * the live User table and the in-memory live-targeting engine. No figure is estimated: every
      * number is a direct aggregation of rows that already exist for other reasons.
      */
-    $app->get('/api/admin/super-dashboard', function (Req $req, Res $res) {
+    // Superadmin ONLY, not merely admin. The path prefix already carries require_admin from the
+    // useMw above; this adds the narrower gate on top so an ordinary operator token cannot read
+    // whole-business financials — all-time house profit, every player's net position, the top
+    // winners and losers. superadmin.html is the only caller, so nothing else is affected.
+    $app->get('/api/admin/super-dashboard', 'require_superadmin', function (Req $req, Res $res) {
         try {
             $users = []; $transactions = [];
             try {

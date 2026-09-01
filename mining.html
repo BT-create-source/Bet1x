@@ -3,9 +3,9 @@
 
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mines Game — bet1x</title>
-  <link rel="stylesheet" href="assets/css/style.css">
-  <script src="assets/js/dummy-data.js"></script>
+  <link rel="stylesheet" href="assets/css/style.css">
   <script src="assets/js/ui-common.js"></script>
   <script src="assets/js/sound-fx.js"></script>
   <style>
@@ -46,23 +46,28 @@
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(5, 64px);
-      grid-template-rows: repeat(5, 64px);
-      gap: 8px;
+      /* Fixed 64px tiles overflowed a phone-width screen (5 tiles + gaps + padding > 320-375px
+         viewport). clamp() keeps the desktop size unchanged (maxes out at 64px) while letting
+         tiles shrink together with .tile below on narrow screens instead of spilling out. */
+      grid-template-columns: repeat(5, clamp(38px, 15vw, 64px));
+      grid-template-rows: repeat(5, clamp(38px, 15vw, 64px));
+      gap: clamp(4px, 1.5vw, 8px);
       background: var(--surface-2);
-      padding: 16px;
+      padding: clamp(8px, 3vw, 16px);
       border-radius: 12px;
       border: 1px solid var(--border);
+      max-width: 100%;
+      box-sizing: border-box;
     }
 
     .tile {
-      width: 64px;
-      height: 64px;
+      width: clamp(38px, 15vw, 64px);
+      height: clamp(38px, 15vw, 64px);
       border-radius: 8px;
       border: 1px solid var(--border);
       cursor: pointer;
       background: var(--surface);
-      font-size: 24px;
+      font-size: clamp(16px, 5vw, 24px);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -92,6 +97,8 @@
 
     .side {
       width: 260px;
+      max-width: 100%;
+      box-sizing: border-box;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 12px;
@@ -384,11 +391,8 @@
       startBtn.disabled = state.status === 'active';
       cashoutBtn.disabled = !(state.status === 'active' && state.revealed.length > 0);
 
-      seedInfo.textContent = state.seed_hash
-        ? (state.server_seed
-          ? `Seed hash: ${state.seed_hash} — revealed seed: ${state.server_seed} (verify: sha256(seed) matches)`
-          : `Seed hash (commitment, shown before play): ${state.seed_hash}`)
-        : '';
+      // Neutral session reference for support lookups.
+      seedInfo.textContent = state.session_ref ? `Session reference: ${state.session_ref}` : '';
 
       if (state.status === 'busted') {
         msgEl.textContent = '💥 Hit a mine — bet lost.';

@@ -338,6 +338,30 @@
 // window.BET1X_API_BASE only when the API is hosted separately.
 const API = window.BET1X_API_BASE || (window.location.protocol === 'file:' ? 'http://localhost:5000' : window.location.origin);
 
+/**
+ * Output encoding.
+ *
+ * This page is deliberately self-contained — it loads no shared scripts, so it cannot use the
+ * escapeHtml() in assets/js/ui-common.js and needs its own copy. Every value below that originates
+ * from the database (usernames, game labels, transaction kinds) is interpolated into innerHTML, and
+ * this is the highest-privilege session on the platform: anything that executes here executes with
+ * full operator authority.
+ *
+ * Usernames are currently constrained to [A-Za-z0-9_] by the signup validator, so there is no known
+ * live vector. That is a single regex and a single ALLOW_AUTO_USER_CREATION flag away from not
+ * being true, and get_or_create_user() applies no such constraint — so the rendering is encoded
+ * rather than relying on an invariant enforced somewhere else entirely.
+ */
+function esc(value) {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // This console reads operator-only endpoints, carrying the superadmin session token.
 function adminFetch(path, options) {
   options = options || {};
@@ -437,12 +461,12 @@ function renderWinnersLosers(d) {
 
   const losers = document.getElementById('topLosersList');
   losers.innerHTML = d.players.top_losers.length ? d.players.top_losers.map(u => `
-    <div class="wl-row"><span class="wname">${u.username}</span><span class="wnet" style="color:var(--loss);">+${fmtMoney(u.net)}</span></div>
+    <div class="wl-row"><span class="wname">${esc(u.username)}</span><span class="wnet" style="color:var(--loss);">+${fmtMoney(u.net)}</span></div>
   `).join('') : '<div class="wl-empty">No losing players yet.</div>';
 
   const winners = document.getElementById('topWinnersList');
   winners.innerHTML = d.players.top_winners.length ? d.players.top_winners.map(u => `
-    <div class="wl-row"><span class="wname">${u.username}</span><span class="wnet" style="color:var(--profit);">${fmtMoney(u.net)}</span></div>
+    <div class="wl-row"><span class="wname">${esc(u.username)}</span><span class="wnet" style="color:var(--profit);">${fmtMoney(u.net)}</span></div>
   `).join('') : '<div class="wl-empty">No winning players yet.</div>';
 }
 
@@ -454,9 +478,9 @@ function renderFeed(d) {
     const houseTag = t.is_house ? '<span class="house-tag">HOUSE</span>' : '';
     return `
       <div class="feed-row ${isNew ? 'flash' : ''}">
-        <span class="feed-kind-dot ${t.kind}"></span>
-        <span class="feed-game">${t.game}</span>
-        <span class="feed-user">${t.user}${houseTag}</span>
+        <span class="feed-kind-dot ${esc(t.kind)}"></span>
+        <span class="feed-game">${esc(t.game)}</span>
+        <span class="feed-user">${esc(t.user)}${houseTag}</span>
         <span class="feed-amt" style="color:${t.kind === 'win' ? 'var(--profit)' : 'var(--text-dim)'};">${t.kind === 'win' ? '+' : '−'}${fmtMoney(t.amount)}</span>
         <span class="feed-time">${timeAgo(t.timestamp)}</span>
       </div>`;

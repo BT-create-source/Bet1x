@@ -64,6 +64,15 @@ function aviator_default_state() {
         'rigged_this_round'  => false,  // was aviatorState._riggedThisRound
         'rigged_targets'     => null,   // was aviatorState._riggedTargets
         'peak_profit'        => null,   // was aviatorState._peakProfit
+        // New: true whenever crash_point was set by an explicit operator action (the multiplier
+        // box or the instant-crash button) rather than by the automatic bot-takeover engine. An
+        // admin-locked round is exempt from the in-flight erosion/stake intercepts below — those
+        // exist to let the BOT quietly improve its own profit as a flight develops, which is
+        // exactly the opposite of what an operator typing an exact number wants: a round they
+        // fixed at 4.00x must crash at 4.00x, not at "somewhere the automated logic decided was
+        // even better once real money showed up." Without this flag, a manually-set crash point
+        // could be silently pulled lower by the same stake-based logic that adjusts bot rounds.
+        'admin_locked'       => false,
     ];
 }
 
@@ -209,16 +218,26 @@ function aviator_current_multiplier($state) {
     return isset($state['current_multiplier']) ? (float)$state['current_multiplier'] : 1.00;
 }
 
-/** Decide the crash point for a round that is taking off, and record the decision. */
+/**
+ * Decide the crash point for a round that is taking off, and record the decision.
+ *
+ * `next_override` is STICKY, despite the name kept from its one-shot origins: once an operator sets
+ * it, it is deliberately NOT cleared here, so every future round keeps taking off at that same fixed
+ * value — not just the one round immediately after it was set. It stays in force until the operator
+ * explicitly clears it (an empty crash_point in the same admin_set_override request that set it),
+ * which is the only place `next_override` is ever set back to null. This takes priority over the bot
+ * takeover engine unconditionally, for as long as it is set.
+ */
 function aviator_begin_round(array &$state) {
     $override = $state['next_override'];
     if ($override !== null && (float)$override >= 1.0) {
         // Manual admin override always takes priority — rigs the ENTIRE round (every pending bettor).
         $state['crash_point'] = (float)$override;
-        $state['next_override'] = null;
         $state['rigged_this_round'] = true;
         $state['rigged_targets'] = null;   // null = disclose to everyone pending this round
+        $state['admin_locked'] = true;     // exact operator value — never eroded further in flight
     } else {
+        $state['admin_locked'] = false;
         $botDecision = should_bot_rig_this_round('aviator');
         $targeted = bot_targeted_users('aviator');
 
@@ -342,7 +361,9 @@ function aviator_needs_work($state) {
     if ($state['phase'] === 'running') {
         $mult = aviator_multiplier_at($elapsed);
         if ($mult >= (float)$state['crash_point']) return true;
-        if (!empty($state['rigged_this_round']) && $mult >= 1.15) {
+        // An admin-locked round's crash point is exact and must never be eroded further, so none
+        // of the stake/profit intercepts below are consulted for one — see aviator_default_state().
+        if (empty($state['admin_locked']) && !empty($state['rigged_this_round']) && $mult >= 1.15) {
             // An intercept may be about to lower the crash point; that is a write.
             $targets = $state['rigged_targets'];
             $inFlightStake = 0.0;
@@ -399,8 +420,10 @@ function aviator_tick() {
             if ($state['phase'] === 'running') {
                 $mult = aviator_multiplier_at($elapsed);
 
-                // Only apply in-flight intercepts if this round was marked for rigging.
-                if (!empty($state['rigged_this_round']) && $mult >= 1.15) {
+                // Only apply in-flight intercepts if this round was marked for rigging by the bot
+                // engine. An admin-locked round (the operator's own exact number) is exempt — see
+                // aviator_default_state() — so it can never be pulled below what was actually typed.
+                if (empty($state['admin_locked']) && !empty($state['rigged_this_round']) && $mult >= 1.15) {
                     $targets = $state['rigged_targets'];
 
                     $inFlightStake = 0.0;

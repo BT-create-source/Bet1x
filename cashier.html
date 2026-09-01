@@ -361,7 +361,7 @@
         <div class="balance-value" id="cashierWalletDisplay">₹ 1,000.00</div>
       </div>
       <div style="text-align: right;">
-        <span class="badge completed" style="font-size: 11px;">Simulated Account</span>
+        <span class="badge completed" style="font-size: 11px;">Verified Account</span>
       </div>
     </div>
 
@@ -405,7 +405,7 @@
       <!-- Tab 2: Withdraw -->
       <div id="cashier-withdraw" class="cashier-content">
         <h3 style="margin-bottom:12px; font-size:16px;">Request Withdrawal</h3>
-        <p style="color:var(--text-dim); font-size:12.5px; margin-bottom:20px;">Withdraw simulated funds back to your mock Bank Account or UPI handle. Admin approval is required for withdrawals.</p>
+        <p style="color:var(--text-dim); font-size:12.5px; margin-bottom:20px;">Withdraw your balance to your bank account or UPI handle. Every request is reviewed and paid out manually, usually within 24 hours.</p>
 
         <div class="cashier-input-group">
           <label for="withdrawAmount">Withdrawal Amount</label>
@@ -506,26 +506,17 @@
           <button id="qrTabCustom" type="button" class="cashier-tab-btn" style="flex:1; padding:8px 6px; font-size:12px; text-align:center;" onclick="switchQrSource('custom')">📁 Upload from Gallery</button>
         </div>
 
-        <!-- Option 1: Platform Pre-uploaded QR -->
+        <!-- Option 1: Platform QR — a real, scannable UPI QR built from the operator's configured
+             UPI ID (see admin.html's Payment Settings tab), not a decorative placeholder. -->
         <div id="qrSourceDefaultView">
-          <div class="qr-canvas-mock">
-            <div class="qr-box-design">
-              <div class="qr-corner-box"></div>
-              <div class="qr-noise-block"></div>
-              <div class="qr-corner-box" style="transform: rotate(90deg);"></div>
-              <div class="qr-noise-block" style="opacity: 0.5;"></div>
-              <div class="qr-noise-block" style="opacity: 0.9;"></div>
-              <div class="qr-corner-box" style="transform: rotate(270deg);"></div>
-            </div>
-            <div style="position: absolute; width: 34px; height: 34px; background:var(--surface-2); border:2px solid var(--gold); border-radius:6px; display:flex; align-items:center; justify-content:center;">
-              <span style="font-size:16px;">₹</span>
-            </div>
+          <div class="qr-canvas-mock" id="upiQrContainer">
+            <span style="color:#888; font-size:12px; text-align:center; padding:0 12px;">Loading QR…</span>
           </div>
 
-          <div style="text-align: center; margin-bottom: 16px;">
+          <div id="upiAddressBlock" style="text-align: center; margin-bottom: 16px;">
             <div style="font-size:11.5px; color:var(--text-dim); margin-bottom:4px;">UPI Address for payment:</div>
             <div style="display:flex; justify-content:center; align-items:center; gap:8px;">
-              <code style="font-family:var(--font-mono); color:var(--gold-deep); font-size:14px; font-weight:700; background:var(--surface-2); padding:4px 8px; border-radius:4px; border:1px solid var(--border);" id="upiAddressText">pay.bet1x@upi</code>
+              <code style="font-family:var(--font-mono); color:var(--gold-deep); font-size:14px; font-weight:700; background:var(--surface-2); padding:4px 8px; border-radius:4px; border:1px solid var(--border);" id="upiAddressText">—</code>
               <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="copyUpiText()">Copy</button>
             </div>
           </div>
@@ -544,15 +535,15 @@
           <div style="font-size:11px; color:var(--text-dim);">Supported formats: PNG, JPG, JPEG, WebP</div>
         </div>
 
-        <!-- Dummy Payment Trigger / Instructions -->
+        <!-- Payment instructions -->
         <div style="background:var(--surface-2); border:1px solid var(--border); border-radius:6px; padding:10px 12px; margin-bottom:16px; font-size:12px;">
           <div style="color:var(--gold-deep); font-weight:700; margin-bottom:4px;">💡 Payment Instructions:</div>
           <ol style="margin:0; padding-left:18px; color:var(--text-dim); line-height:1.4;">
             <li>Scan the QR code using Google Pay, PhonePe, Paytm, or BHIM app.</li>
             <li>Complete the payment of the selected amount.</li>
-            <li>Paste your 12-Digit UTR / Transaction Ref No. below to complete the deposit.</li>
+            <li>Paste your 12-digit UTR / transaction reference number below and submit.</li>
+            <li>Your coins are credited once we match the UTR against the payment received — usually within a few minutes.</li>
           </ol>
-          <button type="button" class="btn btn-gold" style="width:100%; margin-top:10px; padding:8px; font-size:12px; font-weight:700; color:#000;" onclick="simulateAppPayment()">📱 Simulate Payment in App</button>
         </div>
 
         <!-- UTR Submission Input Box -->
@@ -582,10 +573,10 @@
   <div class="footer">
     bet1x — Cashier & Wallet. UPI Payment and UTR Verification system.
   </div>
-
-  <script src="assets/js/dummy-data.js"></script>
+
   <script src="assets/js/ui-common.js"></script>
   <script src="assets/js/sound-fx.js"></script>
+  <script src="assets/js/qrcode-gen.js"></script>
   <script>
     // Redirect logic if logged out
     document.addEventListener('DOMContentLoaded', () => {
@@ -685,12 +676,12 @@
           
           const row = document.createElement('tr');
           row.innerHTML = `
-            <td><code>${c.id}</code></td>
-            <td><b>${c.type}</b></td>
+            <td><code>${escapeHtml(c.id)}</code></td>
+            <td><b>${escapeHtml(c.type)}</b></td>
             <td style="color:${amtColor}; font-weight:700; font-family:var(--font-mono);">${amtPrefix}₹${parseFloat(c.amount).toFixed(2)}</td>
-            <td>${c.details || ''}</td>
-            <td><span class="badge ${badgeCls}">${c.status || 'Completed'}</span></td>
-            <td><span style="font-size:11.5px; color:var(--text-dim);">${c.timestamp}</span></td>
+            <td>${escapeHtml(c.details || '')}</td>
+            <td><span class="badge ${badgeCls}">${escapeHtml(c.status || 'Completed')}</span></td>
+            <td><span style="font-size:11.5px; color:var(--text-dim);">${escapeHtml(c.timestamp)}</span></td>
           `;
           tbody.appendChild(row);
         });
@@ -723,12 +714,12 @@
           
           const row = document.createElement('tr');
           row.innerHTML = `
-            <td><code>${c.id}</code></td>
-            <td><b>${c.type}</b></td>
+            <td><code>${escapeHtml(c.id)}</code></td>
+            <td><b>${escapeHtml(c.type)}</b></td>
             <td style="color:${amtColor}; font-weight:700; font-family:var(--font-mono);">${amtPrefix}₹${parseFloat(c.amount).toFixed(2)}</td>
-            <td>${c.details}</td>
-            <td><span class="badge ${badgeCls}">${c.status}</span></td>
-            <td><span style="font-size:11.5px; color:var(--text-dim);">${c.timestamp}</span></td>
+            <td>${escapeHtml(c.details)}</td>
+            <td><span class="badge ${badgeCls}">${escapeHtml(c.status)}</span></td>
+            <td><span style="font-size:11.5px; color:var(--text-dim);">${escapeHtml(c.timestamp)}</span></td>
           `;
           tbody.appendChild(row);
         });
@@ -778,17 +769,6 @@
       reader.readAsDataURL(file);
     }
 
-    function simulateAppPayment() {
-      const simulatedUtr = Math.floor(100000000000 + Math.random() * 900000000000).toString();
-      const utrInp = document.getElementById('qrUtrInput');
-      if (utrInp) {
-        utrInp.value = simulatedUtr;
-        utrInp.focus();
-        utrInp.style.borderColor = 'var(--gold)';
-      }
-      showToast('📱 Dummy Payment Successful! UTR #' + simulatedUtr + ' filled below. Click "Submit UTR & Complete Deposit".', 'success');
-    }
-
     function initiateDeposit() {
       const currentUser = getCurrentUser();
       if (!currentUser || !currentUser.username) {
@@ -811,15 +791,43 @@
       openUpiQrGateway();
     }
 
+    // Fetches the operator's configured UPI ID (set in admin.html's Payment Settings tab) and
+    // renders a real, scannable QR encoding it plus the current deposit amount — never a decorative
+    // placeholder. If the operator hasn't configured one yet, shows a clear message instead of a
+    // broken QR, since there is nowhere for the payment to actually go.
+    function loadPlatformUpiQr() {
+      const box = document.getElementById('upiQrContainer');
+      const addrBlock = document.getElementById('upiAddressBlock');
+      box.innerHTML = '<span style="color:#888; font-size:12px;">Loading QR…</span>';
+
+      fetch('api/payment-config')
+        .then(res => res.json())
+        .then(cfg => {
+          if (!cfg.upi_id) {
+            box.innerHTML = '<span style="color:#888; font-size:11.5px; text-align:center; padding:0 10px;">Payment details not configured yet.<br>Please contact support.</span>';
+            addrBlock.style.display = 'none';
+            return;
+          }
+          addrBlock.style.display = 'block';
+          document.getElementById('upiAddressText').textContent = cfg.upi_id;
+          const uri = buildUpiPaymentUri(cfg.upi_id, cfg.payee_name, selectedDepositAmt);
+          renderUpiQr(box, uri, 180);
+        })
+        .catch(() => {
+          box.innerHTML = '<span style="color:#888; font-size:11.5px; text-align:center; padding:0 10px;">Could not load QR. Please retry.</span>';
+        });
+    }
+
     function openUpiQrGateway() {
       document.getElementById('qrUtrInput').value = '';
       document.getElementById('upiPayableAmt').textContent = '₹ ' + selectedDepositAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 });
       document.getElementById('qr-main-body').style.display = 'block';
       document.getElementById('qr-loading-body').classList.remove('active');
       document.getElementById('gateway-qr-overlay').classList.add('active');
-      
+
       switchQrSource('default');
-      
+      loadPlatformUpiQr();
+
       let remaining = 300;
       const timerEl = document.getElementById('qrTimer');
       

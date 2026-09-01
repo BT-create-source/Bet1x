@@ -541,6 +541,11 @@
 const API = window.BET1X_API_BASE || (window.location.protocol === 'file:' ? 'http://localhost:5000' : window.location.origin);
 let currentRoom = null;
 let pollInterval = null;
+// The seat itself lives entirely server-side and survives a refresh untouched; this is only the
+// CLIENT remembering which room to look at. Without it, `currentRoom` resets to null on every page
+// load (it's a plain JS variable) and DOMContentLoaded always falls through to the lobby — a
+// refresh mid-hand looked like the seat had been lost, even though the server still held it.
+const TP_CURRENT_ROOM_KEY = 'bet1x_tp_current_room';
 // No local isOfflineMode here on purpose: a page-scoped `let` of that name shadows the guarded
 // window.isOfflineMode accessor in ui-common.js, which is what decides whether the localStorage
 // simulation is allowed to run at all.
@@ -745,6 +750,7 @@ async function joinRoom(roomId) {
     if (data.error) return alert(data.error);
 
     currentRoom = roomId;
+    localStorage.setItem(TP_CURRENT_ROOM_KEY, roomId);
     document.getElementById('tpLobby').style.display = 'none';
     document.getElementById('tpGame').style.display = 'block';
 
@@ -754,6 +760,46 @@ async function joinRoom(roomId) {
     pollInterval = setInterval(pollGameState, 2000);
   } catch (e) {
     alert('Connection error: ' + e.message);
+  }
+}
+
+/**
+ * Called once on page load, before the lobby is shown. If the player refreshed mid-hand, their
+ * seat is still sitting there server-side — this checks for it and, if found, jumps straight to
+ * the room view instead of defaulting to the lobby the way a fresh visit would.
+ *
+ * Returns true if a room was restored (caller should skip loadLobby()), false otherwise.
+ */
+async function tryRestoreTeenPattiRoom() {
+  const savedRoom = localStorage.getItem(TP_CURRENT_ROOM_KEY);
+  if (!savedRoom) return false;
+
+  const username = getUsername();
+  if (!username) { localStorage.removeItem(TP_CURRENT_ROOM_KEY); return false; }
+
+  try {
+    const res = await fetch(`api/teenpatti/state?room_id=${encodeURIComponent(savedRoom)}&username=${encodeURIComponent(username)}`);
+    const state = await res.json();
+
+    // No such room any more, or the seat is gone (hand ended and the table reset, the presence
+    // sweep evicted an idle seat, etc.) — nothing to restore, so fall back to the lobby like normal.
+    if (state.error || state.my_seat === null || state.my_seat === undefined) {
+      localStorage.removeItem(TP_CURRENT_ROOM_KEY);
+      return false;
+    }
+
+    currentRoom = savedRoom;
+    document.getElementById('tpLobby').style.display = 'none';
+    document.getElementById('tpGame').style.display = 'block';
+    renderGameState(state); // paint immediately with what we already fetched, no empty flash
+
+    if (pollInterval) clearInterval(pollInterval);
+    pollInterval = setInterval(pollGameState, 2000);
+    return true;
+  } catch (e) {
+    // A network hiccup here shouldn't strand the player on a blank page — fall back to the lobby,
+    // exactly as a fresh visit would behave.
+    return false;
   }
 }
 
@@ -1039,6 +1085,7 @@ async function leaveRoom() {
   if (pollInterval) clearInterval(pollInterval);
   pollInterval = null;
   currentRoom = null;
+  localStorage.removeItem(TP_CURRENT_ROOM_KEY);
   if (typeof forfeitAllPendingBets === 'function') {
     forfeitAllPendingBets('Teen Patti');
   }
@@ -1292,7 +1339,7 @@ async function doAction(action) {
 }
 
 // === INIT ===
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const saved = localStorage.getItem('bet1x_username');
   if (saved) document.getElementById('tpUsername').value = saved;
 
@@ -1301,7 +1348,11 @@ document.addEventListener('DOMContentLoaded', () => {
     loadLobby();
   });
 
-  loadLobby();
+  // A refresh mid-hand should show the same table the player was just looking at, not bounce them
+  // back to the lobby — their seat is still sitting there server-side.
+  const restored = await tryRestoreTeenPattiRoom();
+  if (!restored) loadLobby();
+
   setInterval(() => {
     if (!currentRoom) loadLobby();
   }, 3000);

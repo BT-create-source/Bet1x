@@ -79,4 +79,20 @@ with_named_lock('cron_tick', 5, function () {
     try { rig_trim(); }             catch (Throwable $e) {}
 });
 
-log_debug('cron: tick complete', ['ms' => (int) round((microtime(true) - $startedAt) * 1000)]);
+$durationMs = (int) round((microtime(true) - $startedAt) * 1000);
+
+// Heartbeat. Written only on a run that reached the end, so it records "the tick actually
+// completed", not merely "the file was invoked".
+//
+// This is what makes a dead cron detectable. Without it a stopped cron is silent: the site keeps
+// serving pages, but an idle colour round never settles and an Aviator flight sits in whatever
+// phase it was in when the last player left. /api/ready compares this timestamp to now and reports
+// the deployment as not-ready once it goes stale, which is the signal an uptime monitor can alert
+// on. See CRON_STALE_SECONDS in config.
+try {
+    state_set('cron_last_run', ['at' => now_ms(), 'duration_ms' => $durationMs]);
+} catch (Throwable $e) {
+    log_error('cron: could not record heartbeat', ['message' => $e->getMessage()]);
+}
+
+log_debug('cron: tick complete', ['ms' => $durationMs]);

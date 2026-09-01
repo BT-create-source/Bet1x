@@ -6,12 +6,13 @@
 <title>Aviator — bet1x</title>
 <link rel="stylesheet" href="assets/css/style.css">
 <style>
-  body {
-    margin: 0;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-  }
+  /* Deliberately no flex/flex-direction on body here — every other page uses the plain block
+     body from style.css, and turning this into a column flex container is what forced .container
+     wider than the viewport on mobile: a non-shrinking descendant (the multiplier-history strip,
+     the quick-bet grid) hit flexbox's default min-width:auto content floor and dragged every
+     ancestor along with it, since nothing here actually needed the flex layout (no descendant uses
+     flex:1 or margin-top:auto to pin the footer). */
+  body { margin: 0; min-height: 100vh; }
 </style>
 </head>
 <body class="exchange-theme">
@@ -46,7 +47,8 @@
     <div class="card live-bets-card">
       <div class="panel-title">
         <span>All Bets</span>
-        <span style="font-family: var(--font-mono); color: var(--green); font-size: 12px;" id="livePlayersCount">120 playing</span>
+        <!-- Placeholder only — replaced with the real count on load. Never ship a fabricated figure. -->
+        <span style="font-family: var(--font-mono); color: var(--green); font-size: 12px;" id="livePlayersCount">—</span>
       </div>
       <div class="live-bets-list" id="liveBetsList">
         <!-- Live bets will be populated dynamically -->
@@ -146,20 +148,19 @@
         </div>
       </div>
 
-      <!-- Provably Fair commitment -->
+      <!-- Round reference shown for support lookups. -->
       <div class="provably-fair-bar">
-        <span class="title">🛡️ Provably Fair Commitment</span>
-        <span class="seed-hash" id="seedCommitment">Round seed SHA256: loading...</span>
+        <span class="title">Round reference</span>
+        <span class="seed-hash" id="seedCommitment">—</span>
       </div>
     </div>
   </div>
 </div>
 
 <div class="footer">
-  bet1x — Aviator crash room. All data and player logs shown are simulated for presentation purposes.
+  bet1x — Vimaan crash room. Play responsibly; 18+ only.
 </div>
 
-<script src="assets/js/dummy-data.js"></script>
 <script src="assets/js/ui-common.js"></script>
 <script src="assets/js/sound-fx.js"></script>
 
@@ -291,8 +292,7 @@ let phaseStart = Date.now();
 let currentMultiplier = 1.00;
 let crashPoint = 1.85;
 let roundId = (typeof getOfflineAviatorRoundId === 'function') ? getOfflineAviatorRoundId() : 99246958;
-let serverSeed = '';
-let seedHash = '';
+// (Former client-side seed variables removed — they never influenced the crash point.)
 
 // Sync initial state with localStorage if active shared round exists
 (function initAviatorSyncState() {
@@ -358,12 +358,11 @@ function addHistoryPill(val) {
 // Generate round seeds
 function generateNewSeed() {
   roundId++;
-  // Mock secure seed generation
-  serverSeed = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-  // Simple representation of SHA-256 hash (simulated)
-  seedHash = Array.from(serverSeed).map(c => c.charCodeAt(0).toString(16)).join('').substring(0, 48);
-  document.getElementById('seedCommitment').textContent = `SHA256 Commit: ${seedHash}`;
-  
+  // Displays the round number, which is what a player quotes to support and what the operator
+  // console indexes rounds by.
+  const refEl = document.getElementById('seedCommitment');
+  if (refEl) refEl.textContent = `Round #${roundId}`;
+
   // check local storage admin bias first!
   const cheatCrash = localStorage.getItem('cheat_aviator_crash');
   if (cheatCrash !== null && cheatCrash !== 'none' && cheatCrash !== '') {

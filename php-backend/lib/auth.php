@@ -118,8 +118,39 @@ function require_admin(Req $req, Res $res) {
     }
 }
 
+/**
+ * Reject anyone who is not the super administrator specifically.
+ *
+ * The platform issues two distinct credentials against two distinct login pages, which implies two
+ * privilege tiers — but until this existed only require_admin was ever applied, so both tiers had
+ * identical authority and the separation was cosmetic. Any operator token could read the whole
+ * super-dashboard: all-time house profit, every player's net win/loss position, the top winners and
+ * losers, and the full transaction feed.
+ *
+ * Note the ordering: 401 when there is no session at all, 403 when there is one that simply is not
+ * privileged enough. Collapsing those would tell an ordinary admin that the endpoint exists but is
+ * out of reach, and tell an unauthenticated caller nothing useful either way.
+ */
+function require_superadmin(Req $req, Res $res) {
+    if (!$req->auth) {
+        $res->status(401)->json(['error' => 'Authentication required.']);
+        return;
+    }
+    if (($req->auth['role'] ?? '') !== 'superadmin') {
+        log_warn('super-admin endpoint refused', [
+            'role' => $req->auth['role'] ?? null,
+            'user' => $req->auth['username'] ?? null,
+        ]);
+        $res->status(403)->json(['error' => 'Super administrator privileges required.']);
+    }
+}
+
 function is_admin(Req $req) {
     return $req->auth && in_array($req->auth['role'] ?? '', ['admin', 'superadmin'], true);
+}
+
+function is_superadmin(Req $req) {
+    return $req->auth && ($req->auth['role'] ?? '') === 'superadmin';
 }
 
 /**

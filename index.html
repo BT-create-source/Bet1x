@@ -308,7 +308,10 @@
         <div class="exchange-menu-header"
           style="border-radius: 0; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center;">
           <span>Platform Live Chat</span>
-          <span style="font-size:11px; color:#eaffef;" id="chatOnlineCount">842 online</span>
+          <!-- Placeholder only. Replaced with the real count on the first poll; must NOT ship a
+               fabricated number, because if that poll fails the invented figure is what the visitor
+               is left looking at. -->
+          <span style="font-size:11px; color:#eaffef;" id="chatOnlineCount">—</span>
         </div>
         <div class="live-chat-messages" id="liveChatMessages"
           style="height: 180px; overflow-y: auto; padding: 12px; font-size: 12px; display: flex; flex-direction: column; gap: 8px; background: var(--surface-2); border-bottom: 1px solid var(--border); text-align: left;">
@@ -326,11 +329,9 @@
   </div>
 
   <div class="footer">
-    bet1x — all data on this page is simulated for presentation purposes. No real users, funds, or wagers are involved.
-    <br><a href="#" onclick="resetDemo(); return false;" style="color:var(--green);">Reset virtual balance</a>
+    bet1x — live prediction exchange. Play responsibly; 18+ only.
   </div>
 
-  <script src="assets/js/dummy-data.js"></script>
   <script src="assets/js/ui-common.js"></script>
   <script src="assets/js/sound-fx.js?v=2"></script>
   <script>
@@ -569,9 +570,12 @@
 
       function renderChatArray(arr) {
         chatMessages.innerHTML = arr.map(msg => {
-          const uName = msg.username || 'Anonymous';
-          const text = msg.message || '';
-          const uColor = getUsernameColor(uName);
+          // Chat is free-form, attacker-controlled text rendered into every visitor's browser.
+          // Both fields MUST be escaped — see escapeHtml() in ui-common.js. uColor is derived from
+          // a fixed palette by hash, so it is not user-controlled and needs no escaping.
+          const uName = escapeHtml(msg.username || 'Anonymous');
+          const text = escapeHtml(msg.message || '');
+          const uColor = getUsernameColor(msg.username || 'Anonymous');
           return `<div style="margin-bottom: 4px;"><span style="color: ${uColor}; font-weight:700;">${uName}:</span> <span style="color: var(--text);">${text}</span></div>`;
         }).join('');
         chatMessages.scrollTop = chatMessages.scrollHeight;

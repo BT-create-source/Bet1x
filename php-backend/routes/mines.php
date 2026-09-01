@@ -54,6 +54,11 @@ function register_mines_routes(Router $app) {
                 'potential_payout' => js_truthy($session['potential_payout'] ?? null) ? (float)$session['potential_payout'] : 0,
                 'seed_hash'        => js_truthy($session['seed_hash'] ?? null) ? $session['seed_hash'] : null,
                 'server_seed'      => $finished ? ($session['server_seed'] ?? null) : null,
+                // Opaque, stable, non-secret lookup key a player can quote to support. Explicitly
+                // NOT a fairness commitment — see the note in mining.html's seedInfo renderer.
+                'session_ref'      => js_truthy($session['server_seed'] ?? null)
+                                      ? strtoupper(substr(hash('sha256', (string)$session['server_seed']), 0, 12))
+                                      : null,
                 'mine_positions'   => $finished ? array_values($session['mine_positions'] ?? []) : null,
                 'balance'          => $walletBalance,
                 'rig_active'       => $matrixRigged || js_truthy($rig['next_tile']) || js_truthy($rig['rig_type'])
@@ -171,7 +176,11 @@ function register_mines_routes(Router $app) {
                 'bet_amount'       => $bet,
                 'mines_count'      => $minesNum,
                 'server_seed'      => $serverSeed,
-                'seed_hash'        => 'HASH_' . $serverSeed,
+                // A real SHA-256 of the seed. This is stored for internal audit only — it is NOT
+                // surfaced to players as a fairness commitment (see mining.html). The previous value
+                // was the literal string 'HASH_' . $serverSeed, which both failed to hash anything
+                // and leaked the seed itself before the board was played.
+                'seed_hash'        => hash('sha256', $serverSeed),
                 'mine_positions'   => $minePositions,
                 'revealed'         => [],
                 'multiplier'       => 1.0,
@@ -188,7 +197,13 @@ function register_mines_routes(Router $app) {
                 'revealed'         => [],
                 'multiplier'       => 1.0,
                 'potential_payout' => 0,
-                'seed_hash'        => 'HASH_' . $serverSeed,
+                // A real SHA-256 of the seed. This is stored for internal audit only — it is NOT
+                // surfaced to players as a fairness commitment (see mining.html). The previous value
+                // was the literal string 'HASH_' . $serverSeed, which both failed to hash anything
+                // and leaked the seed itself before the board was played.
+                'seed_hash'        => hash('sha256', $serverSeed),
+                // Opaque, stable, non-secret lookup key a player can quote to support.
+                'session_ref'      => strtoupper(substr(hash('sha256', $serverSeed), 0, 12)),
                 'balance'          => $balanceAfterDebit,
             ]]);
         } catch (Throwable $err) {
