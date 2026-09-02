@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Boundary Baazi — Ball-by-Ball Prediction — bet1x</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <script src="assets/js/ui-common.js"></script>
+  <script src="assets/js/sound-fx.js"></script>
+  <style>
+    body { padding-bottom: 60px; }
+    .bb-wrap { max-width: var(--max-width); margin: 0 auto; padding: 16px; }
+    .bb-disabled-note {
+      max-width: var(--max-width); margin: 40px auto; padding: 24px; text-align: center;
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text-dim);
+    }
+    .bb-attribution { text-align: center; font-size: 11px; color: var(--text-dim); padding: 16px 0 4px; }
+
+    .bb-fixture-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-top: 14px; }
+    .bb-fixture-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 16px; cursor: pointer; transition: transform .15s, border-color .15s;
+    }
+    .bb-fixture-card:hover { transform: translateY(-3px); border-color: var(--violet); }
+    .bb-fixture-teams { font-family: var(--font-display); font-size: 16px; font-weight: 700; }
+    .bb-fixture-meta { color: var(--text-dim); font-size: 12px; margin-top: 6px; }
+
+    .bb-back-link { color: var(--text-dim); font-size: 13px; text-decoration: none; }
+    .bb-back-link:hover { color: var(--violet); }
+
+    .bb-score-header {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 18px; margin-top: 14px;
+    }
+    .bb-score-line { font-family: var(--font-display); font-size: 24px; font-weight: 700; }
+
+    .bb-tabs { display: flex; gap: 4px; margin-top: 16px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+    .bb-tab {
+      background: none; border: none; color: var(--text-dim); font-family: var(--font-display);
+      font-weight: 600; font-size: 13.5px; padding: 10px 16px; cursor: pointer; white-space: nowrap;
+      border-bottom: 2px solid transparent;
+    }
+    .bb-tab.active { color: var(--text); border-bottom-color: var(--violet); }
+    .bb-panel { display: none; padding-top: 16px; }
+    .bb-panel.active { display: block; }
+
+    .bb-round-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+    .bb-round-question { font-family: var(--font-display); font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+    .bb-round-status { font-size: 12px; color: var(--text-dim); margin-bottom: 16px; }
+    .bb-option-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+    .bb-option-btn {
+      background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 14px 10px; text-align: center; cursor: pointer; color: var(--text);
+    }
+    .bb-option-btn:hover { border-color: var(--violet); }
+    .bb-option-btn.selected { border-color: var(--violet); background: var(--violet-soft); }
+    .bb-option-btn .lbl { font-weight: 700; font-size: 14px; }
+    .bb-option-btn .share { font-size: 11px; color: var(--text-dim); margin-top: 4px; font-family: var(--font-mono); }
+    .bb-option-btn.outcome-win { border-color: var(--green); background: var(--green-soft); }
+    .bb-option-btn.outcome-lose { opacity: .5; }
+
+    .bb-stake-row { display: flex; gap: 10px; margin-top: 18px; align-items: flex-end; flex-wrap: wrap; }
+    .bb-stake-row .y11-form-group, .bb-stake-row div.fg { display: flex; flex-direction: column; gap: 6px; }
+    .bb-stake-row label { font-size: 11.5px; color: var(--text-dim); text-transform: uppercase; }
+    .bb-stake-row input {
+      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      color: var(--text); padding: 10px 12px; font-size: 14px; width: 140px;
+    }
+    .bb-error { color: var(--red); font-size: 12.5px; margin-top: 10px; min-height: 16px; }
+    .bb-locked-banner { background: var(--red-soft); color: var(--red); border-radius: var(--radius-sm); padding: 10px 14px; font-weight: 700; text-align: center; }
+
+    .bb-history-row { display: flex; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .bb-history-row:last-child { border-bottom: none; }
+    .bb-empty { color: var(--text-dim); font-size: 13px; padding: 24px; text-align: center; }
+  </style>
+</head>
+
+<body class="exchange-theme">
+
+  <nav class="navbar exchange-header">
+    <div style="display:flex; align-items:center; gap:12px;">
+      <div class="exchange-logo-box">bet1x<span>.com</span></div>
+    </div>
+    <div id="headerAuthArea"></div>
+  </nav>
+
+  <div class="sub-navbar">
+    <ul class="sub-navbar-links">
+      <li class="sub-navbar-item"><a href="index.html" class="sub-navbar-link">Home</a></li>
+      <li class="sub-navbar-item"><a href="aviator.html" class="sub-navbar-link">Vimaan</a></li>
+      <li class="sub-navbar-item"><a href="win.html" class="sub-navbar-link">Sapre</a></li>
+      <li class="sub-navbar-item"><a href="teenpatti.html" class="sub-navbar-link">Teen Patti</a></li>
+      <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
+      <li class="sub-navbar-item"><a href="youreleven.html" class="sub-navbar-link">Your 11</a></li>
+      <li class="sub-navbar-item"><a href="boundarybaazi.html" class="sub-navbar-link active">Boundary Baazi</a></li>
+    </ul>
+  </div>
+
+  <div class="bb-wrap">
+    <div id="disabledNote" class="bb-disabled-note" style="display:none;">
+      Boundary Baazi isn't switched on for this deployment yet. An operator needs to set
+      <code>CRICKET_ENABLED=true</code> for the backend.
+    </div>
+
+    <div id="viewFixtures">
+      <h2 style="margin-top:14px;">Live &amp; Upcoming Matches</h2>
+      <div class="bb-fixture-grid" id="fixtureGrid"></div>
+      <div class="bb-empty" id="fixtureEmpty" style="display:none;">No matches are covered right now.</div>
+    </div>
+
+    <div id="viewMatch" style="display:none;">
+      <a href="#fixtures" class="bb-back-link">&larr; All matches</a>
+      <div class="bb-score-header" id="scoreHeader"></div>
+
+      <div class="bb-tabs">
+        <button class="bb-tab active" data-tab="predict">Predict</button>
+        <button class="bb-tab" data-tab="history">History</button>
+        <button class="bb-tab" data-tab="mybets">My Bets</button>
+      </div>
+
+      <div class="bb-panel active" id="panelPredict">
+        <div id="roundBox"></div>
+      </div>
+      <div class="bb-panel" id="panelHistory">
+        <div id="historyBox"></div>
+      </div>
+      <div class="bb-panel" id="panelMyBets">
+        <div id="myBetsBox"></div>
+      </div>
+    </div>
+
+    <div class="bb-attribution">Cricket data via Roanuz Sports (cricketapi.com)</div>
+  </div>
+
+  <script>
+    function fmtMoney(n) { return '₹' + (Number(n) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function fmtOvers(legalBalls) { const b = Number(legalBalls) || 0; return Math.floor(b / 6) + '.' + (b % 6); }
+    function round2(n) { return Math.round((Number(n) || 0) * 100) / 100; }
+
+    let fixturesCache = [];
+    let currentFixtureKey = null;
+    let currentFixture = null;
+    let currentRound = null;
+    let currentPool = {};
+    let stakeLimits = { min_stake: 10, max_stake: 5000 };
+    let liveStateCache = null;
+    let es = null;
+    let selectedOption = null;
+
+    async function apiGet(path) {
+      const res = await fetch(path);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok === false) throw new Error(data.error || ('Request failed (' + res.status + ')'));
+      return data;
+    }
+    async function apiPost(path, body) {
+      const res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok === false) throw new Error(data.error || ('Request failed (' + res.status + ')'));
+      return data;
+    }
+    function show(el) { el.style.display = ''; }
+    function hide(el) { el.style.display = 'none'; }
+
+    async function loadFixtures() {
+      try {
+        const data = await apiGet('api/cricket/fixtures');
+        fixturesCache = data.fixtures || [];
+      } catch (e) {
+        document.getElementById('disabledNote').style.display = 'block';
+        fixturesCache = [];
+      }
+      renderFixtures();
+    }
+
+    function renderFixtures() {
+      const grid = document.getElementById('fixtureGrid');
+      const empty = document.getElementById('fixtureEmpty');
+      grid.innerHTML = '';
+      if (!fixturesCache.length) { show(empty); return; }
+      hide(empty);
+      for (const fx of fixturesCache) {
+        const card = document.createElement('div');
+        card.className = 'bb-fixture-card';
+        card.innerHTML = `
+          <div class="bb-fixture-teams">${fx.team_a_name} vs ${fx.team_b_name}</div>
+          <div class="bb-fixture-meta">${fx.format || ''} &middot; ${fx.venue || 'Venue TBC'}</div>
+          <div class="bb-fixture-meta">${new Date(fx.start_time).toLocaleString('en-IN')}</div>
+          <span class="badge ${fx.status === 'live' ? 'won' : 'pending'}" style="margin-top:10px; display:inline-block;">${(fx.status || 'scheduled').toUpperCase()}</span>`;
+        card.onclick = () => { location.hash = '#match/' + encodeURIComponent(fx.key); };
+        grid.appendChild(card);
+      }
+    }
+
+    async function openMatch(key) {
+      currentFixtureKey = key;
+      currentFixture = fixturesCache.find(f => f.key === key) || null;
+      hide(document.getElementById('viewFixtures'));
+      show(document.getElementById('viewMatch'));
+      renderScoreHeader();
+
+      try {
+        const [configRes, currentRes] = await Promise.all([
+          apiGet('api/cricket/config'),
+          apiGet('api/cricket/boundary/' + encodeURIComponent(key) + '/current')
+        ]);
+        stakeLimits = configRes.boundary || stakeLimits;
+        currentRound = currentRes.round;
+        currentPool = currentRes.pool || {};
+      } catch (e) {
+        window.showToast && window.showToast(e.message, 'error');
+      }
+
+      renderRound();
+      loadHistory();
+      loadMyBets();
+      openStream(key);
+      setTab('predict');
+    }
+
+    function renderScoreHeader() {
+      const box = document.getElementById('scoreHeader');
+      if (!currentFixture) { box.innerHTML = '<div class="bb-empty">Match not found.</div>'; return; }
+      const fx = currentFixture;
+      let scoreLine = '';
+      if (liveStateCache && liveStateCache.innings && liveStateCache.innings.length) {
+        scoreLine = liveStateCache.innings.filter(i => !i.super_over).map(i =>
+          `<div class="bb-score-line">Innings ${i.number}: ${i.runs}/${i.wickets} (${fmtOvers(i.legal_balls)} ov)</div>`
+        ).join('');
+      }
+      box.innerHTML = `
+        <div style="font-family:var(--font-display); font-size:18px; font-weight:700;">${fx.team_a_name} vs ${fx.team_b_name}</div>
+        <div class="bb-fixture-meta">${fx.format || ''} &middot; ${fx.venue || 'Venue TBC'}</div>
+        ${scoreLine}
+        <span class="badge ${fx.status === 'live' ? 'won' : 'pending'}" style="margin-top:8px; display:inline-block;">${(fx.status || 'scheduled').toUpperCase()}</span>`;
+    }
+
+    function setTab(tab) {
+      document.querySelectorAll('.bb-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+      document.querySelectorAll('.bb-panel').forEach(p => p.classList.remove('active'));
+      const map = { predict: 'panelPredict', history: 'panelHistory', mybets: 'panelMyBets' };
+      document.getElementById(map[tab]).classList.add('active');
+      if (tab === 'history') loadHistory();
+      if (tab === 'mybets') loadMyBets();
+      history.replaceState(null, '', '#match/' + encodeURIComponent(currentFixtureKey));
+    }
+    document.querySelectorAll('.bb-tab').forEach(btn => btn.addEventListener('click', () => setTab(btn.dataset.tab)));
+
+    function renderRound() {
+      const box = document.getElementById('roundBox');
+      if (!currentRound) {
+        box.innerHTML = '<div class="bb-round-card"><div class="bb-empty">No open market right now — waiting for the next delivery.</div></div>';
+        return;
+      }
+      const r = currentRound;
+      const total = Object.values(currentPool).reduce((s, v) => s + v, 0);
+      selectedOption = null;
+
+      const optionsHtml = (r.options || []).map(opt => {
+        const amt = currentPool[opt.key] || 0;
+        const share = total > 0 ? Math.round((amt / total) * 100) : 0;
+        let cls = '';
+        if (r.status === 'resolved') cls = r.outcome === opt.key ? 'outcome-win' : 'outcome-lose';
+        return `<div class="bb-option-btn ${cls}" data-key="${opt.key}">
+          <div class="lbl">${opt.label}</div>
+          <div class="share">${fmtMoney(amt)} &middot; ${share}%</div>
+        </div>`;
+      }).join('');
+
+      let footer = '';
+      if (r.status === 'open') {
+        footer = `<div class="bb-stake-row">
+          <div class="fg"><label>Stake (₹${stakeLimits.min_stake}–₹${stakeLimits.max_stake})</label>
+            <input type="number" id="stakeInput" min="${stakeLimits.min_stake}" max="${stakeLimits.max_stake}" value="${stakeLimits.min_stake}"></div>
+          <button class="btn btn-primary" id="placeBetBtn">Place bet</button>
+        </div>
+        <div class="bb-error" id="betError"></div>`;
+      } else if (r.status === 'locked') {
+        footer = '<div class="bb-locked-banner" style="margin-top:16px;">Betting closed — ball in progress</div>';
+      } else if (r.status === 'resolved') {
+        footer = `<div class="bb-locked-banner" style="margin-top:16px; background:var(--green-soft); color:var(--green);">Result: ${(r.options.find(o => o.key === r.outcome) || {}).label || r.outcome}</div>`;
+      }
+
+      box.innerHTML = `<div class="bb-round-card">
+        <div class="bb-round-question">${r.question}</div>
+        <div class="bb-round-status">${r.status === 'open' ? 'Betting open' : r.status === 'locked' ? 'Locked' : 'Resolved'} &middot; Pool ${fmtMoney(total)}</div>
+        <div class="bb-option-grid">${optionsHtml}</div>
+        ${footer}
+      </div>`;
+
+      if (r.status === 'open') {
+        box.querySelectorAll('.bb-option-btn').forEach(btn => {
+          btn.onclick = () => {
+            selectedOption = btn.dataset.key;
+            box.querySelectorAll('.bb-option-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+          };
+        });
+        document.getElementById('placeBetBtn').onclick = placeBet;
+      }
+    }
+
+    async function placeBet() {
+      const errEl = document.getElementById('betError');
+      if (!getCurrentUser()) { window.openAuthModal && window.openAuthModal('login'); return; }
+      if (!selectedOption) { errEl.textContent = 'Pick an outcome first.'; return; }
+      const stake = Number(document.getElementById('stakeInput').value);
+      try {
+        await apiPost('api/cricket/boundary/' + encodeURIComponent(currentFixtureKey) + '/bet', {
+          delivery_key: currentRound.delivery_key, option: selectedOption, stake
+        });
+        SoundFX.play('betPlace');
+        window.showToast && window.showToast('Bet placed!', 'success');
+        const cur = await apiGet('api/cricket/boundary/' + encodeURIComponent(currentFixtureKey) + '/current');
+        currentRound = cur.round; currentPool = cur.pool || {};
+        renderRound();
+      } catch (e) {
+        errEl.textContent = e.message;
+      }
+    }
+
+    async function loadHistory() {
+      const box = document.getElementById('historyBox');
+      try {
+        const data = await apiGet('api/cricket/boundary/' + encodeURIComponent(currentFixtureKey) + '/history');
+        const rounds = data.rounds || [];
+        if (!rounds.length) { box.innerHTML = '<div class="bb-empty">No resolved deliveries yet.</div>'; return; }
+        box.innerHTML = rounds.map(r => `
+          <div class="bb-history-row">
+            <span>${r.question}</span>
+            <span><strong>${(r.options.find(o => o.key === r.outcome) || {}).label || r.outcome || 'Voided'}</strong> &middot; Pool ${fmtMoney(r.pool)}</span>
+          </div>`).join('');
+      } catch (e) {
+        box.innerHTML = '<div class="bb-empty">' + e.message + '</div>';
+      }
+    }
+
+    async function loadMyBets() {
+      const box = document.getElementById('myBetsBox');
+      if (!getCurrentUser()) { box.innerHTML = '<div class="bb-empty">Log in to see your bets.</div>'; return; }
+      try {
+        const data = await apiGet('api/cricket/boundary/my-bets');
+        const bets = (data.bets || []).filter(b => b.round && b.round.fixture_key === currentFixtureKey);
+        if (!bets.length) { box.innerHTML = '<div class="bb-empty">No bets on this match yet.</div>'; return; }
+        box.innerHTML = bets.map(b => `
+          <div class="bb-history-row">
+            <span>${b.round ? b.round.question : b.delivery_key} &middot; ${fmtMoney(b.stake)} on ${b.option_key}</span>
+            <span class="badge ${b.won ? 'won' : (b.round && b.round.status === 'resolved' ? 'lost' : 'pending')}">
+              ${b.won ? 'Won ' + fmtMoney(b.payout) : (b.round && b.round.status === 'resolved' ? 'Lost' : 'Pending')}
+            </span>
+          </div>`).join('');
+      } catch (e) {
+        box.innerHTML = '<div class="bb-empty">' + e.message + '</div>';
+      }
+    }
+
+    function openStream(fixtureKey) {
+      if (es) { es.close(); es = null; }
+      const url = window.BET1X_API_BASE + '/api/cricket/stream/' + encodeURIComponent(fixtureKey);
+      es = new EventSource(url);
+      es.addEventListener('state', ev => {
+        try { liveStateCache = JSON.parse(ev.data); } catch (e) { return; }
+        renderScoreHeader();
+      });
+      es.addEventListener('boundary_open', ev => {
+        try { currentRound = JSON.parse(ev.data).round; currentPool = {}; } catch (e) { return; }
+        renderRound();
+      });
+      es.addEventListener('boundary_locked', () => {
+        if (currentRound) currentRound.status = 'locked';
+        renderRound();
+      });
+      es.addEventListener('boundary_resolved', ev => {
+        try {
+          const data = JSON.parse(ev.data);
+          if (currentRound && currentRound.delivery_key === data.delivery_key) {
+            currentRound.status = 'resolved';
+            currentRound.outcome = data.outcome;
+          }
+        } catch (e) { /* ignore */ }
+        renderRound();
+        loadHistory();
+        loadMyBets();
+      });
+    }
+
+    function route() {
+      const hash = location.hash.replace(/^#/, '');
+      if (hash.startsWith('match/')) {
+        const key = decodeURIComponent(hash.split('/')[1]);
+        openMatch(key);
+      } else {
+        if (es) { es.close(); es = null; }
+        hide(document.getElementById('viewMatch'));
+        show(document.getElementById('viewFixtures'));
+      }
+    }
+    window.addEventListener('hashchange', route);
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      updateAuthHeaderUI();
+      await loadFixtures();
+      route();
+    });
+  </script>
+</body>
+
+</html>

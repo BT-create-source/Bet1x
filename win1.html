@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Becone Room — bet1x</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body class="exchange-theme">
+
+<nav class="navbar exchange-header">
+  <div class="exchange-logo-box">
+    bet1x<span>.com</span>
+  </div>
+  <div id="headerAuthArea">
+    <!-- Loaded dynamically by ui-common.js -->
+  </div>
+</nav>
+
+<div class="sub-navbar">
+  <ul class="sub-navbar-links">
+    <li class="sub-navbar-item"><a href="index.html" class="sub-navbar-link">Home</a></li>
+    <li class="sub-navbar-item"><a href="aviator.html" class="sub-navbar-link">Vimaan</a></li>
+    <li class="sub-navbar-item"><a href="win.html" class="sub-navbar-link">Sapre</a></li>
+    <li class="sub-navbar-item"><a href="win1.html" class="sub-navbar-link active">Becone</a></li>
+    <li class="sub-navbar-item"><a href="win2.html" class="sub-navbar-link">Emred</a></li>
+    <li class="sub-navbar-item"><a href="win3.html" class="sub-navbar-link">VIP</a></li>
+    <li class="sub-navbar-item"><a href="teenpatti.html" class="sub-navbar-link">Teen Patti</a></li>
+    <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
+  </ul>
+</div>
+
+<div class="container section-tight">
+
+  <div class="card">
+    <div class="timer-wrap">
+      <div class="ring-holder">
+        <svg width="132" height="132" viewBox="0 0 132 132">
+          <circle class="ring-bg" cx="66" cy="66" r="58" stroke-width="10"></circle>
+          <circle class="ring-fg" id="ringFg" cx="66" cy="66" r="58" stroke-width="10"></circle>
+        </svg>
+        <div class="ring-center">
+          <div class="ring-time" id="ringTime">01:00</div>
+          <div class="ring-label">left</div>
+        </div>
+      </div>
+      <div class="round-meta">
+        <h3>Becone Room <span style="color:var(--red);font-size:13px;font-weight:500;">● Red tier</span></h3>
+        <div class="round-id">Round #<span id="roundId">—</span> · 1min rounds</div>
+        <div class="text-dim" id="activePlayersCount" style="font-size:13px;margin-top:8px;">0 players active in this room</div>
+      </div>
+    </div>
+    <div id="settlementBox" style="margin-top: 15px;"></div>
+  </div>
+
+  <div class="grid-2">
+    <div>
+      <div class="card">
+        <h3>Place Your Bet</h3>
+
+        <label>Color</label>
+        <div class="bet-options">
+          <button type="button" class="color-btn green" data-cat="color" data-val="Green">Green<span class="mult">×2.0</span></button>
+          <button type="button" class="color-btn violet" data-cat="color" data-val="Violet">Violet<span class="mult">×4.5</span></button>
+          <button type="button" class="color-btn red" data-cat="color" data-val="Red">Red<span class="mult">×2.0</span></button>
+        </div>
+
+        <label>...or Number (0–9)</label>
+        <div class="number-grid" id="numberGrid"></div>
+
+        <label>...or Size</label>
+        <div class="size-options">
+          <button type="button" class="size-btn" data-cat="size" data-val="Small">Small (0–4) ×2</button>
+          <button type="button" class="size-btn" data-cat="size" data-val="Big">Big (5–9) ×2</button>
+        </div>
+
+        <label>Bet Amount</label>
+        <div class="amount-row">
+          <button type="button" class="chip-amt" data-amt="10">₹10</button>
+          <button type="button" class="chip-amt" data-amt="50">₹50</button>
+          <button type="button" class="chip-amt" data-amt="100">₹100</button>
+          <button type="button" class="chip-amt" data-amt="500">₹500</button>
+        </div>
+        <input type="number" id="amountInput" min="1" placeholder="Or enter custom amount">
+
+        <button class="btn btn-gold btn-block" id="placeBetBtn" disabled>Select an option first</button>
+        <div id="alertBox" style="margin-top: 10px;"></div>
+      </div>
+
+      <div class="card">
+        <h3>My Bets — This Round</h3>
+        <table>
+          <thead><tr><th>Type</th><th>Value</th><th>Amount</th><th>Status</th></tr></thead>
+          <tbody id="myBetsBody">
+            <tr><td colspan="4" class="text-dim">No bets yet this round.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h3>Recent Results</h3>
+        <table>
+          <thead><tr><th>Round</th><th>No.</th><th>Result</th><th>Size</th></tr></thead>
+          <tbody id="resultsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  bet1x — Becone room. Play responsibly; 18+ only.
+</div>
+
+<script src="assets/js/ui-common.js"></script>
+<script src="assets/js/sound-fx.js"></script>
+<script>
+const ROOM_KEY = 'becone';
+const ROOM_DURATION = 60;
+
+// build number grid 0-9
+const numberGrid = document.getElementById('numberGrid');
+for (let i = 0; i <= 9; i++) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'num-btn';
+  b.dataset.cat = 'number';
+  b.dataset.val = i;
+  b.textContent = i;
+  numberGrid.appendChild(b);
+}
+
+// recent results table
+const resultsBody = document.getElementById('resultsBody');
+
+// bet selection state
+let selectedCat = null, selectedVal = null, selectedAmount = null;
+const placeBetBtn = document.getElementById('placeBetBtn');
+
+document.querySelectorAll('[data-cat]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-cat]').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedCat = btn.dataset.cat;
+    selectedVal = btn.dataset.val;
+    updateSubmitState();
+  });
+});
+
+document.querySelectorAll('.chip-amt').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.chip-amt').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedAmount = parseFloat(btn.dataset.amt);
+    document.getElementById('amountInput').value = selectedAmount;
+    updateSubmitState();
+  });
+});
+
+document.getElementById('amountInput').addEventListener('input', (e) => {
+  document.querySelectorAll('.chip-amt').forEach(b => b.classList.remove('selected'));
+  selectedAmount = parseFloat(e.target.value) || null;
+  updateSubmitState();
+});
+
+function updateSubmitState() {
+  if (current_time_left <= 5) {
+    placeBetBtn.disabled = true;
+    placeBetBtn.textContent = 'Stakes frozen (5s remaining)';
+    return;
+  }
+  if (selectedCat && selectedVal !== null && selectedAmount > 0) {
+    placeBetBtn.disabled = false;
+    placeBetBtn.textContent = `Place Bet: ${selectedCat.toUpperCase()} · ${selectedVal} · ₹${selectedAmount}`;
+  } else {
+    placeBetBtn.disabled = true;
+    placeBetBtn.textContent = 'Select an option first';
+  }
+}
+
+const myBetsBody = document.getElementById('myBetsBody');
+let myBetsThisRound = [];
+
+function renderMyBets() {
+  if (myBetsThisRound.length === 0) {
+    myBetsBody.innerHTML = '<tr><td colspan="4" class="text-dim">No bets yet this round.</td></tr>';
+    return;
+  }
+  myBetsBody.innerHTML = myBetsThisRound.map(b => `
+    <tr>
+      <td>${b.category[0].toUpperCase() + b.category.slice(1)}</td>
+      <td>${b.value}</td>
+      <td>₹${b.amount.toFixed(2)}</td>
+      <td><span class="badge pending">Pending</span></td>
+    </tr>
+  `).join('');
+}
+
+function showAlert(msg, type) {
+  document.getElementById('alertBox').innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+  setTimeout(() => { document.getElementById('alertBox').innerHTML = ''; }, 3500);
+}
+
+function showSettlementAlert(msg, type) {
+  const box = document.getElementById('settlementBox');
+  if (box) {
+    box.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+    setTimeout(() => { box.innerHTML = ''; }, 7000);
+  }
+}
+
+// Server synchronization loop for Color Guess
+const ringFg = document.getElementById('ringFg');
+const ringTime = document.getElementById('ringTime');
+const roundIdEl = document.getElementById('roundId');
+const radius = ringFg.r.baseVal.value;
+const circumference = 2 * Math.PI * radius;
+ringFg.style.strokeDasharray = circumference;
+
+function updateBetButtonsSummary(aggs) {
+  if (!aggs) return;
+  
+  // Colors
+  const btnGreen = document.querySelector('[data-cat="color"][data-val="Green"]');
+  if (btnGreen) {
+    btnGreen.innerHTML = `
+      <span style="font-size: 15px; font-weight: 800; display: block; letter-spacing: 0.5px;">Green <span style="font-family: var(--font-mono); font-size: 11px; opacity: 0.85;">×2.0</span></span>
+      <div style="font-family: var(--font-mono); font-size: 10.5px; background: rgba(0,0,0,0.22); padding: 4px 6px; border-radius: 6px; margin-top: 5px; font-weight: 700; display: inline-block; width: 100%; box-sizing: border-box; line-height: 1.2; text-align: center;">
+        ${aggs.Green.count} players · ₹${aggs.Green.amount.toLocaleString()}
+      </div>
+    `;
+  }
+  const btnViolet = document.querySelector('[data-cat="color"][data-val="Violet"]');
+  if (btnViolet) {
+    btnViolet.innerHTML = `
+      <span style="font-size: 15px; font-weight: 800; display: block; letter-spacing: 0.5px;">Violet <span style="font-family: var(--font-mono); font-size: 11px; opacity: 0.85;">×4.5</span></span>
+      <div style="font-family: var(--font-mono); font-size: 10.5px; background: rgba(0,0,0,0.22); padding: 4px 6px; border-radius: 6px; margin-top: 5px; font-weight: 700; display: inline-block; width: 100%; box-sizing: border-box; line-height: 1.2; text-align: center;">
+        ${aggs.Violet.count} players · ₹${aggs.Violet.amount.toLocaleString()}
+      </div>
+    `;
+  }
+  const btnRed = document.querySelector('[data-cat="color"][data-val="Red"]');
+  if (btnRed) {
+    btnRed.innerHTML = `
+      <span style="font-size: 15px; font-weight: 800; display: block; letter-spacing: 0.5px;">Red <span style="font-family: var(--font-mono); font-size: 11px; opacity: 0.85;">×2.0</span></span>
+      <div style="font-family: var(--font-mono); font-size: 10.5px; background: rgba(0,0,0,0.22); padding: 4px 6px; border-radius: 6px; margin-top: 5px; font-weight: 700; display: inline-block; width: 100%; box-sizing: border-box; line-height: 1.2; text-align: center;">
+        ${aggs.Red.count} players · ₹${aggs.Red.amount.toLocaleString()}
+      </div>
+    `;
+  }
+  
+  // Sizes
+  const btnSmall = document.querySelector('[data-cat="size"][data-val="Small"]');
+  if (btnSmall) {
+    btnSmall.innerHTML = `
+      <span style="font-size: 15px; font-weight: 800; display: block; letter-spacing: 0.5px;">Small (0–4) <span style="font-family: var(--font-mono); font-size: 11px; opacity: 0.85;">×2</span></span>
+      <div style="font-family: var(--font-mono); font-size: 10.5px; background: rgba(0,0,0,0.22); padding: 4px 6px; border-radius: 6px; margin-top: 5px; font-weight: 700; display: inline-block; width: 100%; box-sizing: border-box; line-height: 1.2; text-align: center;">
+        ${aggs.Small.count} players · ₹${aggs.Small.amount.toLocaleString()}
+      </div>
+    `;
+  }
+  const btnBig = document.querySelector('[data-cat="size"][data-val="Big"]');
+  if (btnBig) {
+    btnBig.innerHTML = `
+      <span style="font-size: 15px; font-weight: 800; display: block; letter-spacing: 0.5px;">Big (5–9) <span style="font-family: var(--font-mono); font-size: 11px; opacity: 0.85;">×2</span></span>
+      <div style="font-family: var(--font-mono); font-size: 10.5px; background: rgba(0,0,0,0.22); padding: 4px 6px; border-radius: 6px; margin-top: 5px; font-weight: 700; display: inline-block; width: 100%; box-sizing: border-box; line-height: 1.2; text-align: center;">
+        ${aggs.Big.count} players · ₹${aggs.Big.amount.toLocaleString()}
+      </div>
+    `;
+  }
+  
+  // Numbers
+  for (let i = 0; i <= 9; i++) {
+    const btnNum = document.querySelector(`[data-cat="number"][data-val="${i}"]`);
+    if (btnNum) {
+      btnNum.style.aspectRatio = 'auto';
+      btnNum.style.borderRadius = '12px';
+      btnNum.style.padding = '8px 4px';
+      btnNum.style.height = 'auto';
+      const info = aggs.num[i];
+      btnNum.innerHTML = `
+        <span style="font-size: 16px; font-weight: 800; display: block; line-height: 1; margin-bottom: 4px;">${i}</span>
+        <div style="font-family: var(--font-mono); font-size: 9px; line-height: 1.25; background: rgba(0,0,0,0.18); border-radius: 4px; padding: 2px 0; margin-top: 2px;">
+          ${info.count}<br>
+          ₹${info.amount.toLocaleString()}
+        </div>
+      `;
+    }
+  }
+}
+
+let lastRoundId = null;
+let current_time_left = ROOM_DURATION;
+
+function formatTime(sec) {
+  const m = Math.floor(sec / 60).toString().padStart(2, '0');
+  const s = Math.floor(sec % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+function getLocalOfflineRoundId() {
+  const dur = ROOM_DURATION;
+  const nowSec = (typeof ServerClock !== 'undefined' && ServerClock.nowSec) ? ServerClock.nowSec() : Math.floor(Date.now() / 1000);
+  const roundStart = Math.floor(nowSec / dur) * dur;
+  const dObj = new Date(roundStart * 1000);
+  const yyyy = dObj.getUTCFullYear();
+  const mm = String(dObj.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(dObj.getUTCDate()).padStart(2, '0');
+  const hh = String(dObj.getUTCHours()).padStart(2, '0');
+  const bucket = String(Math.floor((roundStart % 3600) / dur)).padStart(3, '0');
+  return `${yyyy}${mm}${dd}${hh}${bucket}`;
+}
+
+if (ringFg) {
+  ringFg.style.transition = 'none';
+}
+
+let lastTickSec = null;
+function tickVisualProgress() {
+  const roomState = (typeof ServerClock !== 'undefined' && ServerClock.getRoomState)
+    ? ServerClock.getRoomState(ROOM_KEY, ROOM_DURATION)
+    : (function() {
+        const nowSec = Math.floor(Date.now() / 1000);
+        return {
+          time_left: Math.max(0, ROOM_DURATION - (nowSec % ROOM_DURATION)),
+          round_id: getLocalOfflineRoundId(),
+          progress_pct: (ROOM_DURATION - (nowSec % ROOM_DURATION)) / ROOM_DURATION
+        };
+      })();
+
+  const visualTimeLeft = roomState.time_left;
+  const activeRoundId = roomState.round_id;
+
+  // A quiet last-5-seconds countdown tick, once per second, matching the
+  // moment stakes actually freeze (see updateSubmitState's 5s threshold).
+  const wholeSec = Math.ceil(visualTimeLeft);
+  if (wholeSec !== lastTickSec) {
+    lastTickSec = wholeSec;
+    if (wholeSec > 0 && wholeSec <= 5) SoundFX.play('tickUrgent');
+  }
+
+  current_time_left = visualTimeLeft;
+  if (ringTime) ringTime.textContent = formatTime(visualTimeLeft);
+  if (roundIdEl) roundIdEl.textContent = activeRoundId;
+
+  if (ringFg) {
+    const pct = visualTimeLeft / ROOM_DURATION;
+    ringFg.style.strokeDashoffset = circumference * (1 - pct);
+  }
+
+  updateSubmitState();
+}
+setInterval(tickVisualProgress, 30);
+
+function resolveColorNumber(num) {
+  if (num === 0) return { color: 'Violet', dotClass: 'violet', size: 'Small' };
+  if (num === 5) return { color: 'Violet', dotClass: 'violet', size: 'Big' };
+  if ([1, 3, 7, 9].includes(num)) return { color: 'Green', dotClass: 'green', size: num >= 5 ? 'Big' : 'Small' };
+  return { color: 'Red', dotClass: 'red', size: num >= 5 ? 'Big' : 'Small' };
+}
+
+function settleRoundLocally() {
+  // Read local overrides from localStorage (enables seamless offline rigging)
+  const savedOverride = JSON.parse(localStorage.getItem('cheat_color_override_' + ROOM_KEY + '_' + lastRoundId) || '{}');
+  
+  let winningNum = null;
+  if (savedOverride.number !== undefined && savedOverride.number !== null && savedOverride.number !== '') {
+    winningNum = parseInt(savedOverride.number);
+  }
+  
+  let resolved;
+  if (winningNum !== null) {
+    resolved = resolveColorNumber(winningNum);
+  } else {
+    // Generate a number based on color/size overrides if set
+    let possible = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    if (savedOverride.color) {
+      const c = savedOverride.color;
+      if (c === 'Green') possible = possible.filter(n => [1, 3, 5, 7, 9].includes(n));
+      else if (c === 'Red') possible = possible.filter(n => [0, 2, 4, 6, 8].includes(n));
+      else if (c === 'Violet') possible = possible.filter(n => [0, 5].includes(n));
+    }
+    if (savedOverride.size) {
+      const sz = savedOverride.size;
+      if (sz === 'Small') possible = possible.filter(n => n <= 4);
+      else if (sz === 'Big') possible = possible.filter(n => n >= 5);
+    }
+    
+    if (possible.length > 0) {
+      winningNum = possible[Math.floor(Math.random() * possible.length)];
+    } else {
+      winningNum = Math.floor(Math.random() * 10);
+    }
+    resolved = resolveColorNumber(winningNum);
+  }
+  
+  // STRICT offline override enforcement
+  if (savedOverride.color) {
+    resolved.color = savedOverride.color;
+    if (savedOverride.color === 'Green') resolved.dotClass = 'green';
+    else if (savedOverride.color === 'Red') resolved.dotClass = 'red';
+    else if (savedOverride.color === 'Violet') resolved.dotClass = 'violet';
+  }
+  if (savedOverride.size) {
+    resolved.size = savedOverride.size;
+  }
+
+  const wasRiggedOffline = !!(savedOverride.color || savedOverride.size || (savedOverride.number !== undefined && savedOverride.number !== null && savedOverride.number !== ''));
+
+  // Clear offline overrides for the next round
+  localStorage.removeItem('cheat_color_override_' + ROOM_KEY + '_' + lastRoundId);
+
+  const newResult = { roundNumber: lastRoundId, number: winningNum, color: resolved.color, dotClass: resolved.dotClass, size: resolved.size };
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td>${newResult.roundNumber}</td><td>${newResult.number}</td><td><span class="result-chip"><span class="result-dot ${newResult.dotClass}"></span>${newResult.color}</span></td><td>${newResult.size}</td>`;
+  resultsBody.insertBefore(tr, resultsBody.firstChild);
+  if (resultsBody.children.length > 10) resultsBody.lastChild.remove();
+  let totalPayout = 0;
+  let hasBigMult = false;
+  let hasBets = myBetsThisRound.length > 0;
+  myBetsThisRound.forEach(b => {
+    let won = false, mult = 0;
+    if (b.category === 'number') { won = parseInt(b.value) === winningNum; mult = 9; }
+    else if (b.category === 'size') { won = b.value.toLowerCase() === newResult.size.toLowerCase(); mult = 2; }
+    else if (b.category === 'color') {
+      const bc = b.value.toLowerCase();
+      const rc = newResult.color.toLowerCase();
+      if (bc === rc) {
+        won = true;
+        if (rc === 'violet') {
+          mult = 4.5;
+        } else {
+          if (winningNum === 0 || winningNum === 5) {
+            mult = 1.5;
+          } else {
+            mult = 2;
+          }
+        }
+      }
+    }
+    if (won) { totalPayout += b.amount * mult; if (mult >= 4.5) hasBigMult = true; }
+  });
+  const rigNoteOffline = '';
+  if (totalPayout > 0) {
+    adjustWallet(totalPayout, `Color Guess Win: Room ${ROOM_KEY.charAt(0).toUpperCase() + ROOM_KEY.slice(1)} Round #${lastRoundId} Payout`);
+    showSettlementAlert(`Round settled! Result: ${winningNum} (${newResult.color}, ${newResult.size}) — you won ₹${totalPayout.toFixed(2)}${rigNoteOffline}`, 'success');
+    SoundFX.play(hasBigMult ? 'bigWin' : 'win');
+    triggerWinShower(document.querySelector('.card'));
+    if (typeof getHistory === 'function') {
+      const hist = getHistory();
+      const item = hist.find(x => x.room === ROOM_KEY.toUpperCase() && x.status === 'pending');
+      if (item) {
+        item.status = 'won';
+        item.payout = totalPayout;
+        localStorage.setItem('bet1x_demo_history', JSON.stringify(hist));
+      }
+    }
+  } else if (hasBets) {
+    showSettlementAlert(`Round settled. Result: ${winningNum} (${newResult.color}, ${newResult.size}) — no win this round.${rigNoteOffline}`, 'error');
+    SoundFX.play('lose');
+    if (typeof getHistory === 'function') {
+      const hist = getHistory();
+      const item = hist.find(x => x.room === ROOM_KEY.toUpperCase() && x.status === 'pending');
+      if (item) {
+        item.status = 'lost';
+        item.payout = 0;
+        localStorage.setItem('bet1x_demo_history', JSON.stringify(hist));
+      }
+    }
+  }
+  myBetsThisRound = [];
+  renderMyBets();
+  selectedCat = null; selectedVal = null; selectedAmount = null;
+  document.querySelectorAll('[data-cat], .chip-amt').forEach(b => b.classList.remove('selected'));
+  document.getElementById('amountInput').value = '';
+}
+
+function syncState() {
+  fetch(`api/game_sync.php?action=color_get_state&room=${ROOM_KEY}`)
+  .then(res => res.json())
+  .then(data => {
+    if (data.error) return;
+    window.isOfflineMode = false;
+    
+    if (data.server_time && typeof ServerClock !== 'undefined') {
+      const serverNow = data.server_time;
+      ServerClock.clockSkew = Date.now() - serverNow;
+      ServerClock.isSynced = true;
+    }
+    
+    roundIdEl.textContent = data.round_id;
+    setWallet(data.wallet_balance);
+    const activeUsersEl = document.getElementById('activePlayersCount');
+    if (activeUsersEl) {
+      activeUsersEl.textContent = `${data.active_users || 0} players active in this room`;
+    }
+    
+    if (lastRoundId && String(lastRoundId) !== String(data.round_id)) {
+      const lastResult = (data.history && data.history.length > 0)
+        ? (data.history.find(h => String(h.roundNumber) === String(lastRoundId)) || data.history[data.history.length - 1])
+        : null;
+      if (lastResult) {
+        let totalPayout = 0;
+        let hasBigMult = false;
+        let hasBets = myBetsThisRound.length > 0;
+        myBetsThisRound.forEach(b => {
+          let won = false, mult = 0;
+          if (b.category === 'number') { won = parseInt(b.value) === lastResult.number; mult = 9; }
+          else if (b.category === 'size') { won = b.value.toLowerCase() === lastResult.size.toLowerCase(); mult = 2; }
+          else if (b.category === 'color') {
+            const bc = b.value.toLowerCase();
+            const rc = lastResult.color.toLowerCase();
+            if (bc === rc) {
+              won = true;
+              if (rc === 'violet') {
+                mult = 4.5;
+              } else {
+                if (lastResult.number === 0 || lastResult.number === 5) {
+                  mult = 1.5;
+                } else {
+                  mult = 2;
+                }
+              }
+            }
+          }
+          if (won) { totalPayout += b.amount * mult; if (mult >= 4.5) hasBigMult = true; }
+        });
+        const rigNote = '';
+        if (totalPayout > 0) {
+          showSettlementAlert(`Round settled! Result: ${lastResult.number} (${lastResult.color}, ${lastResult.size}) — you won ₹${totalPayout.toFixed(2)}${rigNote}`, 'success');
+          SoundFX.play(hasBigMult ? 'bigWin' : 'win');
+          triggerWinShower(document.querySelector('.card'));
+        } else if (hasBets) {
+          showSettlementAlert(`Round settled. Result: ${lastResult.number} (${lastResult.color}, ${lastResult.size}) — no win this round.${rigNote}`, 'error');
+          SoundFX.play('lose');
+        }
+      }
+      myBetsThisRound = [];
+      renderMyBets();
+      selectedCat = null; selectedVal = null; selectedAmount = null;
+      document.querySelectorAll('[data-cat], .chip-amt').forEach(b => b.classList.remove('selected'));
+      document.getElementById('amountInput').value = '';
+    }
+    
+    // The server field is `bets` (the player's own bets on the active round), never `my_bets` —
+    // that name never existed on either backend, so this restoration silently never ran and a
+    // refresh mid-round always showed "No bets yet this round" even though the bet was still
+    // live and would settle normally. Reading the field that is actually sent fixes it.
+    if (data.bets && data.bets.length > 0 && myBetsThisRound.length === 0) {
+      myBetsThisRound = data.bets;
+      renderMyBets();
+    }
+    
+    lastRoundId = data.round_id;
+    updateBetButtonsSummary(data.aggregates);
+
+    if (data.history && data.history.length > 0) {
+      resultsBody.innerHTML = '';
+      data.history.slice().reverse().forEach(r => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${r.roundNumber}</td><td>${r.number}</td><td><span class="result-chip"><span class="result-dot ${r.dotClass}"></span>${r.color}</span></td><td>${r.size}</td>`;
+        resultsBody.appendChild(tr);
+      });
+    }
+  })
+  .catch(err => {
+    console.error("Error syncing color room state:", err);
+    // Requests the localStorage simulation. ui-common.js only grants it where offline demo mode is
+    // enabled; on a normal deployment the setter refuses, the player is told the connection dropped,
+    // and bets keep going to the server instead of being swallowed locally.
+    window.isOfflineMode = true;
+  });
+}
+
+placeBetBtn.addEventListener('click', () => {
+  if (selectedAmount > getWallet()) {
+    showAlert('Insufficient virtual coin balance.', 'error');
+    return;
+  }
+  if (window.isOfflineMode) {
+    adjustWallet(-selectedAmount, `Color Guess Wager: Room ${ROOM_KEY.charAt(0).toUpperCase() + ROOM_KEY.slice(1)} Round #${lastRoundId} Selection: ${selectedCat} (${selectedVal})`);
+    
+    const activeBetsKey = `bet1x_offline_active_bets_${ROOM_KEY}_${lastRoundId}`;
+    const activeBets = JSON.parse(localStorage.getItem(activeBetsKey) || '[]');
+    const userObj = getCurrentUser() || { username: 'Anonymous' };
+    activeBets.push({
+      username: userObj.username,
+      category: selectedCat,
+      value: selectedVal,
+      amount: selectedAmount,
+      timestamp: new Date().toISOString()
+    });
+    localStorage.setItem(activeBetsKey, JSON.stringify(activeBets));
+
+    myBetsThisRound.push({ category: selectedCat, value: selectedVal, amount: selectedAmount });
+    renderMyBets();
+    showAlert(`Bet placed: ${selectedCat.toUpperCase()} · ${selectedVal} for ₹${selectedAmount.toFixed(2)}`, 'success');
+    SoundFX.play('betPlace');
+    if (typeof pushHistory === 'function') {
+      pushHistory({ room: ROOM_KEY.toUpperCase(), roundNumber: lastRoundId, category: selectedCat, value: selectedVal, amount: selectedAmount, status: 'pending' });
+    }
+    return;
+  }
+  const params = new URLSearchParams();
+  params.append('room', ROOM_KEY);
+  params.append('category', selectedCat);
+  params.append('value', selectedVal);
+  params.append('amount', selectedAmount);
+  fetch('api/game_sync.php?action=color_place_bet', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.error) {
+      showAlert(data.error, 'error');
+    } else {
+      myBetsThisRound.push({ category: selectedCat, value: selectedVal, amount: selectedAmount });
+      renderMyBets();
+      setWallet(data.new_balance);
+      showAlert(`Bet placed: ${selectedCat.toUpperCase()} · ${selectedVal} for ₹${selectedAmount.toFixed(2)}`, 'success');
+      SoundFX.play('betPlace');
+      if (typeof pushHistory === 'function') {
+        pushHistory({ room: ROOM_KEY.toUpperCase(), roundNumber: lastRoundId, category: selectedCat, value: selectedVal, amount: selectedAmount, status: 'pending' });
+      }
+    }
+  })
+  .catch(err => {
+    showAlert('Server connection error.', 'error');
+  });
+});
+
+// Run server polling loop every 300ms
+setInterval(syncState, 300);
+syncState();
+</script>
+</body>
+</html>

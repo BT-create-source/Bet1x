@@ -1,0 +1,91 @@
+# =================================================================================================
+# bet1x — Apache configuration for cPanel shared hosting.
+#
+# This file does four jobs, and the ORDER of the first two is load-bearing:
+#
+#   1. Route every /api/* request into the PHP front controller, unconditionally.
+#   2. Deny direct access to everything that must never be fetched over HTTP.
+#   3. Reproduce the static-file headers the Node build sent (no-store, plus compression).
+#   4. Serve index.html for unmatched paths, which is what the Node build's 404 handler did.
+#
+# WHY THE API REWRITE IS UNCONDITIONAL AND COMES FIRST
+# ---------------------------------------------------
+# The frontend calls PHP-shaped paths — /api/auth.php, /api/game_sync.php, /api/wallet.php,
+# /api/admin.php, /api/chat.php, /api/deposit.php, /api/withdraw.php — and there are REAL FILES at
+# api/*.php in this repository from an older, dead implementation. Under Node those files were only
+# ever leaked as source text. Under PHP, Apache would EXECUTE them: /api/auth.php would run the old
+# login logic, against the old config, with the payment-gateway keys that were committed inside it.
+#
+# Sending every /api/* path to the front controller before Apache can resolve a filename is what
+# prevents that. The `!-f` condition normally used with front controllers is deliberately ABSENT:
+# adding it would let those stale files win precisely because they exist.
+# =================================================================================================
+
+Options -Indexes
+DirectoryIndex index.html
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # --- 1. Everything under /api goes to the front controller. Nothing is exempt. -----------------
+    RewriteRule ^api/.*$ php-backend/index.php [QSA,L]
+
+    # --- 2. Denials --------------------------------------------------------------------------------
+    # These mirror the STATIC_DENY list the Node build enforced in code.
+    #
+    # Each is guarded on REDIRECT_STATUS being empty, so it applies only to a request that arrived
+    # from outside. Without that guard the internal redirect to php-backend/index.php would match
+    # the "*.php is denied" rule below and 403 the entire API.
+
+    RewriteCond %{ENV:REDIRECT_STATUS} ^$
+    RewriteRule ^(backend|node_modules|prisma|docs|php-backend/(?!index\.php))(/|$) - [F,L]
+
+    RewriteCond %{ENV:REDIRECT_STATUS} ^$
+    RewriteRule (^|/)\.git(/|$) - [F,L]
+
+    RewriteCond %{ENV:REDIRECT_STATUS} ^$
+    RewriteRule (^|/)\.env - [F,L]
+
+    # The dead PHP layer: api/, and the per-game folders' logic files.
+    RewriteCond %{ENV:REDIRECT_STATUS} ^$
+    RewriteRule ^(api|aviator|mining|teenpati)/.*\.php$ - [F,L]
+
+    # Any other PHP outside the front controller, plus data and key files.
+    RewriteCond %{ENV:REDIRECT_STATUS} ^$
+    RewriteRule \.(php|env|sql|log|bak|backup|orig|pem|key|crt|lock)$ - [F,L]
+
+    RewriteCond %{ENV:REDIRECT_STATUS} ^$
+    RewriteRule ^(package(-lock)?\.json|Dockerfile|docker-compose\.ya?ml|ecosystem\.config\.js|\.dockerignore|\.gitignore)$ - [F,L]
+
+    RewriteCond %{ENV:REDIRECT_STATUS} ^$
+    RewriteRule ^(CLAUDE|README|DEPLOYMENT|SECURITY)\.md$ - [F,L]
+
+    # --- Optional: force HTTPS for static files too. -----------------------------------------------
+    # The API enforces this itself via FORCE_HTTPS. Uncomment once a certificate is installed.
+    # RewriteCond %{HTTPS} off
+    # RewriteCond %{HTTP:X-Forwarded-Proto} !https
+    # RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=308,L]
+</IfModule>
+
+# --- 3. Static response headers, matching what express.static sent --------------------------------
+<IfModule mod_headers.c>
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set X-Content-Type-Options "nosniff"
+    Header always unset X-Powered-By
+</IfModule>
+
+# The compression() middleware's equivalent.
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css text/javascript application/javascript application/json image/svg+xml
+</IfModule>
+
+# --- 4. Unmatched paths get the lobby, with a 404 status — same as the Node fallback --------------
+ErrorDocument 404 /index.html
+
+# Belt and braces: block the sensitive directories at the filesystem level as well, in case
+# mod_rewrite is unavailable on the host.
+<IfModule mod_authz_core.c>
+    <FilesMatch "\.(env|sql|log|bak|backup|orig|pem|key|crt|lock)$">
+        Require all denied
+    </FilesMatch>
+</IfModule>

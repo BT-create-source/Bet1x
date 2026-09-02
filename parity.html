@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin · Parity Monitor — bet1x</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<nav class="navbar exchange-header">
+  <div class="exchange-logo-box">
+    bet1x<span>.com</span>
+  </div>
+  <div id="headerAuthArea">
+    <!-- Loaded dynamically by ui-common.js -->
+  </div>
+</nav>
+
+<div class="sub-navbar">
+  <ul class="sub-navbar-links">
+    <li class="sub-navbar-item"><a href="index.html" class="sub-navbar-link">Home</a></li>
+    <li class="sub-navbar-item"><a href="aviator.html" class="sub-navbar-link">Vimaan</a></li>
+    <li class="sub-navbar-item"><a href="win.html" class="sub-navbar-link">Sapre</a></li>
+    <li class="sub-navbar-item"><a href="win1.html" class="sub-navbar-link">Becone</a></li>
+    <li class="sub-navbar-item"><a href="win2.html" class="sub-navbar-link">Emred</a></li>
+    <li class="sub-navbar-item"><a href="win3.html" class="sub-navbar-link">VIP</a></li>
+    <li class="sub-navbar-item"><a href="teenpatti.html" class="sub-navbar-link">Teen Patti</a></li>
+    <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
+  </ul>
+</div>
+
+<div class="container section-tight">
+  <div class="flex-between" style="margin-bottom:20px;">
+    <div>
+      <h2 style="font-family:var(--font-display);margin:0 0 4px;">Parity / Bet Monitor</h2>
+      <div class="text-dim" style="font-size:13px;">Live pending-bet distribution for the current open round</div>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <a href="admin.html" onclick="localStorage.setItem('admin_active_tab', 'cheats')" class="btn btn-gold" style="font-size:12.5px; font-weight:700; color:#000; text-decoration:none; padding:6px 12px; display:flex; align-items:center; gap:6px;">Outcome Bias Control</a>
+      <select id="roomSelect" style="padding:6px 10px;">
+        <option value="sapre">Sapre (30s)</option>
+        <option value="becone">Becone (1min)</option>
+        <option value="emred">Emred (3min)</option>
+        <option value="vip">VIP (5min)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="stat-row" style="margin-top:0;">
+    <div class="stat-card"><div class="stat-value" id="statPendingBets">0</div><div class="stat-label">Pending bets this round</div></div>
+    <div class="stat-card"><div class="stat-value" id="statPendingAmt">0</div><div class="stat-label">Total pending amount</div></div>
+    <div class="stat-card"><div class="stat-value up" id="statPlayers">0</div><div class="stat-label">Players in room</div></div>
+    <div class="stat-card"><div class="stat-value" id="statRound">—</div><div class="stat-label">Current round ID</div></div>
+  </div>
+
+  <div class="grid-2" style="margin-top:24px;">
+    <div class="card">
+      <h3>By Color</h3>
+      <div id="colorBars"></div>
+    </div>
+    <div class="card">
+      <h3>By Size</h3>
+      <div id="sizeBars"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>By Number (0–9)</h3>
+    <div id="numberBars"></div>
+  </div>
+
+  <div class="card">
+    <h3>Individual Pending Bets</h3>
+    <table>
+      <thead><tr><th>User</th><th>Category</th><th>Value</th><th>Amount</th><th>Placed</th></tr></thead>
+      <tbody id="pendingBetsBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="footer">
+  bet1x — Admin monitor. Figures reflect live bets placed on the currently selected room.
+</div>
+
+<script src="assets/js/ui-common.js"></script>
+<script src="assets/js/sound-fx.js"></script>
+<script>
+function renderDashboard(roomKey) {
+  fetch('api/game_sync.php?action=admin_get_games')
+    .then(res => res.json())
+    .then(data => {
+      if (data.error) {
+        window.location.href = 'admin.html';
+        return;
+      }
+      
+      const roomData = data.color_guess[roomKey];
+      if (!roomData) return;
+
+      const bets = roomData.bets || [];
+      const totalBets = bets.length;
+      const totalAmt = bets.reduce((s, b) => s + b.amount, 0);
+
+      animateCounter(document.getElementById('statPendingBets'), totalBets);
+      animateCounter(document.getElementById('statPendingAmt'), totalAmt, { prefix: '₹' });
+      
+      // Real count of distinct bettors on this round — replaces a hardcoded fake figure that never
+      // changed. There is no dedicated per-room presence tracker yet, so this reflects who has
+      // actually placed a bet this round rather than everyone merely viewing the room.
+      const playersCount = new Set(bets.map(b => b.username)).size;
+      animateCounter(document.getElementById('statPlayers'), playersCount);
+      
+      document.getElementById('statRound').textContent = roomData.round_id || '—';
+
+      // color distribution
+      const colorsMap = {
+        Green: { label: 'Green', cls: 'green', bets: 0, amount: 0 },
+        Red: { label: 'Red', cls: 'red', bets: 0, amount: 0 },
+        Violet: { label: 'Violet', cls: 'violet', bets: 0, amount: 0 }
+      };
+      
+      // size distribution
+      const sizesMap = {
+        Big: { label: 'Big', bets: 0, amount: 0 },
+        Small: { label: 'Small', bets: 0, amount: 0 }
+      };
+
+      // number distribution
+      const numbersMap = Array.from({ length: 10 }, (_, i) => ({ n: i, bets: 0, amount: 0 }));
+
+      bets.forEach(b => {
+        const cat = b.category;
+        const val = b.value;
+        const amt = b.amount;
+        if (cat === 'color') {
+          if (colorsMap[val]) {
+            colorsMap[val].bets++;
+            colorsMap[val].amount += amt;
+          }
+        } else if (cat === 'size') {
+          if (sizesMap[val]) {
+            sizesMap[val].bets++;
+            sizesMap[val].amount += amt;
+          }
+        } else if (cat === 'number') {
+          const num = parseInt(val);
+          if (num >= 0 && num <= 9) {
+            numbersMap[num].bets++;
+            numbersMap[num].amount += amt;
+          }
+        }
+      });
+
+      const colors = Object.values(colorsMap);
+      const sizes = Object.values(sizesMap);
+
+      // render color bars
+      const maxColorAmt = Math.max(...colors.map(c => c.amount), 1);
+      document.getElementById('colorBars').innerHTML = colors.map(c => `
+        <div class="bar-row">
+          <div class="bar-label">${c.label}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${(c.amount / maxColorAmt * 100).toFixed(0)}%; background: var(--${c.cls});"></div></div>
+          <div class="bar-value">₹${c.amount.toLocaleString('en-IN')} (${c.bets})</div>
+        </div>
+      `).join('');
+
+      // render size bars
+      const maxSizeAmt = Math.max(...sizes.map(s => s.amount), 1);
+      document.getElementById('sizeBars').innerHTML = sizes.map(s => `
+        <div class="bar-row">
+          <div class="bar-label">${s.label}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${(s.amount / maxSizeAmt * 100).toFixed(0)}%; background: var(--violet);"></div></div>
+          <div class="bar-value">₹${s.amount.toLocaleString('en-IN')} (${s.bets})</div>
+        </div>
+      `).join('');
+
+      // render number bars
+      const maxNumAmt = Math.max(...numbersMap.map(n => n.amount), 1);
+      document.getElementById('numberBars').innerHTML = numbersMap.map(n => `
+        <div class="bar-row">
+          <div class="bar-label">Number ${n.n}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${(n.amount / maxNumAmt * 100).toFixed(0)}%; background: var(--gold);"></div></div>
+          <div class="bar-value">₹${n.amount.toLocaleString('en-IN')} (${n.bets})</div>
+        </div>
+      `).join('');
+
+      // render individual pending bets table
+      const rows = bets.map(b => {
+        const label = b.category === 'number' ? `Number ${b.value}` : b.value;
+        return `
+          <tr>
+            <td><b>${b.username}</b></td>
+            <td>${b.category[0].toUpperCase() + b.category.slice(1)}</td>
+            <td>${label}</td>
+            <td>₹${b.amount.toFixed(2)}</td>
+            <td>Active</td>
+          </tr>
+        `;
+      }).join('');
+      document.getElementById('pendingBetsBody').innerHTML = rows || '<tr><td colspan="5" class="text-dim" style="text-align:center; padding:16px;">No pending bets this round.</td></tr>';
+    })
+    .catch(err => {
+      console.error("Error fetching admin games state:", err);
+    });
+}
+
+document.getElementById('roomSelect').addEventListener('change', (e) => renderDashboard(e.target.value));
+renderDashboard('sapre');
+
+// keep the dashboard feeling "live"
+setInterval(() => renderDashboard(document.getElementById('roomSelect').value), 6000);
+</script>
+</body>
+</html>

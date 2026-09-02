@@ -1,0 +1,44 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bet1x}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-bet1x}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      # The app is only started once Postgres can actually answer queries, not
+      # merely once its container exists.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bet1x} -d ${POSTGRES_DB:-bet1x}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # No published port: only the app container needs to reach the database.
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-bet1x}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-bet1x}?schema=public
+      APP_SECRET: ${APP_SECRET:?generate with: node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:?generate a bcrypt hash - see backend/.env.example}
+      # 1 = this app sits behind exactly one reverse proxy. Adjust to match your
+      # topology; getting it wrong breaks per-IP rate limiting.
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+      FORCE_HTTPS: ${FORCE_HTTPS:-true}
+      SIGNUP_BONUS: ${SIGNUP_BONUS:-0}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      # Bound to loopback: terminate TLS in nginx/Caddy in front of this.
+      - "127.0.0.1:5000:5000"
+
+volumes:
+  db-data:

@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>bet1x — Cashier & Wallet</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <style>
+    .cashier-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-top: 20px;
+      box-shadow: var(--shadow-card);
+    }
+    .cashier-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+    }
+    .cashier-tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-weight: 700;
+      font-size: 15px;
+      padding: 8px 16px;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+    .cashier-tab-btn.active {
+      color: #000;
+      background: var(--gold);
+      box-shadow: 0 0 10px var(--gold-soft);
+    }
+    .cashier-content {
+      display: none;
+    }
+    .cashier-content.active {
+      display: block;
+    }
+    .balance-banner {
+      background: linear-gradient(135deg, var(--surface-2), var(--surface));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .balance-label {
+      color: var(--text-dim);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 4px;
+    }
+    .balance-value {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--gold-deep);
+      font-family: var(--font-display);
+    }
+    .amount-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .amount-btn {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-weight: 700;
+      padding: 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .amount-btn:hover, .amount-btn.active {
+      border-color: var(--gold);
+      color: var(--gold-deep);
+      background: rgba(201, 160, 84, 0.05);
+    }
+    .cashier-input-group {
+      margin-bottom: 20px;
+    }
+    .cashier-input-group label {
+      display: block;
+      color: var(--text-dim);
+      font-size: 13px;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    .cashier-input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px 16px;
+      border-radius: 6px;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .cashier-input:focus {
+      border-color: var(--gold);
+    }
+    .method-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    @media (min-width: 600px) {
+      .method-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+    .method-card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .method-card:hover, .method-card.active {
+      border-color: var(--gold);
+      box-shadow: 0 0 10px rgba(201, 160, 84, 0.1);
+      background: rgba(201, 160, 84, 0.05);
+    }
+    .method-icon {
+      font-size: 24px;
+    }
+    .method-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .method-desc {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    
+    /* Transaction table styling */
+    .txn-table-wrapper {
+      overflow-x: auto;
+    }
+    .txn-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      text-align: left;
+    }
+    .txn-table th {
+      color: var(--text-dim);
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+    }
+    .txn-table td {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .badge.completed { background: rgba(46, 204, 113, 0.15); color: #2ecc71; }
+    .badge.pending { background: rgba(201, 160, 84, 0.15); color: var(--gold-deep); }
+    .badge.rejected { background: rgba(231, 76, 60, 0.15); color: #e74c3c; }
+
+    /* Gateway modal overlays */
+    .gateway-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(13, 15, 18, 0.85);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      display: none;
+      overflow-y: auto;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 20px;
+    }
+    .gateway-overlay.active {
+      display: flex;
+    }
+    .gateway-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: 100%;
+      max-width: 440px;
+      margin: auto;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+    .gateway-header {
+      background: var(--surface-2);
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .gateway-title {
+      font-weight: 800;
+      font-size: 15px;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .gateway-close {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-size: 20px;
+      cursor: pointer;
+    }
+    .gateway-body {
+      padding: 24px;
+    }
+    .qr-canvas-mock {
+      background: #fff;
+      padding: 16px;
+      border-radius: 8px;
+      width: 180px;
+      height: 180px;
+      margin: 0 auto 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .qr-box-design {
+      border: 6px solid #000;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-wrap: wrap;
+      padding: 4px;
+      box-sizing: border-box;
+      background: #fff;
+    }
+    .qr-corner-box {
+      width: 40px;
+      height: 40px;
+      border: 10px solid #000;
+      box-sizing: border-box;
+    }
+    .qr-noise-block {
+      background: #000;
+      flex-grow: 1;
+      margin: 2px;
+      opacity: 0.85;
+    }
+    .countdown-banner {
+      background: rgba(201, 160, 84, 0.1);
+      border: 1px dashed var(--gold);
+      color: var(--gold-deep);
+      padding: 8px;
+      text-align: center;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+    
+    /* holographic loading */
+    .holo-loading-overlay {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 40px 20px;
+      text-align: center;
+    }
+    .holo-loading-overlay.active {
+      display: flex;
+    }
+    .holo-spinner {
+      width: 60px;
+      height: 60px;
+      border: 3px solid transparent;
+      border-top-color: var(--gold);
+      border-bottom-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      position: relative;
+    }
+    .holo-spinner::after {
+      content: '';
+      position: absolute;
+      top: 6px; left: 6px; right: 6px; bottom: 6px;
+      border: 3px solid transparent;
+      border-left-color: var(--green);
+      border-right-color: var(--green);
+      border-radius: 50%;
+      animation: spin-reverse 0.5s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    @keyframes spin-reverse {
+      0% { transform: rotate(360deg); }
+      100% { transform: rotate(0deg); }
+    }
+  </style>
+</head>
+<body class="exchange-theme">
+
+  <nav class="navbar exchange-header">
+    <div class="exchange-logo-box">
+      bet1x<span>.com</span>
+    </div>
+    <div id="headerAuthArea">
+      <!-- Loaded dynamically by ui-common.js -->
+    </div>
+  </nav>
+
+  <div class="sub-navbar">
+    <ul class="sub-navbar-links">
+      <li class="sub-navbar-item"><a href="index.html" class="sub-navbar-link">Home</a></li>
+      <li class="sub-navbar-item"><a href="aviator.html" class="sub-navbar-link">Vimaan</a></li>
+      <li class="sub-navbar-item"><a href="win.html" class="sub-navbar-link">Sapre</a></li>
+      <li class="sub-navbar-item"><a href="win1.html" class="sub-navbar-link">Becone</a></li>
+      <li class="sub-navbar-item"><a href="win2.html" class="sub-navbar-link">Emred</a></li>
+      <li class="sub-navbar-item"><a href="win3.html" class="sub-navbar-link">VIP</a></li>
+      <li class="sub-navbar-item"><a href="teenpatti.html" class="sub-navbar-link">Teen Patti</a></li>
+      <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
+    </ul>
+  </div>
+
+  <div class="container" style="max-width: 680px;">
+    
+    <div class="balance-banner">
+      <div>
+        <div class="balance-label">Total Wallet Balance</div>
+        <div class="balance-value" id="cashierWalletDisplay">₹ 1,000.00</div>
+      </div>
+      <div style="text-align: right;">
+        <span class="badge completed" style="font-size: 11px;">Verified Account</span>
+      </div>
+    </div>
+
+    <div class="cashier-card">
+      <div class="cashier-tabs">
+        <button class="cashier-tab-btn active" onclick="switchCashierTab('deposit')">💰 Deposit</button>
+        <button class="cashier-tab-btn" onclick="switchCashierTab('withdraw')">Withdraw</button>
+        <button class="cashier-tab-btn" onclick="switchCashierTab('history')">History</button>
+      </div>
+
+      <!-- Tab 1: Deposit -->
+      <div id="cashier-deposit" class="cashier-content active">
+        <h3 style="margin-bottom:12px; font-size:16px;">Add Funds to Wallet</h3>
+        
+        <div class="amount-grid">
+          <button class="amount-btn" onclick="selectDepositAmount(100)">₹ 100</button>
+          <button class="amount-btn" onclick="selectDepositAmount(500)">₹ 500</button>
+          <button class="amount-btn active" onclick="selectDepositAmount(1000)">₹ 1,000</button>
+          <button class="amount-btn" onclick="selectDepositAmount(2000)">₹ 2,000</button>
+          <button class="amount-btn" onclick="selectDepositAmount(5000)">₹ 5,000</button>
+          <button class="amount-btn" onclick="selectDepositAmount(10000)">₹ 10,000</button>
+        </div>
+
+        <div class="cashier-input-group">
+          <label for="customAmount">Enter Custom Amount</label>
+          <input type="number" id="customAmount" class="cashier-input" value="1000" placeholder="Min 100, Max 50,000" oninput="clearAmountGridActive()">
+        </div>
+
+        <h4 style="margin-bottom:12px; font-size:14px; color:var(--text-dim);">Payment Method</h4>
+        <div class="method-grid" style="grid-template-columns: 1fr;">
+          <div class="method-card active" id="method-upi" style="border-color:var(--gold); background:rgba(201,160,84,0.08); padding:16px;">
+            <span class="method-icon" style="font-size:26px;">📱</span>
+            <span class="method-title" style="font-size:15px; color:var(--gold-deep);">UPI Payment (QR Code & UTR Verification)</span>
+            <span class="method-desc" style="font-size:12px;">Instant Platform QR / Gallery Upload & Admin UTR Verification</span>
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-block" style="color:#000; font-weight:700; padding:14px;" onclick="initiateDeposit()">Proceed to Deposit</button>
+      </div>
+
+      <!-- Tab 2: Withdraw -->
+      <div id="cashier-withdraw" class="cashier-content">
+        <h3 style="margin-bottom:12px; font-size:16px;">Request Withdrawal</h3>
+        <p style="color:var(--text-dim); font-size:12.5px; margin-bottom:20px;">Withdraw your balance to your bank account or UPI handle. Every request is reviewed and paid out manually, usually within 24 hours.</p>
+
+        <div class="cashier-input-group">
+          <label for="withdrawAmount">Withdrawal Amount</label>
+          <input type="number" id="withdrawAmount" class="cashier-input" placeholder="Min 200, Max 50,000">
+        </div>
+
+        <div class="cashier-input-group">
+          <label for="withdrawMethod">Transfer Mode</label>
+          <select id="withdrawMethod" class="cashier-input" onchange="toggleWithdrawFields()" style="background:var(--bg); color:var(--text);">
+            <option value="upi">UPI Address</option>
+            <option value="bank">Bank Transfer</option>
+          </select>
+        </div>
+
+        <!-- UPI specific fields -->
+        <div id="withdraw-fields-upi" class="withdraw-mode-fields">
+          <div class="cashier-input-group">
+            <label for="withdrawUpiId">UPI ID / Address</label>
+            <input type="text" id="withdrawUpiId" class="cashier-input" placeholder="e.g. name@upi">
+          </div>
+        </div>
+
+        <!-- Bank specific fields -->
+        <div id="withdraw-fields-bank" class="withdraw-mode-fields" style="display:none;">
+          <div class="cashier-input-group">
+            <label for="bankAccName">Account Holder Name</label>
+            <input type="text" id="bankAccName" class="cashier-input" placeholder="Full name on bank record">
+          </div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+            <div class="cashier-input-group">
+              <label for="bankAccNum">Account Number</label>
+              <input type="text" id="bankAccNum" class="cashier-input" placeholder="10-18 digit account number">
+            </div>
+            <div class="cashier-input-group">
+              <label for="bankIfsc">IFSC Code</label>
+              <input type="text" id="bankIfsc" class="cashier-input" placeholder="11 character IFSC">
+            </div>
+          </div>
+          <div class="cashier-input-group">
+            <label for="bankName">Bank Name</label>
+            <input type="text" id="bankName" class="cashier-input" placeholder="e.g. State Bank of India">
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-block" style="color:#000; font-weight:700; padding:14px; margin-top:10px;" onclick="submitWithdrawal()">Request Cashout</button>
+      </div>
+
+      <!-- Tab 3: History -->
+      <div id="cashier-history" class="cashier-content">
+        <h3 style="margin-bottom:12px; font-size:16px;">Transaction History</h3>
+        <div class="txn-table-wrapper">
+          <table class="txn-table">
+            <thead>
+              <tr>
+                <th>Txn ID</th>
+                <th>Type</th>
+                <th>Amount</th>
+                <th>Method / Detail</th>
+                <th>Status</th>
+                <th>Timestamp</th>
+              </tr>
+            </thead>
+            <tbody id="txnHistoryBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Gateway Modal Overlays -->
+  <!-- Gateway Modal Overlays -->
+  <!-- 1. UPI QR Gateway -->
+  <div class="gateway-overlay" id="gateway-qr-overlay">
+    <div class="gateway-card" style="max-width: 480px;">
+      <div class="gateway-header">
+        <span class="gateway-title">📱 bet1x UPI Payment QR</span>
+        <button class="gateway-close" onclick="closeGateway('qr')">&times;</button>
+      </div>
+      <div class="gateway-body" id="qr-main-body">
+        
+        <!-- Payable Amount Display -->
+        <div style="background:var(--surface-2); padding:12px 16px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border:1px solid var(--border);">
+          <div>
+            <span style="font-size:11px; color:var(--text-dim); text-transform:uppercase; font-weight:700;">Deposit Amount</span>
+            <div id="upiPayableAmt" style="font-size:20px; font-weight:800; color:var(--gold-deep); font-family:var(--font-mono);">₹ 1,000.00</div>
+          </div>
+          <div class="countdown-banner" style="margin-bottom:0; padding:4px 10px; font-size:12px;">
+            Timer: <span id="qrTimer">05:00</span>
+          </div>
+        </div>
+
+        <!-- QR Source Selector Tabs (Pre-uploaded vs Upload from Gallery) -->
+        <div style="display:flex; gap:8px; margin-bottom:16px;">
+          <button id="qrTabDefault" type="button" class="cashier-tab-btn active" style="flex:1; padding:8px 6px; font-size:12px; text-align:center;" onclick="switchQrSource('default')">🖼️ Platform QR</button>
+          <button id="qrTabCustom" type="button" class="cashier-tab-btn" style="flex:1; padding:8px 6px; font-size:12px; text-align:center;" onclick="switchQrSource('custom')">📁 Upload from Gallery</button>
+        </div>
+
+        <!-- Option 1: Platform QR — a real, scannable UPI QR built from the operator's configured
+             UPI ID (see admin.html's Payment Settings tab), not a decorative placeholder. -->
+        <div id="qrSourceDefaultView">
+          <div class="qr-canvas-mock" id="upiQrContainer">
+            <img src="assets/payment_qr.jpg" alt="Payment QR Code" style="width:100%; height:100%; object-fit:contain; border-radius:4px;">
+          </div>
+
+          <div id="upiAddressBlock" style="text-align: center; margin-bottom: 16px;">
+            <div style="font-size:11.5px; color:var(--text-dim); margin-bottom:4px;">UPI Address for payment:</div>
+            <div style="display:flex; justify-content:center; align-items:center; gap:8px;">
+              <code style="font-family:var(--font-mono); color:var(--gold-deep); font-size:14px; font-weight:700; background:var(--surface-2); padding:4px 8px; border-radius:4px; border:1px solid var(--border);" id="upiAddressText">—</code>
+              <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="copyUpiText()">Copy</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Option 2: Upload Custom QR Code / Receipt from Gallery -->
+        <div id="qrSourceCustomView" style="display:none; text-align:center; margin-bottom:16px;">
+          <div style="border:2px dashed var(--border); border-radius:8px; padding:16px; background:var(--surface-2); margin-bottom:10px;">
+            <input type="file" id="customQrFileInput" accept="image/*" style="display:none;" onchange="handleCustomQrUpload(event)">
+            <div id="customQrPreviewArea">
+              <span style="font-size:32px; display:block; margin-bottom:6px;">📱</span>
+              <p style="font-size:13px; color:var(--text); margin-bottom:8px; font-weight:600;">Select QR Code or Receipt Image from Gallery</p>
+              <button type="button" class="btn btn-ghost" style="font-size:12px; padding:6px 14px;" onclick="document.getElementById('customQrFileInput').click()">📁 Choose Image File</button>
+            </div>
+          </div>
+          <div style="font-size:11px; color:var(--text-dim);">Supported formats: PNG, JPG, JPEG, WebP</div>
+        </div>
+
+        <!-- Payment instructions -->
+        <div style="background:var(--surface-2); border:1px solid var(--border); border-radius:6px; padding:10px 12px; margin-bottom:16px; font-size:12px;">
+          <div style="color:var(--gold-deep); font-weight:700; margin-bottom:4px;">💡 Payment Instructions:</div>
+          <ol style="margin:0; padding-left:18px; color:var(--text-dim); line-height:1.4;">
+            <li>Scan the QR code using Google Pay, PhonePe, Paytm, or BHIM app.</li>
+            <li>Complete the payment of the selected amount.</li>
+            <li>Paste your 12-digit UTR / transaction reference number below and submit.</li>
+            <li>Your coins are credited once we match the UTR against the payment received — usually within a few minutes.</li>
+          </ol>
+        </div>
+
+        <!-- UTR Submission Input Box -->
+        <div class="cashier-input-group" style="border-top: 1px solid var(--border); padding-top: 16px; margin-bottom:12px;">
+          <label for="qrUtrInput" style="display:flex; justify-content:space-between;">
+            <span>Enter 12-Digit UPI Ref No. (UTR)</span>
+            <span style="color:var(--gold-deep); font-size:11px;">Required *</span>
+          </label>
+          <input type="text" id="qrUtrInput" class="cashier-input" placeholder="e.g. 627192840582" maxlength="16">
+        </div>
+
+        <button class="btn btn-primary btn-block" style="color:#000; font-weight:700; padding:12px;" onclick="submitUpiDepositWithUtr()">Submit UTR & Complete Deposit</button>
+      </div>
+
+      <div class="holo-loading-overlay" id="qr-loading-body">
+        <div class="holo-spinner"></div>
+        <div>
+          <h4 id="qrLoaderTitle" style="color:var(--gold-deep); font-size:16px; margin-bottom:6px;">Processing Deposit...</h4>
+          <p id="qrLoaderDesc" style="color:var(--text-dim); font-size:12px; max-width:280px; margin:0 auto;">Please wait while we verify the UTR and credit your account.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  </div>
+
+  <div class="footer">
+    bet1x — Cashier & Wallet. UPI Payment and UTR Verification system.
+  </div>
+
+  <script src="assets/js/ui-common.js"></script>
+  <script src="assets/js/sound-fx.js"></script>
+  <script src="assets/js/qrcode-gen.js"></script>
+  <script>
+    // Redirect logic if logged out
+    document.addEventListener('DOMContentLoaded', () => {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        alert('Please login/signup to access the Wallet & Cashier page.');
+        window.location.href = 'index.html';
+        return;
+      }
+      
+      refreshCashierWallet();
+      renderTransactions();
+    });
+
+    let selectedDepositAmt = 1000;
+    let selectedPaymentMethod = 'upi'; // upi | razorpay | cashfree
+    let qrTimerInterval = null;
+
+    function switchCashierTab(tabId) {
+      document.querySelectorAll('.cashier-tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      document.querySelectorAll('.cashier-content').forEach(content => {
+        content.classList.remove('active');
+      });
+      
+      const targetBtn = Array.from(document.querySelectorAll('.cashier-tab-btn')).find(b => b.textContent.toLowerCase().includes(tabId));
+      if (targetBtn) targetBtn.classList.add('active');
+      
+      const targetContent = document.getElementById('cashier-' + tabId);
+      if (targetContent) targetContent.classList.add('active');
+      
+      if (tabId === 'history') {
+        renderTransactions();
+      }
+    }
+
+    function selectDepositAmount(amt) {
+      document.querySelectorAll('.amount-btn').forEach(btn => btn.classList.remove('active'));
+      const targetBtn = Array.from(document.querySelectorAll('.amount-btn')).find(b => b.textContent.includes(amt.toLocaleString()));
+      if (targetBtn) targetBtn.classList.add('active');
+      
+      document.getElementById('customAmount').value = amt;
+      selectedDepositAmt = amt;
+    }
+
+    function clearAmountGridActive() {
+      document.querySelectorAll('.amount-btn').forEach(btn => btn.classList.remove('active'));
+      selectedDepositAmt = parseFloat(document.getElementById('customAmount').value) || 0;
+    }
+
+    function selectMethod(methodId) {
+      document.querySelectorAll('.method-card').forEach(card => card.classList.remove('active'));
+      document.getElementById('method-' + methodId).classList.add('active');
+      selectedPaymentMethod = methodId;
+    }
+
+    function refreshCashierWallet() {
+      const balance = getWallet();
+      document.getElementById('cashierWalletDisplay').textContent = '₹ ' + balance.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+      renderWalletChips();
+    }
+
+    function toggleWithdrawFields() {
+      const method = document.getElementById('withdrawMethod').value;
+      if (method === 'upi') {
+        document.getElementById('withdraw-fields-upi').style.display = 'block';
+        document.getElementById('withdraw-fields-bank').style.display = 'none';
+      } else {
+        document.getElementById('withdraw-fields-upi').style.display = 'none';
+        document.getElementById('withdraw-fields-bank').style.display = 'block';
+      }
+    }
+
+    function renderTransactions() {
+      const tbody = document.getElementById('txnHistoryBody');
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-dim);">Loading transactions...</td></tr>';
+      
+      const currentUser = getCurrentUser();
+      if (!currentUser) return;
+      
+      if (window.isOfflineMode) {
+        // Offline file mode read from localStorage
+        const txns = JSON.parse(localStorage.getItem('bet1x_transactions') || '[]');
+        tbody.innerHTML = '';
+        if (txns.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-dim);">No transactions found.</td></tr>`;
+          return;
+        }
+        txns.forEach(c => {
+          let badgeCls = 'pending';
+          if (c.status.toLowerCase() === 'completed' || c.status.toLowerCase() === 'success') badgeCls = 'completed';
+          if (c.status.toLowerCase() === 'rejected' || c.status.toLowerCase() === 'failed') badgeCls = 'rejected';
+          
+          let amtColor = c.type === 'Deposit' ? 'var(--green)' : 'var(--red)';
+          let amtPrefix = c.type === 'Deposit' ? '+' : '-';
+          
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td><code>${escapeHtml(c.id)}</code></td>
+            <td><b>${escapeHtml(c.type)}</b></td>
+            <td style="color:${amtColor}; font-weight:700; font-family:var(--font-mono);">${amtPrefix}₹${parseFloat(c.amount).toFixed(2)}</td>
+            <td>${escapeHtml(c.details || '')}</td>
+            <td><span class="badge ${badgeCls}">${escapeHtml(c.status || 'Completed')}</span></td>
+            <td><span style="font-size:11.5px; color:var(--text-dim);">${escapeHtml(c.timestamp)}</span></td>
+          `;
+          tbody.appendChild(row);
+        });
+        return;
+      }
+      
+      fetch('api/wallet.php?action=transactions')
+      .then(res => res.json())
+      .then(txns => {
+        tbody.innerHTML = '';
+        if (!Array.isArray(txns) || txns.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-dim);">No transactions found.</td></tr>`;
+          return;
+        }
+        
+        txns.forEach(c => {
+          let badgeCls = 'pending';
+          if (c.status.toLowerCase() === 'completed' || c.status.toLowerCase() === 'success') badgeCls = 'completed';
+          if (c.status.toLowerCase() === 'rejected' || c.status.toLowerCase() === 'failed') badgeCls = 'rejected';
+          
+          let amtPrefix = '-';
+          let amtColor = 'inherit';
+          if (c.type === 'Deposit') {
+            amtPrefix = '+';
+            amtColor = 'var(--green)';
+          } else if (c.type === 'Withdrawal') {
+            amtPrefix = '-';
+            amtColor = 'var(--red)';
+          }
+          
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td><code>${escapeHtml(c.id)}</code></td>
+            <td><b>${escapeHtml(c.type)}</b></td>
+            <td style="color:${amtColor}; font-weight:700; font-family:var(--font-mono);">${amtPrefix}₹${parseFloat(c.amount).toFixed(2)}</td>
+            <td>${escapeHtml(c.details)}</td>
+            <td><span class="badge ${badgeCls}">${escapeHtml(c.status)}</span></td>
+            <td><span style="font-size:11.5px; color:var(--text-dim);">${escapeHtml(c.timestamp)}</span></td>
+          `;
+          tbody.appendChild(row);
+        });
+      })
+      .catch(err => {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--red);">Failed to load transactions.</td></tr>`;
+      });
+    }
+
+    // End of transaction history API logic
+
+    /* ---------------- Deposit checkout actions ---------------- */
+    let pollingInterval = null;
+
+    let currentQrSource = 'default';
+    let uploadedCustomQrData = '';
+
+    function switchQrSource(type) {
+      currentQrSource = type;
+      const tabDef = document.getElementById('qrTabDefault');
+      const tabCust = document.getElementById('qrTabCustom');
+      if (tabDef) tabDef.classList.toggle('active', type === 'default');
+      if (tabCust) tabCust.classList.toggle('active', type === 'custom');
+      
+      const vDef = document.getElementById('qrSourceDefaultView');
+      const vCust = document.getElementById('qrSourceCustomView');
+      if (vDef) vDef.style.display = (type === 'default') ? 'block' : 'none';
+      if (vCust) vCust.style.display = (type === 'custom') ? 'block' : 'none';
+    }
+
+    function handleCustomQrUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        uploadedCustomQrData = e.target.result;
+        const previewBox = document.getElementById('customQrPreviewArea');
+        if (previewBox) {
+          previewBox.innerHTML = `
+            <img src="${uploadedCustomQrData}" style="max-width:180px; max-height:180px; border-radius:8px; border:2px solid var(--gold); margin-bottom:8px; object-fit:contain;">
+            <div style="font-size:12px; color:var(--green); font-weight:700; margin-bottom:6px;">✓ QR / Receipt Image Uploaded from Gallery</div>
+            <button type="button" class="btn btn-ghost" style="font-size:11px; padding:4px 10px;" onclick="document.getElementById('customQrFileInput').click()">Change File</button>
+          `;
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function initiateDeposit() {
+      const currentUser = getCurrentUser();
+      if (!currentUser || !currentUser.username) {
+        if (typeof openAuthModal === 'function') openAuthModal('login');
+        if (typeof showToast === 'function') showToast('Please login or create an account to deposit funds.', 'info');
+        return;
+      }
+
+      const amt = parseFloat(document.getElementById('customAmount').value);
+      if (!amt || amt < 100) {
+        alert('Minimum deposit amount is ₹100.');
+        return;
+      }
+      if (amt > 50000) {
+        alert('Maximum deposit amount is ₹50,000.');
+        return;
+      }
+      
+      selectedDepositAmt = amt;
+      openUpiQrGateway();
+    }
+
+    // Fetches the operator's configured UPI ID (set in admin.html's Payment Settings tab) and
+    // renders a real, scannable QR encoding it plus the current deposit amount — never a decorative
+    // placeholder. If the operator hasn't configured one yet, shows a clear message instead of a
+    // broken QR, since there is nowhere for the payment to actually go.
+    function loadPlatformUpiQr() {
+      const box = document.getElementById('upiQrContainer');
+      const addrBlock = document.getElementById('upiAddressBlock');
+      box.innerHTML = '<img src="assets/payment_qr.jpg" alt="Payment QR Code" style="width:100%; height:100%; object-fit:contain; border-radius:4px;">';
+
+      fetch('api/payment-config')
+        .then(res => res.json())
+        .then(cfg => {
+          if (!cfg.upi_id) {
+            if (addrBlock) addrBlock.style.display = 'none';
+            return;
+          }
+          if (addrBlock) addrBlock.style.display = 'block';
+          const upiTxt = document.getElementById('upiAddressText');
+          if (upiTxt) upiTxt.textContent = cfg.upi_id;
+        })
+        .catch(() => {});
+    }
+
+    function openUpiQrGateway() {
+      document.getElementById('qrUtrInput').value = '';
+      document.getElementById('upiPayableAmt').textContent = '₹ ' + selectedDepositAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+      document.getElementById('qr-main-body').style.display = 'block';
+      document.getElementById('qr-loading-body').classList.remove('active');
+      document.getElementById('gateway-qr-overlay').classList.add('active');
+
+      switchQrSource('default');
+      loadPlatformUpiQr();
+
+      let remaining = 300;
+      const timerEl = document.getElementById('qrTimer');
+      
+      clearInterval(qrTimerInterval);
+      qrTimerInterval = setInterval(() => {
+        remaining--;
+        const m = Math.floor(remaining / 60).toString().padStart(2, '0');
+        const s = (remaining % 60).toString().padStart(2, '0');
+        if (timerEl) timerEl.textContent = `${m}:${s}`;
+        
+        if (remaining <= 0) {
+          clearInterval(qrTimerInterval);
+          alert('Deposit session expired. Please request again.');
+          closeGateway('qr');
+        }
+      }, 1000);
+    }
+
+    function submitUpiDepositWithUtr() {
+      const utr = document.getElementById('qrUtrInput').value.trim();
+      if (!utr || utr.length < 6) {
+        alert('Please enter a valid 12-digit UTR / Reference Number.');
+        return;
+      }
+
+      document.getElementById('qr-main-body').style.display = 'none';
+      const loader = document.getElementById('qr-loading-body');
+      loader.classList.add('active');
+      
+      const titleEl = document.getElementById('qrLoaderTitle');
+      const descEl = document.getElementById('qrLoaderDesc');
+      
+      titleEl.textContent = 'Processing Deposit...';
+      descEl.textContent = `Verifying UTR #${utr} for amount ₹${selectedDepositAmt.toFixed(2)} under your account.`;
+
+      const currentUser = getCurrentUser();
+
+      if (window.isOfflineMode) {
+        setTimeout(() => {
+          const deposits = JSON.parse(localStorage.getItem('bet1x_deposits') || '[]');
+          
+          const depId = 'DEP_' + Math.floor(100000 + Math.random() * 900000);
+          const timestamp = new Date().toLocaleString();
+
+          const newDep = {
+            deposit_id: depId,
+            order_id: 'UPI_' + utr,
+            username: currentUser.username,
+            amount: selectedDepositAmt,
+            utr: utr,
+            qr_type: currentQrSource,
+            custom_qr_data: uploadedCustomQrData || '',
+            status: 'Completed',
+            gateway: 'UPI QR',
+            created_at: timestamp,
+            updated_at: timestamp
+          };
+          deposits.unshift(newDep);
+          localStorage.setItem('bet1x_deposits', JSON.stringify(deposits));
+
+          const users = getUsers();
+          const userObj = users.find(u => u.username.toLowerCase() === currentUser.username.toLowerCase());
+          if (userObj) {
+            userObj.wallet = (parseFloat(userObj.wallet) || 0) + parseFloat(selectedDepositAmt);
+            saveUsers(users);
+            currentUser.wallet = userObj.wallet;
+            localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(currentUser));
+          }
+
+          adjustWallet(selectedDepositAmt, `UPI Deposit: UTR #${utr} - ID: ${depId}`);
+
+          closeGateway('qr');
+          showToast(`Deposit successful! ₹${selectedDepositAmt.toFixed(2)} has been credited to your wallet.`, 'success');
+          refreshCashierWallet();
+          renderTransactions();
+        }, 1200);
+        return;
+      }
+
+      const params = new URLSearchParams();
+      params.append('action', 'submit_upi_deposit');
+      params.append('amount', selectedDepositAmt);
+      params.append('utr', utr);
+      params.append('qr_type', currentQrSource);
+      params.append('custom_qr_data', uploadedCustomQrData || '');
+
+      fetch('api/deposit.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          alert('Error: ' + data.error);
+          document.getElementById('qr-main-body').style.display = 'block';
+          loader.classList.remove('active');
+          return;
+        }
+
+        closeGateway('qr');
+        // Deposits are credited by the operator once the transfer is verified, so the wallet does
+        // not move here. The old flow credited instantly on any typed UTR, with nothing checking
+        // that a payment had actually arrived.
+        showToast(data.message || `Deposit of ₹${selectedDepositAmt.toFixed(2)} submitted. It will be credited once the payment is verified.`, 'info');
+        refreshCashierWallet();
+        renderTransactions();
+      })
+      .catch(err => {
+        alert('Failed to process deposit.');
+        document.getElementById('qr-main-body').style.display = 'block';
+        loader.classList.remove('active');
+      });
+    }
+
+    function closeGateway(type) {
+      document.getElementById('gateway-qr-overlay').classList.remove('active');
+      clearInterval(qrTimerInterval);
+    }
+
+    function copyUpiText() {
+      const upiText = document.getElementById('upiAddressText').textContent;
+      navigator.clipboard.writeText(upiText).then(() => {
+        showToast('UPI Address copied to clipboard!', 'success');
+      });
+    }
+
+    /* ---------------- Withdraw submit actions ---------------- */
+    function submitWithdrawal() {
+      const currentUser = getCurrentUser();
+      if (!currentUser || !currentUser.username) {
+        if (typeof openAuthModal === 'function') openAuthModal('login');
+        if (typeof showToast === 'function') showToast('Please login or create an account to withdraw funds.', 'info');
+        return;
+      }
+
+      const amt = parseFloat(document.getElementById('withdrawAmount').value);
+      if (!amt || amt < 200) {
+        alert('Minimum withdrawal amount is ₹200.');
+        return;
+      }
+      if (amt > 50000) {
+        alert('Maximum withdrawal amount is ₹50,000.');
+        return;
+      }
+      
+      const balance = getWallet();
+      if (balance < amt) {
+        alert('Insufficient wallet balance.');
+        return;
+      }
+      
+      const method = document.getElementById('withdrawMethod').value;
+      let details = '';
+      
+      if (method === 'upi') {
+        const upiVal = document.getElementById('withdrawUpiId').value.trim();
+        if (!upiVal || !upiVal.includes('@')) {
+          alert('Please enter a valid UPI ID.');
+          return;
+        }
+        details = `UPI: ${upiVal}`;
+      } else {
+        const name = document.getElementById('bankAccName').value.trim();
+        const acc = document.getElementById('bankAccNum').value.trim();
+        const ifsc = document.getElementById('bankIfsc').value.trim();
+        const bank = document.getElementById('bankName').value.trim();
+        
+        if (!name || !acc || !ifsc || !bank) {
+          alert('Please fill out all bank account fields.');
+          return;
+        }
+        details = `Bank: ${bank} (A/C:${acc}, IFSC:${ifsc})`;
+      }
+
+      if (window.isOfflineMode) {
+        // Offline file mode withdrawal submission
+        adjustWallet(-amt, `Withdrawal Request: ${details}`);
+        
+        const txns = JSON.parse(localStorage.getItem('bet1x_transactions') || '[]');
+        if (txns.length > 0 && txns[0].details === `Withdrawal Request: ${details}`) {
+          txns[0].status = 'Pending';
+          localStorage.setItem('bet1x_transactions', JSON.stringify(txns));
+        }
+        
+        document.getElementById('withdrawAmount').value = '';
+        document.getElementById('withdrawUpiId').value = '';
+        document.getElementById('bankAccName').value = '';
+        document.getElementById('bankAccNum').value = '';
+        document.getElementById('bankIfsc').value = '';
+        document.getElementById('bankName').value = '';
+        
+        showToast(`Withdrawal request of ₹${amt.toFixed(2)} submitted. Status: Pending Admin Approval.`, 'info');
+        refreshCashierWallet();
+        renderTransactions();
+        return;
+      }
+      
+      const body = new URLSearchParams();
+      body.append('amount', amt);
+      body.append('method', method);
+      
+      if (method === 'upi') {
+        const upiVal = document.getElementById('withdrawUpiId').value.trim();
+        body.append('upi_id', upiVal);
+      } else {
+        const name = document.getElementById('bankAccName').value.trim();
+        const acc = document.getElementById('bankAccNum').value.trim();
+        const ifsc = document.getElementById('bankIfsc').value.trim();
+        const bank = document.getElementById('bankName').value.trim();
+        
+        body.append('bank_name', bank);
+        body.append('bank_acc_name', name);
+        body.append('bank_acc_num', acc);
+        body.append('bank_ifsc', ifsc);
+      }
+      
+      const btn = document.querySelector('button[onclick="submitWithdrawal()"]');
+      if (btn) btn.disabled = true;
+      
+      fetch('api/withdraw.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (btn) btn.disabled = false;
+        if (data.error) {
+          alert(data.error);
+          return;
+        }
+        
+        document.getElementById('withdrawAmount').value = '';
+        document.getElementById('withdrawUpiId').value = '';
+        document.getElementById('bankAccName').value = '';
+        document.getElementById('bankAccNum').value = '';
+        document.getElementById('bankIfsc').value = '';
+        document.getElementById('bankName').value = '';
+        
+        showToast(`Withdrawal request of ₹${amt.toFixed(2)} submitted! Status: Pending Admin Approval.`, 'info');
+        
+        syncSessionAndBalance();
+        setTimeout(refreshCashierWallet, 800);
+        setTimeout(renderTransactions, 800);
+      })
+      .catch(err => {
+        if (btn) btn.disabled = false;
+        alert('Connection error. Could not submit withdrawal.');
+      });
+    }
+  </script>
+</body>
+</html>

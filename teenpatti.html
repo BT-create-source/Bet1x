@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teen Patti — bet1x</title>
+<meta name="description" content="Play Teen Patti live multiplayer — real-time 4-player rooms with server-synced circular table layout">
+<link rel="stylesheet" href="assets/css/style.css">
+<style>
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .game-container {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 32px 24px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-size: 32px;
+    color: var(--gold);
+    margin: 10px 0 5px;
+    text-align: center;
+    letter-spacing: -0.02em;
+  }
+  .subtitle {
+    color: var(--text-dim);
+    margin-bottom: 24px;
+    font-size: 14px;
+    text-align: center;
+  }
+
+  /* === LOBBY SCREEN === */
+  .tp-lobby {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 24px 16px;
+    width: 100%;
+  }
+  .tp-lobby h1 { text-align: center; font-size: 28px; color: var(--gold-deep); margin: 12px 0 4px; }
+  .tp-lobby .subtitle { text-align: center; color: var(--text-dim); font-size: 13px; margin-bottom: 20px; }
+  
+  .tp-user-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 16px; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;
+  }
+  .tp-user-bar input {
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); padding: 8px 12px; font-size: 13px; width: 180px;
+  }
+  .tp-user-bar .wallet-badge {
+    font-family: var(--font-mono); font-size: 14px; color: var(--green); font-weight: 700;
+  }
+
+  .tp-rooms-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px; margin-bottom: 20px;
+  }
+  .tp-room-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px; cursor: pointer; transition: all 0.2s ease;
+    position: relative; overflow: hidden;
+  }
+  .tp-room-card:hover { border-color: var(--gold); transform: translateY(-2px); }
+  .tp-room-card .room-name { font-size: 15px; font-weight: 700; color: var(--gold); margin-bottom: 6px; }
+  .tp-room-card .room-meta { font-size: 12px; color: var(--text-dim); display: flex; justify-content: space-between; margin-bottom: 8px; }
+  .tp-room-card .room-players { display: flex; gap: 4px; }
+  .tp-room-card .seat-dot {
+    width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; border: 2px solid var(--border);
+  }
+  .tp-room-card .seat-dot.occupied { background: rgba(46, 212, 122, 0.2); border-color: var(--green); color: var(--green); }
+  .tp-room-card .seat-dot.empty { background: rgba(255,255,255,0.05); color: var(--text-dim); }
+  
+  .tp-room-card .room-status {
+    position: absolute; top: 10px; right: 10px; font-size: 9px; padding: 2px 8px;
+    border-radius: 4px; font-weight: 700; text-transform: uppercase;
+  }
+  .tp-room-card .room-status.waiting { background: rgba(255,255,255,0.05); color: var(--text-dim); }
+  .tp-room-card .room-status.playing { background: rgba(46, 212, 122, 0.15); color: var(--green); }
+  .tp-room-card .room-status.finished { background: rgba(255, 75, 110, 0.15); color: var(--red); }
+  
+  .tp-room-card .join-btn {
+    width: 100%; margin-top: 10px; padding: 8px; border: none; border-radius: 6px;
+    background: var(--gold); color: #000; font-weight: 800; font-size: 12px; cursor: pointer;
+  }
+
+  /* === GAME BOARD (CIRCULAR TABLE) === */
+  .tp-game {
+    display: none;
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .tp-game-header {
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 16px; margin-bottom: 12px;
+  }
+  .tp-game-header .room-title { font-size: 16px; font-weight: 700; color: var(--gold); }
+  .tp-game-header .game-info { font-size: 12px; color: var(--text-dim); display: flex; gap: 16px; }
+  .tp-game-header .leave-btn {
+    background: rgba(255, 75, 110, 0.15); border: 1px solid var(--red); color: var(--red);
+    padding: 6px 14px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;
+  }
+
+  .table {
+    background: none;
+    border: none;
+    box-shadow: none;
+    width: 100%;
+    max-width: 840px;
+    padding: 0;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: visible;
+  }
+  .circular-table-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 660px;
+    height: 480px;
+    margin: 40px auto 100px;
+  }
+  .circular-felt {
+    position: absolute;
+    top: 60px;
+    left: 40px;
+    right: 40px;
+    bottom: 60px;
+    background: radial-gradient(circle at center, #0e5c34 20%, #062b18 90%);
+    border: 8px solid #4a2c14;
+    border-radius: 50%;
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.8), var(--shadow-card);
+    z-index: 1;
+  }
+  .pot-badge-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .pot-badge {
+    display: inline-block;
+    background: var(--gold-soft);
+    color: var(--gold);
+    border: 1px solid rgba(255, 197, 61, 0.35);
+    font-weight: 700;
+    padding: 6px 18px;
+    border-radius: 30px;
+    font-size: 15px;
+    font-family: var(--font-mono);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  }
+  .players {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .player-card {
+    background: rgba(11, 14, 29, 0.85);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 8px;
+    text-align: center;
+    transition: all 0.25s;
+    backdrop-filter: blur(5px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+  }
+  .player-card.turn {
+    border-color: var(--gold);
+    box-shadow: 0 0 20px rgba(255, 197, 61, 0.4);
+    background: rgba(26, 32, 64, 0.9);
+  }
+  .player-card.folded {
+    opacity: 0.4;
+  }
+
+  @keyframes winnerGlow {
+    0% { border-color: var(--green); box-shadow: 0 0 10px rgba(46, 212, 122, 0.3); }
+    50% { border-color: var(--green); box-shadow: 0 0 25px rgba(46, 212, 122, 0.7), 0 0 12px rgba(46, 212, 122, 0.4); }
+    100% { border-color: var(--green); box-shadow: 0 0 10px rgba(46, 212, 122, 0.3); }
+  }
+  .player-card.winner {
+    animation: winnerGlow 1.5s infinite ease-in-out;
+    background: rgba(46, 212, 122, 0.08);
+  }
+  .player-name {
+    font-weight: 600;
+    font-size: 15px;
+    margin-bottom: 6px;
+    font-family: var(--font-display);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: #fff;
+  }
+  .player-name.is-me-name { color: var(--gold); }
+  .player-badge-seen {
+    font-size: 9px;
+    background: var(--gold-soft);
+    color: var(--gold);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+  .player-badge-blind {
+    font-size: 9px;
+    background: var(--text-faint);
+    color: var(--text-dim);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+  .player-balance {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    font-family: var(--font-mono);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  /* 3D Cards */
+  .cards-row {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    min-height: 72px;
+    perspective: 1000px;
+  }
+  .card-wrapper {
+    width: 48px;
+    height: 70px;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    margin: 0 -6px;
+  }
+  .card-wrapper.flipped {
+    transform: rotateY(180deg);
+  }
+  .card-face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    border-radius: var(--radius-sm);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 4px;
+    font-size: 14px;
+    font-weight: 700;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    font-family: var(--font-mono);
+    border: 1px solid rgba(0,0,0,0.1);
+  }
+  .card-back {
+    background: repeating-linear-gradient(45deg, #1f2544, #1f2544 4px, #12162b 4px, #12162b 8px);
+    border: 2px solid var(--gold);
+    color: transparent;
+  }
+  .card-back::after {
+    content: "♠";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: rgba(255, 197, 61, 0.3);
+    font-size: 20px;
+  }
+  .card-front {
+    background: #ffffff;
+    color: #1a1d2e;
+    transform: rotateY(180deg);
+  }
+  .card-front.red {
+    color: var(--red);
+  }
+  .card-front span {
+    font-size: 15px;
+    line-height: 1;
+  }
+  
+  .hand-label {
+    font-size: 12px;
+    margin-top: 10px;
+    color: var(--gold);
+    font-weight: 500;
+    min-height: 18px;
+    font-family: var(--font-display);
+  }
+
+  .turn-timer {
+    font-size: 11px;
+    color: var(--red);
+    font-weight: 700;
+    margin-top: 4px;
+    font-family: var(--font-mono);
+  }
+
+  /* Actions Stepper */
+  .wager-controller {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 16px;
+    gap: 12px;
+    width: 100%;
+    max-width: 320px;
+  }
+  .stepper-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+  .stepper-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+  }
+  .btn-step {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: bold;
+  }
+  .stepper-val {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--gold);
+    min-width: 80px;
+    text-align: center;
+  }
+
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+  .log-box {
+    max-width: 840px;
+    width: 100%;
+    margin-top: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    font-size: 13px;
+    max-height: 140px;
+    overflow-y: auto;
+    box-shadow: var(--shadow-card);
+    font-family: var(--font-mono);
+    color: var(--text-dim);
+  }
+  .log-box div {
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    opacity: 0.9;
+    text-align: left;
+  }
+  .status-msg {
+    text-align: center;
+    font-size: 15px;
+    margin: 12px 0;
+    min-height: 22px;
+    color: var(--gold);
+    font-weight: 600;
+  }
+
+  .tp-waiting {
+    text-align: center; padding: 30px; color: var(--text-dim); font-size: 14px;
+  }
+  .tp-waiting .spinner {
+    width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--gold);
+    border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 540px) {
+    .circular-table-wrapper {
+      height: 420px;
+      margin: 30px auto 80px;
+    }
+    .circular-felt {
+      top: 55px;
+      left: 30px;
+      right: 30px;
+      bottom: 55px;
+    }
+    .player-card {
+      padding: 6px 4px;
+    }
+    .card-wrapper {
+      width: 38px;
+      height: 55px;
+    }
+    .card-face {
+      font-size: 11px;
+    }
+    #playersArea > div[id="seat-offset-3"] {
+      top: 50px !important;
+      left: -5px !important;
+      width: 120px !important;
+    }
+    #playersArea > div[id="seat-offset-2"] {
+      top: -50px !important;
+      width: 120px !important;
+    }
+    #playersArea > div[id="seat-offset-1"] {
+      top: 50px !important;
+      right: -5px !important;
+      width: 120px !important;
+    }
+    #playersArea > div[id="seat-offset-0"] {
+      bottom: -70px !important;
+      width: 120px !important;
+    }
+  }
+</style>
+</head>
+<body class="exchange-theme">
+
+<nav class="navbar exchange-header">
+  <div class="exchange-logo-box">
+    bet1x<span>.com</span>
+  </div>
+  <div id="headerAuthArea"></div>
+</nav>
+
+<div class="sub-navbar">
+  <ul class="sub-navbar-links">
+    <li class="sub-navbar-item"><a href="index.html" class="sub-navbar-link">Home</a></li>
+    <li class="sub-navbar-item"><a href="aviator.html" class="sub-navbar-link">Vimaan</a></li>
+    <li class="sub-navbar-item"><a href="win.html" class="sub-navbar-link">Sapre</a></li>
+    <li class="sub-navbar-item"><a href="win1.html" class="sub-navbar-link">Becone</a></li>
+    <li class="sub-navbar-item"><a href="win2.html" class="sub-navbar-link">Emred</a></li>
+    <li class="sub-navbar-item"><a href="win3.html" class="sub-navbar-link">VIP</a></li>
+    <li class="sub-navbar-item"><a href="teenpatti.html" class="sub-navbar-link active">Teen Patti</a></li>
+    <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
+  </ul>
+</div>
+
+<!-- LOBBY SCREEN -->
+<div id="tpLobby" class="tp-lobby">
+  <h1>♠ TEEN PATTI ♦</h1>
+  <div class="subtitle">Real-Time 4-Player Multiplayer — Pick a room and join the action</div>
+
+  <div class="tp-user-bar">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <span style="font-size:12px; color:var(--text-dim);">Username:</span>
+      <input type="text" id="tpUsername" placeholder="Enter username...">
+    </div>
+    <div class="wallet-badge" id="tpWalletLobby">₹0.00</div>
+    <a href="index.html" style="color:var(--text-dim); font-size:12px; text-decoration:underline;">← Back to Home</a>
+  </div>
+
+  <div id="tpRoomsGrid" class="tp-rooms-grid"></div>
+</div>
+
+<!-- GAME VIEW (GREEN Felt BOARD) -->
+<div id="tpGame" class="tp-game game-container">
+  <div class="tp-game-header">
+    <div>
+      <div class="room-title" id="tpGameRoomName">Room</div>
+      <div class="game-info">
+        <span id="tpGameRound">Round #1</span>
+        <span id="tpGameStake">Stake: ₹10</span>
+        <span id="tpGameWallet">Balance: ₹0</span>
+      </div>
+    </div>
+    <button class="leave-btn" onclick="leaveRoom()">✕ Leave Room</button>
+  </div>
+
+  <!-- Waiting State -->
+  <div id="tpWaiting" class="tp-waiting" style="display:none;">
+    <div class="spinner"></div>
+    <div id="tpWaitingMsg">Waiting for players...</div>
+  </div>
+
+  <!-- Board / Circular Felt -->
+  <div class="table" id="tpTableArea">
+    <div class="circular-table-wrapper">
+      <div class="circular-felt">
+        <div class="pot-badge-center">
+          <span class="pot-badge" id="potBadge">Pot: ₹0</span>
+          <div id="tablePotCoins" style="position: relative; width: 40px; height: 35px; margin-top: 5px; font-size: 28px; line-height: 1; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.45));">🪙</div>
+        </div>
+      </div>
+      <div class="players" id="playersArea"></div>
+    </div>
+    
+    <div class="status-msg" id="statusMsg"></div>
+    
+    <div style="display:flex; flex-direction:column; align-items:center;">
+      <div class="controls" id="controls"></div>
+    </div>
+  </div>
+
+  <div class="log-box" id="logBox"></div>
+</div>
+
+<script src="assets/js/ui-common.js"></script>
+<script src="assets/js/sound-fx.js"></script>
+<script>
+// The backend serves this page, so the API lives on the page's own origin. Pinning port 5000
+// broke the moment the site sat behind a reverse proxy on 80/443.
+const API = window.BET1X_API_BASE || (window.location.protocol === 'file:' ? 'http://localhost:5000' : window.location.origin);
+let currentRoom = null;
+let pollInterval = null;
+// The seat itself lives entirely server-side and survives a refresh untouched; this is only the
+// CLIENT remembering which room to look at. Without it, `currentRoom` resets to null on every page
+// load (it's a plain JS variable) and DOMContentLoaded always falls through to the lobby — a
+// refresh mid-hand looked like the seat had been lost, even though the server still held it.
+const TP_CURRENT_ROOM_KEY = 'bet1x_tp_current_room';
+// No local isOfflineMode here on purpose: a page-scoped `let` of that name shadows the guarded
+// window.isOfflineMode accessor in ui-common.js, which is what decides whether the localStorage
+// simulation is allowed to run at all.
+
+// === OFFLINE SIMULATION VARIABLES ===
+let offlineRoomState = null;
+let offlineTimerInterval = null;
+const offlineRoomsData = [
+  { id: 'room_101', name: 'Room 1', boot_amount: 10, status: 'waiting', pot: 0, round: 1, players: [], player_count: 0 },
+  { id: 'room_102', name: 'Room 2', boot_amount: 100, status: 'waiting', pot: 0, round: 1, players: [], player_count: 0 },
+  { id: 'room_103', name: 'Room 3', boot_amount: 50, status: 'waiting', pot: 0, round: 1, players: [], player_count: 0 },
+  { id: 'room_104', name: 'Room 4', boot_amount: 50, status: 'waiting', pot: 0, round: 1, players: [], player_count: 0 },
+  { id: 'room_105', name: 'Room 5', boot_amount: 25, status: 'waiting', pot: 0, round: 1, players: [], player_count: 0 },
+  { id: 'room_106', name: 'Room 6', boot_amount: 250, status: 'waiting', pot: 0, round: 1, players: [], player_count: 0 },
+];
+
+const SUITS = ['S', 'C', 'H', 'D'];
+const SUIT_SYMBOLS = { S: '♠', C: '♣', H: '♥', D: '♦' };
+const RANK_LABELS = { 2:'2', 3:'3', 4:'4', 5:'5', 6:'6', 7:'7', 8:'8', 9:'9', 10:'10', 11:'J', 12:'Q', 13:'K', 14:'A' };
+
+// === Teen Patti Hand Evaluator ===
+function evalHand(cards) {
+  if (!cards || cards.length < 3) return { score: 0, label: 'No Hand' };
+  const ranks = cards.map(c => c.r).sort((a,b) => b - a);
+  const suits = cards.map(c => c.suit);
+  const isColor = suits[0] === suits[1] && suits[1] === suits[2];
+  
+  if (ranks[0] === ranks[1] && ranks[1] === ranks[2]) {
+    return { score: 600000 + ranks[0], label: 'Trail (' + cards[0].label + 's)' };
+  }
+  
+  const isSeq = (ranks[0] - ranks[1] === 1 && ranks[1] - ranks[2] === 1) ||
+                (ranks[0] === 14 && ranks[1] === 3 && ranks[2] === 2);
+  
+  const seqHigh = (ranks[0] === 14 && ranks[1] === 3 && ranks[2] === 2) ? 3 : ranks[0];
+  
+  if (isSeq && isColor) {
+    return { score: 500000 + seqHigh, label: 'Pure Sequence' };
+  }
+  if (isSeq) {
+    return { score: 400000 + seqHigh, label: 'Sequence' };
+  }
+  if (isColor) {
+    return { score: 300000 + ranks[0] * 100 + ranks[1] * 10 + ranks[2], label: 'Color' };
+  }
+  
+  if (ranks[0] === ranks[1] || ranks[1] === ranks[2]) {
+    const pairRank = ranks[1];
+    const kicker = ranks[0] === ranks[1] ? ranks[2] : ranks[0];
+    const pLabel = pairRank === 14 ? 'A' : pairRank === 13 ? 'K' : pairRank === 12 ? 'Q' : pairRank === 11 ? 'J' : pairRank;
+    return { score: 200000 + pairRank * 100 + kicker, label: 'Pair of ' + pLabel + 's' };
+  }
+  
+  return { score: 100000 + ranks[0] * 100 + ranks[1] * 10 + ranks[2], label: 'High Card ' + cards[0].label };
+}
+
+// Get/set username (checks active session first)
+function getUsername() {
+  const currentUserStr = localStorage.getItem('bet1x_current_user');
+  if (currentUserStr) {
+    try {
+      const userObj = JSON.parse(currentUserStr);
+      if (userObj && userObj.username) {
+        const el = document.getElementById('tpUsername');
+        if (el) {
+          el.value = userObj.username;
+          el.disabled = true;
+        }
+        return userObj.username;
+      }
+    } catch (e) {}
+  }
+
+  const el = document.getElementById('tpUsername');
+  let name = el ? el.value.trim() : '';
+  if (!name) {
+    name = localStorage.getItem('bet1x_username') || 'Player_' + Math.floor(Math.random() * 9999);
+    if (el) el.value = name;
+  }
+  localStorage.setItem('bet1x_username', name);
+  return name;
+}
+
+// === LOBBY ===
+async function loadLobby() {
+  const username = getUsername();
+  try {
+    // Fetch wallet
+    const wRes = await fetch(`api/wallet/balance?username=${encodeURIComponent(username)}`);
+    const wData = await wRes.json();
+    const balance = wData.balance !== undefined ? wData.balance : 0;
+    document.getElementById('tpWalletLobby').textContent = `₹${balance.toFixed(2)}`;
+    
+    // Sync back to local storage wallet chips
+    if (wData.balance !== undefined) {
+      localStorage.setItem('bet1x_demo_wallet', wData.balance.toFixed(2));
+      if (typeof renderWalletChips === 'function') renderWalletChips();
+    }
+
+    // Fetch rooms directly from live server API
+    const rRes = await fetch(`api/teenpatti/rooms`);
+    const rooms = await rRes.json();
+    if (Array.isArray(rooms)) {
+      renderRooms(rooms);
+    }
+  } catch (e) {
+    console.error('Lobby API fetch error:', e);
+  }
+}
+
+function renderRooms(rooms) {
+  const grid = document.getElementById('tpRoomsGrid');
+
+  grid.innerHTML = rooms.map(r => {
+    const isFull = r.player_count >= 4;
+    const isPlaying = r.status === 'playing';
+    const isFinished = r.status === 'finished';
+    const isOpen = !isFull && !isPlaying && !isFinished;
+
+    const seatDots = [0, 1, 2, 3].map(i => {
+      const p = r.players.find(pp => pp.seat === i);
+      if (p) return `<div class="seat-dot occupied" title="${p.username}">${p.username.charAt(0).toUpperCase()}</div>`;
+      return `<div class="seat-dot empty">?</div>`;
+    }).join('');
+
+    // Determine button text and disabled state
+    let btnText, btnDisabled, cardOnclick;
+    if (isPlaying || (isFull && !isFinished)) {
+      btnText = 'PLAYING';
+      btnDisabled = 'disabled style="background: rgba(168,85,247,0.15); color: #c084fc; cursor: not-allowed; border: 1px solid rgba(168,85,247,0.35); font-weight:700;"';
+      cardOnclick = '';
+    } else if (isFinished) {
+      btnText = '🏆 ROUND ENDED';
+      btnDisabled = 'disabled style="background: rgba(201,160,84,0.2); color: #c9a054; cursor: not-allowed; border: 1px solid rgba(201,160,84,0.4); font-weight:700;"';
+      cardOnclick = '';
+    } else {
+      btnText = 'JOIN TABLE';
+      btnDisabled = '';
+      cardOnclick = `joinRoom('${r.id}')`;
+    }
+
+    // Card border styling
+    let cardBorderStyle;
+    if (isFinished) {
+      cardBorderStyle = 'border: 1px solid rgba(201,160,84,0.6); background: rgba(201,160,84,0.05); box-shadow: 0 0 12px rgba(201,160,84,0.2);';
+    } else if (isPlaying || isFull) {
+      cardBorderStyle = 'border: 1px solid rgba(168,85,247,0.5); background: rgba(168,85,247,0.05); box-shadow: 0 0 10px rgba(168,85,247,0.15);';
+    } else {
+      cardBorderStyle = 'border: 1px solid rgba(16,185,129,0.5); box-shadow: 0 0 12px rgba(16,185,129,0.15);';
+    }
+
+    // Status badge
+    let statusBadge;
+    if (isFinished) {
+      statusBadge = '<div class="room-status" style="background:rgba(201,160,84,0.2); color:#c9a054; border:1px solid rgba(201,160,84,0.4); font-weight:700;">🏆 FINISHED</div>';
+    } else if (isPlaying || isFull) {
+      statusBadge = `<div class="room-status" style="background:rgba(168,85,247,0.2); color:#c084fc; border:1px solid rgba(168,85,247,0.4); font-weight:700;">🟣 PLAYING (${r.player_count}/4)</div>`;
+    } else {
+      statusBadge = `<div class="room-status" style="background:rgba(16,185,129,0.2); color:#10b981; border:1px solid rgba(16,185,129,0.4); font-weight:700;">🟢 OPEN (${r.player_count}/4)</div>`;
+    }
+
+    // Room name color
+    const nameColor = isFinished ? 'color: #c9a054;' : (isPlaying || isFull ? 'color: var(--violet);' : 'color: var(--gold-deep);');
+    
+    // Player count color
+    const playerCountColor = isOpen ? 'color: #10b981; font-weight: bold;' : (isFinished ? 'color: #c9a054; font-weight: bold;' : 'color: #c084fc; font-weight: bold;');
+
+    const cursorStyle = (isPlaying || isFull || isFinished) ? 'cursor: not-allowed;' : 'cursor: pointer;';
+
+    return `
+      <div class="tp-room-card" ${cardOnclick ? `onclick="${cardOnclick}"` : ''} style="${cardBorderStyle} ${cursorStyle}">
+        ${statusBadge}
+        <div class="room-name" style="${nameColor}">${r.name}</div>
+        <div class="room-meta">
+          <span>Boot: ₹${r.boot_amount}</span>
+          <span style="${playerCountColor}">${r.player_count}/4 Players</span>
+        </div>
+        <div class="room-meta">
+          <span>Round #${r.round}</span>
+          ${r.pot > 0 ? `<span style="color:var(--green);">Pot: ₹${r.pot}</span>` : ''}
+        </div>
+        ${(isFinished && r.winner_name) ? `<div class="room-meta" style="margin-top:2px;"><span style="color:#c9a054; font-weight:700; font-size:11px;">🏆 Winner: ${r.winner_name}</span></div>` : ''}
+        <div class="room-players">${seatDots}</div>
+        <button class="join-btn" ${btnDisabled}>${btnText}</button>
+      </div>
+    `;
+  }).join('');
+}
+
+// === JOIN ROOM ===
+async function joinRoom(roomId) {
+  const username = getUsername();
+  if (!username) return alert('Enter a username first!');
+
+  try {
+    const res = await fetch(`api/teenpatti/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ room_id: roomId, username })
+    });
+    const data = await res.json();
+    if (data.error) return alert(data.error);
+
+    currentRoom = roomId;
+    localStorage.setItem(TP_CURRENT_ROOM_KEY, roomId);
+    document.getElementById('tpLobby').style.display = 'none';
+    document.getElementById('tpGame').style.display = 'block';
+
+    // Start polling live game state
+    pollGameState();
+    if (pollInterval) clearInterval(pollInterval);
+    pollInterval = setInterval(pollGameState, 2000);
+  } catch (e) {
+    alert('Connection error: ' + e.message);
+  }
+}
+
+/**
+ * Called once on page load, before the lobby is shown. If the player refreshed mid-hand, their
+ * seat is still sitting there server-side — this checks for it and, if found, jumps straight to
+ * the room view instead of defaulting to the lobby the way a fresh visit would.
+ *
+ * Returns true if a room was restored (caller should skip loadLobby()), false otherwise.
+ */
+async function tryRestoreTeenPattiRoom() {
+  const savedRoom = localStorage.getItem(TP_CURRENT_ROOM_KEY);
+  if (!savedRoom) return false;
+
+  const username = getUsername();
+  if (!username) { localStorage.removeItem(TP_CURRENT_ROOM_KEY); return false; }
+
+  try {
+    const res = await fetch(`api/teenpatti/state?room_id=${encodeURIComponent(savedRoom)}&username=${encodeURIComponent(username)}`);
+    const state = await res.json();
+
+    // No such room any more, or the seat is gone (hand ended and the table reset, the presence
+    // sweep evicted an idle seat, etc.) — nothing to restore, so fall back to the lobby like normal.
+    if (state.error || state.my_seat === null || state.my_seat === undefined) {
+      localStorage.removeItem(TP_CURRENT_ROOM_KEY);
+      return false;
+    }
+
+    currentRoom = savedRoom;
+    document.getElementById('tpLobby').style.display = 'none';
+    document.getElementById('tpGame').style.display = 'block';
+    renderGameState(state); // paint immediately with what we already fetched, no empty flash
+
+    if (pollInterval) clearInterval(pollInterval);
+    pollInterval = setInterval(pollGameState, 2000);
+    return true;
+  } catch (e) {
+    // A network hiccup here shouldn't strand the player on a blank page — fall back to the lobby,
+    // exactly as a fresh visit would behave.
+    return false;
+  }
+}
+
+function joinOfflineRoom(roomId) {
+  currentRoom = roomId;
+  document.getElementById('tpLobby').style.display = 'none';
+  document.getElementById('tpGame').style.display = 'block';
+  
+  const roomData = offlineRoomsData.find(r => r.id === roomId) || offlineRoomsData[0];
+  const balance = parseFloat(localStorage.getItem('bet1x_demo_wallet')) || 1000;
+
+  offlineRoomState = {
+    room_id: roomId,
+    name: roomData.name,
+    boot_amount: roomData.boot_amount,
+    status: 'waiting',
+    pot: 0,
+    current_stake: roomData.boot_amount,
+    turn_seat: null,
+    time_left: 15,
+    round: roomData.round,
+    winner_seat: null,
+    seats: [
+      { seat: 0, username: getUsername(), is_bot: false, cards: null, folded: false, balance: balance, seen: false, is_me: true },
+      { seat: 1, username: 'Rohan_42', is_bot: true, cards: null, folded: false, balance: 5000, seen: true, is_me: false },
+      { seat: 2, username: 'Vikram_57', is_bot: true, cards: null, folded: false, balance: 5000, seen: true, is_me: false },
+      { seat: 3, username: 'Sana_63', is_bot: true, cards: null, folded: false, balance: 5000, seen: true, is_me: false },
+    ],
+    log: ['Joined table ' + roomData.name + ' in offline mode.'],
+    my_seat: 0,
+    wallet_balance: balance
+  };
+
+  renderGameState(offlineRoomState);
+
+  setTimeout(() => {
+    startOfflineRound();
+  }, 2000);
+
+  offlineTimerInterval = setInterval(() => {
+    if (offlineRoomState && offlineRoomState.status === 'playing') {
+      offlineRoomState.time_left = Math.max(0, offlineRoomState.time_left - 1);
+      if (offlineRoomState.time_left <= 0) {
+        const currentTurnSeat = offlineRoomState.turn_seat;
+        const player = offlineRoomState.seats.find(s => s.seat === currentTurnSeat);
+        if (player && !player.folded) {
+          player.folded = true;
+          offlineRoomState.log.push(`${player.username} timed out and folded.`);
+          nextOfflineTurn();
+        }
+      }
+      renderGameState(offlineRoomState);
+    }
+  }, 1000);
+}
+
+function makeDeck() {
+  const deck = [];
+  for (let r = 2; r <= 14; r++) {
+    for (const s of SUITS) {
+      deck.push({ r, s });
+    }
+  }
+  return deck;
+}
+
+function dealCards(deck, count) {
+  const dealt = [];
+  for (let i = 0; i < count; i++) {
+    const idx = Math.floor(Math.random() * deck.length);
+    const card = deck.splice(idx, 1)[0];
+    dealt.push({
+      label: RANK_LABELS[card.r],
+      suit: card.s,
+      symbol: SUIT_SYMBOLS[card.s],
+      red: card.s === 'H' || card.s === 'D',
+      r: card.r
+    });
+  }
+  return dealt;
+}
+
+async function startOfflineRound() {
+  if (!offlineRoomState || currentRoom === null) return;
+
+  const boot = offlineRoomState.boot_amount;
+  offlineRoomState.status = 'playing';
+  offlineRoomState.pot = boot * 4;
+  offlineRoomState.current_stake = boot;
+  offlineRoomState.round += 1;
+  offlineRoomState.turn_seat = 0;
+  offlineRoomState.time_left = 15;
+  offlineRoomState.winner_seat = null;
+  offlineRoomState.winner_name = null;
+  
+  offlineRoomState.seats.forEach(s => {
+    s.folded = false;
+    s.seen = !s.is_me;
+    s.balance -= boot;
+    if (s.is_me) {
+      offlineRoomState.wallet_balance = s.balance;
+      localStorage.setItem('bet1x_demo_wallet', s.balance.toFixed(2));
+      if (typeof renderWalletChips === 'function') renderWalletChips();
+    }
+  });
+
+  // --- Bot Takeover Integration for Teen Patti ---
+  let botShouldRig = false;
+  try {
+    const botRes = await fetch('api/bot_decide/teenpatti', { method: 'POST' });
+    const botData = await botRes.json();
+    botShouldRig = botData.shouldRig === true;
+  } catch (e) { /* Server unreachable, skip bot logic */ }
+
+  const deck = makeDeck();
+
+  if (botShouldRig) {
+    // --- RIGGED ROUND: Give human weakest hand, give a bot the strongest hand ---
+    // Human gets a garbage high-card hand (2, 5, 7 off-suit)
+    offlineRoomState.seats[0].cards = [
+      { r: 2, s: 'S' }, { r: 5, s: 'H' }, { r: 7, s: 'D' }
+    ];
+    // Bot 1 (seat 1) gets a Trail of Aces (unbeatable)
+    offlineRoomState.seats[1].cards = [
+      { r: 14, s: 'S' }, { r: 14, s: 'H' }, { r: 14, s: 'C' }
+    ];
+    // Bot 2 gets a decent pair (to encourage raising the pot)
+    offlineRoomState.seats[2].cards = [
+      { r: 13, s: 'D' }, { r: 13, s: 'S' }, { r: 9, s: 'H' }
+    ];
+    // Bot 3 gets a weak hand (will fold, natural behavior)
+    offlineRoomState.seats[3].cards = [
+      { r: 3, s: 'C' }, { r: 6, s: 'D' }, { r: 8, s: 'S' }
+    ];
+  } else {
+    // --- FAIR ROUND: Normal random dealing ---
+    offlineRoomState.seats.forEach(s => {
+      s.cards = dealCards(deck, 3);
+    });
+  }
+  SoundFX.play('cardShuffle');
+  setTimeout(() => SoundFX.play('cardDeal'), 380);
+
+  offlineRoomState.seats.forEach(s => {
+    const evaluation = evalHand(s.cards);
+    s.hand_label = evaluation.label;
+    s.score = evaluation.score;
+  });
+
+  offlineRoomState.log = [
+    `Round #${offlineRoomState.round} started!`,
+    `Boot amount ₹${boot} placed in Pot.`,
+    `Total Pot is now ₹${offlineRoomState.pot}.`,
+    `Your cards have been dealt (Blind). Click cards to see.`
+  ];
+
+  renderGameState(offlineRoomState);
+
+  setTimeout(() => {
+    const meCard = document.querySelector('#seat-offset-0');
+    if (meCard) {
+      meCard.style.cursor = 'pointer';
+      meCard.title = 'Click to see cards';
+      meCard.addEventListener('click', function seeCardsHandler() {
+        if (offlineRoomState && !offlineRoomState.seats[0].seen) {
+          offlineRoomState.seats[0].seen = true;
+          offlineRoomState.log.push('You looked at your cards.');
+          renderGameState(offlineRoomState);
+        }
+        meCard.removeEventListener('click', seeCardsHandler);
+      });
+    }
+  }, 500);
+}
+
+function nextOfflineTurn() {
+  if (!offlineRoomState) return;
+
+  const activePlayers = offlineRoomState.seats.filter(s => !s.folded);
+  if (activePlayers.length <= 1) {
+    const winner = activePlayers[0];
+    endOfflineGame(winner.seat);
+    return;
+  }
+
+  let nextSeat = (offlineRoomState.turn_seat + 1) % 4;
+  while (offlineRoomState.seats.find(s => s.seat === nextSeat).folded) {
+    nextSeat = (nextSeat + 1) % 4;
+  }
+
+  offlineRoomState.turn_seat = nextSeat;
+  offlineRoomState.time_left = 15;
+
+  renderGameState(offlineRoomState);
+
+  const bot = offlineRoomState.seats.find(s => s.seat === nextSeat);
+  if (bot.is_bot) {
+    setTimeout(() => {
+      playOfflineBotTurn(bot);
+    }, 2000);
+  }
+}
+
+function playOfflineBotTurn(bot) {
+  if (!offlineRoomState || offlineRoomState.turn_seat !== bot.seat || offlineRoomState.status !== 'playing') return;
+
+  const stake = offlineRoomState.current_stake;
+  const activeCount = offlineRoomState.seats.filter(s => !s.folded).length;
+  const evaluation = evalHand(bot.cards);
+  let action = 'chaal';
+  
+  if (evaluation.score < 105000 && Math.random() > 0.5) {
+    action = 'fold';
+  } else if (activeCount === 2 && evaluation.score >= 120000 && Math.random() > 0.6) {
+    action = 'show';
+  }
+
+  if (action === 'chaal') {
+    bot.balance -= stake;
+    offlineRoomState.pot += stake;
+    offlineRoomState.log.push(`${bot.username} played Chaal (₹${stake}).`);
+    nextOfflineTurn();
+  } else if (action === 'show') {
+    offlineRoomState.pot += stake;
+    bot.balance -= stake;
+    offlineRoomState.log.push(`${bot.username} paid ₹${stake} for Show.`);
+    
+    const active = offlineRoomState.seats.filter(s => !s.folded);
+    const evaluation0 = evalHand(active[0].cards);
+    const evaluation1 = evalHand(active[1].cards);
+    
+    const winnerSeat = evaluation0.score >= evaluation1.score ? active[0].seat : active[1].seat;
+    endOfflineGame(winnerSeat);
+  } else {
+    bot.folded = true;
+    offlineRoomState.log.push(`${bot.username} folded (packed).`);
+    nextOfflineTurn();
+  }
+}
+
+function endOfflineGame(winnerSeat) {
+  if (!offlineRoomState) return;
+
+  const winner = offlineRoomState.seats.find(s => s.seat === winnerSeat);
+  winner.balance += offlineRoomState.pot;
+  offlineRoomState.status = 'finished';
+  offlineRoomState.winner_seat = winnerSeat;
+  offlineRoomState.winner_name = winner.username;
+
+  if (winner.is_me) {
+    offlineRoomState.wallet_balance = winner.balance;
+    localStorage.setItem('bet1x_demo_wallet', winner.balance.toFixed(2));
+    if (typeof renderWalletChips === 'function') renderWalletChips();
+  }
+
+  offlineRoomState.log.push(`🏆 ${winner.username} won the pot of ₹${offlineRoomState.pot}!`);
+  renderGameState(offlineRoomState);
+
+  setTimeout(() => {
+    if (currentRoom !== null && offlineRoomState && offlineRoomState.status === 'finished') {
+      startOfflineRound();
+    }
+  }, 5000);
+}
+
+// === LEAVE ROOM ===
+async function leaveRoom() {
+  if (!currentRoom) return;
+  if (!confirm("Are you sure you want to leave? If you leave, you will not be able to re-enter if the room gets full.")) {
+    return;
+  }
+
+  const username = getUsername();
+
+  try {
+    await fetch(`api/teenpatti/leave`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ room_id: currentRoom, username })
+    });
+  } catch (e) { /* ignore */ }
+
+  if (pollInterval) clearInterval(pollInterval);
+  pollInterval = null;
+  currentRoom = null;
+  localStorage.removeItem(TP_CURRENT_ROOM_KEY);
+  if (typeof forfeitAllPendingBets === 'function') {
+    forfeitAllPendingBets('Teen Patti');
+  }
+
+  document.getElementById('tpGame').style.display = 'none';
+  document.getElementById('tpLobby').style.display = 'block';
+  loadLobby();
+}
+
+// === POLL STATE ===
+async function pollGameState() {
+  if (!currentRoom) return;
+  const username = getUsername();
+
+  try {
+    const res = await fetch(`api/teenpatti/state?room_id=${currentRoom}&username=${encodeURIComponent(username)}`);
+    const state = await res.json();
+    if (state.error) return;
+
+    renderGameState(state);
+  } catch (e) {
+    console.error('Poll error:', e);
+  }
+}
+
+// Helper to generate 3D cards HTML
+function cardWrapperHtml(card, index, isFlipped) {
+  const revealClass = isFlipped ? 'flipped' : '';
+  if (!card) {
+    return `
+      <div class="card-wrapper ${revealClass}" style="transition-delay: ${index * 0.15}s">
+        <div class="card-face card-back"></div>
+        <div class="card-face card-front" style="color:transparent;"></div>
+      </div>`;
+  }
+  const redClass = card.red ? 'red' : '';
+  return `
+    <div class="card-wrapper ${revealClass}" style="transition-delay: ${index * 0.15}s">
+      <div class="card-face card-back"></div>
+      <div class="card-face card-front ${redClass}">
+        ${card.label}<span>${card.symbol}</span>
+      </div>
+    </div>`;
+}
+
+// === RENDER GAME STATE ===
+let tpLastRenderedStatus = null;
+function renderGameState(state) {
+  // Header Info
+  document.getElementById('tpGameRoomName').textContent = state.name;
+  document.getElementById('tpGameRound').textContent = `Round #${state.round}`;
+  document.getElementById('tpGameStake').textContent = `Stake: ₹${state.current_stake}`;
+  const balance = state.wallet_balance !== undefined ? state.wallet_balance : 0;
+  document.getElementById('tpGameWallet').textContent = `Balance: ₹${balance.toFixed(2)}`;
+
+  // Sync back to local storage wallet chips
+  if (state.wallet_balance !== undefined) {
+    localStorage.setItem('bet1x_demo_wallet', state.wallet_balance.toFixed(2));
+    if (typeof renderWalletChips === 'function') renderWalletChips();
+  }
+
+  // Edge-triggered sound cues for round transitions — waiting -> playing is the shuffle+deal,
+  // and any transition into 'finished' is the showdown settling (once per player, personal
+  // win/lose — a big pot gets the fuller jackpot fanfare instead of a plain win chime).
+  if (state.status === 'playing' && tpLastRenderedStatus === 'waiting') {
+    SoundFX.play('cardShuffle');
+    setTimeout(() => SoundFX.play('cardDeal'), 380);
+  } else if (state.status === 'finished' && tpLastRenderedStatus !== 'finished') {
+    SoundFX.play('showdown');
+    if (state.my_seat !== null && state.my_seat !== undefined && state.winner_name) {
+      const isMeWinner = state.winner_name.toLowerCase() === getUsername().toLowerCase();
+      setTimeout(() => SoundFX.play(isMeWinner ? (state.pot >= 2000 ? 'bigWin' : 'win') : 'lose'), 200);
+    }
+  }
+  tpLastRenderedStatus = state.status;
+
+  const waitingEl = document.getElementById('tpWaiting');
+  const tableEl = document.getElementById('tpTableArea');
+  const playersArea = document.getElementById('playersArea');
+
+  if (state.status === 'waiting') {
+    waitingEl.style.display = 'block';
+    tableEl.style.display = 'none';
+    playersArea.innerHTML = '';
+    return;
+  }
+
+  waitingEl.style.display = 'none';
+  tableEl.style.display = 'block';
+
+  // Pot Badge
+  document.getElementById('potBadge').textContent = `Pot: ₹${state.pot}`;
+
+  // Winner Popup Banner
+  const existingWinnerBanner = document.getElementById('tpWinnerBanner');
+  if (existingWinnerBanner) existingWinnerBanner.remove();
+
+  if (state.status === 'finished' && state.winner_name) {
+    const isMeWinner = state.winner_name.toLowerCase() === getUsername().toLowerCase();
+    const winnerTitle = isMeWinner ? '🎉 YOU WON THE GAME!' : `🏆 WINNER: ${state.winner_name}`;
+    const banner = document.createElement('div');
+    banner.id = 'tpWinnerBanner';
+    banner.style.cssText = 'position:absolute; top:40%; left:50%; transform:translate(-50%, -50%); z-index:100; background:linear-gradient(135deg, rgba(201,160,84,0.98), rgba(180,130,50,0.98)); color:#0f172a; padding:14px 28px; border-radius:12px; font-weight:800; font-size:17px; box-shadow:0 0 25px rgba(201,160,84,0.7); text-align:center; border:2px solid #fff; pointer-events:none;';
+    const riggedLine = '';
+    banner.innerHTML = `${winnerTitle}<br><span style="font-size:13px; font-weight:700; color:#1e293b;">Won Pot of ₹${state.pot}!</span>${riggedLine}`;
+    tableEl.appendChild(banner);
+  }
+
+  // Rotate seats clockwise so that user is always at offset 0 (bottom seat)
+  const mySeatIndex = state.my_seat !== null ? state.my_seat : 0;
+  
+  const positionStyles = {
+    0: 'position: absolute; bottom: -85px; left: 50%; transform: translateX(-50%); width: 145px; pointer-events: auto;', // bottom
+    1: 'position: absolute; top: 45px; right: 1%; width: 145px; pointer-events: auto;',                                 // right
+    2: 'position: absolute; top: -55px; left: 50%; transform: translateX(-50%); width: 145px; pointer-events: auto;',  // top
+    3: 'position: absolute; top: 45px; left: 1%; width: 145px; pointer-events: auto;'                                  // left
+  };
+
+  playersArea.innerHTML = state.seats.map(s => {
+    if (!s.username) {
+      const relOffset = (s.seat - mySeatIndex + 4) % 4;
+      return `<div class="player-card" id="seat-offset-${relOffset}" style="${positionStyles[relOffset]}">
+        <div class="player-name" style="color:var(--text-faint);">Empty Seat</div>
+        <div class="player-balance">Seat ${s.seat + 1}</div>
+      </div>`;
+    }
+
+    const relOffset = (s.seat - mySeatIndex + 4) % 4;
+    const isMe = s.is_me;
+    const isMyTurn = state.status === 'playing' && state.turn_seat === s.seat;
+    const isWinner = state.status === 'finished' && state.winner_seat === s.seat;
+
+    let classes = 'player-card';
+    if (isMyTurn && !s.folded) classes += ' turn';
+    if (s.folded) classes += ' folded';
+    if (isWinner) classes += ' winner';
+
+    // Build 3D cards
+    let cardsHtml = '<div class="cards-row">';
+    if (s.cards) {
+      s.cards.forEach((c, idx) => {
+        const isFlipped = s.seen || (c !== null);
+        cardsHtml += cardWrapperHtml(c, idx, isFlipped);
+      });
+    } else {
+      cardsHtml += [0,1,2].map(idx => cardWrapperHtml(null, idx, false)).join('');
+    }
+    cardsHtml += '</div>';
+
+    // No seat is ever labeled as a bot to players — every occupant reads as a regular player.
+    const badgeHtml = s.seen || (s.cards && s.cards[0] !== null) ? '<span class="player-badge-seen">Seen</span>' : '<span class="player-badge-blind">Blind</span>';
+
+    let label = '';
+    if (s.folded) {
+      label = 'Pack';
+    } else if (s.hand_label && (s.seen || isWinner)) {
+      label = s.hand_label;
+    } else {
+      label = (s.seen || (s.cards && s.cards[0] !== null) ? 'Playing' : 'Playing Blind');
+    }
+
+    const timerHtml = isMyTurn && !s.folded ? `<div class="turn-timer">⏱ ${state.time_left}s</div>` : '';
+
+    return `
+      <div class="${classes}" id="seat-offset-${relOffset}" style="${positionStyles[relOffset]}">
+        <div class="player-name ${isMe ? 'is-me-name' : ''}">${s.username} ${badgeHtml}</div>
+        <div class="player-balance">Seat ${s.seat + 1}</div>
+        ${cardsHtml}
+        <div class="hand-label">${label}</div>
+        ${timerHtml}
+      </div>
+    `;
+  }).join('');
+
+  // Status Message
+  const turnSeatData = state.seats.find(s => s.seat === state.turn_seat);
+  const turnName = turnSeatData ? turnSeatData.username : '?';
+  const statusMsg = document.getElementById('statusMsg');
+
+  if (state.status === 'playing') {
+    statusMsg.innerHTML = `Turn: <strong style="color:var(--gold)">${turnName}</strong> — ${state.time_left}s remaining`;
+  } else if (state.status === 'finished') {
+    const isMeWinner = state.winner_name && state.winner_name.toLowerCase() === getUsername().toLowerCase();
+    const rigNote = '';
+    statusMsg.innerHTML = (isMeWinner
+      ? `<span style="color:var(--green)">🏆 YOU WON! ₹${state.pot} 🎉</span>`
+      : `<span style="color:var(--green)">🏆 ${state.winner_name} WON! ₹${state.pot}</span>`) + rigNote;
+  } else {
+    statusMsg.textContent = 'Waiting for players...';
+  }
+
+  // Controls & Action Buttons
+  const controls = document.getElementById('controls');
+  const myTurn = state.status === 'playing' && state.turn_seat === state.my_seat && state.my_seat !== null;
+  const mySeatData = state.seats.find(s => s.is_me);
+  const amFolded = mySeatData ? mySeatData.folded : true;
+  const activePlayers = state.seats.filter(s => s.username && !s.folded).length;
+
+  if (state.status === 'finished') {
+    controls.innerHTML = `<button class="btn btn-gold" disabled>Round Finished</button>`;
+  } else if (myTurn && !amFolded) {
+    const showBtn = activePlayers === 2
+      ? `<button class="btn btn-gold" onclick="doAction('show')">Show (₹${state.current_stake})</button>`
+      : '';
+    controls.innerHTML = `
+      <button class="btn btn-primary" onclick="doAction('chaal')">Chaal (₹${state.current_stake})</button>
+      <button class="btn btn-ghost" style="color:var(--red); border-color:rgba(255,75,110,0.4)" onclick="doAction('fold')">Pack (Fold)</button>
+      ${showBtn}
+    `;
+  } else {
+    controls.innerHTML = `
+      <button class="btn btn-primary" disabled>Chaal</button>
+      <button class="btn btn-ghost" disabled>Pack (Fold)</button>
+    `;
+  }
+
+  // Logs
+  const logBox = document.getElementById('logBox');
+  if (Array.isArray(state.log)) {
+    logBox.innerHTML = state.log.map(l => `<div>&bull; ${l}</div>`).join('');
+    logBox.scrollTop = logBox.scrollHeight;
+  }
+}
+
+// === ACTIONS ===
+async function doAction(action) {
+  if (!currentRoom) return;
+
+  const username = getUsername();
+  if (action === 'chaal') SoundFX.play('chipStack');
+  else if (action === 'fold') SoundFX.play('fold');
+  else if (action === 'show') SoundFX.play('showdown');
+
+  // Disable buttons immediately
+  const btns = document.querySelectorAll('#controls button');
+  btns.forEach(b => b.disabled = true);
+
+  try {
+    const res = await fetch(`api/teenpatti/action`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ room_id: currentRoom, username, action })
+    });
+    const data = await res.json();
+    if (data.error) alert(data.error);
+
+    await pollGameState();
+  } catch (e) {
+    alert('Action error: ' + e.message);
+  }
+}
+
+// === INIT ===
+document.addEventListener('DOMContentLoaded', async () => {
+  const saved = localStorage.getItem('bet1x_username');
+  if (saved) document.getElementById('tpUsername').value = saved;
+
+  document.getElementById('tpUsername').addEventListener('change', () => {
+    localStorage.setItem('bet1x_username', document.getElementById('tpUsername').value.trim());
+    loadLobby();
+  });
+
+  // A refresh mid-hand should show the same table the player was just looking at, not bounce them
+  // back to the lobby — their seat is still sitting there server-side.
+  const restored = await tryRestoreTeenPattiRoom();
+  if (!restored) loadLobby();
+
+  setInterval(() => {
+    if (!currentRoom) loadLobby();
+  }, 3000);
+});
+
+window.addEventListener('beforeunload', () => {
+  if (typeof forfeitAllPendingBets === 'function') {
+    forfeitAllPendingBets('Teen Patti');
+  }
+});
+window.addEventListener('pagehide', () => {
+  if (typeof forfeitAllPendingBets === 'function') {
+    forfeitAllPendingBets('Teen Patti');
+  }
+});
+</script>
+</body>
+</html>
