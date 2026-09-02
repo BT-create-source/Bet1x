@@ -83,8 +83,14 @@ function register_admin_routes(Router $app) {
             $totalDeposited = $sumAmount($deposits);
             $totalWithdrawn = $sumAmount($withdrawals, function ($w) { return ($w['status'] ?? null) === 'Completed'; });
             $pendingWithdrawals = count(array_filter($withdrawals, function ($w) { return ($w['status'] ?? null) === 'Pending'; }));
+            // Wallet liability is money the platform owes its CUSTOMERS. "Admin" is the house's own
+            // seat — the account the house plays through, seeded with a float by sql/schema*.sql —
+            // so its balance is the house's own money, not a debt. Including it made a brand-new
+            // deployment with no players at all report a standing liability of the seed amount.
+            // The superadmin dashboard already excludes this account by name for the same reason.
             $walletPool = 0.0;
             foreach ($users as $u) {
+                if (strtolower((string)($u['username'] ?? '')) === 'admin') continue;
                 $v = js_parse_float($u['wallet_balance'] ?? 0);
                 $walletPool += js_truthy($v) ? (float)$v : 0.0;
             }

@@ -116,8 +116,15 @@ function register_legacy_routes(Router $app) {
                         }
                         return $t;
                     };
+                    // Wallet liability is money owed to CUSTOMERS. "Admin" is the house's own seat —
+                    // the account the house plays through, seeded with a float by sql/schema*.sql —
+                    // so its balance is the house's own money, not a debt. Counting it made a fresh
+                    // deployment with no players report a standing liability of the seed amount.
+                    // This is the copy the admin console actually reads (api/admin.php?action=stats);
+                    // /api/admin/stats in routes/admin.php carries the identical rule.
                     $walletPool = 0.0;
                     foreach ($users as $u) {
+                        if (strtolower((string)($u['username'] ?? '')) === 'admin') continue;
                         $v = js_parse_float($u['wallet_balance'] ?? 0);
                         $walletPool += js_truthy($v) ? (float)$v : 0.0;
                     }

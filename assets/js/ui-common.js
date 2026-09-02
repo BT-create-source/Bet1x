@@ -236,13 +236,32 @@ function getCurrentUser() {
   return stored ? JSON.parse(stored) : null;
 }
 
+/**
+ * Turn a server-supplied wallet balance into a number.
+ *
+ * Deliberately NOT `parseFloat(x) || 2000`. A brand-new account has a balance of exactly 0, and 0 is
+ * falsy in JavaScript, so that expression threw the real balance away and substituted the old demo
+ * float of 2000 — the account showed 2000 coins for the second or two until the first server sync
+ * replaced it with the true 0. Only a genuinely absent or unparseable value falls back now, and it
+ * falls back to 0, because on a real-money deployment inventing a balance is never the safe guess.
+ */
+function walletFromServer(value) {
+  const n = parseFloat(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function getWallet() {
   const balance = localStorage.getItem(WALLET_KEY);
   if (balance === null) {
-    localStorage.setItem(WALLET_KEY, STARTING_BALANCE.toFixed(2));
-    return STARTING_BALANCE;
+    // Nothing cached yet — show 0 until the server says otherwise. This used to seed 2000, the old
+    // demo float, which is what put a non-existent balance on screen for a brand-new account before
+    // the first sync corrected it. STARTING_BALANCE still exists for the offline demo paths below,
+    // which are switched off on any real deployment.
+    localStorage.setItem(WALLET_KEY, '0.00');
+    return 0;
   }
-  return parseFloat(balance);
+  const n = parseFloat(balance);
+  return Number.isFinite(n) ? n : 0;
 }
 
 function setWallet(amount) {
@@ -462,7 +481,7 @@ window.handleHeaderLogin = function(e) {
     if (data.success && data.user) {
       if (data.token) localStorage.setItem(AUTH_TOKEN_KEY, data.token);
       localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(data.user));
-      localStorage.setItem(WALLET_KEY, (parseFloat(data.user.wallet_balance) || 2000).toFixed(2));
+      localStorage.setItem(WALLET_KEY, walletFromServer(data.user.wallet_balance).toFixed(2));
       window.showToast(`Welcome back, ${data.user.username}!`, 'success');
       updateAuthHeaderUI();
       setTimeout(() => location.reload(), 600);
@@ -740,7 +759,7 @@ window.handleAuthSubmit = function(e, type) {
       if (data.success && data.user) {
         if (data.token) localStorage.setItem(AUTH_TOKEN_KEY, data.token);
         localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(data.user));
-        localStorage.setItem(WALLET_KEY, (parseFloat(data.user.wallet_balance) || 2000).toFixed(2));
+        localStorage.setItem(WALLET_KEY, walletFromServer(data.user.wallet_balance).toFixed(2));
         closeAuthModal();
         if (window.SoundFX) SoundFX.play('login');
         showToast(`Welcome back, ${data.user.username}!`, 'success');
@@ -804,7 +823,7 @@ window.handleAuthSubmit = function(e, type) {
       if (data.success && data.user) {
         if (data.token) localStorage.setItem(AUTH_TOKEN_KEY, data.token);
         localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(data.user));
-        localStorage.setItem(WALLET_KEY, (parseFloat(data.user.wallet_balance) || 2000).toFixed(2));
+        localStorage.setItem(WALLET_KEY, walletFromServer(data.user.wallet_balance).toFixed(2));
         closeAuthModal();
         if (window.SoundFX) SoundFX.play('login');
         showToast(`Account created successfully! Welcome, ${data.user.username}!`, 'success');

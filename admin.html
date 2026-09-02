@@ -1740,6 +1740,29 @@
         });
     }
 
+    /**
+     * Read the JSON body of an admin money action, turning every failure into a thrown Error.
+     *
+     * These four actions previously did `.then(res => res.json())` with no `.catch()`. If the
+     * response was not JSON — a LiteSpeed 403 page, a proxy error, an expired session redirect — or
+     * the network dropped, the promise rejected with nobody listening: the operator clicked
+     * "Approve", saw absolutely nothing happen, and the deposit silently stayed Pending with the
+     * player uncredited. Failing loudly is the whole point here; these buttons move real money.
+     */
+    function adminActionJson(res) {
+      return res.text().then(text => {
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          throw new Error(`Server returned a non-JSON response (HTTP ${res.status}). ` +
+                          `${text.slice(0, 140)}`);
+        }
+        if (!res.ok && !data.error) throw new Error(`Request failed (HTTP ${res.status}).`);
+        return data;
+      });
+    }
+
     window.approveDeposit = function (depositId) {
       if (!confirm(`Are you sure you want to APPROVE deposit request ${depositId}? This will automatically credit virtual coins to the user's wallet.`)) return;
 
@@ -1785,7 +1808,7 @@
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: body
       })
-        .then(res => res.json())
+        .then(adminActionJson)
         .then(data => {
           if (data.success) {
             showToast(`Deposit ${depositId} approved and wallet balance credited!`, 'success');
@@ -1794,6 +1817,11 @@
           } else {
             alert('Error: ' + data.error);
           }
+        })
+        .catch(err => {
+          // Never leave the operator guessing whether the action went through.
+          alert('Deposit action FAILED - nothing was changed. ' + err.message +
+                ' Re-check the list before trying again.');
         });
     };
 
@@ -1830,7 +1858,7 @@
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: body
       })
-        .then(res => res.json())
+        .then(adminActionJson)
         .then(data => {
           if (data.success) {
             showToast(`Deposit request ${depositId} rejected.`, 'info');
@@ -1839,6 +1867,11 @@
           } else {
             alert('Error: ' + data.error);
           }
+        })
+        .catch(err => {
+          // Never leave the operator guessing whether the action went through.
+          alert('Deposit action FAILED - nothing was changed. ' + err.message +
+                ' Re-check the list before trying again.');
         });
     };
 
@@ -1928,7 +1961,7 @@
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: body
       })
-        .then(res => res.json())
+        .then(adminActionJson)
         .then(data => {
           if (data.success) {
             showToast(`Withdrawal request ${withdrawalId} approved and processed!`, 'success');
@@ -1937,6 +1970,11 @@
           } else {
             alert('Error: ' + data.error);
           }
+        })
+        .catch(err => {
+          // Never leave the operator guessing whether the action went through.
+          alert('Withdrawal action FAILED - nothing was changed. ' + err.message +
+                ' Re-check the list before trying again.');
         });
     };
 
@@ -1979,7 +2017,7 @@
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: body
       })
-        .then(res => res.json())
+        .then(adminActionJson)
         .then(data => {
           if (data.success) {
             showToast(`Withdrawal request ${withdrawalId} rejected. Wager amount refunded!`, 'info');
@@ -1988,6 +2026,11 @@
           } else {
             alert('Error: ' + data.error);
           }
+        })
+        .catch(err => {
+          // Never leave the operator guessing whether the action went through.
+          alert('Withdrawal action FAILED - nothing was changed. ' + err.message +
+                ' Re-check the list before trying again.');
         });
     };
 
