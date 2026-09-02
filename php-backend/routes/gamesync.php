@@ -260,7 +260,7 @@ function register_gamesync_routes(Router $app) {
 
             $res->status(400)->json(['error' => 'Unsupported GET action']);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'gamesync');
         }
     });
 
@@ -655,7 +655,7 @@ function register_gamesync_routes(Router $app) {
 
             $res->status(400)->json(['error' => 'Unsupported POST action']);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'gamesync');
         }
     });
 
@@ -854,7 +854,7 @@ function register_gamesync_routes(Router $app) {
             // Unrecognised action answers 200, not 400. Reproduced deliberately.
             $res->json(['success' => true, 'message' => 'Auth endpoint working']);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'gamesync');
         }
     });
 }

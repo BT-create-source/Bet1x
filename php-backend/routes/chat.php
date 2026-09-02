@@ -52,7 +52,7 @@ function register_chat_routes(Router $app) {
             }
             $res->json($messages);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'chat');
         }
     });
 
@@ -69,7 +69,7 @@ function register_chat_routes(Router $app) {
             $saved = chat_store_message($username, $message);
             $res->json(['success' => true, 'message' => $saved]);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'chat');
         }
     });
 }

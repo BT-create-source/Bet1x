@@ -97,7 +97,7 @@ function register_admin_routes(Router $app) {
                 'pending_withdrawals' => $pendingWithdrawals,
             ]);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'admin');
         }
     });
 
@@ -369,7 +369,7 @@ function register_admin_routes(Router $app) {
                 'recent_transactions'  => array_slice($recentTx, 0, 60),
             ]);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'admin');
         }
     });
 
@@ -403,7 +403,7 @@ function register_admin_routes(Router $app) {
             }
             $res->json(['success' => true, 'stats' => $stats]);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'admin');
         }
     });
 }

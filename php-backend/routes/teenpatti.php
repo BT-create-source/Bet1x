@@ -63,7 +63,7 @@ function register_teenpatti_routes(Router $app) {
             }
             $res->json($result);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'teenpatti');
         }
     });
 
@@ -180,7 +180,7 @@ function register_teenpatti_routes(Router $app) {
 
             $res->json(['success' => true, 'seat' => (int)$targetSeat['seat']]);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'teenpatti');
         }
     });
 
@@ -216,7 +216,7 @@ function register_teenpatti_routes(Router $app) {
 
             $res->json(['success' => true]);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'teenpatti');
         }
     });
 
@@ -306,7 +306,7 @@ function register_teenpatti_routes(Router $app) {
                 'was_rigged'     => (bool)($isFinished && $rig !== null && array_key_exists('winner_seat', $rig)),
             ]);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'teenpatti');
         }
     });
 
@@ -326,7 +326,7 @@ function register_teenpatti_routes(Router $app) {
             $result = tp_process_action($roomId, $username, $action);
             $res->json($result);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'teenpatti');
         }
     });
 
@@ -378,7 +378,7 @@ function register_teenpatti_routes(Router $app) {
 
             $res->json(['success' => true, 'room_id' => $roomId, 'winner_seat' => $validSeat]);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'teenpatti');
         }
     });
 
@@ -390,7 +390,7 @@ function register_teenpatti_routes(Router $app) {
             tp_update_room($roomId, ['admin_rig' => null]);
             $res->json(['success' => true, 'room_id' => $roomId]);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'teenpatti');
         }
     });
 }

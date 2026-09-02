@@ -109,7 +109,7 @@ function register_wallet_routes(Router $app) {
 
                 $res->json(['success' => true, 'new_balance' => $updatedBalance]);
             } catch (Throwable $err) {
-                $res->status(500)->json(['error' => $err->getMessage()]);
+                fail500($res, $err, 'wallet');
             }
         });
 
@@ -140,7 +140,7 @@ function register_wallet_routes(Router $app) {
             }
             $res->json($txns);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'wallet');
         }
     });
 
@@ -194,7 +194,7 @@ function register_wallet_routes(Router $app) {
             }
             $res->json(['success' => true, 'balance' => $targetBal]);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'wallet');
         }
     });
 }

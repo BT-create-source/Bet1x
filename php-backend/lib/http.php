@@ -315,3 +315,32 @@ class Router {
         return $res->sent;
     }
 }
+
+/**
+ * Answer a 500 without telling the caller how the inside works.
+ *
+ * Every route used to do `$res->status(500)->json(['error' => $err->getMessage()])`. In production
+ * that put the raw exception straight on the page: the signup form on the live site displayed
+ *
+ *   SQLSTATE[42P01]: Undefined table: 7 ERROR: relation "User" does not exist
+ *   LINE 1: SELECT * FROM "User" WHERE LOWER("username") = LOWER($1) LIM...
+ *
+ * which hands an attacker the table names, the column names and the shape of the query for free.
+ * It also meant the only copy of that message was on the victim's screen — nothing was written to
+ * the log, so an operator had no way to see that anything was wrong.
+ *
+ * This inverts both: the full detail (message, class, file, line) always goes to the error log, and
+ * the client gets a generic sentence in production. Development still returns the real message,
+ * because there the person reading it is the person debugging it.
+ */
+function fail500(Res $res, Throwable $err, $context = '') {
+    log_error('unhandled route error' . ($context !== '' ? " [$context]" : ''), [
+        'type'    => get_class($err),
+        'message' => $err->getMessage(),
+        'file'    => $err->getFile(),
+        'line'    => $err->getLine(),
+    ]);
+    $res->status(500)->json([
+        'error' => cfg('IS_PRODUCTION') ? 'Internal server error.' : $err->getMessage(),
+    ]);
+}

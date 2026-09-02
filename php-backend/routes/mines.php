@@ -65,7 +65,7 @@ function register_mines_routes(Router $app) {
                                       || (is_array($rig['target_users']) && count($rig['target_users']) > 0),
             ]]);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'mines');
         }
     });
 
@@ -338,7 +338,7 @@ function register_mines_routes(Router $app) {
                 'was_rigged'       => $wasRiggedThisReveal,
             ]]);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'mines');
         }
     });
 
@@ -399,7 +399,7 @@ function register_mines_routes(Router $app) {
                 'balance'          => $balanceAfterCredit,
             ]]);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'mines');
         }
     });
 
@@ -452,7 +452,7 @@ function register_mines_routes(Router $app) {
                 'trapped_users'   => $rig['target_users'],
             ]);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'mines');
         }
     });
 
@@ -461,7 +461,7 @@ function register_mines_routes(Router $app) {
         try {
             $res->json(['success' => true, 'rig' => mines_rig_get(), 'total_profit' => mines_trap_profit_get()]);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'mines');
         }
     });
 
@@ -506,7 +506,7 @@ function register_mines_routes(Router $app) {
                 'bot_active'   => $botActive,
             ]);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'mines');
         }
     });
 
@@ -526,7 +526,7 @@ function register_mines_routes(Router $app) {
 
             $res->json(['success' => true, 'rig' => $rig, 'total_profit' => mines_trap_profit_get()]);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'mines');
         }
     });
 }

@@ -29,14 +29,12 @@ error_reporting(E_ALL);
 
 require_once __DIR__ . '/config.php';
 
-// TEMPORARY — one-time database setup, reachable here (and only here) because .htaccess allows
-// direct requests to php-backend/index.php but blocks every other file under php-backend/. See
-// tools/web-migrate.php for what this runs. REMOVE this block and delete tools/web-migrate.php
-// once the database has been set up — search history/deploy notes for "TEMPORARY — one-time".
-if (($_GET['migrate'] ?? '') === 'ca0b4840d0ba3eb9476961b16dc76b347db33f9215e9140b') {
-    require __DIR__ . '/tools/web-migrate.php';
-    exit;
-}
+// The one-time ?migrate= hook that lived here has been REMOVED, along with tools/web-migrate.php.
+// It existed only to create the schema over HTTPS on a host with no shell access, and it did that
+// job on 2026-09-02 (42 statements from sql/schema-postgres.sql, 3 from migration-002). Leaving it
+// in place would have left an endpoint that executes DDL against the live money database behind
+// nothing but a token that had already been written down in several places. Re-create the schema,
+// if it is ever needed again, by running the .sql files against the database directly.
 
 /**
  * Timezone.

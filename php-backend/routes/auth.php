@@ -137,7 +137,7 @@ function register_auth_routes(Router $app) {
             }
             $res->json(['logged_in' => false]);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'auth');
         }
     });
 
@@ -184,7 +184,7 @@ function register_auth_routes(Router $app) {
                 $res->status(400)->json(['error' => 'Incorrect username or password.']);
             }
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'auth');
         }
     });
 
@@ -335,7 +335,7 @@ function register_auth_routes(Router $app) {
                 ],
             ]);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'auth');
         }
     });
 

@@ -52,7 +52,7 @@ function register_db_gateway_routes(Router $app) {
             }
             $res->json($bets);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'dbgateway');
         }
     });
 
@@ -91,7 +91,7 @@ function register_db_gateway_routes(Router $app) {
             }
             $res->json(['success' => true, 'bet' => $saved]);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'dbgateway');
         }
     });
 
@@ -106,7 +106,7 @@ function register_db_gateway_routes(Router $app) {
             }
             $res->json($users);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'dbgateway');
         }
     });
 
@@ -121,7 +121,7 @@ function register_db_gateway_routes(Router $app) {
             insert_transaction($txnId, $user, $type, (float)js_parse_float($amount), $details, $status, now_ms());
             $res->json(map_transaction(one('SELECT * FROM "Transaction" WHERE "id" = ?', [$txnId])));
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'dbgateway');
         }
     });
 
@@ -132,7 +132,7 @@ function register_db_gateway_routes(Router $app) {
             foreach (all('SELECT * FROM "Deposit"') as $r) $out[] = map_deposit($r);
             $res->json($out);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'dbgateway');
         }
     });
 
@@ -158,7 +158,7 @@ function register_db_gateway_routes(Router $app) {
             ]);
             $res->json(map_deposit(one('SELECT * FROM "Deposit" WHERE "deposit_id" = ?', [$depositId])));
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'dbgateway');
         }
     });
 
@@ -195,7 +195,7 @@ function register_db_gateway_routes(Router $app) {
             });
             $res->json($result);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'dbgateway');
         }
     });
 
@@ -206,7 +206,7 @@ function register_db_gateway_routes(Router $app) {
             foreach (all('SELECT * FROM "Withdrawal"') as $r) $out[] = map_withdrawal($r);
             $res->json($out);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'dbgateway');
         }
     });
 
@@ -223,7 +223,7 @@ function register_db_gateway_routes(Router $app) {
             ]);
             $res->json(map_withdrawal(one('SELECT * FROM "Withdrawal" WHERE "withdrawal_id" = ?', [$wid])));
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'dbgateway');
         }
     });
 
@@ -234,7 +234,7 @@ function register_db_gateway_routes(Router $app) {
             foreach (all('SELECT * FROM "PaymentLog"') as $r) $out[] = map_payment_log($r);
             $res->json($out);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'dbgateway');
         }
     });
 
@@ -246,7 +246,7 @@ function register_db_gateway_routes(Router $app) {
               [$id, js_json_encode($req->b('payload')), $req->b('signature'), ms_to_sql($ts)]);
             $res->json(map_payment_log(one('SELECT * FROM "PaymentLog" WHERE "id" = ?', [$id])));
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'dbgateway');
         }
     });
 
@@ -256,7 +256,7 @@ function register_db_gateway_routes(Router $app) {
             $data = state_get($req->p('key'));
             $res->json($data === null ? null : $data);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'dbgateway');
         }
     });
 
@@ -272,7 +272,7 @@ function register_db_gateway_routes(Router $app) {
                 'updatedAt' => js_iso($row['updatedAt'] ?? null),
             ]]);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'dbgateway');
         }
     });
 
@@ -297,7 +297,7 @@ function register_db_gateway_routes(Router $app) {
             }
             $res->json($formatted);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'dbgateway');
         }
     });
 
@@ -324,7 +324,7 @@ function register_db_gateway_routes(Router $app) {
                 'timestamp'   => js_iso($row['timestamp']),
             ]]);
         } catch (Throwable $err) {
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'dbgateway');
         }
     });
 }
@@ -428,7 +428,7 @@ function register_db_sync_route(Router $app) {
             $res->json(['success' => true]);
         } catch (Throwable $err) {
             log_error("Sync error on table {$table}: " . $err->getMessage());
-            $res->status(500)->json(['error' => $err->getMessage()]);
+            fail500($res, $err, 'dbgateway');
         }
     });
 }
