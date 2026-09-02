@@ -13,6 +13,10 @@ require_once __DIR__ . '/../lib/http.php';
 require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/helpers.php';
 require_once __DIR__ . '/../lib/botengine.php';
+// Named explicitly because the legacy signup proxy below calls risk_check_signup()/risk_client_ip().
+// It happens to be loaded already via routes/auth.php, but depending on another route file's
+// includes would break the moment registration order changed.
+require_once __DIR__ . '/../lib/riskcontrols.php';
 require_once __DIR__ . '/../games/color.php';
 require_once __DIR__ . '/../games/aviator.php';
 require_once __DIR__ . '/../games/teenpatti.php';
@@ -758,6 +762,17 @@ function register_gamesync_routes(Router $app) {
                 if (!js_truthy($email)) $email = $req->b('email');
                 if (!js_truthy($email)) $email = strtolower($username) . '@demo.com';
 
+                // Username format, matching /api/auth/signup. This route had no such check, and it
+                // is the one the shipped frontend posts to, so '<img src=x onerror=...>' registered
+                // cleanly and was then stored and rendered wherever an operator views players. That
+                // is a stored-XSS delivery straight into the admin console's session. Output
+                // encoding in the pages is the real control, but a name that cannot contain markup
+                // in the first place removes the payload at the door.
+                if (!preg_match('/^[a-zA-Z0-9_]{3,20}$/', $username)) {
+                    $res->status(400)->json(['error' => 'Username must be 3-20 alphanumeric characters or underscores.']);
+                    return;
+                }
+
                 $existing = find_user_ci($username);
                 if ($existing) {
                     $res->status(400)->json(['error' => 'Username is already taken.']);
@@ -767,9 +782,34 @@ function register_gamesync_routes(Router $app) {
                     $res->status(400)->json(['error' => 'Password must be at least 8 characters.']);
                     return;
                 }
+
+                // This legacy path is the one the shipped frontend actually posts to, so the abuse
+                // controls have to live here too. Without them SIGNUP_MAX_PER_IP_PER_DAY counted
+                // registrations by an IP column that this route never wrote, so the cap could never
+                // fire no matter how it was configured, and bonus_credited was left at its default —
+                // which is what WITHDRAWAL_REQUIRE_DEPOSIT keys off. Mirrors /api/auth/signup.
+                $signupIp = risk_client_ip();
+                $signupBlock = risk_check_signup($signupIp);
+                if ($signupBlock !== null) {
+                    $res->status(429)->json(['error' => $signupBlock]);
+                    return;
+                }
+
                 $hashed = hash_password($password);
-                q('INSERT INTO "User" ("username","email","password","wallet_balance","created_at") VALUES (?,?,?,?,?)',
-                  [$username, $email, $hashed, (float) cfg('SIGNUP_BONUS'), ms_to_sql()]);
+                $startingBalance = (float) cfg('SIGNUP_BONUS');
+
+                // signup_ip / bonus_credited come from migration-002; fall back to the original
+                // column set so a database that has not had it applied still registers users.
+                try {
+                    q('INSERT INTO "User" ("username","email","password","wallet_balance","created_at","signup_ip","bonus_credited")
+                       VALUES (?,?,?,?,?,?,?)',
+                      [$username, $email, $hashed, $startingBalance, ms_to_sql(),
+                       $signupIp, $startingBalance > 0 ? 1 : 0]);
+                } catch (Throwable $colErr) {
+                    log_debug('legacy signup falling back to pre-migration-002 column set: ' . $colErr->getMessage());
+                    q('INSERT INTO "User" ("username","email","password","wallet_balance","created_at") VALUES (?,?,?,?,?)',
+                      [$username, $email, $hashed, $startingBalance, ms_to_sql()]);
+                }
                 $user = find_user_ci($username);
 
                 $res->json([

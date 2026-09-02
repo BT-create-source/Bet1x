@@ -15,6 +15,36 @@ require_once __DIR__ . '/../lib/riskcontrols.php';
 
 function register_auth_routes(Router $app) {
 
+    /**
+     * Does this candidate match SUPERADMIN_ACCESS_TOKEN?
+     *
+     * The admin console asks before it renders the super-admin entry point. Deliberately a
+     * server-side check answering only yes/no: shipping the real token to the browser so the page
+     * could compare it locally would put the secret in the page source of every operator's browser,
+     * which is precisely what this is meant to prevent.
+     *
+     * This is NOT authentication. A yes only reveals a link; reaching the console behind it still
+     * requires the super-admin login. Rate limited with the auth bucket so the token cannot be
+     * guessed by brute force, and compared with hash_equals to keep the comparison constant time.
+     *
+     * require_admin is named explicitly rather than inherited from the useMw('/api/admin', ...) gate
+     * in routes/admin.php: layers dispatch in registration order, and this file is registered first,
+     * so this route would otherwise slip past that gate entirely. Only an operator who is already
+     * signed in can probe the token, which also means the rate limiter is not the only thing
+     * standing between a stranger and an unlimited guessing loop.
+     */
+    $app->post('/api/admin/superadmin-entry', limiter('auth'), 'require_admin', function (Req $req, Res $res) {
+        $configured = (string) cfg('SUPERADMIN_ACCESS_TOKEN', '');
+        $candidate  = (string) ($req->b('key') ?? $req->q('key') ?? '');
+
+        // Unset means the feature is off: never reveal the entry point rather than accepting ''.
+        if ($configured === '') {
+            $res->json(['ok' => false]);
+            return;
+        }
+        $res->json(['ok' => hash_equals($configured, $candidate)]);
+    });
+
     // --- Health check ---
     $app->get('/api/health', function (Req $req, Res $res) {
         // `env` is reported so an operator can confirm from outside that the production cutover

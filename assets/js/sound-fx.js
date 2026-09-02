@@ -400,7 +400,7 @@
     const style = document.createElement('style');
     style.textContent = `
       #soundfx-toggle {
-        position: fixed; bottom: 16px; right: 16px; z-index: 9999;
+        position: fixed; bottom: 20px; right: 15px; z-index: 9999;
         width: 44px; height: 44px; border-radius: 50%;
         background: rgba(20,24,32,0.85); border: 1px solid rgba(255,197,61,0.35);
         color: #ffc53d; font-size: 18px; line-height: 1; cursor: pointer;
@@ -411,8 +411,8 @@
       }
       #soundfx-toggle:hover { transform: scale(1.08); border-color: rgba(255,197,61,0.7); }
       #soundfx-toggle:active { transform: scale(0.94); }
-      @media (max-width: 640px) {
-        #soundfx-toggle { width: 38px; height: 38px; font-size: 15px; bottom: 12px; right: 12px; }
+      @media (max-width: 768px) {
+        #soundfx-toggle { width: 40px; height: 40px; font-size: 16px; bottom: 70px; right: 17px; }
       }
     `;
     document.head.appendChild(style);

@@ -20,6 +20,21 @@ require_once __DIR__ . '/http.php';
 function force_https(Req $req, Res $res) {
     if (!cfg('FORCE_HTTPS')) return;
     if ($req->isSecure()) return;
+
+    // Reaching here on a site that IS served over TLS means the app cannot see it — almost always
+    // FORCE_HTTPS=true with TRUST_PROXY=0 behind a proxy that terminates TLS, which answers 403 to
+    // every login, signup, bet, deposit and withdrawal while the static pages keep loading fine.
+    // That combination is close to invisible from the outside, so say so loudly in the log rather
+    // than leaving the next person to infer it from "the forms do nothing".
+    log_warn('force_https: request not recognised as secure — every non-GET will be refused', [
+        'method'            => $req->method,
+        'path'              => $req->path,
+        'trust_proxy'       => (int) cfg('TRUST_PROXY', 0),
+        'server_port'       => $_SERVER['SERVER_PORT'] ?? null,
+        'x_forwarded_proto' => $req->header('x-forwarded-proto', null),
+        'hint'              => 'If the site is behind a proxy/CDN, set TRUST_PROXY=1 in php-backend/.env',
+    ]);
+
     if ($req->method !== 'GET' && $req->method !== 'HEAD') {
         $res->status(403)->json(['error' => 'HTTPS is required.']);
         return;

@@ -1,9 +1,17 @@
 <!DOCTYPE html>
-<html lang="en">
+<!--
+  Starts locked, in the markup. The dashboard div is display:none inline already, but this also
+  covers it during the window before the inline script runs, and survives anyone clearing that
+  inline style. Removed only after the server confirms a super-admin session (checkGateAndInit).
+-->
+<html lang="en" class="superadmin-locked">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Super Admin — Command Console</title>
+<style>
+  html.superadmin-locked #dashboard { display: none !important; }
+</style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
@@ -613,9 +621,12 @@ window.handleSuperAdminLogin = async function(e) {
       localStorage.setItem('bet1x_superadmin_logged_in', 'true');
       checkGateAndInit();
     } else if (data.success) {
-      localStorage.setItem('bet1x_superadmin_token', 'authenticated');
-      localStorage.setItem('bet1x_superadmin_logged_in', 'true');
-      checkGateAndInit();
+      // A success with no token is a broken or legacy response, not a session. Storing the literal
+      // string 'authenticated' here is what the old build did, and combined with a gate that trusted
+      // localStorage it unlocked the console for anyone who typed that value into dev tools. There is
+      // nothing to store, so refuse rather than fabricate a credential.
+      errEl.textContent = 'Server did not issue a session token. Please try again.';
+      errEl.style.display = 'block';
     } else {
       errEl.textContent = data.error || 'Invalid super administrator credentials.';
       errEl.style.display = 'block';
@@ -634,16 +645,56 @@ window.superAdminLogout = function() {
   document.getElementById('dashboard').style.display = 'none';
 };
 
-function checkGateAndInit() {
-  const loggedIn = (localStorage.getItem('bet1x_superadmin_logged_in') === 'true'
-    && !!localStorage.getItem('bet1x_superadmin_token'));
-  if (!loggedIn) {
-    document.getElementById('gate').style.display = '';
-    document.getElementById('dashboard').style.display = 'none';
+/**
+ * Decide access with the SERVER, not with localStorage.
+ *
+ * The previous version unlocked the console whenever localStorage happened to hold
+ * bet1x_superadmin_logged_in === 'true' and any non-empty token — both values any visitor can type
+ * into their own dev tools to reveal the entire console shell. (The figures inside it were still
+ * refused by require_superadmin, but the UI, its controls and its structure were not.)
+ *
+ * Now the only thing that reveals the dashboard is a 200 from an endpoint that require_superadmin
+ * guards. A 401/403, a network error, or a timeout all leave the gate up.
+ */
+async function checkGateAndInit() {
+  const gate = document.getElementById('gate');
+  const dashboard = document.getElementById('dashboard');
+
+  const showGate = () => {
+    document.documentElement.classList.add('superadmin-locked');
+    gate.style.display = '';
+    dashboard.style.display = 'none';
+  };
+
+  // No token at all: no point asking the server, and no reason to reveal anything.
+  if (!localStorage.getItem('bet1x_superadmin_token')) {
+    showGate();
     return;
   }
-  document.getElementById('gate').style.display = 'none';
-  document.getElementById('dashboard').style.display = 'block';
+
+  let res;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    res = await adminFetch('/api/admin/super-dashboard', { signal: controller.signal });
+    clearTimeout(timer);
+  } catch (err) {
+    localStorage.removeItem('bet1x_superadmin_logged_in');
+    showGate();
+    return;
+  }
+
+  if (!res.ok) {
+    // 401/403 mean this browser is not a super administrator, whatever localStorage claims.
+    localStorage.removeItem('bet1x_superadmin_token');
+    localStorage.removeItem('bet1x_superadmin_logged_in');
+    showGate();
+    return;
+  }
+
+  document.documentElement.classList.remove('superadmin-locked');
+  gate.style.display = 'none';
+  dashboard.style.display = 'block';
   loadDashboard();
   if (!window._superDashTimer) {
     window._superDashTimer = setInterval(loadDashboard, 6000);

@@ -119,10 +119,32 @@ class Req {
         return array_key_exists($name, $this->headers) ? $this->headers[$name] : $default;
     }
 
+    /**
+     * Is this request actually on TLS?
+     *
+     * This is load-bearing far beyond its size: force_https() answers 403 to every non-GET when it
+     * returns false, so getting it wrong takes down every write on the site — login, signup, bets,
+     * deposits, withdrawals — while the static HTML pages carry on loading normally, because those
+     * are served by Apache and never reach PHP at all. That asymmetry makes the failure look like
+     * "the forms do nothing" rather than "the site is down".
+     *
+     * Detection order, most trustworthy first:
+     *   1. $_SERVER['HTTPS'] — set by the web server on a direct TLS connection.
+     *   2. SERVER_PORT 443 — also set by the web server, not by the client, so it cannot be forged
+     *      from outside. Covers hosts that terminate TLS in the same server but leave HTTPS unset.
+     *   3. The X-Forwarded-* family — set by a reverse proxy, and trivially forged by a client, so
+     *      these are consulted ONLY when TRUST_PROXY says a proxy is genuinely in front of us.
+     *      X-Forwarded-SSL and Front-End-Https are included alongside X-Forwarded-Proto because
+     *      LiteSpeed and several cPanel stacks send those instead.
+     */
     public function isSecure() {
         if (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off') return true;
+        if ((int) ($_SERVER['SERVER_PORT'] ?? 0) === 443) return true;
+
         if ((int) cfg('TRUST_PROXY', 0) > 0) {
-            return strtolower((string)$this->header('x-forwarded-proto', '')) === 'https';
+            if (strtolower((string)$this->header('x-forwarded-proto', '')) === 'https') return true;
+            if (strtolower((string)$this->header('x-forwarded-ssl', '')) === 'on') return true;
+            if (strtolower((string)$this->header('front-end-https', '')) === 'on') return true;
         }
         return false;
     }

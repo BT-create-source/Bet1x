@@ -2788,7 +2788,7 @@ body.exchange-theme .footer {
 .fab-stack {
   position: fixed;
   right: 14px;
-  bottom: 90px;
+  bottom: 120px;
   z-index: 900;
   display: flex;
   flex-direction: column;
@@ -2810,7 +2810,7 @@ body.exchange-theme .footer {
 .fab-btn--bonus { background: linear-gradient(160deg, var(--red), var(--red-deep)); }
 
 @media (min-width: 769px) {
-  .fab-stack { bottom: 24px; }
+  .fab-stack { bottom: 74px; }
 }
 
 /* Media Query adaptations */

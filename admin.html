@@ -319,10 +319,15 @@
         <div style="font-size:12.5px; color:var(--text-dim);">Manage withdraw approvals, user wallets, deposits and
           betting history.</div>
       </div>
-      <div style="display:flex; gap:10px;">
-        <a href="superadmin.html" class="btn btn-ghost"
-          style="padding:6px 12px; font-size:12.5px; text-decoration:none; display:flex; align-items:center; border-color:#5b7fff; color:#8fa3ff;">📊 Super
-          Admin Console</a>
+      <div style="display:flex; gap:10px;" id="admin-header-actions">
+        <!--
+          The Super Admin Console link used to sit here as plain markup, so its existence and its URL
+          were visible in the page source to anyone who reached this console. It is now injected at
+          runtime by maybeRevealSuperAdminEntry(), and only after the SERVER confirms the
+          ?superadmin_key=... in the URL matches SUPERADMIN_ACCESS_TOKEN. With no key, a wrong key, or
+          the feature switched off, nothing is added — the element genuinely does not exist in the DOM
+          rather than being hidden with CSS, so it cannot be recovered by inspecting the page.
+        -->
         <a href="parity.html" class="btn btn-ghost"
           style="padding:6px 12px; font-size:12.5px; text-decoration:none; display:flex; align-items:center;">Parity
           Monitor</a>
@@ -1138,6 +1143,30 @@
 
     let activeEditUsername = null;
 
+    /**
+     * Escape a value that lands inside an inline handler attribute, e.g. onclick="f('${...}')".
+     *
+     * escapeHtml() is NOT sufficient there. The HTML parser decodes entities in an attribute value
+     * BEFORE the JavaScript is parsed, so an escaped &#39; turns back into a real quote and closes
+     * the string. These \uXXXX forms contain no character the HTML parser will act on, and JS turns
+     * them back into the literal character inside the string, which is what we want.
+     */
+    function escapeJsAttr(value) {
+      if (value === null || value === undefined) return '';
+      var s = String(value);
+      var esc = String.fromCharCode(92) + 'u';   // the two chars that begin a \uXXXX escape
+      var out = '';
+      for (var i = 0; i < s.length; i++) {
+        var c = s.charAt(i);
+        // Allowlist, not blocklist: anything not plainly safe becomes a \uXXXX escape. A
+        // blocklist must anticipate every dangerous character; this cannot be defeated by omission.
+        var safe = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                   (c >= '0' && c <= '9') || c === '_' || c === '-';
+        out += safe ? c : esc + ('000' + s.charCodeAt(i).toString(16)).slice(-4);
+      }
+      return out;
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       localStorage.removeItem('cheat_aviator_force_crashed');
       localStorage.removeItem('cheat_aviator_instant_crash');
@@ -1167,6 +1196,42 @@
       if (gate) gate.remove();
     }
 
+    /**
+     * Add the Super Admin Console link, but only when the server says the ?superadmin_key=... in the
+     * URL is the right one.
+     *
+     * The token is never shipped to the browser and never compared here — the page sends its
+     * candidate and the server answers yes/no — so reading this source tells an attacker that the
+     * mechanism exists but not the value that satisfies it. Getting a yes reveals a link and nothing
+     * more: superadmin.html still demands the super-admin login, and every figure it shows is behind
+     * require_superadmin server-side.
+     */
+    function maybeRevealSuperAdminEntry() {
+      const key = new URLSearchParams(window.location.search).get('superadmin_key');
+      if (!key) return;   // no key, no request, no trace in the network log
+
+      fetch('api/admin/superadmin-entry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ key: key })
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (!data || data.ok !== true) return;
+          const actions = document.getElementById('admin-header-actions');
+          if (!actions || document.getElementById('superAdminEntryLink')) return;
+
+          const link = document.createElement('a');
+          link.id = 'superAdminEntryLink';
+          link.href = 'superadmin.html';
+          link.className = 'btn btn-ghost';
+          link.style.cssText = 'padding:6px 12px; font-size:12.5px; text-decoration:none; display:flex; align-items:center; border-color:#5b7fff; color:#8fa3ff;';
+          link.textContent = '📊 Super Admin Console';
+          actions.prepend(link);
+        })
+        .catch(() => { /* stay hidden on any failure */ });
+    }
+
     function lockAdminConsole() {
       document.documentElement.classList.add('admin-locked');
       const gate = document.getElementById('admin-boot-gate');
@@ -1187,6 +1252,7 @@
             localStorage.setItem('bet1x_admin_logged_in', 'true');
             removeAdminLoginOverlay();
             unlockAdminConsole();
+            maybeRevealSuperAdminEntry();
             loadStats();
             renderAllTabs();
 
@@ -1622,7 +1688,7 @@
           const qrSourceLabel = d.qr_type === 'custom' ? '📁 Gallery Upload' : '🖼️ Platform Default';
           row.innerHTML = `
             <td><code>${d.deposit_id}</code></td>
-            <td><b>${d.username}</b></td>
+            <td><b>${escapeHtml(d.username)}</b></td>
             <td style="color:var(--green); font-weight:700; font-family:var(--font-mono);">+₹${parseFloat(d.amount).toFixed(2)}</td>
             <td>
               <code style="font-family:var(--font-mono); font-weight:bold; color:var(--gold); background:#0d0f12; padding:2px 6px; border-radius:4px; border:1px solid var(--border);">${d.utr || 'N/A'}</code>
@@ -1792,9 +1858,9 @@
           const row = document.createElement('tr');
           row.innerHTML = `
             <td><code>${t.id}</code></td>
-            <td><b>${t.user}</b></td>
+            <td><b>${escapeHtml(t.user)}</b></td>
             <td style="color:var(--red); font-weight:700; font-family:var(--font-mono);">-₹${parseFloat(t.amount).toFixed(2)}</td>
-            <td>${t.details || ''}</td>
+            <td>${escapeHtml(t.details || '')}</td>
             <td><span style="font-size:11.5px; color:var(--text-dim);">${t.timestamp}</span></td>
             <td>
               <button class="btn-action approve" onclick="approveWithdraw('${t.id}')">Approve</button>
@@ -2727,7 +2793,7 @@
 
           html += `
             <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 8px; border-bottom:1px solid rgba(255,255,255,0.04); font-size:11.5px;">
-              <span style="font-weight:700; color:#fff;">👤 ${b.username}</span>
+              <span style="font-weight:700; color:#fff;">👤 ${escapeHtml(b.username)}</span>
               <span style="background:${badgeBg}; color:${badgeCol}; border:1px solid ${badgeCol}; font-weight:800; font-size:10px; padding:2px 7px; border-radius:3px;">
                 ${b.category.toUpperCase()}: ${b.value}
               </span>
@@ -3069,7 +3135,7 @@
         if (turnEl) {
           const turnPlayer = state.seats.find(s => s.seat === state.turn_seat);
           turnEl.textContent = state.status === 'playing'
-            ? `Turn: ${turnPlayer ? turnPlayer.username : '?'} (${state.time_left}s)`
+            ? `Turn: ${escapeHtml(turnPlayer ? turnPlayer.username : '?')} (${state.time_left}s)`
             : state.status === 'finished' ? 'Round ended' : 'Waiting for players';
         }
         if (potEl) potEl.textContent = `Pot: ₹${state.pot}`;
@@ -3322,8 +3388,8 @@
           return `
             <div style="border:1px solid #242f3d; border-radius:6px; padding:7px 9px; margin-bottom:6px; background:#0d0f12;">
               <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div><b style="color:#fff;">${u.username}</b>${targetedTag}</div>
-                <button type="button" onclick="detonateMinesSessionNow('${u.username}')" style="background:#ef4444; color:#fff; font-weight:800; font-size:9.5px; padding:3px 8px; border:none; border-radius:4px; cursor:pointer;">⚡ DETONATE NOW</button>
+                <div><b style="color:#fff;">${escapeHtml(u.username)}</b>${targetedTag}</div>
+                <button type="button" onclick="detonateMinesSessionNow('${escapeJsAttr(u.username)}')" style="background:#ef4444; color:#fff; font-weight:800; font-size:9.5px; padding:3px 8px; border:none; border-radius:4px; cursor:pointer;">⚡ DETONATE NOW</button>
               </div>
               <div style="color:var(--text-dim); margin-top:3px; font-size:10.5px;">
                 Bet ₹${u.bet.toFixed(2)} &middot; ${u.revealed} revealed &middot; ${u.multiplier.toFixed(2)}x &middot; would pay ₹${u.potential_payout.toFixed(2)} if cashed out now
@@ -3654,9 +3720,9 @@
               return `
                 <tr style="border-bottom:1px solid #1a222d; height:28px;">
                   <td style="text-align:center;">
-                    <input type="checkbox" ${isChecked ? 'checked' : ''} ${isTrapped ? 'disabled' : ''} onchange="toggleMinesUserSelection('${u.username}')" style="cursor:pointer;">
+                    <input type="checkbox" ${isChecked ? 'checked' : ''} ${isTrapped ? 'disabled' : ''} onchange="toggleMinesUserSelection('${escapeJsAttr(u.username)}')" style="cursor:pointer;">
                   </td>
-                  <td><b>${u.username}</b></td>
+                  <td><b>${escapeHtml(u.username)}</b></td>
                   <td><span style="font-size:9px; padding:1px 5px; border-radius:3px; ${badgeStyle}">${u.type}</span></td>
                   <td style="font-family:var(--font-mono); color:var(--gold); font-weight:bold;">₹${u.bet}</td>
                   <td>${u.revealed || 0} Gems</td>
@@ -4479,7 +4545,7 @@
             <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; border-bottom: 1px solid #1a222d; font-size: 11.5px;">
               <div style="display: flex; align-items: center; gap: 6px;">
                 <span style="font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; ${badgeStyle}">${typeLabel}</span>
-                <span style="font-weight: 700; color: ${b.is_dummy ? 'var(--text-dim)' : 'var(--text-light)'};">${b.username}</span>
+                <span style="font-weight: 700; color: ${b.is_dummy ? 'var(--text-dim)' : 'var(--text-light)'};">${escapeHtml(b.username)}</span>
               </div>
               <div style="display: flex; align-items: center; gap: 12px;">
                 <span style="${statusStyle}">${statusText}</span>

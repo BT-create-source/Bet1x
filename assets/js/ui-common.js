@@ -405,7 +405,7 @@ function updateAuthHeaderUI() {
   if (user && user.username) {
     authArea.innerHTML = `
       <div style="display:flex; align-items:center; gap:10px; color:var(--text); font-size:13.5px; flex-wrap:wrap; justify-content:flex-end;">
-        <span>Welcome, <strong style="color:var(--gold);">${user.username}</strong></span>
+        <span>Welcome, <strong style="color:var(--gold);">${escapeHtml(user.username)}</strong></span>
         <span class="wallet-chip" data-wallet-chip style="margin:0;">₹ ${getWallet().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         <a href="${prefix}cashier.html" style="background:var(--gold, #c9a054); color:#000; font-weight:800; font-size:12px; padding:6px 12px; border-radius:4px; text-decoration:none; display:inline-flex; align-items:center; gap:4px; box-shadow:0 0 12px rgba(201,160,84,0.4);">💰 Deposit</a>
         <a href="#" onclick="handleHeaderLogout(event)" style="color:var(--red); font-weight:700; text-decoration:none; font-size:12.5px; border-left:1px solid var(--border); padding-left:10px;">Logout ⎋</a>
@@ -868,10 +868,22 @@ window.showToast = function(msg, type = 'success') {
   
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  toast.innerHTML = `
-    <span>${msg}</span>
-    <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
-  `;
+
+  // The message is assigned as TEXT, not markup. Callers routinely interpolate values that came
+  // from a user — "Welcome back, ${username}!", "Detonated ${username}'s session" — and this used
+  // to be innerHTML, which made every one of those call sites an XSS sink without any of them
+  // looking like one. Setting textContent here fixes them all at once and cannot regress when a
+  // new caller is added. Toast messages are plain sentences; none of them need markup.
+  const msgSpan = document.createElement('span');
+  msgSpan.textContent = msg;
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'toast-close';
+  closeBtn.innerHTML = '&times;';
+  closeBtn.addEventListener('click', () => toast.remove());
+
+  toast.appendChild(msgSpan);
+  toast.appendChild(closeBtn);
   container.appendChild(toast);
   
   setTimeout(() => {
@@ -1023,13 +1035,13 @@ function updateNavbarAuth() {
             <div class="user-dropdown-wrapper">
               <button class="nav-user-btn" onclick="toggleUserDropdown(event)">
                 <span class="user-avatar-dot"></span>
-                <span>${currentUser.username}</span>
+                <span>${escapeHtml(currentUser.username)}</span>
                 <span class="dropdown-chevron">▼</span>
               </button>
               <div class="nav-user-dropdown" id="navUserDropdown">
                 <div class="dropdown-header">
-                  <div class="dropdown-username">${currentUser.username}</div>
-                  <div class="dropdown-email">${currentUser.email || (currentUser.username + '@bet1x.com')}</div>
+                  <div class="dropdown-username">${escapeHtml(currentUser.username)}</div>
+                  <div class="dropdown-email">${escapeHtml(currentUser.email || (currentUser.username + '@bet1x.com'))}</div>
                 </div>
                 <div class="dropdown-divider"></div>
                 <a href="cashier.html" class="dropdown-item">💰 Deposit & Withdraw</a>
