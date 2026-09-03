@@ -567,13 +567,29 @@ select {
 
 /* Splash Screen */
 /* Splash Screen */
+/* =================================================================================================
+   Splash screen.
+
+   Rebuilt on request in the site's own light palette. The previous version painted a near-black
+   backdrop (#0e121b -> #05060a) with a dark glass card, which is the one surface on the site that
+   contradicted the light exchange theme every other page uses — it read as a different product for
+   the second before the lobby appeared.
+
+   Everything below is expressed in the theme tokens (--bg, --surface, --red, --gold, --text...), so
+   it follows the palette rather than restating it, and the overlay is appended to <body>, which
+   carries .exchange-theme, so those tokens resolve to the light values. Fallbacks are the light
+   values too, for the operator pages that do not carry that class.
+   ================================================================================================= */
 .splash-skip .bet1x-splash-overlay {
   display: none !important;
 }
 .bet1x-splash-overlay {
   position: fixed;
   inset: 0;
-  background: radial-gradient(circle at center, #0e121b 0%, #05060a 100%);
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(255, 201, 60, 0.16) 0%, transparent 60%),
+    radial-gradient(900px 500px at 50% 110%, rgba(245, 48, 63, 0.10) 0%, transparent 60%),
+    linear-gradient(165deg, #fffaf8 0%, #ffffff 45%, #fff3ef 100%);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -582,45 +598,45 @@ select {
   opacity: 1;
   visibility: visible;
   cursor: pointer;
-  transition: opacity 0.35s cubic-bezier(0.77, 0, 0.175, 1), visibility 0.35s;
+  transition: opacity 0.45s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.45s;
 }
 
-/* Premium Gold/Amber Auroras */
+/* Soft brand blooms. Kept well under 0.2 opacity: on a light ground anything stronger stops
+   reading as atmosphere and starts looking like a rendering artefact. */
 .splash-aurora {
   position: absolute;
   border-radius: 50%;
-  filter: blur(140px);
-  opacity: 0.15;
-  mix-blend-mode: screen;
+  filter: blur(120px);
+  opacity: 0.5;
   pointer-events: none;
 }
 .aurora-1 {
-  width: 500px;
-  height: 500px;
-  background: radial-gradient(circle, rgba(201, 160, 84, 0.6) 0%, transparent 70%);
-  top: -15%;
-  left: -10%;
-  animation: auroraMove1 12s infinite alternate ease-in-out;
+  width: 520px;
+  height: 520px;
+  background: radial-gradient(circle, rgba(245, 48, 63, 0.18) 0%, transparent 70%);
+  top: -18%;
+  left: -12%;
+  animation: auroraMove1 14s infinite alternate ease-in-out;
 }
 .aurora-2 {
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, rgba(139, 92, 26, 0.5) 0%, transparent 70%);
-  bottom: -20%;
-  right: -10%;
-  animation: auroraMove2 15s infinite alternate ease-in-out;
+  width: 620px;
+  height: 620px;
+  background: radial-gradient(circle, rgba(255, 201, 60, 0.22) 0%, transparent 70%);
+  bottom: -22%;
+  right: -12%;
+  animation: auroraMove2 17s infinite alternate ease-in-out;
 }
 
 @keyframes auroraMove1 {
   0% { transform: translate(0, 0) scale(1); }
-  100% { transform: translate(120px, 90px) scale(1.3); }
+  100% { transform: translate(110px, 80px) scale(1.25); }
 }
 @keyframes auroraMove2 {
   0% { transform: translate(0, 0) scale(1); }
-  100% { transform: translate(-140px, -80px) scale(1.2); }
+  100% { transform: translate(-120px, -70px) scale(1.18); }
 }
 
-/* Floating Gold Dust Particles */
+/* Rising motes, in brand red/gold rather than the old gold-on-black dust. */
 .splash-particles {
   position: absolute;
   width: 100%;
@@ -635,137 +651,149 @@ select {
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: rgba(201, 160, 84, 0.35);
-  box-shadow: 0 0 10px rgba(201, 160, 84, 0.6);
-  animation: particleFloat 5s infinite linear;
+  background: rgba(245, 48, 63, 0.30);
+  animation: particleFloat 6s infinite linear;
 }
-.sp-particle.p1 { left: 15%; width: 3px; height: 3px; animation-delay: 0.5s; animation-duration: 4.8s; }
-.sp-particle.p2 { left: 30%; width: 5px; height: 5px; background: rgba(255, 215, 0, 0.3); animation-delay: 1.2s; animation-duration: 4.2s; }
-.sp-particle.p3 { left: 45%; width: 4px; height: 4px; animation-delay: 0.2s; animation-duration: 5.5s; }
-.sp-particle.p4 { left: 60%; width: 3px; height: 3px; background: rgba(201, 160, 84, 0.4); animation-delay: 2s; animation-duration: 4.5s; }
-.sp-particle.p5 { left: 75%; width: 6px; height: 6px; animation-delay: 0.8s; animation-duration: 5.2s; }
-.sp-particle.p6 { left: 85%; width: 2px; height: 2px; animation-delay: 1.5s; animation-duration: 3.8s; }
-.sp-particle.p7 { left: 10%; width: 4px; height: 4px; background: rgba(255, 215, 0, 0.25); animation-delay: 2.5s; animation-duration: 6s; }
-.sp-particle.p8 { left: 92%; width: 5px; height: 5px; animation-delay: 3s; animation-duration: 4.4s; }
+.sp-particle.p1 { left: 14%; width: 4px; height: 4px; animation-delay: 0.4s; animation-duration: 6.4s; }
+.sp-particle.p2 { left: 29%; width: 6px; height: 6px; background: rgba(255, 201, 60, 0.42); animation-delay: 1.4s; animation-duration: 5.6s; }
+.sp-particle.p3 { left: 44%; width: 3px; height: 3px; animation-delay: 0.2s; animation-duration: 7s; }
+.sp-particle.p4 { left: 58%; width: 5px; height: 5px; background: rgba(255, 201, 60, 0.34); animation-delay: 2.2s; animation-duration: 6s; }
+.sp-particle.p5 { left: 72%; width: 4px; height: 4px; animation-delay: 0.9s; animation-duration: 6.8s; }
+.sp-particle.p6 { left: 86%; width: 3px; height: 3px; background: rgba(255, 201, 60, 0.38); animation-delay: 1.7s; animation-duration: 5.2s; }
+.sp-particle.p7 { left: 9%;  width: 5px; height: 5px; animation-delay: 2.8s; animation-duration: 7.4s; }
+.sp-particle.p8 { left: 93%; width: 4px; height: 4px; background: rgba(255, 201, 60, 0.30); animation-delay: 3.2s; animation-duration: 6.2s; }
 
 @keyframes particleFloat {
   0% { transform: translateY(0) scale(0.5); opacity: 0; }
-  15% { opacity: 0.8; }
-  85% { opacity: 0.8; }
-  100% { transform: translateY(-105vh) scale(1.2); opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translateY(-105vh) scale(1.1); opacity: 0; }
 }
 
-/* Glassmorphic Loading Box */
+/* The card. A white surface with a warm, tinted shadow — a neutral grey drop shadow on a warm
+   ground is the detail that usually makes a light layout look cheap. */
 .bet1x-splash-content {
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 15px;
+  gap: 0;
   position: relative;
   z-index: 10;
-  background: rgba(15, 18, 26, 0.45);
-  backdrop-filter: blur(25px);
-  -webkit-backdrop-filter: blur(25px);
-  border: 1px solid rgba(201, 160, 84, 0.15);
-  padding: 45px 50px;
-  border-radius: 28px;
-  box-shadow: 0 30px 70px rgba(0,0,0,0.7), inset 0 1px 1px rgba(255,255,255,0.06);
-  animation: splashZoomIn 1s cubic-bezier(0.19, 1, 0.22, 1);
-  width: 380px;
-  max-width: 90%;
-  height: 340px;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid var(--border, #ffe1dc);
+  padding: 44px 52px 40px;
+  border-radius: 26px;
+  box-shadow:
+    0 24px 60px rgba(110, 20, 35, 0.14),
+    0 4px 14px rgba(110, 20, 35, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  animation: splashZoomIn 0.85s cubic-bezier(0.19, 1, 0.22, 1) both;
+  width: 360px;
+  max-width: calc(100% - 40px);
   box-sizing: border-box;
 }
 
 @keyframes splashZoomIn {
-  0% { transform: scale(0.95); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
+  0%   { transform: translateY(14px) scale(0.97); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
 }
 
-/* Brand Emblem */
+/* Emblem: a conic red-to-gold arc sweeping around a white core. Replaces the dashed grey ring,
+   which on a light ground read as an unstyled loading spinner. */
 .splash-emblem-container {
   position: relative;
-  width: 90px;
-  height: 90px;
-  margin-bottom: 12px;
+  width: 84px;
+  height: 84px;
+  margin-bottom: 22px;
 }
 .splash-ring {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  inset: 0;
   border-radius: 50%;
-  border: 2px dashed rgba(201, 160, 84, 0.15);
-  border-top-color: var(--gold, #c9a054);
-  border-bottom-color: var(--gold, #c9a054);
-  animation: ringRotate 3.5s infinite linear;
+  background: conic-gradient(
+    from 0deg,
+    var(--red, #f5303f) 0deg,
+    var(--gold, #ffc93c) 130deg,
+    rgba(255, 201, 60, 0) 240deg,
+    rgba(245, 48, 63, 0) 300deg,
+    var(--red, #f5303f) 360deg);
+  animation: ringRotate 2.8s infinite linear;
+  /* Ring, not disc: mask the centre out so the core sits inside it cleanly. */
+  -webkit-mask: radial-gradient(circle, transparent 61%, #000 62%);
+  mask: radial-gradient(circle, transparent 61%, #000 62%);
 }
 .splash-logo-center {
   position: absolute;
-  top: 15px;
-  left: 15px;
-  width: 60px;
-  height: 60px;
+  top: 13px;
+  left: 13px;
+  width: 58px;
+  height: 58px;
   border-radius: 50%;
-  background: #0d0f14;
-  border: 1px solid rgba(201, 160, 84, 0.25);
+  background: #ffffff;
+  border: 1px solid var(--border, #ffe1dc);
   display: flex;
   justify-content: center;
   align-items: center;
-  box-shadow: 0 0 25px rgba(201, 160, 84, 0.15), inset 0 0 12px rgba(201, 160, 84, 0.05);
+  box-shadow: 0 6px 16px rgba(110, 20, 35, 0.12);
 }
+/* The mark inside the ring. Filled from CSS so the markup stays an empty span. */
 .splash-dot-core {
-  font-size: 26px;
-  animation: corePulse 2s infinite ease-in-out;
+  font-family: var(--font-display, 'Baloo 2', 'Segoe UI', sans-serif);
+  font-size: 21px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--red, #f5303f);
   display: flex;
   align-items: center;
   justify-content: center;
-  line-height: 1;
+  animation: corePulse 2.4s infinite ease-in-out;
+}
+.splash-dot-core::before {
+  content: "1x";
 }
 
 @keyframes ringRotate {
-  0% { transform: rotate(0deg); }
+  0%   { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
 @keyframes corePulse {
-  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 4px rgba(201, 160, 84, 0.5)); }
-  50% { transform: scale(1.15); filter: drop-shadow(0 0 14px rgba(201, 160, 84, 0.9)); }
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.08); }
 }
 
-/* Brand Typography */
+/* Wordmark, matching the header's treatment: dark maroon "bet" + red "1x". */
 .bet1x-splash-logo-text {
-  font-family: var(--font-display, 'Outfit', 'Inter', sans-serif);
-  font-size: 48px;
+  font-family: var(--font-display, 'Baloo 2', 'Segoe UI', sans-serif);
+  font-size: 44px;
   font-weight: 800;
-  color: #fff;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  margin-bottom: 4px;
-  background: linear-gradient(135deg, #ffffff 40%, var(--gold, #c9a054) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5));
+  color: var(--text, #3a1620);
+  letter-spacing: -0.02em;
+  text-transform: none;
+  line-height: 1;
+  margin-bottom: 26px;
 }
 .bet1x-splash-logo-text .accent-text {
-  background: linear-gradient(135deg, var(--gold, #c9a054), #fff);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--red, #f5303f);
 }
 
-/* Loader progress container */
+/* Progress bar */
 .splash-loader-container {
-  margin-top: 8px;
-  margin-bottom: 12px;
+  width: 100%;
+  margin: 0 0 18px;
+  display: flex;
+  justify-content: center;
 }
 .splash-loader-bar-modern {
-  width: 200px;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
+  width: 190px;
+  height: 5px;
+  background: var(--surface-2, #fff1ee);
+  border: 1px solid var(--border, #ffe1dc);
+  border-radius: 999px;
   overflow: hidden;
   position: relative;
 }
@@ -775,35 +803,53 @@ select {
   left: 0;
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, var(--gold, #c9a054), #ffffff, var(--gold, #c9a054));
+  background: linear-gradient(90deg, var(--red, #f5303f), var(--gold, #ffc93c), var(--red, #f5303f));
   background-size: 200% auto;
-  border-radius: 10px;
-  animation: loadProgressModern 2.0s cubic-bezier(0.19, 1, 0.22, 1) forwards, progressMove 1.8s infinite linear;
+  border-radius: 999px;
+  animation: loadProgressModern 2.0s cubic-bezier(0.19, 1, 0.22, 1) forwards,
+             progressMove 1.8s infinite linear;
 }
 .splash-scan-line {
-  display: none; /* Removed in favor of gradient progressMove */
+  display: none; /* superseded by the gradient sweep above */
 }
 
 @keyframes loadProgressModern {
-  0% { width: 0%; }
+  0%   { width: 0%; }
   100% { width: 100%; }
 }
 @keyframes progressMove {
-  0% { background-position: 0% 50%; }
+  0%   { background-position: 0% 50%; }
   100% { background-position: 200% 50%; }
 }
 
-/* Tagline */
+/* Status line */
 .bet1x-splash-tagline {
+  font-family: var(--font-body, 'Poppins', 'Segoe UI', sans-serif);
   font-size: 10px;
-  font-family: var(--font-mono, monospace);
-  color: var(--text-dim, #8f9cae);
-  letter-spacing: 0.25em;
+  font-weight: 600;
+  color: var(--text-dim, #8b6b70);
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   min-height: 16px;
-  opacity: 0.7;
 }
 
+@media (max-width: 480px) {
+  .bet1x-splash-content { padding: 38px 28px 34px; width: 320px; }
+  .bet1x-splash-logo-text { font-size: 38px; }
+}
+
+/* Users who prefer reduced motion get the same layout, held still. */
+@media (prefers-reduced-motion: reduce) {
+  .splash-aurora,
+  .sp-particle,
+  .splash-ring,
+  .splash-dot-core,
+  .splash-progress-modern,
+  .bet1x-splash-content {
+    animation: none !important;
+  }
+  .splash-progress-modern { width: 100%; }
+}
 
 /* Auth Modal Overlay */
 .auth-modal-overlay {
@@ -2680,64 +2726,10 @@ body.exchange-theme .footer {
   left: 0;
 }
 
-/* Fixed Bottom Navigation Bar for mobile viewports — matches docs/NEW-DESIGN section 4.8 */
-.mobile-bottom-nav {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 60px;
-  background: #fff6f4;
-  border-top: 1px solid var(--border);
-  display: none; /* Hidden on desktop */
-  justify-content: space-around;
-  align-items: center;
-  z-index: 1001;
-  box-shadow: 0 -4px 12px rgba(110,20,35,0.08);
-  padding-bottom: env(safe-area-inset-bottom); /* iOS safe area support */
-}
-.mobile-bottom-nav-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-dim);
-  text-decoration: none;
-  font-size: 11px;
-  font-weight: 700;
-  gap: 4px;
-  flex: 1;
-  height: 100%;
-  transition: color 0.15s;
-}
-.mobile-bottom-nav-item.active {
-  color: var(--red);
-}
-.mobile-bottom-nav-item .nav-icon {
-  font-size: 20px;
-}
-/* One item (the closest analogue to the reference's elevated "Get Money" button) gets a
-   raised circular gold/red badge instead of a plain icon. */
-.mobile-bottom-nav-item--cta {
-  color: var(--red) !important;
-  position: relative;
-}
-.mobile-bottom-nav-item--cta .nav-icon {
-  position: absolute;
-  top: -22px;
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  background: linear-gradient(160deg, var(--gold), var(--gold-deep));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  box-shadow: 0 4px 10px rgba(232,151,26,0.5), 0 0 0 4px #fff6f4;
-}
-.mobile-bottom-nav-item--cta .nav-label {
-  margin-top: 20px;
-}
+/* The fixed mobile bottom navigation bar was removed on request. Its markup is gone from
+   index.html (the only page that carried it) and the <=768px body bottom padding that
+   reserved space for it is removed further down, so the page no longer leaves a 66px gap
+   at the foot on phones. */
 
 /* Dismissible top promo strip — docs/NEW-DESIGN section 4.1 */
 .promo-strip {
@@ -2808,14 +2800,6 @@ body.exchange-theme .footer {
 
 /* Media Query adaptations */
 @media (max-width: 768px) {
-  body {
-    padding-bottom: 66px !important; /* Offset sticky bottom nav bar height */
-  }
-  
-  .mobile-bottom-nav {
-    display: flex !important;
-  }
-  
   .mobile-hamburger-btn {
     display: flex !important;
   }
