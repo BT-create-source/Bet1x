@@ -5,6 +5,40 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>bet1x — Live Prediction Exchange</title>
+
+  <!--
+    Splash pre-boot.
+
+    The splash overlay is injected from ui-common.js on DOMContentLoaded, which is far too late: the
+    browser paints as it parses, so the lobby was fully on screen for a moment BEFORE the splash
+    appeared over it — the page flashed, then the splash ran, then the page came back.
+
+    This hides the lobby from the very first paint, so the splash is the first thing seen. It must
+    stay inline and ahead of the stylesheet link: a separate file is another request that can lose
+    the race, which is the exact problem being fixed.
+
+    Everything here fails safe. The class is only added when the splash is actually going to run
+    (same sessionStorage key ui-common.js checks), any error leaves the page visible, and the
+    watchdog reveals the page after 6s even if the script never runs at all — nothing can leave a
+    visitor staring at a blank screen.
+  -->
+  <style>
+    html.splash-booting body > *:not(#bet1x-splash) { visibility: hidden !important; }
+    html.splash-booting body { background: #fff8f5; }
+  </style>
+  <script>
+    (function () {
+      try {
+        if (!sessionStorage.getItem('bet1x_splash_shown')) {
+          document.documentElement.classList.add('splash-booting');
+          setTimeout(function () {
+            document.documentElement.classList.remove('splash-booting');
+          }, 6000);
+        }
+      } catch (e) { /* private mode, storage disabled: just show the page */ }
+    })();
+  </script>
+
   <link rel="stylesheet" href="assets/css/style.css?v=2">
 </head>
 
@@ -48,8 +82,7 @@
         <div class="ticker-container">
           <div class="ticker-track" id="liveTickerTrack">
             <span class="ticker-item">Welcome to bet1x Live Exchange! Play responsibly.</span>
-            <span class="ticker-item">All transaction histories and wallets are securely synchronized to
-              PostgreSQL.</span>
+            <span class="ticker-item">All transaction histories and wallets are securely synchronized.</span>
           </div>
         </div>
         <button type="button" class="ticker-detail-btn"
@@ -61,9 +94,9 @@
         <div class="banner-track" id="bannerTrack">
           <div class="banner-slide" style="background-image: url('assets/banners/banner_cyber.jpg');"></div>
           <div class="banner-slide" style="background-image: url('assets/banners/banner_cricket.jpg');"></div>
-          <div class="banner-slide" style="background-image: url('assets/banners/banner1.png');"></div>
-          <div class="banner-slide" style="background-image: url('assets/banners/banner2.png');"></div>
-          <div class="banner-slide" style="background-image: url('assets/banners/banner3.png');"></div>
+          <div class="banner-slide" style="background-image: url('assets/banners/banner1.jpg');"></div>
+          <div class="banner-slide" style="background-image: url('assets/banners/banner2.jpg');"></div>
+          <div class="banner-slide" style="background-image: url('assets/banners/banner3.jpg');"></div>
           <div class="banner-slide" style="background-image: url('assets/banners/banner_cyber.jpg');"></div>
         </div>
         <!-- Prev/Next arrows -->
@@ -87,6 +120,7 @@
           <li class="sub-navbar-item"><a href="aviator.html" class="sub-navbar-link">Vimaan</a></li>
           <li class="sub-navbar-item"><a href="win.html" class="sub-navbar-link">Sapre</a></li>
           <li class="sub-navbar-item"><a href="win1.html" class="sub-navbar-link">Becone</a></li>
+          <li class="sub-navbar-item"><a href="win2.html" class="sub-navbar-link">Emred</a></li>
           <li class="sub-navbar-item"><a href="teenpatti.html" class="sub-navbar-link">Teen Patti</a></li>
           <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
           <li data-feature="cricket" class="sub-navbar-item"><a href="youreleven.html" class="sub-navbar-link">Your 11</a></li>
@@ -238,8 +272,26 @@
             </div>
           </a>
 
-          <!-- Game 8: VIP High-Roller Room -->
-          <a href="win3.html" class="game-cover-card" data-category="all color cards"
+          <!-- Game 8: Emred Color Trading (3m) -->
+          <a href="win2.html" class="game-cover-card" data-category="all color"
+            title="Emred 3-Minute Color Prediction">
+            <div class="game-cover-card-bg" style="background-image: url('assets/game_sapre.jpg');"></div>
+            <div class="game-cover-card-overlay"></div>
+            <div class="game-cover-top">
+              <span class="game-badge-category game-badge-category--purple">COLOR 3M</span>
+              <span class="game-badge-live"><span class="live-dot"></span>Steady</span>
+            </div>
+            <div class="game-cover-bottom">
+              <div class="game-cover-title">Emred Color</div>
+              <div class="game-cover-meta">
+                <span>3-Min Rounds</span>
+                <span class="game-cover-action">Play &rsaquo;</span>
+              </div>
+            </div>
+          </a>
+
+          <!-- Game 9: VIP High-Roller Room -->
+          <a href="win3.html" class="game-cover-card" data-category="all color"
             title="VIP High-Roller Color Room">
             <div class="game-cover-card-bg" style="background-image: url('assets/game_sapre.jpg');"></div>
             <div class="game-cover-card-overlay"></div>
@@ -282,9 +334,9 @@
         <li class="exchange-menu-item"
           style="background: rgba(201,160,84,0.12); border: 1px solid var(--gold); border-radius:4px; margin-bottom:6px;">
           <a href="cashier.html" style="color:var(--gold-deep); font-weight:800;">💰 Wallet & Deposit <span
-              class="exchange-menu-chevron" style="color:var(--gold-deep);">›</span></a>
+              class="exchange-menu-chevron">›</span></a>
         </li>
-        <li class="exchange-menu-item"><a href="aviator.html" style="color:var(--red);">Vimaan (Aviator) <span
+        <li class="exchange-menu-item"><a href="aviator.html">Vimaan (Aviator) <span
               class="exchange-menu-chevron">›</span></a></li>
         <li class="exchange-menu-item"><a href="win.html">Sapre (30s Color) <span
               class="exchange-menu-chevron">›</span></a></li>
@@ -296,12 +348,12 @@
               class="exchange-menu-chevron">›</span></a></li>
         <li class="exchange-menu-item"><a href="teenpatti.html">Teen Patti <span
               class="exchange-menu-chevron">›</span></a></li>
-        <li class="exchange-menu-item"><a href="mining.html" style="color:var(--gold-deep);">Mines Game <span
-              class="exchange-menu-chevron" style="color:var(--gold-deep);">›</span></a></li>
-        <li data-feature="cricket" class="exchange-menu-item"><a href="youreleven.html" style="color:var(--green);">Your 11 (Fantasy Cricket)
-            <span class="exchange-menu-chevron" style="color:var(--green);">›</span></a></li>
-        <li data-feature="cricket" class="exchange-menu-item"><a href="boundarybaazi.html" style="color:var(--violet);">Boundary Baazi <span
-              class="exchange-menu-chevron" style="color:var(--violet);">›</span></a></li>
+        <li class="exchange-menu-item"><a href="mining.html">Mines Game <span
+              class="exchange-menu-chevron">›</span></a></li>
+        <li data-feature="cricket" class="exchange-menu-item"><a href="youreleven.html">Your 11 (Fantasy Cricket)
+            <span class="exchange-menu-chevron">›</span></a></li>
+        <li data-feature="cricket" class="exchange-menu-item"><a href="boundarybaazi.html">Boundary Baazi <span
+              class="exchange-menu-chevron">›</span></a></li>
         <li class="exchange-menu-item"><a href="parity.html">Admin Monitor <span
               class="exchange-menu-chevron">›</span></a></li>
       </ul>
@@ -666,7 +718,7 @@
        real, already-existing destinations on this page. -->
   <div class="fab-stack">
     <a href="#liveChatMessages" class="fab-btn fab-btn--support" title="Live chat"
-      onclick="document.getElementById('liveChatMessages')?.scrollIntoView({behavior:'smooth'}); document.getElementById('liveChatInput')?.focus();">🎧</a>
+      onclick="document.getElementById('liveChatMessages')?.scrollIntoView({behavior:'smooth'}); document.getElementById('liveChatInput')?.focus();">💬</a>
     <a href="cashier.html" class="fab-btn fab-btn--bonus" title="Wallet & Deposit">💰</a>
   </div>
 
@@ -682,7 +734,7 @@
     </div>
     <ul class="exchange-menu-list"
       style="flex:1; overflow-y:auto; margin:0; border:none; border-radius:0; background:var(--surface);">
-      <li class="exchange-menu-item"><a href="aviator.html" style="color:var(--red);">Vimaan (Aviator) <span
+      <li class="exchange-menu-item"><a href="aviator.html">Vimaan (Aviator) <span
             class="exchange-menu-chevron">›</span></a></li>
       <li class="exchange-menu-item"><a href="win.html">Sapre (30s Color) <span
             class="exchange-menu-chevron">›</span></a></li>

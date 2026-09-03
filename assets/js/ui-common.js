@@ -1114,6 +1114,17 @@ function updateNavbarAuth() {
   }
 }
 
+/**
+ * Reveal the lobby that index.html's pre-boot script hid.
+ *
+ * That script adds html.splash-booting before first paint so the page cannot flash into view ahead
+ * of the splash. This is the counterpart: every path that ends the splash calls it, so the class is
+ * never left on. index.html also runs a 6s watchdog in case this file fails to load at all.
+ */
+function endSplashBoot() {
+  document.documentElement.classList.remove('splash-booting');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   // 1. Inject and animate Splash Screen (only on initial website load in this tab session)
   const isSplashShown = sessionStorage.getItem('bet1x_splash_shown');
@@ -1191,6 +1202,7 @@ document.addEventListener('DOMContentLoaded', () => {
       splash.style.opacity = '0';
       splash.style.pointerEvents = 'none';
       document.body.style.overflow = '';
+      endSplashBoot();
       setTimeout(() => splash.remove(), 250);
     };
 
@@ -1199,9 +1211,11 @@ document.addEventListener('DOMContentLoaded', () => {
       splash.style.opacity = '0';
       splash.style.pointerEvents = 'none';
       document.body.style.overflow = '';
+      endSplashBoot();
       setTimeout(() => splash.remove(), 400);
     }, 2000);
   } else {
+    endSplashBoot();
     const staticSplash = document.getElementById('bet1x-splash');
     if (staticSplash) {
       staticSplash.remove();
