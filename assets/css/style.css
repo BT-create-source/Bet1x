@@ -2788,6 +2788,20 @@ body.exchange-theme .footer {
 .fab-btn--support { background: linear-gradient(160deg, #ffd8a8, #ff9a5a); }
 .fab-btn--bonus { background: linear-gradient(160deg, var(--red), var(--red-deep)); }
 
+/* Keep the Live Chat send button clear of the floating action stack.
+
+   .fab-stack above is position:fixed at right:14px and 46px wide, so it covers the rightmost ~60px
+   of the VIEWPORT at every width and every scroll position. The chat card sits at the right edge of
+   the page on desktop and full-width on a phone, so in both cases its Send button lands underneath
+   those buttons and cannot be clicked.
+   
+   This was originally fixed only inside the <=768px media query, which left the identical problem
+   on laptops — the FAB is not a mobile-only element. Applying it unscoped fixes both, and costs the
+   input 66px it can afford in either layout. !important because index.html sets padding inline. */
+.live-chat-input-wrap {
+  padding-right: 66px !important;
+}
+
 @media (min-width: 769px) {
   .fab-stack { bottom: 74px; }
 }
@@ -2823,13 +2837,6 @@ body.exchange-theme .footer {
   /* Sits directly under the main content rather than after a collapsed menu's leftover margin. */
   .exchange-left-sidebar > .live-chat-card {
     margin-top: 0 !important;
-  }
-  /* The floating action stack is position:fixed at right:14px and 46px wide, so it occupies the
-     right ~60px of every screen at any scroll position — which lands exactly on top of the chat's
-     Send button once the chat is visible on a phone. Keep the row clear of that strip so Send is
-     actually tappable. !important because the padding is set inline on the element. */
-  .live-chat-input-wrap {
-    padding-right: 66px !important;
   }
 }
 
