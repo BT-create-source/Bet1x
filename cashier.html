@@ -573,7 +573,7 @@
   <div class="footer">
     bet1x — Cashier & Wallet. UPI Payment and UTR Verification system.
   </div>
-
+
   <script src="assets/js/ui-common.js"></script>
   <script src="assets/js/sound-fx.js"></script>
   <script src="assets/js/qrcode-gen.js"></script>
@@ -688,7 +688,15 @@
         return;
       }
       
-      fetch('api/wallet.php?action=transactions')
+      // /api/wallet.php implements ONE thing: a balance adjustment keyed on `delta`. It has no
+      // `action=transactions` branch, so this request used to return {"success":true,"new_balance":N}
+      // — not an array — and the `!Array.isArray(txns)` guard below rendered "No transactions found."
+      // every single time. The player's deposit and withdrawal history was therefore always empty,
+      // however many rows the Transaction table actually held.
+      //
+      // /api/wallet/transactions is the real endpoint: require_auth, filtered to the signed-in
+      // account via acting_username(), newest first, and already the exact shape rendered below.
+      fetch('api/wallet/transactions')
       .then(res => res.json())
       .then(txns => {
         tbody.innerHTML = '';
