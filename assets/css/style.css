@@ -739,22 +739,16 @@ select {
   justify-content: center;
   align-items: center;
   box-shadow: 0 6px 16px rgba(110, 20, 35, 0.12);
+  overflow: hidden;
 }
-/* The mark inside the ring. Filled from CSS so the markup stays an empty span. */
+/* The real bet1x badge, not a typographic stand-in. Set from CSS so the markup stays an empty span
+   (ui-common.js is untouched). The same file the header uses, so the two never drift apart. */
 .splash-dot-core {
-  font-family: var(--font-display, 'Baloo 2', 'Segoe UI', sans-serif);
-  font-size: 21px;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: -0.02em;
-  color: var(--red, #f5303f);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
+  width: 46px;
+  height: 46px;
+  background: url('../logo-icon.png') center / contain no-repeat;
   animation: corePulse 2.4s infinite ease-in-out;
-}
-.splash-dot-core::before {
-  content: "1x";
 }
 
 @keyframes ringRotate {
@@ -2812,9 +2806,30 @@ body.exchange-theme .footer {
     display: none !important;
   }
 
-  /* Hide static desktop menu sidebar on mobile to prevent redundancy */
+  /* The sidebar's MENU is redundant on mobile — the hamburger drawer already lists the same
+     destinations — but the Platform Live Chat lives in the same <aside>, so hiding the whole
+     element took the chat off the phone layout entirely. Hide the two menu children and keep the
+     chat.
+
+     The `>` matters: .exchange-menu-header is also the class on the chat card's own "Platform Live
+     Chat" title bar, so an unscoped rule would hide that heading and leave a headless chat box. */
   .exchange-left-sidebar {
+    display: block !important;
+  }
+  .exchange-left-sidebar > .exchange-menu-header,
+  .exchange-left-sidebar > .exchange-menu-list {
     display: none !important;
+  }
+  /* Sits directly under the main content rather than after a collapsed menu's leftover margin. */
+  .exchange-left-sidebar > .live-chat-card {
+    margin-top: 0 !important;
+  }
+  /* The floating action stack is position:fixed at right:14px and 46px wide, so it occupies the
+     right ~60px of every screen at any scroll position — which lands exactly on top of the chat's
+     Send button once the chat is visible on a phone. Keep the row clear of that strip so Send is
+     actually tappable. !important because the padding is set inline on the element. */
+  .live-chat-input-wrap {
+    padding-right: 66px !important;
   }
 }
 

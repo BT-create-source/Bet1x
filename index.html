@@ -259,12 +259,16 @@
         </div>
       </div>
 
-      <!-- Compact Global Quick Stats Bar -->
+      <!-- Compact Global Quick Stats Bar.
+           Values are computed from the clock by updateQuickStats() at the bottom of this file, not
+           hardcoded — the previous fixed 14,812 / 345,129 / 4.8M / 97.2% never moved, so anyone who
+           opened the site twice could see it was decoration. The markup ships empty placeholders so
+           a stale figure can never be what a visitor is left looking at if the script fails. -->
       <div class="exchange-quick-stats">
-        <div class="quick-stat-item">👥 Active: <strong style="color:var(--green)">14,812</strong></div>
-        <div class="quick-stat-item">🎯 Bets Today: <strong style="color:var(--gold-deep)">345,129</strong></div>
-        <div class="quick-stat-item">💰 Volume: <strong style="color:var(--violet)">PTS 4.8M</strong></div>
-        <div class="quick-stat-item">⚡ Payout: <strong style="color:#00e676">97.2%</strong></div>
+        <div class="quick-stat-item">👥 Active: <strong style="color:var(--green)" id="qsActive">—</strong></div>
+        <div class="quick-stat-item">🎯 Bets Today: <strong style="color:var(--gold-deep)" id="qsBets">—</strong></div>
+        <div class="quick-stat-item">💰 Volume: <strong style="color:var(--violet)" id="qsVolume">—</strong></div>
+        <div class="quick-stat-item">⚡ Payout: <strong style="color:#00e676" id="qsPayout">—</strong></div>
       </div>
     </main>
 
@@ -700,6 +704,92 @@
             class="exchange-menu-chevron">›</span></a></li>
     </ul>
   </div>
+
+  <script>
+    /* ===========================================================================================
+       Lobby quick-stats.
+
+       These four figures used to be hardcoded (14,812 active / 345,129 bets / 4.8M / 97.2%). They
+       never changed, so anyone who opened the site twice could see they were decoration.
+
+       They are still illustrative rather than a live count of real players — the platform does not
+       expose a public metrics feed — but they now behave the way a real counter behaves:
+
+         - Everything is derived from the CLOCK, not from Math.random(). Two visitors loading the
+           page at the same moment see the same numbers, which a random figure could never manage,
+           and a refresh does not make the "active" count jump around implausibly.
+         - "Active" starts at 2,423 just after midnight and climbs across the day in 48 half-hourly
+           steps (the ~40-50 increments asked for), following a mild evening-weighted curve rather
+           than a straight line.
+         - "Bets Today" and "Volume" are today-counters, so they accumulate every minute from
+           midnight and reset with the date, which is what makes a second visit later in the day
+           show visibly different figures.
+         - Everything is scaled off the same active count, so the four numbers stay consistent with
+           each other instead of drifting into an impossible combination.
+       =========================================================================================== */
+    (function () {
+      var STEPS_PER_DAY = 48;                        // one "active" step every 30 minutes
+      var STEP_MINUTES  = 1440 / STEPS_PER_DAY;
+      var ACTIVE_AT_MIDNIGHT = 2423;                 // the requested starting point
+      var ACTIVE_DAILY_GAIN  = 2700;                 // climbs to roughly 5.1k by late evening
+
+      function fmtInt(n) {
+        return Math.round(n).toLocaleString('en-IN');
+      }
+
+      function fmtVolume(n) {
+        if (n >= 1000000) return 'PTS ' + (n / 1000000).toFixed(1) + 'M';
+        if (n >= 1000)    return 'PTS ' + (n / 1000).toFixed(1) + 'K';
+        return 'PTS ' + Math.round(n);
+      }
+
+      // Small deterministic wobble in [-1, 1] from an integer seed, so the payout figure varies
+      // between steps without ever being random per-visitor.
+      function wobble(seed) {
+        var x = Math.sin(seed * 12.9898) * 43758.5453;
+        return (x - Math.floor(x)) * 2 - 1;
+      }
+
+      function updateQuickStats() {
+        var elActive  = document.getElementById('qsActive');
+        var elBets    = document.getElementById('qsBets');
+        var elVolume  = document.getElementById('qsVolume');
+        var elPayout  = document.getElementById('qsPayout');
+        if (!elActive || !elBets || !elVolume || !elPayout) return;
+
+        var now  = new Date();
+        var mins = now.getHours() * 60 + now.getMinutes();
+        var step = Math.floor(mins / STEP_MINUTES);
+
+        // Evening-weighted ramp: quiet mornings, busiest late. Exponent > 1 keeps the early hours
+        // flatter than a straight line would.
+        var dayFraction = step / STEPS_PER_DAY;
+        var curve = Math.pow(dayFraction, 1.35);
+        var active = ACTIVE_AT_MIDNIGHT + Math.round(ACTIVE_DAILY_GAIN * curve);
+
+        // Today-counters: accumulate with the minute, so they differ on nearly every visit and
+        // reset at midnight along with the date.
+        var betsToday = Math.round(mins * (active / 60) * 0.35);
+        var volume    = betsToday * 118;             // ~PTS 118 average stake
+
+        // Payout drifts inside a narrow, believable band.
+        var payout = 96.4 + wobble(step) * 0.9;
+
+        elActive.textContent = fmtInt(active);
+        elBets.textContent   = fmtInt(betsToday);
+        elVolume.textContent = fmtVolume(volume);
+        elPayout.textContent = payout.toFixed(1) + '%';
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', updateQuickStats);
+      } else {
+        updateQuickStats();
+      }
+      // Keeps a page left open on screen drifting rather than frozen.
+      setInterval(updateQuickStats, 60000);
+    })();
+  </script>
 </body>
 
 </html>
