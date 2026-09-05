@@ -161,6 +161,55 @@ psql -U DBUSER -d DBNAME -f php-backend/sql/migration-002-risk-controls-postgres
 Additive and safe on a live database. Without it the withdrawal/abuse checks degrade to permissive
 rather than erroring, so applying it is what actually switches them on.
 
+### Apply the phone-verification migration
+
+Only needed if you intend to turn phone verification on. PostgreSQL only — `lib/db.php` connects
+with a `pgsql:` DSN and the upsert in `lib/otp.php` uses `ON CONFLICT`, so this backend does not run
+on MySQL regardless of what `sql/schema.sql` suggests.
+
+```bash
+psql -U DBUSER -d DBNAME -f php-backend/sql/migration-003-phone-otp-postgres.sql
+```
+
+Additive and re-runnable: it adds `User.phone` / `User.phone_verified`, a **partial** unique index on
+`User.phone` covering only rows where a number is set, and the `PhoneOtp` table. Existing accounts
+all have `phone IS NULL`, so none of them collide and none are retroactively locked out.
+
+**No shell access, and phpPgAdmin logs you in as the wrong role?** This is common on cPanel:
+`ALTER TABLE` and `CREATE INDEX` both require being the table's *owner* (or a superuser), which a
+plain "grant all privileges" from cPanel's PostgreSQL Databases page does not confer, and cPanel's
+phpPgAdmin single-sign-on logs in as the bare cPanel account rather than the owner role — with no
+way from that UI to pick a different one. `php-backend/tools/apply-otp-migration.php` runs this
+migration by opening its own connection as whichever role you give it (the owner), bypassing
+phpPgAdmin entirely; see the usage instructions in that file's docblock for the CLI and
+browser-only paths. It self-deletes once every statement applies cleanly.
+
+### Phone verification at signup
+
+Off unless `PHONE_VERIFICATION_REQUIRED=true`. With it off, nothing about signup changes and no SMS
+is ever sent — so the code can be deployed well before the SMS account is ready.
+
+**Verification happens once, at signup.** Logging in afterwards is username and password only; no
+code is sent on login. The running cost is therefore one SMS per new account, not one per session.
+
+| Variable | Notes |
+|---|---|
+| `PHONE_VERIFICATION_REQUIRED` | The master switch. In production, turning it on with an empty `FAST2SMS_API_KEY` is a **boot failure** rather than a silent one — otherwise every signup would fail with no clue why. |
+| `FAST2SMS_API_KEY` | Server-side only; it never reaches the browser. Anyone holding it can spend the account's SMS balance. |
+| `FAST2SMS_ROUTE` | `otp`, `dlt` or `q`. Indian transactional SMS requires DLT registration with TRAI, so which of these works is a property of the Fast2SMS account. Start with `otp`. |
+| `FAST2SMS_SENDER_ID`, `FAST2SMS_MESSAGE_ID` | Only for the `dlt` route. |
+| `OTP_TTL_SECONDS`, `OTP_MAX_ATTEMPTS`, `OTP_RESEND_COOLDOWN_SEC`, `OTP_MAX_SENDS_PER_DAY` | Abuse brakes, defaulting to 300 / 5 / 60 / 8. Every send is billed, so these are cost controls too. A per-IP cap sits on top of them in `lib/ratelimit.php` and catches the other axis — one attacker walking through many numbers. |
+
+Turn it on only after sending yourself a test code. With the switch on and a bad key, nobody can
+register at all.
+
+The frontend needs no configuration: it reads `phone_verification` from `/api/health` and shows the
+phone fields only when that reports true.
+
+> The verification is never taken on the browser's word. `/api/otp/verify` records it server-side and
+> signup re-checks it with `otp_is_verified()`, then deletes the row so one code cannot register a
+> second account. A client that simply posts `verified: true` gets a rejected signup.
+
 
 
 ```bash

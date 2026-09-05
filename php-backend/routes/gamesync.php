@@ -17,6 +17,9 @@ require_once __DIR__ . '/../lib/botengine.php';
 // It happens to be loaded already via routes/auth.php, but depending on another route file's
 // includes would break the moment registration order changed.
 require_once __DIR__ . '/../lib/riskcontrols.php';
+// The legacy signup proxy below enforces phone verification when it is switched on.
+require_once __DIR__ . '/../lib/otp.php';
+require_once __DIR__ . '/../lib/sms.php';
 require_once __DIR__ . '/../games/color.php';
 require_once __DIR__ . '/../games/aviator.php';
 require_once __DIR__ . '/../games/teenpatti.php';
@@ -783,6 +786,35 @@ function register_gamesync_routes(Router $app) {
                     return;
                 }
 
+                // --- Phone verification -------------------------------------------------------
+                // Only enforced when PHONE_VERIFICATION_REQUIRED is on, so the feature ships dark
+                // and existing accounts are unaffected.
+                //
+                // The check is otp_is_verified(), which reads the server's own record of the
+                // verification. It deliberately does NOT trust anything the browser sends: a client
+                // that simply posts "verified: true" proves nothing, and a client that replays an
+                // old verification is caught by the freshness window inside that function.
+                $phone = null;
+                if (cfg('PHONE_VERIFICATION_REQUIRED')) {
+                    $phone = sms_normalise_indian_mobile($req->b('phone') ?? $req->q('phone'));
+                    if ($phone === null) {
+                        $res->status(400)->json(['error' => 'Enter a valid 10-digit Indian mobile number.']);
+                        return;
+                    }
+                    if (!otp_is_verified($phone)) {
+                        $res->status(400)->json(['error' => 'Please verify your mobile number first.']);
+                        return;
+                    }
+                    // Re-check here, not only in /api/otp/send: two signups could have raced between
+                    // that check and this one, and the partial unique index on User.phone is the
+                    // final backstop either way.
+                    $phoneTaken = one('SELECT "id" FROM "User" WHERE "phone" = ? LIMIT 1', [$phone]);
+                    if ($phoneTaken) {
+                        $res->status(409)->json(['error' => 'This number is already registered.']);
+                        return;
+                    }
+                }
+
                 // This legacy path is the one the shipped frontend actually posts to, so the abuse
                 // controls have to live here too. Without them SIGNUP_MAX_PER_IP_PER_DAY counted
                 // registrations by an IP column that this route never wrote, so the cap could never
@@ -801,16 +833,20 @@ function register_gamesync_routes(Router $app) {
                 // signup_ip / bonus_credited come from migration-002; fall back to the original
                 // column set so a database that has not had it applied still registers users.
                 try {
-                    q('INSERT INTO "User" ("username","email","password","wallet_balance","created_at","signup_ip","bonus_credited")
-                       VALUES (?,?,?,?,?,?,?)',
+                    q('INSERT INTO "User" ("username","email","password","wallet_balance","created_at","signup_ip","bonus_credited","phone","phone_verified")
+                       VALUES (?,?,?,?,?,?,?,?,?)',
                       [$username, $email, $hashed, $startingBalance, ms_to_sql(),
-                       $signupIp, $startingBalance > 0 ? 1 : 0]);
+                       $signupIp, $startingBalance > 0 ? 1 : 0,
+                       $phone, $phone === null ? 0 : 1]);
                 } catch (Throwable $colErr) {
                     log_debug('legacy signup falling back to pre-migration-002 column set: ' . $colErr->getMessage());
                     q('INSERT INTO "User" ("username","email","password","wallet_balance","created_at") VALUES (?,?,?,?,?)',
                       [$username, $email, $hashed, $startingBalance, ms_to_sql()]);
                 }
                 $user = find_user_ci($username);
+
+                // Spend the verification so one code cannot register a second account.
+                if ($phone !== null) otp_consume($phone);
 
                 $res->json([
                     'success' => true,

@@ -804,6 +804,25 @@ window.handleAuthSubmit = function(e, type) {
       return;
     }
 
+    // Phone verification, when the deployment has it switched on. The number is sent so the server
+    // can match it against the verification it recorded; the server decides, not this check, which
+    // only saves a round trip and gives a clearer message than a rejected signup would.
+    let verifiedPhone = null;
+    if (window.bet1xPhoneVerify && window.bet1xPhoneVerify.enabled) {
+      verifiedPhone = normaliseMobileInput(document.getElementById('signup-phone').value);
+      if (!verifiedPhone) {
+        errEl.textContent = 'Enter a valid 10-digit Indian mobile number.';
+        errEl.style.display = 'block';
+        return;
+      }
+      if (!window.bet1xPhoneVerify.verified ||
+          window.bet1xPhoneVerify.verifiedPhone !== verifiedPhone) {
+        errEl.textContent = 'Please verify your mobile number first.';
+        errEl.style.display = 'block';
+        return;
+      }
+    }
+
     if (submitBtn) submitBtn.disabled = true;
     
     const body = new URLSearchParams();
@@ -811,6 +830,7 @@ window.handleAuthSubmit = function(e, type) {
     body.append('email', `${userInp.toLowerCase()}@bet1x.com`);
     body.append('password', passInp);
     body.append('confirm_password', confirmPassInp);
+    if (verifiedPhone) body.append('phone', verifiedPhone);
     
     fetch(prefix + 'api/auth.php?action=signup', {
       method: 'POST',
@@ -986,6 +1006,250 @@ window.resetDemoWallet = function() {
   });
 };
 
+/* ============================================================
+   Phone verification for signup
+   ============================================================
+   Everything below is a convenience layer, not a security boundary. The server records the
+   verification itself and re-checks it when the account is created, so a player who flips
+   bet1xPhoneVerify.verified in the console gets a rejected signup, not a free account.
+   ------------------------------------------------------------ */
+
+window.bet1xPhoneVerify = {
+  enabled: false,       // what /api/health reported; until it answers, the block stays hidden
+  probed: false,        // the probe runs once per page load, not once per modal open
+  verified: false,      // this browser saw /api/otp/verify succeed
+  verifiedPhone: '',    // for exactly these ten digits — a later edit invalidates it
+  cooldownTimer: null
+};
+
+// Digits only, and never more than the last ten of them.
+//
+// Taking the LAST ten rather than the first is what makes a pasted +91 98765 43210 or 09876543210
+// come out as 9876543210 instead of 9198765432 — the country code and the trunk 0 both sit in
+// front, so keeping the leading ten is exactly the wrong end to keep.
+function trimMobileDigits(raw) {
+  const digits = String(raw || '').replace(/\D/g, '');
+  return digits.length > 10 ? digits.slice(-10) : digits;
+}
+
+// Accepts the shapes people actually type — 9876543210, 09876543210, +919876543210 — and returns
+// the bare ten digits, or null. Mirrors sms_normalise_indian_mobile() on the server, which is the
+// one that counts; this copy only exists to fail fast without spending a request.
+function normaliseMobileInput(raw) {
+  const local = trimMobileDigits(raw);
+  return /^[6-9]\d{9}$/.test(local) ? local : null;
+}
+
+function setOtpStatus(msg, kind) {
+  const el = document.getElementById('signup-otp-status');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.style.color = kind === 'error'   ? '#ff6b6b'
+                 : kind === 'success' ? '#2ecc71'
+                 : 'var(--text-dim)';
+}
+
+function showSignupError(msg) {
+  const errEl = document.getElementById('signup-error');
+  if (!errEl) return;
+  errEl.textContent = msg;
+  errEl.style.display = 'block';
+}
+
+// Ticks the resend button down so the player can see when retrying is worth it, instead of pressing
+// a dead button and being told off by the per-phone cooldown.
+function startOtpCooldown(seconds) {
+  const btn = document.getElementById('signup-otp-send');
+  if (!btn) return;
+  const state = window.bet1xPhoneVerify;
+  if (state.cooldownTimer) clearInterval(state.cooldownTimer);
+  let left = Math.max(0, parseInt(seconds, 10) || 0);
+  if (left === 0) { btn.disabled = false; btn.textContent = 'Send OTP'; return; }
+  btn.disabled = true;
+  btn.textContent = 'Resend ' + left + 's';
+  state.cooldownTimer = setInterval(() => {
+    left -= 1;
+    if (left <= 0) {
+      clearInterval(state.cooldownTimer);
+      state.cooldownTimer = null;
+      btn.disabled = false;
+      btn.textContent = 'Resend OTP';
+    } else {
+      btn.textContent = 'Resend ' + left + 's';
+    }
+  }, 1000);
+}
+
+window.sendSignupOtp = function () {
+  const input = document.getElementById('signup-phone');
+  const btn = document.getElementById('signup-otp-send');
+  if (!input || !btn) return;
+
+  const phone = normaliseMobileInput(input.value);
+  if (!phone) {
+    showSignupError('Enter a valid 10-digit Indian mobile number.');
+    return;
+  }
+  document.getElementById('signup-error').style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+
+  fetch(getApiPrefix() + 'api/otp/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone: phone })
+  })
+    .then(res => res.json().then(data => ({ ok: res.ok, data })))
+    .then(result => {
+      const data = result.data || {};
+      if (!result.ok || !data.success) {
+        btn.disabled = false;
+        btn.textContent = 'Send OTP';
+        showSignupError(data.error || 'Could not send the verification code.');
+        // A 429 carries the seconds left, so honour it rather than letting them hammer the button.
+        if (data.retry_after) startOtpCooldown(data.retry_after);
+        return;
+      }
+      document.getElementById('signup-otp-group').style.display = '';
+      const otpInput = document.getElementById('signup-otp');
+      if (otpInput) { otpInput.value = ''; otpInput.focus(); }
+      setOtpStatus('Code sent to ' + phone + '. It expires in '
+                   + Math.max(1, Math.round((data.expires_in || 300) / 60)) + ' minutes.');
+      startOtpCooldown(data.retry_after || 60);
+    })
+    .catch(err => {
+      console.warn('OTP send error:', err);
+      btn.disabled = false;
+      btn.textContent = 'Send OTP';
+      showSignupError('Cannot reach the server. Please check your connection and try again.');
+    });
+};
+
+window.verifySignupOtp = function () {
+  const phoneInput = document.getElementById('signup-phone');
+  const otpInput = document.getElementById('signup-otp');
+  const btn = document.getElementById('signup-otp-verify');
+  if (!phoneInput || !otpInput || !btn) return;
+
+  const phone = normaliseMobileInput(phoneInput.value);
+  if (!phone) { setOtpStatus('Enter a valid 10-digit mobile number.', 'error'); return; }
+  const code = otpInput.value.trim();
+  if (!code) { setOtpStatus('Enter the code that was sent to your phone.', 'error'); return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Checking...';
+  setOtpStatus('Checking the code...');
+
+  fetch(getApiPrefix() + 'api/otp/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone: phone, otp: code })
+  })
+    .then(res => res.json().then(data => ({ ok: res.ok, data })))
+    .then(result => {
+      const data = result.data || {};
+      btn.disabled = false;
+      btn.textContent = 'Verify';
+      if (!result.ok || !data.verified) {
+        setOtpStatus(data.error || 'That code is not correct.', 'error');
+        return;
+      }
+      const state = window.bet1xPhoneVerify;
+      state.verified = true;
+      state.verifiedPhone = phone;
+      setOtpStatus('Number verified. You can create your account now.', 'success');
+      btn.disabled = true;
+      otpInput.disabled = true;
+      const sendBtn = document.getElementById('signup-otp-send');
+      if (sendBtn) {
+        if (state.cooldownTimer) { clearInterval(state.cooldownTimer); state.cooldownTimer = null; }
+        sendBtn.disabled = true;
+        sendBtn.textContent = 'Verified';
+      }
+    })
+    .catch(err => {
+      console.warn('OTP verify error:', err);
+      btn.disabled = false;
+      btn.textContent = 'Verify';
+      setOtpStatus('Cannot reach the server. Please check your connection and try again.', 'error');
+    });
+};
+
+// Editing the number after verifying has to throw the verification away — otherwise the form would
+// happily submit a freshly typed number carrying the previous one's approval. The server would
+// reject it anyway; catching it here just explains why.
+function resetPhoneVerification() {
+  const state = window.bet1xPhoneVerify;
+  const phoneEl = document.getElementById('signup-phone');
+  if (!phoneEl) return;
+  const phone = normaliseMobileInput(phoneEl.value);
+  if (!state.verified || phone === state.verifiedPhone) return;
+
+  state.verified = false;
+  state.verifiedPhone = '';
+  const otpGroup = document.getElementById('signup-otp-group');
+  const otpInput = document.getElementById('signup-otp');
+  const sendBtn = document.getElementById('signup-otp-send');
+  const verifyBtn = document.getElementById('signup-otp-verify');
+  if (otpGroup) otpGroup.style.display = 'none';
+  if (otpInput) { otpInput.disabled = false; otpInput.value = ''; }
+  if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.textContent = 'Verify'; }
+  if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send OTP'; }
+  setOtpStatus('');
+}
+
+// Asks the backend whether the signup form should collect a phone number at all. If the probe fails
+// the block stays hidden and signup behaves as it always did; should verification actually be on,
+// the server rejects that signup with its own message, which is the correct place for the decision.
+function probePhoneVerification() {
+  const state = window.bet1xPhoneVerify;
+  if (state.probed) { applyPhoneVerificationVisibility(); return; }
+  state.probed = true;
+
+  fetch(getApiPrefix() + 'api/health')
+    .then(res => res.json())
+    .then(data => {
+      state.enabled = !!(data && data.phone_verification);
+      applyPhoneVerificationVisibility();
+    })
+    .catch(err => {
+      console.warn('Phone-verification probe failed, leaving signup unchanged:', err);
+    });
+}
+
+function applyPhoneVerificationVisibility() {
+  const block = document.getElementById('signup-phone-block');
+  if (!block) return;
+  block.style.display = window.bet1xPhoneVerify.enabled ? '' : 'none';
+  const phoneInput = document.getElementById('signup-phone');
+  if (phoneInput) phoneInput.required = window.bet1xPhoneVerify.enabled;
+}
+
+function wireSignupPhoneVerification() {
+  const sendBtn = document.getElementById('signup-otp-send');
+  const verifyBtn = document.getElementById('signup-otp-verify');
+  const phoneInput = document.getElementById('signup-phone');
+  const otpInput = document.getElementById('signup-otp');
+  if (sendBtn) sendBtn.addEventListener('click', window.sendSignupOtp);
+  if (verifyBtn) verifyBtn.addEventListener('click', window.verifySignupOtp);
+  if (phoneInput) {
+    phoneInput.addEventListener('input', () => {
+      phoneInput.value = trimMobileDigits(phoneInput.value);
+      resetPhoneVerification();
+    });
+  }
+  if (otpInput) {
+    otpInput.addEventListener('input', () => {
+      otpInput.value = otpInput.value.replace(/\D/g, '').slice(0, 8);
+    });
+    // Enter inside the code field should verify, not submit a form that is not ready yet.
+    otpInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); window.verifySignupOtp(); }
+    });
+  }
+  probePhoneVerification();
+}
+
 function injectAuthModal() {
   if (document.getElementById('bet1x-auth-modal')) return;
   const modal = document.createElement('div');
@@ -1027,12 +1291,43 @@ function injectAuthModal() {
           <label for="signup-confirm-password">Confirm Password</label>
           <input type="password" id="signup-confirm-password" placeholder="Confirm password" required autocomplete="new-password">
         </div>
+
+        <!-- Phone verification. The whole block is hidden unless the backend reports that
+             verification is switched on, so with the feature off the form is exactly as it was. -->
+        <div id="signup-phone-block" style="display:none;">
+          <div class="auth-form-group">
+            <label for="signup-phone">Mobile Number</label>
+            <div style="display:flex; gap:8px;">
+              <!-- maxlength is 16, not 10, so that pasting "+91 98765 43210" is not truncated to
+                   "+91 98765 " before the input handler can reduce it to the ten digits. -->
+              <input type="tel" id="signup-phone" placeholder="10-digit mobile" autocomplete="tel"
+                     inputmode="numeric" maxlength="16" style="flex:1;">
+              <button type="button" id="signup-otp-send" class="btn btn-ghost"
+                      style="white-space:nowrap; padding:0 14px;">Send OTP</button>
+            </div>
+          </div>
+          <div class="auth-form-group" id="signup-otp-group" style="display:none;">
+            <label for="signup-otp">Enter OTP</label>
+            <div style="display:flex; gap:8px;">
+              <input type="text" id="signup-otp" placeholder="6-digit code" inputmode="numeric"
+                     maxlength="8" autocomplete="one-time-code" style="flex:1;">
+              <button type="button" id="signup-otp-verify" class="btn btn-ghost"
+                      style="white-space:nowrap; padding:0 14px;">Verify</button>
+            </div>
+            <div id="signup-otp-status" style="font-size:12px; margin-top:6px; color:var(--text-dim);"></div>
+          </div>
+        </div>
+
         <div id="signup-error" class="auth-error-msg">Passwords do not match.</div>
         <button type="submit" class="btn btn-primary btn-block" style="margin-top: 10px; color: #000; font-weight:700;">Create Account</button>
       </form>
     </div>
   `;
   document.body.appendChild(modal);
+
+  // The modal is injected once per page, so this is also the right place to hook up the phone
+  // fields and ask the backend whether they should be shown at all.
+  wireSignupPhoneVerification();
 }
 
 function updateNavbarAuth() {

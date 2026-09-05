@@ -54,6 +54,9 @@ function register_auth_routes(Router $app) {
             'status'    => 'ok',
             'service'   => 'bet1x-backend',
             'env'       => cfg('NODE_ENV'),
+            // Whether the signup form should ask for a phone number. A capability flag, not a
+            // secret — it says the feature is on, never how it is configured or keyed.
+            'phone_verification' => (bool) cfg('PHONE_VERIFICATION_REQUIRED'),
             'timestamp' => js_iso(),
         ]);
     });

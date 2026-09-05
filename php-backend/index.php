@@ -65,6 +65,7 @@ require_once __DIR__ . '/games/teenpatti.php';
 require_once __DIR__ . '/games/mines.php';
 
 require_once __DIR__ . '/routes/auth.php';
+require_once __DIR__ . '/routes/otp.php';
 require_once __DIR__ . '/routes/wallet.php';
 require_once __DIR__ . '/routes/chat.php';
 require_once __DIR__ . '/routes/dbgateway.php';
@@ -101,6 +102,9 @@ try {
 
         // 1. Health, readiness, auth  (registers the /api/db/users/{status,login,signup} aliases)
         register_auth_routes($app);
+        // 1b. Phone verification for signup. Public by necessity — the caller has no account yet —
+        //     and rate limited accordingly. Registered here so it sits outside the /api/db gate.
+        register_otp_routes($app);
         // 2. Wallet  (registers /api/db/users/{adjust-balance,reset-balance} and GET /api/db/transactions)
         register_wallet_routes($app);
         // 3. Chat

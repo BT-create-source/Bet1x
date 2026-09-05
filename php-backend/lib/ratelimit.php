@@ -52,6 +52,15 @@ function rate_limiters() {
             'message'  => ['error' => 'You are sending messages too quickly.'],
             'skip'     => 'testing',
         ],
+        // Per-IP brake on verification codes. The per-phone cooldown and daily cap live in
+        // lib/otp.php; this is the other axis — one attacker walking through many numbers, each of
+        // which would pass its own per-phone check while still costing money on every send.
+        'otp' => [
+            'windowMs' => 60 * 60 * 1000,
+            'max'      => 10,
+            'message'  => ['error' => 'Too many verification requests. Please try again later.'],
+            'skip'     => 'testing',
+        ],
         'cashier' => [
             'windowMs' => 60 * 1000,
             'max'      => 10,

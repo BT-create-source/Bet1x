@@ -216,6 +216,36 @@ WITHDRAWAL_DAILY_COUNT_MAX=5
 # farming, and prefer a generous number (25+) over a tight one.
 # SIGNUP_MAX_PER_IP_PER_DAY=0
 
+# --- Phone verification at signup ------------------------------------------------------------------
+# Left OFF so the deployment boots before the SMS account is confirmed working. Turn it on only
+# after sending yourself a test code, because with it on and a bad key NOBODY can register.
+#
+# This is the abuse control the per-IP cap above cannot be: a phone number costs money and effort to
+# obtain, and the partial unique index on User.phone (migration-003) makes one number worth exactly
+# one account, regardless of how many IPs the registrations come from.
+#
+# Verification happens ONCE, at signup. Logging in afterwards is username and password only — no
+# code is sent on login, so the running SMS cost is one message per new account.
+#
+# Requires: psql -f php-backend/sql/migration-003-phone-otp-postgres.sql
+# PHONE_VERIFICATION_REQUIRED=true
+# FAST2SMS_API_KEY=
+#
+# Which Fast2SMS route the account is provisioned for. Indian transactional SMS needs DLT
+# registration with TRAI, so this depends on the Fast2SMS account, not on this code:
+#   otp — their OTP route, Fast2SMS composes the message around the code (simplest)
+#   dlt — a DLT-approved template; also set FAST2SMS_SENDER_ID and FAST2SMS_MESSAGE_ID
+#   q   — the quick route, message text supplied by this app
+# FAST2SMS_ROUTE=otp
+# FAST2SMS_SENDER_ID=
+# FAST2SMS_MESSAGE_ID=
+#
+# The abuse brakes. Every send is billed, so these are cost controls as much as security ones:
+# OTP_TTL_SECONDS=300            # how long a code stays valid
+# OTP_MAX_ATTEMPTS=5             # wrong guesses before the code is burned
+# OTP_RESEND_COOLDOWN_SEC=60     # seconds between two sends to one number
+# OTP_MAX_SENDS_PER_DAY=8        # sends per number per rolling 24h
+
 # --- Operations ----------------------------------------------------------------------------------
 LOG_LEVEL=error
 APP_TIMEZONE=Asia/Kolkata
