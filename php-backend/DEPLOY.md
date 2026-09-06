@@ -210,6 +210,37 @@ phone fields only when that reports true.
 > signup re-checks it with `otp_is_verified()`, then deletes the row so one code cannot register a
 > second account. A client that simply posts `verified: true` gets a rejected signup.
 
+**Currently parked**: Fast2SMS's OTP route needs an account-side enablement step (their API answers
+`status_code: 996` — "complete website verification" — with no self-service toggle visible in the
+dashboard for this account) that is pending on Fast2SMS support. `PHONE_VERIFICATION_REQUIRED` is
+off in production for now. The phone number field is still collected and stored at signup as plain
+contact info (`User.phone`, with `phone_verified` always `0`) — see the "Phone number" comment above
+the signup handler in `routes/gamesync.php`. Turning verification back on once Fast2SMS unblocks the
+account is a config flip (set the flag, confirm a test send, done) — none of this section's code
+changed.
+
+### Email verification at signup (Brevo) — the interim verified channel
+
+Off unless `EMAIL_VERIFICATION_REQUIRED=true`. With it off, signup still asks for an email address
+(format-checked only) but sends no code, exactly like phone verification's dark-ship story above.
+
+| Variable | Notes |
+|---|---|
+| `EMAIL_VERIFICATION_REQUIRED` | The master switch. In production, turning it on with an empty `BREVO_API_KEY` or `BREVO_SENDER_EMAIL` is a **boot failure** rather than a silent one. |
+| `BREVO_API_KEY` | Server-side only; it never reaches the browser. Anyone holding it can send email billed to this account. Get it from the Brevo dashboard under SMTP & API. |
+| `BREVO_SENDER_EMAIL` | Must be a sender address verified on the Brevo account (Brevo dashboard → Senders), or every send is rejected. |
+| `BREVO_SENDER_NAME` | Display name on the "From" line. Defaults to `bet1x`. |
+| `OTP_TTL_SECONDS`, `OTP_MAX_ATTEMPTS`, `OTP_RESEND_COOLDOWN_SEC`, `OTP_MAX_SENDS_PER_DAY` | Shared with phone verification above — same abuse brakes, same defaults. |
+
+Turn it on only after sending yourself a test code (`php-backend/routes/email_otp.php`'s
+`/api/email-otp/send`, or `lib/mailer.php`'s `mailer_send_otp()` directly). With the switch on and a
+bad key, nobody can register at all — exactly the same failure mode as phone verification, so the
+same "test before flipping the switch" discipline applies.
+
+The frontend needs no configuration: it reads `email_verification` from `/api/health` and shows the
+Send OTP / Verify controls only when that reports true; the email field itself is always shown and
+required regardless.
+
 
 
 ```bash

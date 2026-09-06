@@ -54,9 +54,13 @@ function register_auth_routes(Router $app) {
             'status'    => 'ok',
             'service'   => 'bet1x-backend',
             'env'       => cfg('NODE_ENV'),
-            // Whether the signup form should ask for a phone number. A capability flag, not a
-            // secret — it says the feature is on, never how it is configured or keyed.
+            // Whether the signup form should gate on a phone OTP. A capability flag, not a
+            // secret — it says the feature is on, never how it is configured or keyed. Parked
+            // (Fast2SMS's OTP route needs account-side enablement) — the phone number field is
+            // still collected at signup regardless of this flag, just no longer OTP-verified.
             'phone_verification' => (bool) cfg('PHONE_VERIFICATION_REQUIRED'),
+            // Whether the signup form should gate on an email OTP (sent via Brevo).
+            'email_verification' => (bool) cfg('EMAIL_VERIFICATION_REQUIRED'),
             'timestamp' => js_iso(),
         ]);
     });
@@ -142,6 +146,28 @@ function register_auth_routes(Router $app) {
         } catch (Throwable $err) {
             fail500($res, $err, 'auth');
         }
+    });
+
+    // --- Generate a unique username -----------------------------------------------------------
+    //
+    // For the signup form's "Generate" button, when a player would rather not think one up. Public
+    // and unauthenticated by necessity — there is no account yet — but it only ever reads, so it
+    // carries no abuse risk beyond a handful of extra SELECTs; the shared 'api' limiter already
+    // applied to every /api/* route is enough.
+    $app->get('/api/auth/generate-username', function (Req $req, Res $res) {
+        for ($i = 0; $i < 20; $i++) {
+            $candidate = 'Player' . random_int(100000, 999999);
+            try {
+                $exists = one('SELECT "id" FROM "User" WHERE LOWER("username") = LOWER(?) LIMIT 1', [$candidate]);
+            } catch (Throwable $e) {
+                $exists = null; // DB hiccup: still hand back a plausible candidate rather than fail
+            }
+            if (!$exists) {
+                $res->json(['username' => $candidate]);
+                return;
+            }
+        }
+        $res->status(500)->json(['error' => 'Could not generate a unique username. Please try again.']);
     });
 
     // --- Login (username or email + password) ---

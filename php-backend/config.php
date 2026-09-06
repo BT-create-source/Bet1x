@@ -150,13 +150,32 @@ if ($IS_PRODUCTION && $PHONE_VERIFICATION_REQUIRED && $FAST2SMS_API_KEY === '') 
              . 'complete, because no verification code could be sent.';
 }
 
-// OTP behaviour. The defaults are the abuse brakes; every send costs money at the provider, so
-// these are not cosmetic.
+// --- Email verification (Brevo) ------------------------------------------------------------------
+//
+// The replacement verification channel while phone/SMS (Fast2SMS) is parked — see the note on
+// PHONE_VERIFICATION_REQUIRED above. Same master-switch shape: off by default, ships dark, turned
+// on only once BREVO_API_KEY is confirmed working.
+$EMAIL_VERIFICATION_REQUIRED = env_bool('EMAIL_VERIFICATION_REQUIRED', false);
+
+// Brevo (formerly Sendinblue) transactional email API key. Server-side only.
+$BREVO_API_KEY      = (string) env_get('BREVO_API_KEY', '');
+// The "From" address shown to the recipient. Brevo requires this to be a sender verified on the
+// Brevo account, or delivery is rejected.
+$BREVO_SENDER_EMAIL = (string) env_get('BREVO_SENDER_EMAIL', '');
+$BREVO_SENDER_NAME  = (string) env_get('BREVO_SENDER_NAME', 'bet1x');
+
+if ($IS_PRODUCTION && $EMAIL_VERIFICATION_REQUIRED && ($BREVO_API_KEY === '' || $BREVO_SENDER_EMAIL === '')) {
+    $fatal[] = 'EMAIL_VERIFICATION_REQUIRED is on but BREVO_API_KEY / BREVO_SENDER_EMAIL is empty. '
+             . 'No signup could complete, because no verification code could be sent.';
+}
+
+// OTP behaviour, shared by both phone and email verification. The defaults are the abuse brakes;
+// every send costs money at the provider, so these are not cosmetic.
 $OTP_LENGTH                = max(4, min(8, (int) env_num('OTP_LENGTH', 6)));
 $OTP_TTL_SECONDS           = (int) env_num('OTP_TTL_SECONDS', 300);            // code dies after 5 min
 $OTP_MAX_ATTEMPTS          = (int) env_num('OTP_MAX_ATTEMPTS', 5);             // wrong guesses per code
 $OTP_RESEND_COOLDOWN_SEC   = (int) env_num('OTP_RESEND_COOLDOWN_SEC', 60);     // between two sends
-$OTP_MAX_SENDS_PER_DAY     = (int) env_num('OTP_MAX_SENDS_PER_DAY', 8);        // per phone number
+$OTP_MAX_SENDS_PER_DAY     = (int) env_num('OTP_MAX_SENDS_PER_DAY', 8);        // per phone number / email
 
 if ($IS_PRODUCTION) {
     if ($ADMIN_PASSWORD_HASH === '') {
@@ -302,6 +321,10 @@ $CONFIG = [
     'FAST2SMS_ROUTE'                => $FAST2SMS_ROUTE,
     'FAST2SMS_SENDER_ID'            => $FAST2SMS_SENDER_ID,
     'FAST2SMS_MESSAGE_ID'           => $FAST2SMS_MESSAGE_ID,
+    'EMAIL_VERIFICATION_REQUIRED'   => $EMAIL_VERIFICATION_REQUIRED,
+    'BREVO_API_KEY'                 => $BREVO_API_KEY,
+    'BREVO_SENDER_EMAIL'            => $BREVO_SENDER_EMAIL,
+    'BREVO_SENDER_NAME'             => $BREVO_SENDER_NAME,
     'OTP_LENGTH'                    => $OTP_LENGTH,
     'OTP_TTL_SECONDS'               => $OTP_TTL_SECONDS,
     'OTP_MAX_ATTEMPTS'              => $OTP_MAX_ATTEMPTS,

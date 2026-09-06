@@ -804,34 +804,42 @@ window.handleAuthSubmit = function(e, type) {
       return;
     }
 
-    // Phone verification, when the deployment has it switched on. The number is sent so the server
-    // can match it against the verification it recorded; the server decides, not this check, which
-    // only saves a round trip and gives a clearer message than a rejected signup would.
-    let verifiedPhone = null;
-    if (window.bet1xPhoneVerify && window.bet1xPhoneVerify.enabled) {
-      verifiedPhone = normaliseMobileInput(document.getElementById('signup-phone').value);
-      if (!verifiedPhone) {
-        errEl.textContent = 'Enter a valid 10-digit Indian mobile number.';
-        errEl.style.display = 'block';
-        return;
-      }
-      if (!window.bet1xPhoneVerify.verified ||
-          window.bet1xPhoneVerify.verifiedPhone !== verifiedPhone) {
-        errEl.textContent = 'Please verify your mobile number first.';
+    // Phone number: plain contact info, collected but not OTP-verified (see the note in
+    // wireSignupVerification below for why).
+    const phoneVal = normaliseMobileInput(document.getElementById('signup-phone').value);
+    if (!phoneVal) {
+      errEl.textContent = 'Enter a valid 10-digit Indian mobile number.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    // Email, verified via OTP when the deployment has it switched on. The address is sent so the
+    // server can match it against the verification it recorded; the server decides, not this check,
+    // which only saves a round trip and gives a clearer message than a rejected signup would.
+    const emailVal = document.getElementById('signup-email').value.trim();
+    if (!isValidEmail(emailVal)) {
+      errEl.textContent = 'Enter a valid email address.';
+      errEl.style.display = 'block';
+      return;
+    }
+    if (window.bet1xEmailVerify && window.bet1xEmailVerify.enabled) {
+      if (!window.bet1xEmailVerify.verified ||
+          window.bet1xEmailVerify.verifiedEmail !== emailVal.toLowerCase()) {
+        errEl.textContent = 'Please verify your email address first.';
         errEl.style.display = 'block';
         return;
       }
     }
 
     if (submitBtn) submitBtn.disabled = true;
-    
+
     const body = new URLSearchParams();
     body.append('username', userInp);
-    body.append('email', `${userInp.toLowerCase()}@bet1x.com`);
+    body.append('email', emailVal);
+    body.append('phone', phoneVal);
     body.append('password', passInp);
     body.append('confirm_password', confirmPassInp);
-    if (verifiedPhone) body.append('phone', verifiedPhone);
-    
+
     fetch(prefix + 'api/auth.php?action=signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1007,18 +1015,22 @@ window.resetDemoWallet = function() {
 };
 
 /* ============================================================
-   Phone verification for signup
+   Signup verification: phone (plain field) + email (OTP)
    ============================================================
-   Everything below is a convenience layer, not a security boundary. The server records the
-   verification itself and re-checks it when the account is created, so a player who flips
-   bet1xPhoneVerify.verified in the console gets a rejected signup, not a free account.
+   Phone used to be the OTP-gated channel; it is now collected as plain contact info only — see the
+   comment above the phone block in routes/gamesync.php's signup handler for why (Fast2SMS's OTP
+   route needs account-side enablement that is still pending). Email has taken over as the verified
+   channel, sent via Brevo. Everything below the state object is a convenience layer, not a security
+   boundary: the server records the verification itself and re-checks it when the account is
+   created, so a player who flips bet1xEmailVerify.verified in the console gets a rejected signup,
+   not a free account.
    ------------------------------------------------------------ */
 
-window.bet1xPhoneVerify = {
-  enabled: false,       // what /api/health reported; until it answers, the block stays hidden
-  probed: false,        // the probe runs once per page load, not once per modal open
-  verified: false,      // this browser saw /api/otp/verify succeed
-  verifiedPhone: '',    // for exactly these ten digits — a later edit invalidates it
+window.bet1xEmailVerify = {
+  enabled: false,        // what /api/health reported; until it answers, OTP controls stay hidden
+  probed: false,         // the probe runs once per page load, not once per modal open
+  verified: false,       // this browser saw /api/email-otp/verify succeed
+  verifiedEmail: '',     // for exactly this address — a later edit invalidates it
   cooldownTimer: null
 };
 
@@ -1040,8 +1052,13 @@ function normaliseMobileInput(raw) {
   return /^[6-9]\d{9}$/.test(local) ? local : null;
 }
 
-function setOtpStatus(msg, kind) {
-  const el = document.getElementById('signup-otp-status');
+// Mirrors the email regex used server-side; this copy only exists to fail fast without a request.
+function isValidEmail(raw) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(raw || '').trim());
+}
+
+function setEmailOtpStatus(msg, kind) {
+  const el = document.getElementById('signup-email-otp-status');
   if (!el) return;
   el.textContent = msg || '';
   el.style.color = kind === 'error'   ? '#ff6b6b'
@@ -1057,11 +1074,11 @@ function showSignupError(msg) {
 }
 
 // Ticks the resend button down so the player can see when retrying is worth it, instead of pressing
-// a dead button and being told off by the per-phone cooldown.
-function startOtpCooldown(seconds) {
-  const btn = document.getElementById('signup-otp-send');
+// a dead button and being told off by the per-email cooldown.
+function startEmailOtpCooldown(seconds) {
+  const btn = document.getElementById('signup-email-otp-send');
   if (!btn) return;
-  const state = window.bet1xPhoneVerify;
+  const state = window.bet1xEmailVerify;
   if (state.cooldownTimer) clearInterval(state.cooldownTimer);
   let left = Math.max(0, parseInt(seconds, 10) || 0);
   if (left === 0) { btn.disabled = false; btn.textContent = 'Send OTP'; return; }
@@ -1080,24 +1097,24 @@ function startOtpCooldown(seconds) {
   }, 1000);
 }
 
-window.sendSignupOtp = function () {
-  const input = document.getElementById('signup-phone');
-  const btn = document.getElementById('signup-otp-send');
+window.sendSignupEmailOtp = function () {
+  const input = document.getElementById('signup-email');
+  const btn = document.getElementById('signup-email-otp-send');
   if (!input || !btn) return;
 
-  const phone = normaliseMobileInput(input.value);
-  if (!phone) {
-    showSignupError('Enter a valid 10-digit Indian mobile number.');
+  const email = input.value.trim();
+  if (!isValidEmail(email)) {
+    showSignupError('Enter a valid email address.');
     return;
   }
   document.getElementById('signup-error').style.display = 'none';
   btn.disabled = true;
   btn.textContent = 'Sending...';
 
-  fetch(getApiPrefix() + 'api/otp/send', {
+  fetch(getApiPrefix() + 'api/email-otp/send', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ phone: phone })
+    body: JSON.stringify({ email: email })
   })
     .then(res => res.json().then(data => ({ ok: res.ok, data })))
     .then(result => {
@@ -1107,43 +1124,43 @@ window.sendSignupOtp = function () {
         btn.textContent = 'Send OTP';
         showSignupError(data.error || 'Could not send the verification code.');
         // A 429 carries the seconds left, so honour it rather than letting them hammer the button.
-        if (data.retry_after) startOtpCooldown(data.retry_after);
+        if (data.retry_after) startEmailOtpCooldown(data.retry_after);
         return;
       }
-      document.getElementById('signup-otp-group').style.display = '';
-      const otpInput = document.getElementById('signup-otp');
+      document.getElementById('signup-email-otp-group').style.display = '';
+      const otpInput = document.getElementById('signup-email-otp');
       if (otpInput) { otpInput.value = ''; otpInput.focus(); }
-      setOtpStatus('Code sent to ' + phone + '. It expires in '
+      setEmailOtpStatus('Code sent to ' + email + '. It expires in '
                    + Math.max(1, Math.round((data.expires_in || 300) / 60)) + ' minutes.');
-      startOtpCooldown(data.retry_after || 60);
+      startEmailOtpCooldown(data.retry_after || 60);
     })
     .catch(err => {
-      console.warn('OTP send error:', err);
+      console.warn('Email OTP send error:', err);
       btn.disabled = false;
       btn.textContent = 'Send OTP';
       showSignupError('Cannot reach the server. Please check your connection and try again.');
     });
 };
 
-window.verifySignupOtp = function () {
-  const phoneInput = document.getElementById('signup-phone');
-  const otpInput = document.getElementById('signup-otp');
-  const btn = document.getElementById('signup-otp-verify');
-  if (!phoneInput || !otpInput || !btn) return;
+window.verifySignupEmailOtp = function () {
+  const emailInput = document.getElementById('signup-email');
+  const otpInput = document.getElementById('signup-email-otp');
+  const btn = document.getElementById('signup-email-otp-verify');
+  if (!emailInput || !otpInput || !btn) return;
 
-  const phone = normaliseMobileInput(phoneInput.value);
-  if (!phone) { setOtpStatus('Enter a valid 10-digit mobile number.', 'error'); return; }
+  const email = emailInput.value.trim();
+  if (!isValidEmail(email)) { setEmailOtpStatus('Enter a valid email address.', 'error'); return; }
   const code = otpInput.value.trim();
-  if (!code) { setOtpStatus('Enter the code that was sent to your phone.', 'error'); return; }
+  if (!code) { setEmailOtpStatus('Enter the code that was sent to your email.', 'error'); return; }
 
   btn.disabled = true;
   btn.textContent = 'Checking...';
-  setOtpStatus('Checking the code...');
+  setEmailOtpStatus('Checking the code...');
 
-  fetch(getApiPrefix() + 'api/otp/verify', {
+  fetch(getApiPrefix() + 'api/email-otp/verify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ phone: phone, otp: code })
+    body: JSON.stringify({ email: email, otp: code })
   })
     .then(res => res.json().then(data => ({ ok: res.ok, data })))
     .then(result => {
@@ -1151,16 +1168,16 @@ window.verifySignupOtp = function () {
       btn.disabled = false;
       btn.textContent = 'Verify';
       if (!result.ok || !data.verified) {
-        setOtpStatus(data.error || 'That code is not correct.', 'error');
+        setEmailOtpStatus(data.error || 'That code is not correct.', 'error');
         return;
       }
-      const state = window.bet1xPhoneVerify;
+      const state = window.bet1xEmailVerify;
       state.verified = true;
-      state.verifiedPhone = phone;
-      setOtpStatus('Number verified. You can create your account now.', 'success');
+      state.verifiedEmail = email.toLowerCase();
+      setEmailOtpStatus('Email verified. You can create your account now.', 'success');
       btn.disabled = true;
       otpInput.disabled = true;
-      const sendBtn = document.getElementById('signup-otp-send');
+      const sendBtn = document.getElementById('signup-email-otp-send');
       if (sendBtn) {
         if (state.cooldownTimer) { clearInterval(state.cooldownTimer); state.cooldownTimer = null; }
         sendBtn.disabled = true;
@@ -1168,86 +1185,120 @@ window.verifySignupOtp = function () {
       }
     })
     .catch(err => {
-      console.warn('OTP verify error:', err);
+      console.warn('Email OTP verify error:', err);
       btn.disabled = false;
       btn.textContent = 'Verify';
-      setOtpStatus('Cannot reach the server. Please check your connection and try again.', 'error');
+      setEmailOtpStatus('Cannot reach the server. Please check your connection and try again.', 'error');
     });
 };
 
-// Editing the number after verifying has to throw the verification away — otherwise the form would
-// happily submit a freshly typed number carrying the previous one's approval. The server would
+// Editing the address after verifying has to throw the verification away — otherwise the form would
+// happily submit a freshly typed address carrying the previous one's approval. The server would
 // reject it anyway; catching it here just explains why.
-function resetPhoneVerification() {
-  const state = window.bet1xPhoneVerify;
-  const phoneEl = document.getElementById('signup-phone');
-  if (!phoneEl) return;
-  const phone = normaliseMobileInput(phoneEl.value);
-  if (!state.verified || phone === state.verifiedPhone) return;
+function resetEmailVerification() {
+  const state = window.bet1xEmailVerify;
+  const emailEl = document.getElementById('signup-email');
+  if (!emailEl) return;
+  const email = emailEl.value.trim().toLowerCase();
+  if (!state.verified || email === state.verifiedEmail) return;
 
   state.verified = false;
-  state.verifiedPhone = '';
-  const otpGroup = document.getElementById('signup-otp-group');
-  const otpInput = document.getElementById('signup-otp');
-  const sendBtn = document.getElementById('signup-otp-send');
-  const verifyBtn = document.getElementById('signup-otp-verify');
+  state.verifiedEmail = '';
+  const otpGroup = document.getElementById('signup-email-otp-group');
+  const otpInput = document.getElementById('signup-email-otp');
+  const sendBtn = document.getElementById('signup-email-otp-send');
+  const verifyBtn = document.getElementById('signup-email-otp-verify');
   if (otpGroup) otpGroup.style.display = 'none';
   if (otpInput) { otpInput.disabled = false; otpInput.value = ''; }
   if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.textContent = 'Verify'; }
   if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send OTP'; }
-  setOtpStatus('');
+  setEmailOtpStatus('');
 }
 
-// Asks the backend whether the signup form should collect a phone number at all. If the probe fails
-// the block stays hidden and signup behaves as it always did; should verification actually be on,
-// the server rejects that signup with its own message, which is the correct place for the decision.
-function probePhoneVerification() {
-  const state = window.bet1xPhoneVerify;
-  if (state.probed) { applyPhoneVerificationVisibility(); return; }
+// Asks the backend whether the signup form should gate on an email OTP at all. If the probe fails
+// the OTP controls stay hidden and signup behaves as if the flag were off; should verification
+// actually be on, the server rejects that signup with its own message, which is the correct place
+// for the decision.
+function probeEmailVerification() {
+  const state = window.bet1xEmailVerify;
+  if (state.probed) { applyEmailVerificationVisibility(); return; }
   state.probed = true;
 
   fetch(getApiPrefix() + 'api/health')
     .then(res => res.json())
     .then(data => {
-      state.enabled = !!(data && data.phone_verification);
-      applyPhoneVerificationVisibility();
+      state.enabled = !!(data && data.email_verification);
+      applyEmailVerificationVisibility();
     })
     .catch(err => {
-      console.warn('Phone-verification probe failed, leaving signup unchanged:', err);
+      console.warn('Email-verification probe failed, leaving signup unchanged:', err);
     });
 }
 
-function applyPhoneVerificationVisibility() {
-  const block = document.getElementById('signup-phone-block');
-  if (!block) return;
-  block.style.display = window.bet1xPhoneVerify.enabled ? '' : 'none';
-  const phoneInput = document.getElementById('signup-phone');
-  if (phoneInput) phoneInput.required = window.bet1xPhoneVerify.enabled;
+function applyEmailVerificationVisibility() {
+  const sendBtn = document.getElementById('signup-email-otp-send');
+  if (sendBtn) sendBtn.style.display = window.bet1xEmailVerify.enabled ? '' : 'none';
+  if (!window.bet1xEmailVerify.enabled) {
+    const otpGroup = document.getElementById('signup-email-otp-group');
+    if (otpGroup) otpGroup.style.display = 'none';
+  }
 }
 
-function wireSignupPhoneVerification() {
-  const sendBtn = document.getElementById('signup-otp-send');
-  const verifyBtn = document.getElementById('signup-otp-verify');
+window.generateSignupUsername = function () {
+  const btn = document.getElementById('signup-generate-username');
+  const input = document.getElementById('signup-username');
+  if (!btn || !input) return;
+  btn.disabled = true;
+  const prevText = btn.textContent;
+  btn.textContent = '...';
+
+  fetch(getApiPrefix() + 'api/auth/generate-username')
+    .then(res => res.json())
+    .then(data => {
+      if (data && data.username) {
+        input.value = data.username;
+      } else {
+        showSignupError((data && data.error) || 'Could not generate a username. Please try again.');
+      }
+    })
+    .catch(err => {
+      console.warn('Generate-username error:', err);
+      showSignupError('Cannot reach the server. Please check your connection and try again.');
+    })
+    .then(() => { btn.disabled = false; btn.textContent = prevText; });
+};
+
+function wireSignupVerification() {
+  // Phone: a plain field now, just digit-formatted as the player types — no OTP wiring.
   const phoneInput = document.getElementById('signup-phone');
-  const otpInput = document.getElementById('signup-otp');
-  if (sendBtn) sendBtn.addEventListener('click', window.sendSignupOtp);
-  if (verifyBtn) verifyBtn.addEventListener('click', window.verifySignupOtp);
   if (phoneInput) {
     phoneInput.addEventListener('input', () => {
       phoneInput.value = trimMobileDigits(phoneInput.value);
-      resetPhoneVerification();
     });
   }
+
+  // Email OTP.
+  const sendBtn = document.getElementById('signup-email-otp-send');
+  const verifyBtn = document.getElementById('signup-email-otp-verify');
+  const emailInput = document.getElementById('signup-email');
+  const otpInput = document.getElementById('signup-email-otp');
+  if (sendBtn) sendBtn.addEventListener('click', window.sendSignupEmailOtp);
+  if (verifyBtn) verifyBtn.addEventListener('click', window.verifySignupEmailOtp);
+  if (emailInput) emailInput.addEventListener('input', resetEmailVerification);
   if (otpInput) {
     otpInput.addEventListener('input', () => {
       otpInput.value = otpInput.value.replace(/\D/g, '').slice(0, 8);
     });
     // Enter inside the code field should verify, not submit a form that is not ready yet.
     otpInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); window.verifySignupOtp(); }
+      if (e.key === 'Enter') { e.preventDefault(); window.verifySignupEmailOtp(); }
     });
   }
-  probePhoneVerification();
+  probeEmailVerification();
+
+  // "Generate a username" button, for a player who would rather not think one up.
+  const genBtn = document.getElementById('signup-generate-username');
+  if (genBtn) genBtn.addEventListener('click', window.generateSignupUsername);
 }
 
 function injectAuthModal() {
@@ -1281,7 +1332,40 @@ function injectAuthModal() {
       <form id="form-signup" class="auth-form" onsubmit="handleAuthSubmit(event, 'signup')">
         <div class="auth-form-group">
           <label for="signup-username">Username</label>
-          <input type="text" id="signup-username" placeholder="Choose a username" required autocomplete="username">
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="signup-username" placeholder="Choose a username" required
+                   autocomplete="username" style="flex:1;">
+            <button type="button" id="signup-generate-username" class="btn btn-ghost"
+                    style="white-space:nowrap; padding:0 14px;" title="Generate a unique username for me">Generate</button>
+          </div>
+        </div>
+        <div class="auth-form-group">
+          <label for="signup-email">Email Address</label>
+          <div style="display:flex; gap:8px;">
+            <input type="email" id="signup-email" placeholder="you@example.com" required
+                   autocomplete="email" style="flex:1;">
+            <!-- Hidden until /api/health reports email_verification on, so the form is exactly as
+                 it was (no OTP step) with the feature off. -->
+            <button type="button" id="signup-email-otp-send" class="btn btn-ghost"
+                    style="white-space:nowrap; padding:0 14px; display:none;">Send OTP</button>
+          </div>
+        </div>
+        <div class="auth-form-group" id="signup-email-otp-group" style="display:none;">
+          <label for="signup-email-otp">Enter OTP</label>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="signup-email-otp" placeholder="6-digit code" inputmode="numeric"
+                   maxlength="8" autocomplete="one-time-code" style="flex:1;">
+            <button type="button" id="signup-email-otp-verify" class="btn btn-ghost"
+                    style="white-space:nowrap; padding:0 14px;">Verify</button>
+          </div>
+          <div id="signup-email-otp-status" style="font-size:12px; margin-top:6px; color:var(--text-dim);"></div>
+        </div>
+        <div class="auth-form-group">
+          <label for="signup-phone">Mobile Number</label>
+          <!-- maxlength is 16, not 10, so that pasting "+91 98765 43210" is not truncated to
+               "+91 98765 " before the input handler can reduce it to the ten digits. -->
+          <input type="tel" id="signup-phone" placeholder="10-digit mobile number" required
+                 autocomplete="tel" inputmode="numeric" maxlength="16">
         </div>
         <div class="auth-form-group">
           <label for="signup-password">Password</label>
@@ -1292,32 +1376,6 @@ function injectAuthModal() {
           <input type="password" id="signup-confirm-password" placeholder="Confirm password" required autocomplete="new-password">
         </div>
 
-        <!-- Phone verification. The whole block is hidden unless the backend reports that
-             verification is switched on, so with the feature off the form is exactly as it was. -->
-        <div id="signup-phone-block" style="display:none;">
-          <div class="auth-form-group">
-            <label for="signup-phone">Mobile Number</label>
-            <div style="display:flex; gap:8px;">
-              <!-- maxlength is 16, not 10, so that pasting "+91 98765 43210" is not truncated to
-                   "+91 98765 " before the input handler can reduce it to the ten digits. -->
-              <input type="tel" id="signup-phone" placeholder="10-digit mobile" autocomplete="tel"
-                     inputmode="numeric" maxlength="16" style="flex:1;">
-              <button type="button" id="signup-otp-send" class="btn btn-ghost"
-                      style="white-space:nowrap; padding:0 14px;">Send OTP</button>
-            </div>
-          </div>
-          <div class="auth-form-group" id="signup-otp-group" style="display:none;">
-            <label for="signup-otp">Enter OTP</label>
-            <div style="display:flex; gap:8px;">
-              <input type="text" id="signup-otp" placeholder="6-digit code" inputmode="numeric"
-                     maxlength="8" autocomplete="one-time-code" style="flex:1;">
-              <button type="button" id="signup-otp-verify" class="btn btn-ghost"
-                      style="white-space:nowrap; padding:0 14px;">Verify</button>
-            </div>
-            <div id="signup-otp-status" style="font-size:12px; margin-top:6px; color:var(--text-dim);"></div>
-          </div>
-        </div>
-
         <div id="signup-error" class="auth-error-msg">Passwords do not match.</div>
         <button type="submit" class="btn btn-primary btn-block" style="margin-top: 10px; color: #000; font-weight:700;">Create Account</button>
       </form>
@@ -1325,9 +1383,9 @@ function injectAuthModal() {
   `;
   document.body.appendChild(modal);
 
-  // The modal is injected once per page, so this is also the right place to hook up the phone
-  // fields and ask the backend whether they should be shown at all.
-  wireSignupPhoneVerification();
+  // The modal is injected once per page, so this is also the right place to hook up the phone and
+  // email fields and ask the backend whether email verification should be shown.
+  wireSignupVerification();
 }
 
 function updateNavbarAuth() {

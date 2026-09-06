@@ -66,6 +66,7 @@ require_once __DIR__ . '/games/mines.php';
 
 require_once __DIR__ . '/routes/auth.php';
 require_once __DIR__ . '/routes/otp.php';
+require_once __DIR__ . '/routes/email_otp.php';
 require_once __DIR__ . '/routes/wallet.php';
 require_once __DIR__ . '/routes/chat.php';
 require_once __DIR__ . '/routes/dbgateway.php';
@@ -105,6 +106,8 @@ try {
         // 1b. Phone verification for signup. Public by necessity — the caller has no account yet —
         //     and rate limited accordingly. Registered here so it sits outside the /api/db gate.
         register_otp_routes($app);
+        // 1c. Email verification for signup — same shape as 1b, keyed by email and sent via Brevo.
+        register_email_otp_routes($app);
         // 2. Wallet  (registers /api/db/users/{adjust-balance,reset-balance} and GET /api/db/transactions)
         register_wallet_routes($app);
         // 3. Chat

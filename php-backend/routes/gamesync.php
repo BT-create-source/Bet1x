@@ -20,6 +20,8 @@ require_once __DIR__ . '/../lib/riskcontrols.php';
 // The legacy signup proxy below enforces phone verification when it is switched on.
 require_once __DIR__ . '/../lib/otp.php';
 require_once __DIR__ . '/../lib/sms.php';
+// ...and email verification (Brevo) — see the block below headed "Email verification".
+require_once __DIR__ . '/../lib/email_otp.php';
 require_once __DIR__ . '/../games/color.php';
 require_once __DIR__ . '/../games/aviator.php';
 require_once __DIR__ . '/../games/teenpatti.php';
@@ -786,31 +788,42 @@ function register_gamesync_routes(Router $app) {
                     return;
                 }
 
-                // --- Phone verification -------------------------------------------------------
-                // Only enforced when PHONE_VERIFICATION_REQUIRED is on, so the feature ships dark
-                // and existing accounts are unaffected.
+                // --- Phone number -------------------------------------------------------------
+                // Collected at signup as plain contact info. NOT OTP-gated: Fast2SMS's OTP route
+                // needs account-side enablement that is still pending (see PHONE_VERIFICATION_REQUIRED
+                // in config.php), so for now this is stored unverified (phone_verified stays 0 below)
+                // rather than blocking every signup on a channel that cannot currently deliver a code.
+                // Re-enabling verification later is a config flip, not a code change — the otp.php /
+                // sms.php / migration-003 machinery is untouched, just not consulted here anymore.
+                $phone = sms_normalise_indian_mobile($req->b('phone') ?? $req->q('phone'));
+                if ($phone === null) {
+                    $res->status(400)->json(['error' => 'Enter a valid 10-digit Indian mobile number.']);
+                    return;
+                }
+
+                // --- Email verification ---------------------------------------------------------
+                // Only enforced when EMAIL_VERIFICATION_REQUIRED is on, so the feature ships dark
+                // until BREVO_API_KEY is confirmed working.
                 //
-                // The check is otp_is_verified(), which reads the server's own record of the
+                // The check is email_otp_is_verified(), which reads the server's own record of the
                 // verification. It deliberately does NOT trust anything the browser sends: a client
                 // that simply posts "verified: true" proves nothing, and a client that replays an
                 // old verification is caught by the freshness window inside that function.
-                $phone = null;
-                if (cfg('PHONE_VERIFICATION_REQUIRED')) {
-                    $phone = sms_normalise_indian_mobile($req->b('phone') ?? $req->q('phone'));
-                    if ($phone === null) {
-                        $res->status(400)->json(['error' => 'Enter a valid 10-digit Indian mobile number.']);
+                $email = strtolower(trim((string) $email));
+                if ($email === '' || !preg_match('/^[^\s@]+@[^\s@]+\.[^\s@]+$/', $email)) {
+                    $res->status(400)->json(['error' => 'Enter a valid email address.']);
+                    return;
+                }
+                if (cfg('EMAIL_VERIFICATION_REQUIRED')) {
+                    if (!email_otp_is_verified($email)) {
+                        $res->status(400)->json(['error' => 'Please verify your email address first.']);
                         return;
                     }
-                    if (!otp_is_verified($phone)) {
-                        $res->status(400)->json(['error' => 'Please verify your mobile number first.']);
-                        return;
-                    }
-                    // Re-check here, not only in /api/otp/send: two signups could have raced between
-                    // that check and this one, and the partial unique index on User.phone is the
-                    // final backstop either way.
-                    $phoneTaken = one('SELECT "id" FROM "User" WHERE "phone" = ? LIMIT 1', [$phone]);
-                    if ($phoneTaken) {
-                        $res->status(409)->json(['error' => 'This number is already registered.']);
+                    // Re-check here, not only in /api/email-otp/send: two signups could have raced
+                    // between that check and this one.
+                    $emailTaken = one('SELECT "id" FROM "User" WHERE LOWER("email") = ? LIMIT 1', [$email]);
+                    if ($emailTaken) {
+                        $res->status(409)->json(['error' => 'This email is already registered.']);
                         return;
                     }
                 }
@@ -833,11 +846,12 @@ function register_gamesync_routes(Router $app) {
                 // signup_ip / bonus_credited come from migration-002; fall back to the original
                 // column set so a database that has not had it applied still registers users.
                 try {
+                    // phone_verified is always 0 now: the number above is collected, not OTP-checked.
                     q('INSERT INTO "User" ("username","email","password","wallet_balance","created_at","signup_ip","bonus_credited","phone","phone_verified")
                        VALUES (?,?,?,?,?,?,?,?,?)',
                       [$username, $email, $hashed, $startingBalance, ms_to_sql(),
                        $signupIp, $startingBalance > 0 ? 1 : 0,
-                       $phone, $phone === null ? 0 : 1]);
+                       $phone, 0]);
                 } catch (Throwable $colErr) {
                     log_debug('legacy signup falling back to pre-migration-002 column set: ' . $colErr->getMessage());
                     q('INSERT INTO "User" ("username","email","password","wallet_balance","created_at") VALUES (?,?,?,?,?)',
@@ -846,7 +860,7 @@ function register_gamesync_routes(Router $app) {
                 $user = find_user_ci($username);
 
                 // Spend the verification so one code cannot register a second account.
-                if ($phone !== null) otp_consume($phone);
+                if (cfg('EMAIL_VERIFICATION_REQUIRED')) email_otp_consume($email);
 
                 $res->json([
                     'success' => true,
