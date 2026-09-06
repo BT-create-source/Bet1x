@@ -150,27 +150,33 @@ if ($IS_PRODUCTION && $PHONE_VERIFICATION_REQUIRED && $FAST2SMS_API_KEY === '') 
              . 'complete, because no verification code could be sent.';
 }
 
-// --- Email verification (Gmail SMTP) -------------------------------------------------------------
+// --- Email verification (SMTP) --------------------------------------------------------------------
 //
 // The replacement verification channel while phone/SMS (Fast2SMS) is parked — see the note on
 // PHONE_VERIFICATION_REQUIRED above. Same master-switch shape: off by default, ships dark, turned
-// on only once GMAIL_SMTP_USER/GMAIL_SMTP_APP_PASSWORD are confirmed working. lib/mailer.php speaks
-// SMTP directly to smtp.gmail.com — no third-party relay.
+// on only once SMTP_HOST/SMTP_USER/SMTP_PASSWORD are confirmed working. lib/mailer.php speaks SMTP
+// directly to whichever server these point at (Gmail, Brevo's SMTP relay, or anything else that
+// takes standard SMTP AUTH) — no third-party HTTP API, no library.
 $EMAIL_VERIFICATION_REQUIRED = env_bool('EMAIL_VERIFICATION_REQUIRED', false);
 
-// GMAIL_SMTP_APP_PASSWORD must be a 16-character app password (Google Account -> Security -> App
-// Passwords — requires 2-Step Verification to be on for the account), NEVER the account's normal
-// login password: Gmail's SMTP no longer accepts plain account passwords for third-party clients.
-$GMAIL_SMTP_USER         = (string) env_get('GMAIL_SMTP_USER', '');
-$GMAIL_SMTP_APP_PASSWORD = (string) env_get('GMAIL_SMTP_APP_PASSWORD', '');
-$GMAIL_SMTP_HOST         = (string) env_get('GMAIL_SMTP_HOST', 'smtp.gmail.com');
-$GMAIL_SMTP_PORT         = (int) env_num('GMAIL_SMTP_PORT', 465);
-// Display name on the "From" line. The address itself is always GMAIL_SMTP_USER — Gmail rejects
-// (or flags as spoofed) a From address that does not match the authenticated account.
-$GMAIL_SENDER_NAME       = (string) env_get('GMAIL_SENDER_NAME', 'bet1x');
+$SMTP_HOST     = (string) env_get('SMTP_HOST', '');
+$SMTP_PORT     = (int) env_num('SMTP_PORT', 587);
+$SMTP_USER     = (string) env_get('SMTP_USER', '');
+// For Gmail this MUST be a 16-character App Password (Google Account -> Security -> App
+// Passwords — requires 2-Step Verification on the account), never the normal login password. For
+// Brevo this is the SMTP key from the SMTP & API -> SMTP tab (not an API key from the API Keys tab
+// — those are for the HTTP API and Brevo's SMTP server will reject them).
+$SMTP_PASSWORD = (string) env_get('SMTP_PASSWORD', '');
+// The verified "From" address. Left blank, it defaults to SMTP_USER (correct for Gmail, where the
+// authenticated account and the From address are always the same). Set it explicitly for a
+// provider like Brevo, where the SMTP login can differ from the address you've verified for
+// sending.
+$SMTP_SENDER_EMAIL = (string) env_get('SMTP_SENDER_EMAIL', '');
+$SMTP_SENDER_NAME  = (string) env_get('SMTP_SENDER_NAME', 'bet1x');
 
-if ($IS_PRODUCTION && $EMAIL_VERIFICATION_REQUIRED && ($GMAIL_SMTP_USER === '' || $GMAIL_SMTP_APP_PASSWORD === '')) {
-    $fatal[] = 'EMAIL_VERIFICATION_REQUIRED is on but GMAIL_SMTP_USER / GMAIL_SMTP_APP_PASSWORD is '
+if ($IS_PRODUCTION && $EMAIL_VERIFICATION_REQUIRED
+    && ($SMTP_HOST === '' || $SMTP_USER === '' || $SMTP_PASSWORD === '')) {
+    $fatal[] = 'EMAIL_VERIFICATION_REQUIRED is on but SMTP_HOST / SMTP_USER / SMTP_PASSWORD is '
              . 'empty. No signup could complete, because no verification code could be sent.';
 }
 
@@ -327,11 +333,12 @@ $CONFIG = [
     'FAST2SMS_SENDER_ID'            => $FAST2SMS_SENDER_ID,
     'FAST2SMS_MESSAGE_ID'           => $FAST2SMS_MESSAGE_ID,
     'EMAIL_VERIFICATION_REQUIRED'   => $EMAIL_VERIFICATION_REQUIRED,
-    'GMAIL_SMTP_USER'               => $GMAIL_SMTP_USER,
-    'GMAIL_SMTP_APP_PASSWORD'       => $GMAIL_SMTP_APP_PASSWORD,
-    'GMAIL_SMTP_HOST'               => $GMAIL_SMTP_HOST,
-    'GMAIL_SMTP_PORT'               => $GMAIL_SMTP_PORT,
-    'GMAIL_SENDER_NAME'             => $GMAIL_SENDER_NAME,
+    'SMTP_HOST'                     => $SMTP_HOST,
+    'SMTP_PORT'                     => $SMTP_PORT,
+    'SMTP_USER'                     => $SMTP_USER,
+    'SMTP_PASSWORD'                 => $SMTP_PASSWORD,
+    'SMTP_SENDER_EMAIL'             => $SMTP_SENDER_EMAIL,
+    'SMTP_SENDER_NAME'              => $SMTP_SENDER_NAME,
     'OTP_LENGTH'                    => $OTP_LENGTH,
     'OTP_TTL_SECONDS'               => $OTP_TTL_SECONDS,
     'OTP_MAX_ATTEMPTS'              => $OTP_MAX_ATTEMPTS,

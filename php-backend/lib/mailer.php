@@ -1,19 +1,26 @@
 <?php
 /**
- * Email delivery — direct Gmail SMTP, hand-rolled.
+ * Email delivery — direct SMTP, hand-rolled.
  *
  * There is no Composer/vendor setup in this codebase (see the note at the top of lib/sms.php for
  * why everything here talks to providers directly rather than through a library), so this speaks
- * the SMTP protocol itself over a TLS socket rather than pulling in PHPMailer. It is a minimal
- * client — EHLO, AUTH LOGIN, MAIL FROM/RCPT TO/DATA, QUIT — sized for "send one OTP email", not a
- * general mail library.
+ * the SMTP protocol itself over a socket rather than pulling in PHPMailer. It is a minimal client —
+ * EHLO, (STARTTLS,) AUTH LOGIN, MAIL FROM/RCPT TO/DATA, QUIT — sized for "send one OTP email", not
+ * a general mail library.
+ *
+ * Provider-agnostic by design: SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASSWORD point this at whatever
+ * standard SMTP server the deployment is configured for (Gmail's smtp.gmail.com, Brevo's
+ * smtp-relay.brevo.com, or anything else that speaks plain SMTP AUTH) — no code here is specific to
+ * any one of them. SMTP_SENDER_EMAIL is separate from SMTP_USER because some providers (Brevo) let
+ * the SMTP login differ from the verified "From" address, where others (Gmail) require them to be
+ * the same account; when unset it defaults to SMTP_USER, which is correct for the Gmail case.
  *
  * WHAT THIS DELIBERATELY DOES NOT DO
  * -----------------------------------
  * It never logs the code. A verification code in the error log is a code an operator, a log
  * shipper or anyone with server access can read and use, which defeats the point of hashing it in
  * the database. Failures log the recipient address and the SMTP server's own reply, never the
- * digits. The app password is read from config only — never logged, never echoed to the client.
+ * digits. The SMTP password is read from config only — never logged, never echoed to the client.
  */
 
 require_once __DIR__ . '/logger.php';
@@ -44,31 +51,35 @@ function smtp_command($sock, $cmd) {
 }
 
 /**
- * Send a verification code by email over Gmail SMTP (smtp.gmail.com:465, implicit TLS).
+ * Send a verification code by email over the configured SMTP server.
  *
  * Returns ['ok' => true] or ['ok' => false, 'error' => '<safe message>'].
  * The caller shows that message to the user, so it never carries provider internals.
  */
 function mailer_send_otp($email, $code) {
-    $user = (string) cfg('GMAIL_SMTP_USER', '');
-    $pass = (string) cfg('GMAIL_SMTP_APP_PASSWORD', '');
-    if ($user === '' || $pass === '') {
-        log_error('mailer: GMAIL_SMTP_USER/GMAIL_SMTP_APP_PASSWORD not configured; cannot send');
+    $host = (string) cfg('SMTP_HOST', '');
+    $user = (string) cfg('SMTP_USER', '');
+    $pass = (string) cfg('SMTP_PASSWORD', '');
+    if ($host === '' || $user === '' || $pass === '') {
+        log_error('mailer: SMTP_HOST/SMTP_USER/SMTP_PASSWORD not fully configured; cannot send');
         return ['ok' => false, 'error' => 'Email delivery is not configured on this deployment.'];
     }
 
-    $senderName = (string) cfg('GMAIL_SENDER_NAME', 'bet1x');
-    $ttlMinutes = max(1, (int) round(((int) cfg('OTP_TTL_SECONDS', 300)) / 60));
+    // Falls back to SMTP_USER when unset — correct for Gmail, where the "From" address and the
+    // authenticated account are always the same thing. Set it explicitly for providers (Brevo)
+    // where the SMTP login and the verified sending address are different.
+    $senderEmail = (string) cfg('SMTP_SENDER_EMAIL', '') ?: $user;
+    $senderName  = (string) cfg('SMTP_SENDER_NAME', 'bet1x');
+    $ttlMinutes  = max(1, (int) round(((int) cfg('OTP_TTL_SECONDS', 300)) / 60));
 
-    $host = (string) cfg('GMAIL_SMTP_HOST', 'smtp.gmail.com');
-    $port = (int) cfg('GMAIL_SMTP_PORT', 465);
+    $port = (int) cfg('SMTP_PORT', 587);
     // Port 465 is IMPLICIT TLS — the whole connection is encrypted from the first byte. Any other
-    // port (587, the modern "submission" port; 25, almost always blocked outbound on shared
-    // hosting) is assumed to want STARTTLS instead: connect in plaintext, then upgrade partway
-    // through the conversation. Mixing the two modes up is the single most common reason a
-    // hand-rolled SMTP client hangs against Gmail. Some hosts block 465 outbound while leaving 587
-    // open (or vice versa) — GMAIL_SMTP_PORT is what decides which mode this function speaks, so
-    // switching is a config change, not a code change.
+    // port (587, the modern "submission" port used by both Gmail and Brevo; 25, almost always
+    // blocked outbound on shared hosting) is assumed to want STARTTLS instead: connect in
+    // plaintext, then upgrade partway through the conversation. Mixing the two modes up is the
+    // single most common reason a hand-rolled SMTP client hangs. Some hosts block one of the two
+    // ports outbound while leaving the other open — SMTP_PORT is what decides which mode this
+    // function speaks, so switching is a config change, not a code change.
     $useStartTls = ($port !== 465);
 
     $sslOpts = stream_context_create(['ssl' => ['verify_peer' => true, 'verify_peer_name' => true]]);
@@ -105,8 +116,8 @@ function mailer_send_otp($email, $code) {
     $greeting = smtp_read_reply($sock);
     if (!$greeting || $greeting['code'] !== 220) return $fail('greeting', $greeting);
 
-    // The EHLO hostname is cosmetic (Gmail does not verify it against anything), but has to be
-    // some syntactically valid token.
+    // The EHLO hostname is cosmetic (no mainstream provider verifies it against anything), but has
+    // to be some syntactically valid token.
     $reply = smtp_command($sock, 'EHLO bet1x.biz');
     if (!$reply || $reply['code'] !== 250) return $fail('EHLO', $reply);
 
@@ -119,8 +130,8 @@ function mailer_send_otp($email, $code) {
         }
 
         // EHLO must be repeated after STARTTLS: the server's feature list (specifically whether
-        // AUTH is offered at all) is only trustworthy once the connection is encrypted, and Gmail
-        // will otherwise reject AUTH LOGIN as coming from a plaintext session.
+        // AUTH is offered at all) is only trustworthy once the connection is encrypted, and most
+        // providers will otherwise reject AUTH LOGIN as coming from a plaintext session.
         $reply = smtp_command($sock, 'EHLO bet1x.biz');
         if (!$reply || $reply['code'] !== 250) return $fail('EHLO after STARTTLS', $reply);
     }
@@ -133,12 +144,13 @@ function mailer_send_otp($email, $code) {
 
     $reply = smtp_command($sock, base64_encode($pass));
     if (!$reply || $reply['code'] !== 235) {
-        // Gmail's own message for a wrong/revoked app password is genuinely useful here (it says
-        // so explicitly), which is why the reply text is logged in $fail rather than swallowed.
+        // The provider's own message for a wrong/revoked password is genuinely useful here (both
+        // Gmail and Brevo say so explicitly), which is why the reply text is logged in $fail
+        // rather than swallowed.
         return $fail('AUTH password', $reply);
     }
 
-    $reply = smtp_command($sock, "MAIL FROM:<{$user}>");
+    $reply = smtp_command($sock, "MAIL FROM:<{$senderEmail}>");
     if (!$reply || $reply['code'] !== 250) return $fail('MAIL FROM', $reply);
 
     $reply = smtp_command($sock, "RCPT TO:<{$email}>");
@@ -162,7 +174,7 @@ function mailer_send_otp($email, $code) {
     // SMTP DATA requires lines to end \r\n, and a leading '.' on a line must be doubled — neither
     // of which arises in this fixed template, but is worth stating since it is a classic footgun
     // for anyone extending this to include free-text content later.
-    $data = "From: {$senderName} <{$user}>\r\n"
+    $data = "From: {$senderName} <{$senderEmail}>\r\n"
           . "To: <{$email}>\r\n"
           . "Subject: Your bet1x verification code\r\n"
           . "Date: {$date}\r\n"

@@ -59,7 +59,7 @@ function register_auth_routes(Router $app) {
             // (Fast2SMS's OTP route needs account-side enablement) — the phone number field is
             // still collected at signup regardless of this flag, just no longer OTP-verified.
             'phone_verification' => (bool) cfg('PHONE_VERIFICATION_REQUIRED'),
-            // Whether the signup form should gate on an email OTP (sent via Gmail SMTP).
+            // Whether the signup form should gate on an email OTP (sent via SMTP).
             'email_verification' => (bool) cfg('EMAIL_VERIFICATION_REQUIRED'),
             'timestamp' => js_iso(),
         ]);

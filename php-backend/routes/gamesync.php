@@ -20,7 +20,7 @@ require_once __DIR__ . '/../lib/riskcontrols.php';
 // The legacy signup proxy below enforces phone verification when it is switched on.
 require_once __DIR__ . '/../lib/otp.php';
 require_once __DIR__ . '/../lib/sms.php';
-// ...and email verification (direct Gmail SMTP) — see the block below headed "Email verification".
+// ...and email verification (direct SMTP) — see the block below headed "Email verification".
 require_once __DIR__ . '/../lib/email_otp.php';
 require_once __DIR__ . '/../games/color.php';
 require_once __DIR__ . '/../games/aviator.php';
@@ -803,7 +803,7 @@ function register_gamesync_routes(Router $app) {
 
                 // --- Email verification ---------------------------------------------------------
                 // Only enforced when EMAIL_VERIFICATION_REQUIRED is on, so the feature ships dark
-                // until GMAIL_SMTP_USER/GMAIL_SMTP_APP_PASSWORD are confirmed working.
+                // until SMTP_HOST/SMTP_USER/SMTP_PASSWORD are confirmed working.
                 //
                 // The check is email_otp_is_verified(), which reads the server's own record of the
                 // verification. It deliberately does NOT trust anything the browser sends: a client

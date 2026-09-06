@@ -106,7 +106,7 @@ try {
         // 1b. Phone verification for signup. Public by necessity — the caller has no account yet —
         //     and rate limited accordingly. Registered here so it sits outside the /api/db gate.
         register_otp_routes($app);
-        // 1c. Email verification for signup — same shape as 1b, keyed by email and sent via Gmail SMTP.
+        // 1c. Email verification for signup — same shape as 1b, keyed by email and sent via SMTP.
         register_email_otp_routes($app);
         // 2. Wallet  (registers /api/db/users/{adjust-balance,reset-balance} and GET /api/db/transactions)
         register_wallet_routes($app);
