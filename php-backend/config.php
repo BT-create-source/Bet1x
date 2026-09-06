@@ -150,23 +150,28 @@ if ($IS_PRODUCTION && $PHONE_VERIFICATION_REQUIRED && $FAST2SMS_API_KEY === '') 
              . 'complete, because no verification code could be sent.';
 }
 
-// --- Email verification (Brevo) ------------------------------------------------------------------
+// --- Email verification (Gmail SMTP) -------------------------------------------------------------
 //
 // The replacement verification channel while phone/SMS (Fast2SMS) is parked — see the note on
 // PHONE_VERIFICATION_REQUIRED above. Same master-switch shape: off by default, ships dark, turned
-// on only once BREVO_API_KEY is confirmed working.
+// on only once GMAIL_SMTP_USER/GMAIL_SMTP_APP_PASSWORD are confirmed working. lib/mailer.php speaks
+// SMTP directly to smtp.gmail.com — no third-party relay.
 $EMAIL_VERIFICATION_REQUIRED = env_bool('EMAIL_VERIFICATION_REQUIRED', false);
 
-// Brevo (formerly Sendinblue) transactional email API key. Server-side only.
-$BREVO_API_KEY      = (string) env_get('BREVO_API_KEY', '');
-// The "From" address shown to the recipient. Brevo requires this to be a sender verified on the
-// Brevo account, or delivery is rejected.
-$BREVO_SENDER_EMAIL = (string) env_get('BREVO_SENDER_EMAIL', '');
-$BREVO_SENDER_NAME  = (string) env_get('BREVO_SENDER_NAME', 'bet1x');
+// GMAIL_SMTP_APP_PASSWORD must be a 16-character app password (Google Account -> Security -> App
+// Passwords — requires 2-Step Verification to be on for the account), NEVER the account's normal
+// login password: Gmail's SMTP no longer accepts plain account passwords for third-party clients.
+$GMAIL_SMTP_USER         = (string) env_get('GMAIL_SMTP_USER', '');
+$GMAIL_SMTP_APP_PASSWORD = (string) env_get('GMAIL_SMTP_APP_PASSWORD', '');
+$GMAIL_SMTP_HOST         = (string) env_get('GMAIL_SMTP_HOST', 'smtp.gmail.com');
+$GMAIL_SMTP_PORT         = (int) env_num('GMAIL_SMTP_PORT', 465);
+// Display name on the "From" line. The address itself is always GMAIL_SMTP_USER — Gmail rejects
+// (or flags as spoofed) a From address that does not match the authenticated account.
+$GMAIL_SENDER_NAME       = (string) env_get('GMAIL_SENDER_NAME', 'bet1x');
 
-if ($IS_PRODUCTION && $EMAIL_VERIFICATION_REQUIRED && ($BREVO_API_KEY === '' || $BREVO_SENDER_EMAIL === '')) {
-    $fatal[] = 'EMAIL_VERIFICATION_REQUIRED is on but BREVO_API_KEY / BREVO_SENDER_EMAIL is empty. '
-             . 'No signup could complete, because no verification code could be sent.';
+if ($IS_PRODUCTION && $EMAIL_VERIFICATION_REQUIRED && ($GMAIL_SMTP_USER === '' || $GMAIL_SMTP_APP_PASSWORD === '')) {
+    $fatal[] = 'EMAIL_VERIFICATION_REQUIRED is on but GMAIL_SMTP_USER / GMAIL_SMTP_APP_PASSWORD is '
+             . 'empty. No signup could complete, because no verification code could be sent.';
 }
 
 // OTP behaviour, shared by both phone and email verification. The defaults are the abuse brakes;
@@ -322,9 +327,11 @@ $CONFIG = [
     'FAST2SMS_SENDER_ID'            => $FAST2SMS_SENDER_ID,
     'FAST2SMS_MESSAGE_ID'           => $FAST2SMS_MESSAGE_ID,
     'EMAIL_VERIFICATION_REQUIRED'   => $EMAIL_VERIFICATION_REQUIRED,
-    'BREVO_API_KEY'                 => $BREVO_API_KEY,
-    'BREVO_SENDER_EMAIL'            => $BREVO_SENDER_EMAIL,
-    'BREVO_SENDER_NAME'             => $BREVO_SENDER_NAME,
+    'GMAIL_SMTP_USER'               => $GMAIL_SMTP_USER,
+    'GMAIL_SMTP_APP_PASSWORD'       => $GMAIL_SMTP_APP_PASSWORD,
+    'GMAIL_SMTP_HOST'               => $GMAIL_SMTP_HOST,
+    'GMAIL_SMTP_PORT'               => $GMAIL_SMTP_PORT,
+    'GMAIL_SENDER_NAME'             => $GMAIL_SENDER_NAME,
     'OTP_LENGTH'                    => $OTP_LENGTH,
     'OTP_TTL_SECONDS'               => $OTP_TTL_SECONDS,
     'OTP_MAX_ATTEMPTS'              => $OTP_MAX_ATTEMPTS,

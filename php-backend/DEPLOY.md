@@ -219,23 +219,28 @@ the signup handler in `routes/gamesync.php`. Turning verification back on once F
 account is a config flip (set the flag, confirm a test send, done) — none of this section's code
 changed.
 
-### Email verification at signup (Brevo) — the interim verified channel
+### Email verification at signup (direct Gmail SMTP) — the interim verified channel
 
 Off unless `EMAIL_VERIFICATION_REQUIRED=true`. With it off, signup still asks for an email address
 (format-checked only) but sends no code, exactly like phone verification's dark-ship story above.
 
+`lib/mailer.php` speaks SMTP directly to `smtp.gmail.com:465` (implicit TLS) — no third-party relay,
+no Composer dependency, hand-rolled the same way `lib/sms.php` talks to Fast2SMS directly.
+
 | Variable | Notes |
 |---|---|
-| `EMAIL_VERIFICATION_REQUIRED` | The master switch. In production, turning it on with an empty `BREVO_API_KEY` or `BREVO_SENDER_EMAIL` is a **boot failure** rather than a silent one. |
-| `BREVO_API_KEY` | Server-side only; it never reaches the browser. Anyone holding it can send email billed to this account. Get it from the Brevo dashboard under SMTP & API. |
-| `BREVO_SENDER_EMAIL` | Must be a sender address verified on the Brevo account (Brevo dashboard → Senders), or every send is rejected. |
-| `BREVO_SENDER_NAME` | Display name on the "From" line. Defaults to `bet1x`. |
+| `EMAIL_VERIFICATION_REQUIRED` | The master switch. In production, turning it on with an empty `GMAIL_SMTP_USER` or `GMAIL_SMTP_APP_PASSWORD` is a **boot failure** rather than a silent one. |
+| `GMAIL_SMTP_USER` | The Gmail address authenticated against AND sent from — Gmail rejects a From address that doesn't match the authenticated account. |
+| `GMAIL_SMTP_APP_PASSWORD` | A 16-character **App Password**, not the account's login password (Gmail SMTP no longer accepts those for third-party clients). Generate one at Google Account → Security → App Passwords — the account needs 2-Step Verification turned on first, or that page won't exist. Server-side only; it never reaches the browser. Anyone holding it can send mail as this account. |
+| `GMAIL_SMTP_HOST`, `GMAIL_SMTP_PORT` | Default to `smtp.gmail.com` / `465`. No reason to change these for Gmail itself. |
+| `GMAIL_SENDER_NAME` | Display name on the "From" line. Defaults to `bet1x`. |
 | `OTP_TTL_SECONDS`, `OTP_MAX_ATTEMPTS`, `OTP_RESEND_COOLDOWN_SEC`, `OTP_MAX_SENDS_PER_DAY` | Shared with phone verification above — same abuse brakes, same defaults. |
 
 Turn it on only after sending yourself a test code (`php-backend/routes/email_otp.php`'s
 `/api/email-otp/send`, or `lib/mailer.php`'s `mailer_send_otp()` directly). With the switch on and a
-bad key, nobody can register at all — exactly the same failure mode as phone verification, so the
-same "test before flipping the switch" discipline applies.
+bad app password, nobody can register at all — exactly the same failure mode as phone verification,
+so the same "test before flipping the switch" discipline applies. A regular Gmail account also caps
+outgoing mail at roughly 500/day, which matters if signup volume ever gets there.
 
 The frontend needs no configuration: it reads `email_verification` from `/api/health` and shows the
 Send OTP / Verify controls only when that reports true; the email field itself is always shown and

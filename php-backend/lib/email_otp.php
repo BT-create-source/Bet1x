@@ -5,7 +5,7 @@
  * One in-flight code per email address, held in EmailOtp (see
  * sql/migration-004-email-otp-postgres.sql). Structurally identical to lib/otp.php's phone
  * verification — same hashing, same brakes, same verify-then-consume flow — just keyed by email
- * and delivered through lib/mailer.php (Brevo) instead of lib/sms.php (Fast2SMS).
+ * and delivered through lib/mailer.php (direct Gmail SMTP) instead of lib/sms.php (Fast2SMS).
  *
  * The code is stored as a salted hash and never in the clear, for the same reason passwords are:
  * a database dump, a stray log line or a backup file must not hand anyone a working code. It is
