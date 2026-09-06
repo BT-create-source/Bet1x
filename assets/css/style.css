@@ -1819,20 +1819,20 @@ body.exchange-theme .sub-navbar-link {
   font-size: 12px;
   padding: 11px 4px;
   border-right: none;
-  background: linear-gradient(160deg, #38bdf8, #1c7fc9);
+  background: linear-gradient(160deg, #1e40af, #142a68);
   border: 1px solid var(--gold);
   border-radius: var(--radius-pill);
-  box-shadow: 0 4px 10px rgba(56,189,248,0.25);
+  box-shadow: 0 4px 10px rgba(30,64,175,0.35);
 }
 body.exchange-theme .sub-navbar-link:hover {
   color: #fff;
   filter: brightness(1.06);
-  background: linear-gradient(160deg, #38bdf8, #1c7fc9);
+  background: linear-gradient(160deg, #1e40af, #142a68);
 }
 body.exchange-theme .sub-navbar-link.active {
-  color: #38bdf8;
+  color: #1e40af;
   background: var(--surface-2);
-  box-shadow: inset 0 0 0 2px #38bdf8;
+  box-shadow: inset 0 0 0 2px #1e40af;
 }
 body.exchange-theme .sub-navbar-link.vimaan-tab {
   background: linear-gradient(160deg, var(--gold), var(--gold-deep));
