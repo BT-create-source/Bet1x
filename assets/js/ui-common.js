@@ -1131,7 +1131,8 @@ window.sendSignupEmailOtp = function () {
       const otpInput = document.getElementById('signup-email-otp');
       if (otpInput) { otpInput.value = ''; otpInput.focus(); }
       setEmailOtpStatus('Code sent to ' + email + '. It expires in '
-                   + Math.max(1, Math.round((data.expires_in || 300) / 60)) + ' minutes.');
+                   + Math.max(1, Math.round((data.expires_in || 300) / 60))
+                   + ' minutes. Not in your inbox? Check your Spam/Junk folder.');
       startEmailOtpCooldown(data.retry_after || 60);
     })
     .catch(err => {
