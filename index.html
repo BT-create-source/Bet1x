@@ -6,6 +6,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>bet1x — Live Prediction Exchange</title>
 
+  <!-- Splash screen shows the same logo mark via CSS background-image (see .splash-dot-core in
+       style.css); without this hint the browser only discovers that image after parsing the
+       stylesheet, so it visibly popped in partway through the splash animation. Preloading it here,
+       as early in <head> as possible, lets it fetch in parallel with everything else. -->
+  <link rel="preload" as="image" href="assets/logo-icon.png">
+
   <!--
     Splash pre-boot.
 
