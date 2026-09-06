@@ -23,13 +23,8 @@
     visitor staring at a blank screen.
   -->
   <style>
-    html.splash-booting body>*:not(#bet1x-splash) {
-      visibility: hidden !important;
-    }
-
-    html.splash-booting body {
-      background: #fff8f5;
-    }
+    html.splash-booting body > *:not(#bet1x-splash) { visibility: hidden !important; }
+    html.splash-booting body { background: #0b0e1d; }
   </style>
   <script>
     (function () {
@@ -128,10 +123,8 @@
           <li class="sub-navbar-item"><a href="win2.html" class="sub-navbar-link">Emred</a></li>
           <li class="sub-navbar-item"><a href="teenpatti.html" class="sub-navbar-link">Teen Patti</a></li>
           <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
-          <li data-feature="cricket" class="sub-navbar-item"><a href="youreleven.html" class="sub-navbar-link">Your
-              11</a></li>
-          <li data-feature="cricket" class="sub-navbar-item"><a href="boundarybaazi.html"
-              class="sub-navbar-link">Boundary Baazi</a></li>
+          <li data-feature="cricket" class="sub-navbar-item"><a href="youreleven.html" class="sub-navbar-link">Your 11</a></li>
+          <li data-feature="cricket" class="sub-navbar-item"><a href="boundarybaazi.html" class="sub-navbar-link">Boundary Baazi</a></li>
           <li class="sub-navbar-item"><a href="win3.html" class="sub-navbar-link">VIP</a></li>
         </ul>
       </div>
@@ -244,8 +237,8 @@
           </a>
 
           <!-- Game 6: Boundary Baazi (Live Cricket Prediction) -->
-          <a data-feature="cricket" href="boundarybaazi.html" class="game-cover-card"
-            data-category="all cricket popular" title="Boundary Baazi Live Cricket Prediction">
+          <a data-feature="cricket" href="boundarybaazi.html" class="game-cover-card" data-category="all cricket popular"
+            title="Boundary Baazi Live Cricket Prediction">
             <div class="game-cover-card-bg" style="background-image: url('assets/game_boundary.jpg');"></div>
             <div class="game-cover-card-overlay"></div>
             <div class="game-cover-top">
@@ -280,7 +273,8 @@
           </a>
 
           <!-- Game 8: Emred Color Trading (3m) -->
-          <a href="win2.html" class="game-cover-card" data-category="all color" title="Emred 3-Minute Color Prediction">
+          <a href="win2.html" class="game-cover-card" data-category="all color"
+            title="Emred 3-Minute Color Prediction">
             <div class="game-cover-card-bg" style="background-image: url('assets/game_emred.jpg');"></div>
             <div class="game-cover-card-overlay"></div>
             <div class="game-cover-top">
@@ -297,7 +291,8 @@
           </a>
 
           <!-- Game 9: VIP High-Roller Room -->
-          <a href="win3.html" class="game-cover-card" data-category="all color" title="VIP High-Roller Color Room">
+          <a href="win3.html" class="game-cover-card" data-category="all color"
+            title="VIP High-Roller Color Room">
             <div class="game-cover-card-bg" style="background-image: url('assets/game_vip.jpg');"></div>
             <div class="game-cover-card-overlay"></div>
             <div class="game-cover-top">
@@ -353,8 +348,8 @@
               class="exchange-menu-chevron">›</span></a></li>
         <li class="exchange-menu-item"><a href="teenpatti.html">Teen Patti <span
               class="exchange-menu-chevron">›</span></a></li>
-        <li class="exchange-menu-item"><a href="mining.html">Mines Game <span class="exchange-menu-chevron">›</span></a>
-        </li>
+        <li class="exchange-menu-item"><a href="mining.html">Mines Game <span
+              class="exchange-menu-chevron">›</span></a></li>
         <li data-feature="cricket" class="exchange-menu-item"><a href="youreleven.html">Your 11 (Fantasy Cricket)
             <span class="exchange-menu-chevron">›</span></a></li>
         <li data-feature="cricket" class="exchange-menu-item"><a href="boundarybaazi.html">Boundary Baazi <span
@@ -786,9 +781,9 @@
        =========================================================================================== */
     (function () {
       var STEPS_PER_DAY = 48;                        // one "active" step every 30 minutes
-      var STEP_MINUTES = 1440 / STEPS_PER_DAY;
+      var STEP_MINUTES  = 1440 / STEPS_PER_DAY;
       var ACTIVE_AT_MIDNIGHT = 2423;                 // the requested starting point
-      var ACTIVE_DAILY_GAIN = 2700;                 // climbs to roughly 5.1k by late evening
+      var ACTIVE_DAILY_GAIN  = 2700;                 // climbs to roughly 5.1k by late evening
 
       function fmtInt(n) {
         return Math.round(n).toLocaleString('en-IN');
@@ -796,7 +791,7 @@
 
       function fmtVolume(n) {
         if (n >= 1000000) return 'PTS ' + (n / 1000000).toFixed(1) + 'M';
-        if (n >= 1000) return 'PTS ' + (n / 1000).toFixed(1) + 'K';
+        if (n >= 1000)    return 'PTS ' + (n / 1000).toFixed(1) + 'K';
         return 'PTS ' + Math.round(n);
       }
 
@@ -808,13 +803,13 @@
       }
 
       function updateQuickStats() {
-        var elActive = document.getElementById('qsActive');
-        var elBets = document.getElementById('qsBets');
-        var elVolume = document.getElementById('qsVolume');
-        var elPayout = document.getElementById('qsPayout');
+        var elActive  = document.getElementById('qsActive');
+        var elBets    = document.getElementById('qsBets');
+        var elVolume  = document.getElementById('qsVolume');
+        var elPayout  = document.getElementById('qsPayout');
         if (!elActive || !elBets || !elVolume || !elPayout) return;
 
-        var now = new Date();
+        var now  = new Date();
         var mins = now.getHours() * 60 + now.getMinutes();
         var step = Math.floor(mins / STEP_MINUTES);
 
@@ -827,13 +822,13 @@
         // Today-counters: accumulate with the minute, so they differ on nearly every visit and
         // reset at midnight along with the date.
         var betsToday = Math.round(mins * (active / 60) * 0.35);
-        var volume = betsToday * 118;             // ~PTS 118 average stake
+        var volume    = betsToday * 118;             // ~PTS 118 average stake
 
         // Payout drifts inside a narrow, believable band.
         var payout = 96.4 + wobble(step) * 0.9;
 
         elActive.textContent = fmtInt(active);
-        elBets.textContent = fmtInt(betsToday);
+        elBets.textContent   = fmtInt(betsToday);
         elVolume.textContent = fmtVolume(volume);
         elPayout.textContent = payout.toFixed(1) + '%';
       }
@@ -848,7 +843,5 @@
     })();
   </script>
 </body>
-
-</html>
 
 </html>
