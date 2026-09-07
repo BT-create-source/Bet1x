@@ -74,6 +74,22 @@ DirectoryIndex index.html
     Header always unset X-Powered-By
 </IfModule>
 
+# --- 3b. Allow real caching for genuinely static assets (CSS/JS/images/fonts) --------------------
+# The blanket no-store above was forcing a full re-download of assets/css/style.css,
+# assets/js/ui-common.js and every image on EVERY navigation -- including clicking "Back" to a
+# page already visited seconds earlier, which is why the profile page and its avatar image were
+# visibly slow/partial on every open. This FilesMatch is more specific than the block above, so
+# for these extensions it overrides that Cache-Control value (mod_headers applies "Header set" in
+# order, last one wins) while every other response -- every HTML page, every /api/* JSON reply --
+# keeps the original no-store behaviour untouched. must-revalidate means a stale cache is always
+# checked with the server rather than silently reused past max-age, so a deploy still reaches
+# visitors promptly.
+<IfModule mod_headers.c>
+    <FilesMatch "\.(css|js|png|jpe?g|gif|svg|webp|ico|woff2?|ttf|eot)$">
+        Header set Cache-Control "public, max-age=3600, must-revalidate"
+    </FilesMatch>
+</IfModule>
+
 # The compression() middleware's equivalent.
 <IfModule mod_deflate.c>
     AddOutputFilterByType DEFLATE text/html text/plain text/css text/javascript application/javascript application/json image/svg+xml
