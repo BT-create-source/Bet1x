@@ -2372,10 +2372,12 @@ window.toggleProfileSection = function (key) {
 // General "share this app" action — just the site's own URL, distinct from the Refer & Earn
 // section's shareReferralLink() (which shares the player's personal referral code/link).
 window.shareAppLink = function () {
-  const link = location.origin + getApiPrefix() + 'index.html';
+  const link = location.origin + '/';
   const text = 'Check out bet1x: ' + link;
+  // Pass text only, not a separate url — several share targets append `url` after `text`
+  // themselves, which with both set doubled the link up with no space between the two copies.
   if (navigator.share) {
-    navigator.share({ title: 'bet1x', text: text, url: link }).catch(() => {});
+    navigator.share({ title: 'bet1x', text: text }).catch(() => {});
   } else if (navigator.clipboard) {
     navigator.clipboard.writeText(link)
       .then(() => showToast('Link copied!', 'success'))
@@ -2399,7 +2401,6 @@ function renderProfilePage(data) {
     <div style="text-align:center; margin-bottom:22px;">
       <img src="${getApiPrefix()}assets/10/avtar.png" alt="Profile avatar" class="profile-avatar-img">
       <div style="font-family:var(--font-display); font-size:19px; color:var(--text); margin-top:12px;">${escapeHtml(p.username || '')}</div>
-      <div style="color:var(--text-dim); font-size:12.5px; margin-top:2px;">User ID: ${escapeHtml(String(p.id != null ? p.id : ''))}</div>
     </div>
 
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;">
@@ -2408,16 +2409,16 @@ function renderProfilePage(data) {
     </div>
 
     <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-bottom:18px;">
-      <a href="cashier.html#deposit" class="btn btn-primary" style="text-align:center; color:#000; font-weight:700; padding:10px 4px; font-size:12.5px; text-decoration:none;">Deposit</a>
-      <a href="cashier.html#withdraw" class="btn btn-ghost" style="text-align:center; padding:10px 4px; font-size:12.5px; text-decoration:none;">Withdraw</a>
-      <a href="cashier.html#history" class="btn btn-ghost" style="text-align:center; padding:10px 4px; font-size:12.5px; text-decoration:none;">History</a>
+      <a href="cashier.html#deposit" class="btn btn-primary" style="justify-content:center; color:#000; font-weight:700; padding:10px 4px; font-size:12.5px; text-decoration:none;">Deposit</a>
+      <a href="cashier.html#withdraw" class="btn btn-ghost" style="justify-content:center; padding:10px 4px; font-size:12.5px; text-decoration:none;">Withdraw</a>
+      <a href="cashier.html#history" class="btn btn-ghost" style="justify-content:center; padding:10px 4px; font-size:12.5px; text-decoration:none;">History</a>
     </div>
 
     <div class="profile-menu">
       ${profileMenuItem('game-history', 'Game History', "See every round you've played")}
       <div id="profile-section-game-history" class="profile-menu-section" style="display:none;"></div>
 
-      ${profileMenuItem('referral', 'Refer &amp; Earn', 'Invite friends, earn commission')}
+      ${profileMenuItem('referral', 'Refer & Earn', 'Invite friends, earn commission')}
       <div id="profile-section-referral" class="profile-menu-section" style="display:none;"></div>
 
       ${profileMenuItem('support', 'Customer Support', 'Get help from our team')}
@@ -2499,9 +2500,14 @@ function loadReferralSection(container) {
 }
 
 function renderReferralSection(container, data) {
-  const link = location.origin + getApiPrefix() + 'index.html?ref=' + encodeURIComponent(data.referral_code);
+  // A clean root-level link (https://domain/?ref=CODE), not location.origin + getApiPrefix() +
+  // 'index.html' — origin never carries a trailing slash, so that concatenation ran the domain
+  // straight into "index.html" with nothing between them. The ?ref= query string is picked up by
+  // the top-level "capture ?ref= into sessionStorage" block near the top of this file on ANY page
+  // load, including a bare "/", so a friend's referral code is applied automatically the moment
+  // they open this link — no manual code entry needed.
+  const link = location.origin + '/?ref=' + encodeURIComponent(data.referral_code);
   window._bet1xReferralLink = link;
-  window._bet1xReferralCode = data.referral_code;
 
   const playersRows = (data.players || []).length === 0
     ? '<tr><td colspan="3" style="text-align:center; color:var(--text-dim); padding:14px;">No one yet — share your link!</td></tr>'
@@ -2555,11 +2561,14 @@ function renderReferralSection(container, data) {
 
 window.shareReferralLink = function () {
   const link = window._bet1xReferralLink;
-  const code = window._bet1xReferralCode;
   if (!link) return;
-  const text = 'Join bet1x! Use my referral code ' + code + ' or sign up directly here: ' + link;
+  // One clean line, one clickable link — the code is embedded in the URL itself and applies
+  // automatically on signup, so there is nothing left for the friend to copy/paste by hand.
+  // Pass text only, not a separate url — several share targets append `url` after `text`
+  // themselves, which with both set doubled the link up with no space between the two copies.
+  const text = 'Join bet1x! Sign up using my link: ' + link;
   if (navigator.share) {
-    navigator.share({ title: 'bet1x', text: text, url: link }).catch(() => {});
+    navigator.share({ title: 'bet1x', text: text }).catch(() => {});
   } else if (navigator.clipboard) {
     navigator.clipboard.writeText(text)
       .then(() => showToast('Referral link copied!', 'success'))

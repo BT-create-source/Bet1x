@@ -354,7 +354,10 @@
   </div>
 
   <div class="container" style="max-width: 680px;">
-    
+
+    <button type="button" class="btn btn-ghost profile-back-btn" style="margin-top:16px; margin-bottom:4px;"
+            onclick="(window.history.length > 1) ? window.history.back() : (window.location.href = 'profile.html')">&larr; Back</button>
+
     <div class="balance-banner">
       <div>
         <div class="balance-label">Total Wallet Balance</div>
