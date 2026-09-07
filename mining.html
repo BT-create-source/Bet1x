@@ -335,6 +335,11 @@
 
     let minesLastStatus = null;
     let minesLastRevealedCount = 0;
+    // Guards start/reveal/cashout against rapid repeat clicks. None of the three had one before —
+    // startBtn.disabled only got set reactively inside render(), i.e. after a response already
+    // came back, so clicking fast enough fired several concurrent requests whose responses could
+    // then arrive out of order and overwrite the current state with a stale one.
+    let minesRequestInFlight = false;
     function render(state) {
       balanceEl.textContent = '₹' + state.balance.toFixed(2);
       multiplierEl.textContent = state.multiplier.toFixed(2) + 'x';
@@ -406,76 +411,102 @@
     }
 
     startBtn.addEventListener('click', async () => {
+      if (minesRequestInFlight) return;
+      minesRequestInFlight = true;
+      startBtn.disabled = true;
+      let renderedFreshState = false;
+
       const bet = parseFloat(betAmountEl.value);
       const mines = parseInt(minesCountEl.value, 10);
       const username = getMinesUsername();
 
       try {
-        const res = await fetch('api/mines/start', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, bet_amount: bet, mines_count: mines })
-        });
-        const data = await res.json();
-        if (data.ok) {
-          msgEl.textContent = 'Game started — reveal a tile!';
-          SoundFX.play('betPlace');
-          render(data.state);
-        } else {
-          msgEl.textContent = data.error || 'Failed to start game.';
+        try {
+          const res = await fetch('api/mines/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, bet_amount: bet, mines_count: mines })
+          });
+          const data = await res.json();
+          if (data.ok) {
+            msgEl.textContent = 'Game started — reveal a tile!';
+            SoundFX.play('betPlace');
+            render(data.state);
+            renderedFreshState = true;
+          } else {
+            msgEl.textContent = data.error || 'Failed to start game.';
+          }
+        } catch (e) {
+          if (window.isOfflineMode) {
+            if (bet <= 0 || bet > getWallet()) {
+              msgEl.textContent = 'Invalid bet amount.';
+              return;
+            }
+            if (mines < 1 || mines > 24) {
+              msgEl.textContent = 'Mines count must be 1 to 24.';
+              return;
+            }
+
+            adjustWallet(-bet, 'Mines Bet');
+
+            const seed = Math.random().toString(36).substring(2);
+            let mockMines = generateOfflineMinePositions(seed, mines);
+
+            // Apply Admin 5x5 Matrix Rig Overrides
+            const matrixRaw = localStorage.getItem('cheat_mines_matrix');
+            if (matrixRaw) {
+              try {
+                const matrix = JSON.parse(matrixRaw);
+                matrix.forEach((tileState, idx) => {
+                  if (tileState === 'mine' && !mockMines.includes(idx)) {
+                    mockMines.push(idx);
+                  } else if (tileState === 'safe' && mockMines.includes(idx)) {
+                    mockMines = mockMines.filter(m => m !== idx);
+                  }
+                });
+              } catch (e) { }
+            }
+
+            offlineMinesState = {
+              status: 'active',
+              mines_count: mines,
+              bet_amount: bet,
+              revealed: [],
+              multiplier: 1.0,
+              potential_payout: 0,
+              seed_hash: 'COMMIT_' + seed,
+              server_seed: seed,
+              mine_positions: mockMines,
+              balance: getWallet()
+            };
+
+            msgEl.textContent = 'Game started — reveal a tile!';
+            SoundFX.play('betPlace');
+            render(offlineMinesState);
+            renderedFreshState = true;
+          } else {
+            msgEl.textContent = 'Cannot reach the server. Please try again.';
+          }
         }
-      } catch (e) {
-        if (window.isOfflineMode) {
-          if (bet <= 0 || bet > getWallet()) {
-            msgEl.textContent = 'Invalid bet amount.';
-            return;
-          }
-          if (mines < 1 || mines > 24) {
-            msgEl.textContent = 'Mines count must be 1 to 24.';
-            return;
-          }
-
-          adjustWallet(-bet, 'Mines Bet');
-
-          const seed = Math.random().toString(36).substring(2);
-          let mockMines = generateOfflineMinePositions(seed, mines);
-
-          // Apply Admin 5x5 Matrix Rig Overrides
-          const matrixRaw = localStorage.getItem('cheat_mines_matrix');
-          if (matrixRaw) {
-            try {
-              const matrix = JSON.parse(matrixRaw);
-              matrix.forEach((tileState, idx) => {
-                if (tileState === 'mine' && !mockMines.includes(idx)) {
-                  mockMines.push(idx);
-                } else if (tileState === 'safe' && mockMines.includes(idx)) {
-                  mockMines = mockMines.filter(m => m !== idx);
-                }
-              });
-            } catch (e) { }
-          }
-
-          offlineMinesState = {
-            status: 'active',
-            mines_count: mines,
-            bet_amount: bet,
-            revealed: [],
-            multiplier: 1.0,
-            potential_payout: 0,
-            seed_hash: 'COMMIT_' + seed,
-            server_seed: seed,
-            mine_positions: mockMines,
-            balance: getWallet()
-          };
-
-          msgEl.textContent = 'Game started — reveal a tile!';
-          SoundFX.play('betPlace');
-          render(offlineMinesState);
-        }
+      } finally {
+        // Guards against the exact rapid-click race that used to send several concurrent
+        // /api/mines/start requests and let an out-of-order response overwrite a newer one.
+        // startBtn's disabled state is otherwise fully owned by render() (it reflects the real
+        // game status), so this only forces it back on when no fresh state actually rendered —
+        // an error or an early-return, where render() never ran and the button would otherwise
+        // stay stuck disabled.
+        minesRequestInFlight = false;
+        if (!renderedFreshState) startBtn.disabled = false;
       }
     });
 
     async function revealTile(index) {
+      // Shares the guard with startBtn/cashoutBtn: only one Mines request for this player's board
+      // may be in flight at a time, so clicking several tiles in quick succession can no longer
+      // fire concurrent /api/mines/reveal calls whose responses might come back out of order.
+      if (minesRequestInFlight) return;
+      minesRequestInFlight = true;
+      try {
       const username = getMinesUsername();
 
       try {
@@ -566,35 +597,51 @@
           render(offlineMinesState);
         }
       }
+      } finally {
+        minesRequestInFlight = false;
+      }
     }
 
     cashoutBtn.addEventListener('click', async () => {
+      if (minesRequestInFlight) return;
+      minesRequestInFlight = true;
+      cashoutBtn.disabled = true;
+      let renderedFreshState = false;
       const username = getMinesUsername();
 
       try {
-        const res = await fetch('api/mines/cashout', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username })
-        });
-        const data = await res.json();
-        if (data.ok) {
-          msgEl.textContent = `🎉 Cashed out for ₹${data.payout.toFixed(2)}`;
-          render(data.state);
-        } else {
-          msgEl.textContent = data.error;
-        }
-      } catch (e) {
-        if (window.isOfflineMode) {
-          if (offlineMinesState.status !== 'active' || offlineMinesState.revealed.length === 0) return;
+        try {
+          const res = await fetch('api/mines/cashout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username })
+          });
+          const data = await res.json();
+          if (data.ok) {
+            msgEl.textContent = `🎉 Cashed out for ₹${data.payout.toFixed(2)}`;
+            render(data.state);
+            renderedFreshState = true;
+          } else {
+            msgEl.textContent = data.error;
+          }
+        } catch (e) {
+          if (window.isOfflineMode) {
+            if (offlineMinesState.status !== 'active' || offlineMinesState.revealed.length === 0) return;
 
-          adjustWallet(offlineMinesState.potential_payout, 'Mines Cash Out');
-          offlineMinesState.status = 'cashed';
-          offlineMinesState.balance = getWallet();
+            adjustWallet(offlineMinesState.potential_payout, 'Mines Cash Out');
+            offlineMinesState.status = 'cashed';
+            offlineMinesState.balance = getWallet();
 
-          msgEl.textContent = `🎉 Cashed out for ₹${offlineMinesState.potential_payout.toFixed(2)}`;
-          render(offlineMinesState);
+            msgEl.textContent = `🎉 Cashed out for ₹${offlineMinesState.potential_payout.toFixed(2)}`;
+            render(offlineMinesState);
+            renderedFreshState = true;
+          } else {
+            msgEl.textContent = 'Cannot reach the server. Please try again.';
+          }
         }
+      } finally {
+        minesRequestInFlight = false;
+        if (!renderedFreshState) cashoutBtn.disabled = false;
       }
     });
 

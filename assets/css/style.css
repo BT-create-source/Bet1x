@@ -2509,6 +2509,10 @@ body.exchange-theme .footer {
   color: var(--text-dim) !important;
   border-top: 1px solid var(--border) !important;
   margin-top: 0 !important;
+  /* The fixed-bottom "recent wins" ticker (assets/js/ui-common.js) sits on top of whatever is at
+     the very bottom of the page; without this the footer's own text — the last thing in the
+     document — ended up partly hidden underneath it. */
+  padding-bottom: 46px !important;
 }
 
 /* ============================================================
