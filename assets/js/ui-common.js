@@ -2094,4 +2094,91 @@ document.addEventListener('DOMContentLoaded', () => {
   renderWalletChips();
 });
 
+/* ============================================================
+   Bottom "recent wins" ticker
+   ============================================================
+   Purely cosmetic social proof — there is no backend for this, nothing here reads a real bet.
+   Player-facing pages only (guarded on body.exchange-theme, the same class every CSS rule in this
+   file's stylesheet already scopes the reskin to), so it never shows up on admin.html/parity.html,
+   which load this same script for the fetch interceptor and auth helpers.
+
+   The visible ORDER names cycle in reshuffles roughly every 3.5 days: a fixed day-bucket seeds a
+   deterministic shuffle, so every visitor sees the same order on the same day with no server or
+   storage involved, and it looks different again a few days later. The amount and game shown are
+   freshly randomised on every tick regardless of that order.
+   ------------------------------------------------------------ */
+const WIN_TICKER_NAMES = [
+  'Player438462', 'Player370945', 'Player233770', 'Player821367', 'Player384253',
+  'Player536395', 'Player669594', 'Player281083', 'Player284980', 'Player955788',
+  'Player793884', 'Player435589', 'Player432990', 'Player428500', 'Player435696',
+  'Player823511', 'Player333861', 'Player944542', 'Player175284', 'Player559642',
+  'Player384126', 'Player648946', 'Player931919', 'Player350709', 'Player755781',
+  'Player545474', 'Player919731', 'Player977209', 'Player293577', 'Player576019',
+  'Player730887', 'Player323498', 'Player799078', 'Player850002', 'Player991919',
+  'Player334592', 'Player868664', 'Player551960', 'Player989360', 'Player514554',
+  'Player536705', 'Player242799', 'Player859712', 'Player269855', 'Player849037',
+  'Player719545', 'Player534254', 'Player935115', 'Player863840', 'Player708974',
+  'Player323487', 'Player250230', 'Player486769', 'Player760349', 'Player175544',
+  'Player983163', 'Player340041', 'Player347136'
+];
+const WIN_TICKER_GAMES = ['Vimaan', 'Sapre Color', 'Becone Color', 'Emred Color', 'VIP Room', 'Teen Patti', 'Mines'];
+
+// mulberry32 — a small, deterministic PRNG. Math.random() can't be seeded, and the whole point
+// here is that the same day-bucket produces the same shuffle for every visitor.
+function ticker_mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function ticker_shuffledNames() {
+  const dayBucket = Math.floor(Date.now() / (3.5 * 24 * 60 * 60 * 1000));
+  const rand = ticker_mulberry32(dayBucket);
+  const arr = WIN_TICKER_NAMES.slice();
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+  }
+  return arr;
+}
+
+function injectWinTicker() {
+  if (!document.body.classList.contains('exchange-theme')) return; // player-facing pages only
+  if (document.getElementById('bet1x-win-ticker')) return;
+
+  const bar = document.createElement('div');
+  bar.id = 'bet1x-win-ticker';
+  bar.className = 'bet1x-win-ticker';
+  bar.innerHTML = '<span class="bet1x-win-ticker-icon">🏆</span>'
+                + '<span class="bet1x-win-ticker-text" id="bet1x-win-ticker-text"></span>';
+  document.body.appendChild(bar);
+
+  const order = ticker_shuffledNames();
+  const textEl = document.getElementById('bet1x-win-ticker-text');
+  let idx = 0;
+
+  function renderNext() {
+    const name = order[idx % order.length];
+    idx++;
+    const game = WIN_TICKER_GAMES[Math.floor(Math.random() * WIN_TICKER_GAMES.length)];
+    const amount = Math.floor(250 + Math.random() * 49750);
+    textEl.classList.add('fading');
+    setTimeout(() => {
+      // Every value here comes from the fixed arrays above or Math.random() — never user input —
+      // so, unlike showToast()'s messages, innerHTML is safe: there is nothing here to inject.
+      textEl.innerHTML = '<strong>' + name + '</strong> has won <span class="amt">₹'
+        + amount.toLocaleString('en-IN') + '</span> in ' + game;
+      textEl.classList.remove('fading');
+    }, 300);
+  }
+
+  renderNext();
+  setInterval(renderNext, 4500);
+}
+
+document.addEventListener('DOMContentLoaded', injectWinTicker);
+
 
