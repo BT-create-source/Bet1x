@@ -62,10 +62,21 @@ $DBPASS = getenv('MIGRATION_DB_PASSWORD') ?: '';
 // hash_equals() below so a mistyped guess cannot be timed against it.
 $TOKEN  = getenv('MIGRATION_TOKEN') ?: 'CHANGE-ME-BEFORE-UPLOADING';
 
-$isCli = (PHP_SAPI === 'cli');
+// Some cPanel hosts alias the cron job's `php` to a php-cgi binary rather than true php-cli, so
+// PHP_SAPI alone (=='cgi-fcgi') is not a reliable way to tell "run from a cron/shell" apart from
+// "hit over HTTP" -- a cron-invoked php-cgi process still reports PHP_SAPI as cgi-fcgi, and calling
+// header() there just dumps the raw CGI response preamble as plain text instead of doing anything
+// useful. What DOES reliably differ is $_SERVER['REQUEST_METHOD']: only a real HTTP request (via
+// Apache/LiteSpeed) has one. Treat its absence as "trusted direct execution" regardless of SAPI.
+$isDirectExecution = !isset($_SERVER['REQUEST_METHOD']);
 
-if ($isCli) {
-    foreach ($argv as $arg) {
+if ($isDirectExecution) {
+    // register_argc_argv is commonly OFF for php-cgi (it's what makes "--dbname=..." on the
+    // command line unreliable there), so this loop is a bonus when it works and a no-op --
+    // never a hard requirement -- when it doesn't; the getenv() calls above already cover the
+    // same settings via MIGRATION_DB_* environment variables, which work under either SAPI.
+    $cliArgs = $argv ?? ($_SERVER['argv'] ?? []);
+    foreach ($cliArgs as $arg) {
         if (preg_match('/^--(host|port|dbname|user|password)=(.*)$/', $arg, $m)) {
             switch ($m[1]) {
                 case 'host':     $HOST   = $m[2]; break;
