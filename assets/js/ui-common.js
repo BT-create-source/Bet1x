@@ -2181,4 +2181,61 @@ function injectWinTicker() {
 
 document.addEventListener('DOMContentLoaded', injectWinTicker);
 
+/* ============================================================
+   Per-game "active players" counter
+   ============================================================
+   Cosmetic social proof again — no real presence tracking behind this number. Deliberately
+   excludes Teen Patti: that game already shows genuine seated-player counts per table (a
+   room-based system, unlike the single shared count every other game here uses), and a second,
+   fabricated number next to a real one would just contradict it.
+
+   aviator.html already has a #livePlayersCount element (its own script sets it once to "0
+   playing" — see the comment there); this reuses that element rather than creating a second one.
+   Every other eligible page has no such element yet, so one is injected right after .sub-navbar,
+   the one structural element all of them share.
+   ------------------------------------------------------------ */
+const ACTIVE_PLAYERS_PAGES = {
+  'aviator.html': null,   // reuses the page's own #livePlayersCount — see below
+  'win.html':  'Sapre',
+  'win1.html': 'Becone',
+  'win2.html': 'Emred',
+  'win3.html': 'VIP',
+  'mining.html': 'Mines'
+};
+
+function injectActivePlayersCounter() {
+  const page = location.pathname.split('/').pop().toLowerCase();
+  if (!Object.prototype.hasOwnProperty.call(ACTIVE_PLAYERS_PAGES, page)) return;
+
+  let el = document.getElementById('livePlayersCount');
+  if (!el) {
+    const subNavbar = document.querySelector('.sub-navbar');
+    if (!subNavbar) return;
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'text-align:center; font-size:12px; color:var(--text-dim); padding:8px 0 2px;';
+    wrap.innerHTML = '<span style="color:var(--green);">●</span> <span id="livePlayersCount" style="font-family:var(--font-mono); color:var(--text);">—</span> playing this game right now';
+    subNavbar.insertAdjacentElement('afterend', wrap);
+    el = document.getElementById('livePlayersCount');
+  }
+
+  let count = 500 + Math.floor(Math.random() * 501); // 500-1000
+
+  function render() {
+    el.textContent = count.toLocaleString('en-IN');
+  }
+
+  function fluctuate() {
+    // A small random walk, clamped to the band, reads as "live" without ever jumping wildly.
+    count += Math.floor(Math.random() * 41) - 20; // -20..+20
+    if (count < 500) count = 500;
+    if (count > 1000) count = 1000;
+    render();
+  }
+
+  render();
+  setInterval(fluctuate, 3500);
+}
+
+document.addEventListener('DOMContentLoaded', injectActivePlayersCounter);
+
 
