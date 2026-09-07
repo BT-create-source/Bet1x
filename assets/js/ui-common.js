@@ -424,7 +424,7 @@ function updateAuthHeaderUI() {
   if (user && user.username) {
     authArea.innerHTML = `
       <div style="display:flex; align-items:center; gap:10px; color:var(--text); font-size:13.5px; flex-wrap:wrap; justify-content:flex-end;">
-        <span>Welcome, <strong style="color:var(--gold);">${escapeHtml(user.username)}</strong></span>
+        <span>Welcome, <strong style="color:var(--gold); cursor:pointer; text-decoration:underline dotted;" onclick="openProfileModal()" title="View your profile">${escapeHtml(user.username)}</strong></span>
         <span class="wallet-chip" data-wallet-chip style="margin:0;">₹ ${getWallet().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         <a href="${prefix}cashier.html" style="background:var(--gold, #c9a054); color:#000; font-weight:800; font-size:12px; padding:6px 12px; border-radius:4px; text-decoration:none; display:inline-flex; align-items:center; gap:4px; box-shadow:0 0 12px rgba(201,160,84,0.4);">💰 Deposit</a>
         <a href="#" onclick="handleHeaderLogout(event)" style="color:var(--red); font-weight:700; text-decoration:none; font-size:12.5px; border-left:1px solid var(--border); padding-left:10px;">Logout ⎋</a>
@@ -2237,5 +2237,125 @@ function injectActivePlayersCounter() {
 }
 
 document.addEventListener('DOMContentLoaded', injectActivePlayersCounter);
+
+/* ============================================================
+   Player profile modal
+   ============================================================
+   Opened by clicking the username in the header (see updateAuthHeaderUI). Data comes from
+   GET /api/profile — the shared fetch interceptor attaches the auth token the same way it does
+   for every other api/ call in this file, so no extra wiring is needed here for that.
+   ------------------------------------------------------------ */
+
+function injectProfileModal() {
+  if (document.getElementById('bet1x-profile-modal')) return;
+  const modal = document.createElement('div');
+  modal.id = 'bet1x-profile-modal';
+  modal.className = 'auth-modal-overlay';
+  modal.innerHTML = `
+    <div class="auth-modal-card" style="max-width:560px;">
+      <button class="auth-modal-close" onclick="closeProfileModal()">&times;</button>
+      <div id="profile-modal-body">
+        <div style="text-align:center; padding:30px 0; color:var(--text-dim);">Loading profile…</div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  // Click on the dimmed backdrop closes it too, same as the auth modal's own behaviour.
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeProfileModal(); });
+}
+
+window.closeProfileModal = function () {
+  const modal = document.getElementById('bet1x-profile-modal');
+  if (modal) modal.classList.remove('active');
+};
+
+window.openProfileModal = function () {
+  const user = getCurrentUser();
+  if (!user) { window.openAuthModal('login'); return; }
+
+  injectProfileModal();
+  const modal = document.getElementById('bet1x-profile-modal');
+  const body = document.getElementById('profile-modal-body');
+  body.innerHTML = '<div style="text-align:center; padding:30px 0; color:var(--text-dim);">Loading profile…</div>';
+  modal.classList.add('active');
+  if (window.SoundFX) SoundFX.play('modalOpen');
+
+  fetch(getApiPrefix() + 'api/profile')
+    .then(res => res.json().then(data => ({ ok: res.ok, data })))
+    .then(result => {
+      if (!result.ok || !result.data || !result.data.success) {
+        body.innerHTML = '<div style="text-align:center; padding:30px 0; color:var(--red);">'
+          + escapeHtml((result.data && result.data.error) || 'Could not load your profile.') + '</div>';
+        return;
+      }
+      renderProfileModal(result.data);
+    })
+    .catch(err => {
+      console.warn('Profile load error:', err);
+      body.innerHTML = '<div style="text-align:center; padding:30px 0; color:var(--red);">Cannot reach the server. Please try again.</div>';
+    });
+};
+
+function profileFmtMoney(n) {
+  return '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function profileFmtDate(ts) {
+  if (!ts) return '';
+  const d = new Date(String(ts).replace(' ', 'T'));
+  if (isNaN(d.getTime())) return String(ts).split(' ')[0];
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+    + ', ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+}
+
+function renderProfileModal(data) {
+  const p = data.profile || {};
+  const s = data.stats || {};
+  const history = data.history || [];
+
+  const historyRows = history.length === 0
+    ? '<tr><td colspan="4" style="text-align:center; color:var(--text-dim); padding:18px;">No games played yet.</td></tr>'
+    : history.map(h => {
+        const won = h.result === 'won';
+        return '<tr>'
+          + '<td style="padding:7px 10px; border-top:1px solid var(--border);">' + escapeHtml(h.game) + '</td>'
+          + '<td style="padding:7px 10px; border-top:1px solid var(--border);"><span class="badge ' + (won ? 'won' : 'lost') + '">' + (won ? 'Won' : 'Lost') + '</span></td>'
+          + '<td style="padding:7px 10px; border-top:1px solid var(--border); font-family:var(--font-mono); font-weight:700; color:' + (won ? 'var(--green)' : 'var(--red)') + ';">'
+              + (won ? '+' : '-') + profileFmtMoney(h.amount) + '</td>'
+          + '<td style="padding:7px 10px; border-top:1px solid var(--border); color:var(--text-dim); font-size:12px; white-space:nowrap;">' + escapeHtml(profileFmtDate(h.timestamp)) + '</td>'
+          + '</tr>';
+      }).join('');
+
+  const body = document.getElementById('profile-modal-body');
+  if (!body) return;
+  body.innerHTML = `
+    <h2 style="font-family:var(--font-display); margin:0 0 4px; color:var(--text);">${escapeHtml(p.username || '')}</h2>
+    <div style="color:var(--text-dim); font-size:13px; margin-bottom:18px;">${escapeHtml(p.email || '')}</div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:10px; margin-bottom:20px;">
+      <div class="profile-stat-tile"><div class="profile-stat-value" style="color:var(--gold);">${profileFmtMoney(p.wallet_balance)}</div><div class="profile-stat-label">Wallet</div></div>
+      <div class="profile-stat-tile"><div class="profile-stat-value">${s.games_played || 0}</div><div class="profile-stat-label">Games Played</div></div>
+      <div class="profile-stat-tile"><div class="profile-stat-value" style="color:var(--green);">${s.wins || 0}</div><div class="profile-stat-label">Wins</div></div>
+      <div class="profile-stat-tile"><div class="profile-stat-value" style="color:var(--red);">${s.losses || 0}</div><div class="profile-stat-label">Losses</div></div>
+      <div class="profile-stat-tile"><div class="profile-stat-value" style="color:var(--green);">${profileFmtMoney(s.total_won)}</div><div class="profile-stat-label">Total Won</div></div>
+      <div class="profile-stat-tile"><div class="profile-stat-value" style="color:var(--red);">${profileFmtMoney(s.total_lost)}</div><div class="profile-stat-label">Total Lost</div></div>
+    </div>
+
+    <div style="font-family:var(--font-display); font-size:15px; color:var(--text); margin-bottom:8px;">Game History</div>
+    <div style="max-height:260px; overflow-y:auto; border:1px solid var(--border); border-radius:var(--radius-sm);">
+      <table style="width:100%; border-collapse:collapse; font-size:13px;">
+        <thead>
+          <tr>
+            <th style="text-align:left; padding:8px 10px; color:var(--text-dim); font-size:11px; text-transform:uppercase; position:sticky; top:0; background:var(--surface-2);">Game</th>
+            <th style="text-align:left; padding:8px 10px; color:var(--text-dim); font-size:11px; text-transform:uppercase; position:sticky; top:0; background:var(--surface-2);">Result</th>
+            <th style="text-align:left; padding:8px 10px; color:var(--text-dim); font-size:11px; text-transform:uppercase; position:sticky; top:0; background:var(--surface-2);">Amount</th>
+            <th style="text-align:left; padding:8px 10px; color:var(--text-dim); font-size:11px; text-transform:uppercase; position:sticky; top:0; background:var(--surface-2);">Date</th>
+          </tr>
+        </thead>
+        <tbody>${historyRows}</tbody>
+      </table>
+    </div>
+  `;
+}
 
 
