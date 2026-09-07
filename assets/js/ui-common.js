@@ -435,7 +435,10 @@ function updateAuthHeaderUI() {
   if (user && user.username) {
     authArea.innerHTML = `
       <div style="display:flex; align-items:center; gap:10px; color:var(--text); font-size:13.5px; flex-wrap:wrap; justify-content:flex-end;">
-        <span>Welcome, <strong style="color:var(--gold); cursor:pointer; text-decoration:underline dotted;" onclick="openProfileModal()" title="View your profile">${escapeHtml(user.username)}</strong></span>
+        <a href="${prefix}profile.html" class="header-profile-avatar" title="View your profile">
+          <img src="${prefix}assets/10/avtar.png" alt="Profile">
+        </a>
+        <span>Welcome, <strong style="color:var(--gold);">${escapeHtml(user.username)}</strong></span>
         <span class="wallet-chip" data-wallet-chip style="margin:0;">₹ ${getWallet().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         <a href="${prefix}cashier.html" style="background:var(--gold, #c9a054); color:#000; font-weight:800; font-size:12px; padding:6px 12px; border-radius:4px; text-decoration:none; display:inline-flex; align-items:center; gap:4px; box-shadow:0 0 12px rgba(201,160,84,0.4);">💰 Deposit</a>
         <a href="#" onclick="handleHeaderLogout(event)" style="color:var(--red); font-weight:700; text-decoration:none; font-size:12.5px; border-left:1px solid var(--border); padding-left:10px;">Logout ⎋</a>
@@ -2278,46 +2281,24 @@ function injectActivePlayersCounter() {
 document.addEventListener('DOMContentLoaded', injectActivePlayersCounter);
 
 /* ============================================================
-   Player profile modal
+   Player profile page
    ============================================================
-   Opened by clicking the username in the header (see updateAuthHeaderUI). Data comes from
+   Reached via the avatar icon in the header (see updateAuthHeaderUI) — a dedicated page
+   (profile.html), not a modal, so the phone/browser back button and a bookmark both work
+   normally, and there's no gear-icon/close-button overlap to manage. Data comes from
    GET /api/profile — the shared fetch interceptor attaches the auth token the same way it does
    for every other api/ call in this file, so no extra wiring is needed here for that.
    ------------------------------------------------------------ */
 
-function injectProfileModal() {
-  if (document.getElementById('bet1x-profile-modal')) return;
-  const modal = document.createElement('div');
-  modal.id = 'bet1x-profile-modal';
-  modal.className = 'auth-modal-overlay';
-  modal.innerHTML = `
-    <div class="auth-modal-card" style="max-width:600px;">
-      <button class="auth-modal-close" onclick="closeProfileModal()">&times;</button>
-      <div id="profile-modal-body">
-        <div style="text-align:center; padding:30px 0; color:var(--text-dim);">Loading profile…</div>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(modal);
-  // Click on the dimmed backdrop closes it too, same as the auth modal's own behaviour.
-  modal.addEventListener('click', (e) => { if (e.target === modal) closeProfileModal(); });
-}
-
-window.closeProfileModal = function () {
-  const modal = document.getElementById('bet1x-profile-modal');
-  if (modal) modal.classList.remove('active');
-};
-
-window.openProfileModal = function () {
+window.initProfilePage = function () {
   const user = getCurrentUser();
-  if (!user) { window.openAuthModal('login'); return; }
+  if (!user) {
+    window.location.href = getApiPrefix() + 'index.html';
+    return;
+  }
 
-  injectProfileModal();
-  const modal = document.getElementById('bet1x-profile-modal');
-  const body = document.getElementById('profile-modal-body');
-  body.innerHTML = '<div style="text-align:center; padding:30px 0; color:var(--text-dim);">Loading profile…</div>';
-  modal.classList.add('active');
-  if (window.SoundFX) SoundFX.play('modalOpen');
+  const body = document.getElementById('profile-page-body');
+  if (!body) return;
 
   fetch(getApiPrefix() + 'api/profile')
     .then(res => res.json().then(data => ({ ok: res.ok, data })))
@@ -2327,7 +2308,7 @@ window.openProfileModal = function () {
           + escapeHtml((result.data && result.data.error) || 'Could not load your profile.') + '</div>';
         return;
       }
-      renderProfileModal(result.data);
+      renderProfilePage(result.data);
     })
     .catch(err => {
       console.warn('Profile load error:', err);
@@ -2347,20 +2328,29 @@ function profileFmtDate(ts) {
     + ', ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 }
 
-function profileMenuItem(key, icon, label, note) {
+// Clean bullet-style rows instead of emoji icons — a plain gold dot marker, not a glyph.
+function profileMenuItem(key, label, note) {
   return '<a href="#" class="profile-menu-item" onclick="toggleProfileSection(\'' + key + '\'); return false;">'
-       + '<span class="profile-menu-icon">' + icon + '</span>'
+       + '<span class="profile-menu-bullet"></span>'
        + '<span class="profile-menu-label">' + escapeHtml(label) + '</span>'
        + '<span class="profile-menu-note">' + escapeHtml(note) + '</span>'
        + '<span class="profile-menu-chevron" id="profile-menu-chevron-' + key + '">›</span>'
        + '</a>';
 }
 
-function profileSupportPlaceholder(icon, label) {
+// Same row styling, but a direct action (e.g. Share) rather than an expandable section.
+function profileMenuAction(label, note, onclick) {
+  return '<a href="#" class="profile-menu-item" onclick="' + onclick + '; return false;">'
+       + '<span class="profile-menu-bullet"></span>'
+       + '<span class="profile-menu-label">' + escapeHtml(label) + '</span>'
+       + '<span class="profile-menu-note">' + escapeHtml(note) + '</span>'
+       + '</a>';
+}
+
+function profileSupportSubItem(label) {
   // Left as a UI placeholder deliberately — the real WhatsApp number / Telegram link are to be
   // provided later and wired in then; this is not wired to anything yet.
-  return '<a href="#" class="profile-menu-item" onclick="return false;" style="opacity:.65; cursor:default;">'
-       + '<span class="profile-menu-icon">' + icon + '</span>'
+  return '<a href="#" class="profile-menu-subitem" onclick="return false;" style="opacity:.65; cursor:default;">'
        + '<span class="profile-menu-label">' + escapeHtml(label) + '</span>'
        + '<span class="profile-menu-note">Coming soon</span>'
        + '</a>';
@@ -2379,20 +2369,37 @@ window.toggleProfileSection = function (key) {
   }
 };
 
-function renderProfileModal(data) {
+// General "share this app" action — just the site's own URL, distinct from the Refer & Earn
+// section's shareReferralLink() (which shares the player's personal referral code/link).
+window.shareAppLink = function () {
+  const link = location.origin + getApiPrefix() + 'index.html';
+  const text = 'Check out bet1x: ' + link;
+  if (navigator.share) {
+    navigator.share({ title: 'bet1x', text: text, url: link }).catch(() => {});
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(link)
+      .then(() => showToast('Link copied!', 'success'))
+      .catch(() => showToast(link, 'success'));
+  }
+};
+
+function renderProfilePage(data) {
   const p = data.profile || {};
   window._bet1xProfileData = data;
 
-  const body = document.getElementById('profile-modal-body');
+  const body = document.getElementById('profile-page-body');
   if (!body) return;
   body.innerHTML = `
-    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:14px;">
-      <div>
-        <h2 style="font-family:var(--font-display); margin:0 0 4px; color:var(--text);">${escapeHtml(p.username || '')}</h2>
-        <div style="color:var(--text-dim); font-size:12.5px;">User ID: #${escapeHtml(String(p.id != null ? p.id : ''))}${p.phone ? ' &middot; ' + escapeHtml(p.phone) : ''}</div>
-      </div>
-      <button type="button" onclick="openSettingsModal()" title="Account settings"
-              style="background:var(--surface-2); border:1px solid var(--border); color:var(--text-dim); width:36px; height:36px; min-width:36px; border-radius:50%; font-size:16px; cursor:pointer; flex-shrink:0;">⚙</button>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+      <button type="button" class="btn btn-ghost profile-back-btn"
+              onclick="(window.history.length > 1) ? window.history.back() : (window.location.href = 'index.html')">&larr; Back</button>
+      <button type="button" onclick="openSettingsModal()" title="Account settings" class="profile-gear-btn">⚙</button>
+    </div>
+
+    <div style="text-align:center; margin-bottom:22px;">
+      <img src="${getApiPrefix()}assets/10/avtar.png" alt="Profile avatar" class="profile-avatar-img">
+      <div style="font-family:var(--font-display); font-size:19px; color:var(--text); margin-top:12px;">${escapeHtml(p.username || '')}</div>
+      <div style="color:var(--text-dim); font-size:12.5px; margin-top:2px;">User ID: ${escapeHtml(String(p.id != null ? p.id : ''))}</div>
     </div>
 
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;">
@@ -2401,20 +2408,25 @@ function renderProfileModal(data) {
     </div>
 
     <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-bottom:18px;">
-      <a href="cashier.html#deposit" class="btn btn-primary" style="text-align:center; color:#000; font-weight:700; padding:10px 4px; font-size:12.5px; text-decoration:none;">💰 Recharge</a>
-      <a href="cashier.html#withdraw" class="btn btn-ghost" style="text-align:center; padding:10px 4px; font-size:12.5px; text-decoration:none;">💸 Withdraw</a>
-      <a href="cashier.html#history" class="btn btn-ghost" style="text-align:center; padding:10px 4px; font-size:12.5px; text-decoration:none;">📜 History</a>
+      <a href="cashier.html#deposit" class="btn btn-primary" style="text-align:center; color:#000; font-weight:700; padding:10px 4px; font-size:12.5px; text-decoration:none;">Deposit</a>
+      <a href="cashier.html#withdraw" class="btn btn-ghost" style="text-align:center; padding:10px 4px; font-size:12.5px; text-decoration:none;">Withdraw</a>
+      <a href="cashier.html#history" class="btn btn-ghost" style="text-align:center; padding:10px 4px; font-size:12.5px; text-decoration:none;">History</a>
     </div>
 
     <div class="profile-menu">
-      ${profileMenuItem('game-history', '🎮', 'Game History', "See every round you've played")}
+      ${profileMenuItem('game-history', 'Game History', "See every round you've played")}
       <div id="profile-section-game-history" class="profile-menu-section" style="display:none;"></div>
 
-      ${profileMenuItem('referral', '🎁', 'Referral &amp; Earn', 'Invite friends, earn commission')}
+      ${profileMenuItem('referral', 'Refer &amp; Earn', 'Invite friends, earn commission')}
       <div id="profile-section-referral" class="profile-menu-section" style="display:none;"></div>
 
-      ${profileSupportPlaceholder('💬', 'WhatsApp Support')}
-      ${profileSupportPlaceholder('✈️', 'Telegram Channel')}
+      ${profileMenuItem('support', 'Customer Support', 'Get help from our team')}
+      <div id="profile-section-support" class="profile-menu-section" style="display:none;">
+        ${profileSupportSubItem('WhatsApp Support')}
+        ${profileSupportSubItem('Telegram Channel')}
+      </div>
+
+      ${profileMenuAction('Share', 'Share bet1x with your friends', 'shareAppLink()')}
     </div>
   `;
 

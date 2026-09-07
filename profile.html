@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>bet1x — My Profile</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body class="exchange-theme">
+
+  <nav class="navbar exchange-header">
+    <div class="exchange-logo-box">
+      Bet1x
+    </div>
+    <div id="headerAuthArea">
+      <!-- Loaded dynamically by ui-common.js -->
+    </div>
+  </nav>
+
+  <div class="container" style="max-width: 600px;">
+    <div id="profile-page-body" style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-top: 20px; box-shadow: var(--shadow-card);">
+      <div style="text-align:center; padding:30px 0; color:var(--text-dim);">Loading profile…</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    bet1x — live prediction exchange. Play responsibly; 18+ only.
+  </div>
+
+  <script src="assets/js/ui-common.js"></script>
+  <script src="assets/js/sound-fx.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      initProfilePage();
+    });
+  </script>
+</body>
+</html>
