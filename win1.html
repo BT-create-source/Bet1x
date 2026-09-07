@@ -492,11 +492,10 @@ function syncState() {
     
     roundIdEl.textContent = data.round_id;
     setWallet(data.wallet_balance);
-    const activeUsersEl = document.getElementById('activePlayersCount');
-    if (activeUsersEl) {
-      activeUsersEl.textContent = `${data.active_users || 0} players active in this room`;
-    }
-    
+    // #activePlayersCount is now owned by assets/js/ui-common.js's fluctuating counter (see
+    // injectActivePlayersCounter) rather than this real — and always-zero, since presence isn't
+    // actually tracked — figure, so the page doesn't show two conflicting numbers at once.
+
     if (lastRoundId && String(lastRoundId) !== String(data.round_id)) {
       const lastResult = (data.history && data.history.length > 0)
         ? (data.history.find(h => String(h.roundNumber) === String(lastRoundId)) || data.history[data.history.length - 1])

@@ -2194,34 +2194,41 @@ document.addEventListener('DOMContentLoaded', injectWinTicker);
    Every other eligible page has no such element yet, so one is injected right after .sub-navbar,
    the one structural element all of them share.
    ------------------------------------------------------------ */
+// Each eligible page either already has its own counter element (which real, currently-always-zero
+// server data drives — reused here rather than duplicated, with a template matching that element's
+// original wording) or gets a freshly injected one after .sub-navbar (mining.html only, which has
+// neither an existing element nor a competing real-data writer).
 const ACTIVE_PLAYERS_PAGES = {
-  'aviator.html': null,   // reuses the page's own #livePlayersCount — see below
-  'win.html':  'Sapre',
-  'win1.html': 'Becone',
-  'win2.html': 'Emred',
-  'win3.html': 'VIP',
-  'mining.html': 'Mines'
+  'aviator.html': { reuseId: 'livePlayersCount',  template: n => n + ' playing' },
+  'win.html':     { reuseId: 'activePlayersCount', template: n => n + ' players active in this room' },
+  'win1.html':    { reuseId: 'activePlayersCount', template: n => n + ' players active in this room' },
+  'win2.html':    { reuseId: 'activePlayersCount', template: n => n + ' players active in this room' },
+  'win3.html':    { reuseId: 'activePlayersCount', template: n => n + ' players active in this room' },
+  'mining.html':  { reuseId: null, template: n => n }
 };
 
 function injectActivePlayersCounter() {
   const page = location.pathname.split('/').pop().toLowerCase();
-  if (!Object.prototype.hasOwnProperty.call(ACTIVE_PLAYERS_PAGES, page)) return;
+  const conf = ACTIVE_PLAYERS_PAGES[page];
+  if (!conf) return;
 
-  let el = document.getElementById('livePlayersCount');
+  let el = conf.reuseId ? document.getElementById(conf.reuseId) : null;
+  let template = conf.template;
   if (!el) {
     const subNavbar = document.querySelector('.sub-navbar');
     if (!subNavbar) return;
     const wrap = document.createElement('div');
     wrap.style.cssText = 'text-align:center; font-size:12px; color:var(--text-dim); padding:8px 0 2px;';
-    wrap.innerHTML = '<span style="color:var(--green);">●</span> <span id="livePlayersCount" style="font-family:var(--font-mono); color:var(--text);">—</span> playing this game right now';
+    wrap.innerHTML = '<span style="color:var(--green);">●</span> <span id="bet1x-active-players-injected" style="font-family:var(--font-mono); color:var(--text);">—</span> playing this game right now';
     subNavbar.insertAdjacentElement('afterend', wrap);
-    el = document.getElementById('livePlayersCount');
+    el = document.getElementById('bet1x-active-players-injected');
+    template = n => n; // the surrounding text above already supplies the "playing..." wording
   }
 
   let count = 500 + Math.floor(Math.random() * 501); // 500-1000
 
   function render() {
-    el.textContent = count.toLocaleString('en-IN');
+    el.textContent = template(count.toLocaleString('en-IN'));
   }
 
   function fluctuate() {
