@@ -70,6 +70,8 @@ require_once __DIR__ . '/routes/email_otp.php';
 require_once __DIR__ . '/routes/password_reset.php';
 require_once __DIR__ . '/routes/wallet.php';
 require_once __DIR__ . '/routes/profile.php';
+require_once __DIR__ . '/routes/settings.php';
+require_once __DIR__ . '/routes/referral.php';
 require_once __DIR__ . '/routes/chat.php';
 require_once __DIR__ . '/routes/dbgateway.php';
 require_once __DIR__ . '/routes/admin.php';
@@ -117,6 +119,10 @@ try {
         register_wallet_routes($app);
         // 2b. Player profile + reconstructed game history (read-only; touches no money path).
         register_profile_routes($app);
+        // 2c. Account settings (username/email/password).
+        register_settings_routes($app);
+        // 2d. Referral dashboard + claim.
+        register_referral_routes($app);
         // 3. Chat
         register_chat_routes($app);
         // 4. The /api/db admin gate, then the raw table gateway

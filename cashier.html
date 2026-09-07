@@ -589,6 +589,14 @@
       
       refreshCashierWallet();
       renderTransactions();
+
+      // Deep-link support for #deposit / #withdraw / #history (used by the profile modal's
+      // Recharge/Withdraw/History buttons) — defaults to the deposit tab already active in the
+      // markup when there is no hash, so this changes nothing for a plain cashier.html visit.
+      const requestedTab = (location.hash || '').replace('#', '').toLowerCase();
+      if (['deposit', 'withdraw', 'history'].includes(requestedTab)) {
+        switchCashierTab(requestedTab);
+      }
     });
 
     let selectedDepositAmt = 1000;

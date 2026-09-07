@@ -22,6 +22,8 @@ require_once __DIR__ . '/../lib/otp.php';
 require_once __DIR__ . '/../lib/sms.php';
 // ...and email verification (direct SMTP) — see the block below headed "Email verification".
 require_once __DIR__ . '/../lib/email_otp.php';
+// ...and optional referral-code attribution at signup — see lib/referral.php.
+require_once __DIR__ . '/../lib/referral.php';
 require_once __DIR__ . '/../games/color.php';
 require_once __DIR__ . '/../games/aviator.php';
 require_once __DIR__ . '/../games/teenpatti.php';
@@ -861,6 +863,23 @@ function register_gamesync_routes(Router $app) {
 
                 // Spend the verification so one code cannot register a second account.
                 if (cfg('EMAIL_VERIFICATION_REQUIRED')) email_otp_consume($email);
+
+                // Referral attribution — optional, and deliberately best-effort: a signup must
+                // never fail because of a bad/foreign referral code, or because migration-005
+                // hasn't been applied yet on a deployment that hasn't run it. A separate UPDATE
+                // after the account already exists, rather than a column on the INSERT above,
+                // keeps this from touching that statement's own migration-fallback handling.
+                $refCode = trim((string) ($req->b('referral_code') ?? $req->q('referral_code') ?? ''));
+                if ($refCode !== '' && $user) {
+                    try {
+                        $inviterUsername = referral_resolve_inviter($refCode);
+                        if ($inviterUsername && strtolower($inviterUsername) !== strtolower($username)) {
+                            q('UPDATE "User" SET "referred_by" = ? WHERE "id" = ?', [$inviterUsername, (int) $user['id']]);
+                        }
+                    } catch (Throwable $refErr) {
+                        log_debug('referral attribution skipped: ' . $refErr->getMessage());
+                    }
+                }
 
                 $res->json([
                     'success' => true,

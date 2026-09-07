@@ -3365,3 +3365,40 @@ body.exchange-theme .footer {
   letter-spacing: 0.04em;
   margin-top: 3px;
 }
+
+.profile-menu {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.profile-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  color: var(--text);
+  text-decoration: none;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+  transition: background 0.15s ease;
+}
+.profile-menu-item:first-child { border-top: none; }
+.profile-menu-item:hover { background: var(--surface-3, var(--surface-2)); }
+.profile-menu-icon { font-size: 16px; flex-shrink: 0; }
+.profile-menu-label { font-weight: 600; font-size: 13.5px; }
+.profile-menu-note {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+.profile-menu-chevron {
+  color: var(--text-dim);
+  font-size: 15px;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+.profile-menu-section {
+  background: var(--bg);
+  padding: 0 14px 14px;
+  border-top: 1px solid var(--border);
+}

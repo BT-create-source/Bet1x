@@ -147,6 +147,11 @@ function register_profile_routes(Router $app) {
                     'email'          => $user['email'],
                     'phone'          => $user['phone'] ?? null,
                     'wallet_balance' => (float) $user['wallet_balance'],
+                    // Referral commission wallet — see lib/referral.php. Kept here too (in
+                    // addition to GET /api/referral) so the profile card's top balance row can
+                    // show it without a second request; the referral code itself, and the full
+                    // dashboard, are only fetched when the player actually opens that section.
+                    'referral_balance' => (float) ($user['referral_balance'] ?? 0),
                     'member_since'   => $user['created_at'] ?? null,
                 ],
                 'stats' => [

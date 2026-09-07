@@ -29,6 +29,17 @@ window.BET1X_API_BASE = (function () {
  * signed in on the same browser neither clobbers nor borrows a player's session. */
 window.BET1X_TOKEN_KEY = window.BET1X_ADMIN_CONSOLE ? 'bet1x_admin_token' : 'bet1x_auth_token';
 
+/* Referral code carried in via a shared link (?ref=CODE). Captured once at load time into
+ * sessionStorage so it survives the click from landing page to signup form even if the visitor
+ * lands on a different page than the one that opens the auth modal. */
+(function () {
+  try {
+    var params = new URLSearchParams(window.location.search);
+    var ref = params.get('ref');
+    if (ref) sessionStorage.setItem('bet1x_referral_code', ref.trim());
+  } catch (e) { /* no-op — referral prefill is a convenience, not a requirement */ }
+})();
+
 /* ---------------------------------------------------------------------------------------------
  * Cricket feature gate (Your 11 / Boundary Baazi).
  *
@@ -839,6 +850,10 @@ window.handleAuthSubmit = function(e, type) {
     body.append('phone', phoneVal);
     body.append('password', passInp);
     body.append('confirm_password', confirmPassInp);
+
+    const referralInput = document.getElementById('signup-referral-code');
+    const referralVal = referralInput ? referralInput.value.trim() : '';
+    if (referralVal) body.append('referral_code', referralVal);
 
     fetch(prefix + 'api/auth.php?action=signup', {
       method: 'POST',
@@ -1676,6 +1691,11 @@ function injectAuthModal() {
           <input type="tel" id="signup-phone" placeholder="10-digit mobile number" required
                  autocomplete="tel" inputmode="numeric" maxlength="16">
         </div>
+        <div class="auth-form-group" id="signup-referral-group">
+          <label for="signup-referral-code">Referral Code <span style="color:var(--text-dim); font-weight:400;">(optional)</span></label>
+          <input type="text" id="signup-referral-code" placeholder="Enter a friend's referral code"
+                 autocomplete="off" style="text-transform:uppercase;">
+        </div>
         <div class="auth-form-group">
           <label for="signup-password">Password</label>
           <input type="password" id="signup-password" placeholder="Create password" required autocomplete="new-password">
@@ -1735,6 +1755,18 @@ function injectAuthModal() {
   // email fields and ask the backend whether email verification should be shown.
   wireSignupVerification();
   wireForgotPassword();
+
+  // Prefill (and lock) the referral code if the visitor arrived via a ?ref= share link; otherwise
+  // leave the field as a plain optional input.
+  try {
+    const savedRef = sessionStorage.getItem('bet1x_referral_code');
+    const refInput = document.getElementById('signup-referral-code');
+    if (savedRef && refInput) {
+      refInput.value = savedRef;
+      refInput.readOnly = true;
+      refInput.style.opacity = '0.75';
+    }
+  } catch (e) { /* no-op */ }
 }
 
 function updateNavbarAuth() {
@@ -2259,7 +2291,7 @@ function injectProfileModal() {
   modal.id = 'bet1x-profile-modal';
   modal.className = 'auth-modal-overlay';
   modal.innerHTML = `
-    <div class="auth-modal-card" style="max-width:560px;">
+    <div class="auth-modal-card" style="max-width:600px;">
       <button class="auth-modal-close" onclick="closeProfileModal()">&times;</button>
       <div id="profile-modal-body">
         <div style="text-align:center; padding:30px 0; color:var(--text-dim);">Loading profile…</div>
@@ -2315,10 +2347,85 @@ function profileFmtDate(ts) {
     + ', ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 }
 
+function profileMenuItem(key, icon, label, note) {
+  return '<a href="#" class="profile-menu-item" onclick="toggleProfileSection(\'' + key + '\'); return false;">'
+       + '<span class="profile-menu-icon">' + icon + '</span>'
+       + '<span class="profile-menu-label">' + escapeHtml(label) + '</span>'
+       + '<span class="profile-menu-note">' + escapeHtml(note) + '</span>'
+       + '<span class="profile-menu-chevron" id="profile-menu-chevron-' + key + '">›</span>'
+       + '</a>';
+}
+
+function profileSupportPlaceholder(icon, label) {
+  // Left as a UI placeholder deliberately — the real WhatsApp number / Telegram link are to be
+  // provided later and wired in then; this is not wired to anything yet.
+  return '<a href="#" class="profile-menu-item" onclick="return false;" style="opacity:.65; cursor:default;">'
+       + '<span class="profile-menu-icon">' + icon + '</span>'
+       + '<span class="profile-menu-label">' + escapeHtml(label) + '</span>'
+       + '<span class="profile-menu-note">Coming soon</span>'
+       + '</a>';
+}
+
+window.toggleProfileSection = function (key) {
+  const section = document.getElementById('profile-section-' + key);
+  const chevron = document.getElementById('profile-menu-chevron-' + key);
+  if (!section) return;
+  const willShow = section.style.display === 'none' || section.style.display === '';
+  section.style.display = willShow ? 'block' : 'none';
+  if (chevron) chevron.style.transform = willShow ? 'rotate(90deg)' : 'rotate(0deg)';
+  if (willShow && key === 'referral' && !section.dataset.loaded) {
+    section.dataset.loaded = '1';
+    loadReferralSection(section);
+  }
+};
+
 function renderProfileModal(data) {
   const p = data.profile || {};
+  window._bet1xProfileData = data;
+
+  const body = document.getElementById('profile-modal-body');
+  if (!body) return;
+  body.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:14px;">
+      <div>
+        <h2 style="font-family:var(--font-display); margin:0 0 4px; color:var(--text);">${escapeHtml(p.username || '')}</h2>
+        <div style="color:var(--text-dim); font-size:12.5px;">User ID: #${escapeHtml(String(p.id != null ? p.id : ''))}${p.phone ? ' &middot; ' + escapeHtml(p.phone) : ''}</div>
+      </div>
+      <button type="button" onclick="openSettingsModal()" title="Account settings"
+              style="background:var(--surface-2); border:1px solid var(--border); color:var(--text-dim); width:36px; height:36px; min-width:36px; border-radius:50%; font-size:16px; cursor:pointer; flex-shrink:0;">⚙</button>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;">
+      <div class="profile-stat-tile"><div class="profile-stat-value" id="profile-wallet-value" style="color:var(--gold);">${profileFmtMoney(p.wallet_balance)}</div><div class="profile-stat-label">My Balance</div></div>
+      <div class="profile-stat-tile"><div class="profile-stat-value" id="profile-referral-value" style="color:var(--violet);">${profileFmtMoney(p.referral_balance)}</div><div class="profile-stat-label">Referral / Invite Bonus</div></div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-bottom:18px;">
+      <a href="cashier.html#deposit" class="btn btn-primary" style="text-align:center; color:#000; font-weight:700; padding:10px 4px; font-size:12.5px; text-decoration:none;">💰 Recharge</a>
+      <a href="cashier.html#withdraw" class="btn btn-ghost" style="text-align:center; padding:10px 4px; font-size:12.5px; text-decoration:none;">💸 Withdraw</a>
+      <a href="cashier.html#history" class="btn btn-ghost" style="text-align:center; padding:10px 4px; font-size:12.5px; text-decoration:none;">📜 History</a>
+    </div>
+
+    <div class="profile-menu">
+      ${profileMenuItem('game-history', '🎮', 'Game History', "See every round you've played")}
+      <div id="profile-section-game-history" class="profile-menu-section" style="display:none;"></div>
+
+      ${profileMenuItem('referral', '🎁', 'Referral &amp; Earn', 'Invite friends, earn commission')}
+      <div id="profile-section-referral" class="profile-menu-section" style="display:none;"></div>
+
+      ${profileSupportPlaceholder('💬', 'WhatsApp Support')}
+      ${profileSupportPlaceholder('✈️', 'Telegram Channel')}
+    </div>
+  `;
+
+  renderGameHistorySection(data);
+}
+
+function renderGameHistorySection(data) {
   const s = data.stats || {};
   const history = data.history || [];
+  const el = document.getElementById('profile-section-game-history');
+  if (!el) return;
 
   const historyRows = history.length === 0
     ? '<tr><td colspan="4" style="text-align:center; color:var(--text-dim); padding:18px;">No games played yet.</td></tr>'
@@ -2333,23 +2440,15 @@ function renderProfileModal(data) {
           + '</tr>';
       }).join('');
 
-  const body = document.getElementById('profile-modal-body');
-  if (!body) return;
-  body.innerHTML = `
-    <h2 style="font-family:var(--font-display); margin:0 0 4px; color:var(--text);">${escapeHtml(p.username || '')}</h2>
-    <div style="color:var(--text-dim); font-size:13px; margin-bottom:18px;">${escapeHtml(p.email || '')}</div>
-
-    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:10px; margin-bottom:20px;">
-      <div class="profile-stat-tile"><div class="profile-stat-value" style="color:var(--gold);">${profileFmtMoney(p.wallet_balance)}</div><div class="profile-stat-label">Wallet</div></div>
-      <div class="profile-stat-tile"><div class="profile-stat-value">${s.games_played || 0}</div><div class="profile-stat-label">Games Played</div></div>
+  el.innerHTML = `
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(85px, 1fr)); gap:8px; margin:12px 0;">
+      <div class="profile-stat-tile"><div class="profile-stat-value">${s.games_played || 0}</div><div class="profile-stat-label">Played</div></div>
       <div class="profile-stat-tile"><div class="profile-stat-value" style="color:var(--green);">${s.wins || 0}</div><div class="profile-stat-label">Wins</div></div>
       <div class="profile-stat-tile"><div class="profile-stat-value" style="color:var(--red);">${s.losses || 0}</div><div class="profile-stat-label">Losses</div></div>
-      <div class="profile-stat-tile"><div class="profile-stat-value" style="color:var(--green);">${profileFmtMoney(s.total_won)}</div><div class="profile-stat-label">Total Won</div></div>
-      <div class="profile-stat-tile"><div class="profile-stat-value" style="color:var(--red);">${profileFmtMoney(s.total_lost)}</div><div class="profile-stat-label">Total Lost</div></div>
+      <div class="profile-stat-tile"><div class="profile-stat-value" style="color:var(--green); font-size:14px;">${profileFmtMoney(s.total_won)}</div><div class="profile-stat-label">Won</div></div>
+      <div class="profile-stat-tile"><div class="profile-stat-value" style="color:var(--red); font-size:14px;">${profileFmtMoney(s.total_lost)}</div><div class="profile-stat-label">Lost</div></div>
     </div>
-
-    <div style="font-family:var(--font-display); font-size:15px; color:var(--text); margin-bottom:8px;">Game History</div>
-    <div style="max-height:260px; overflow-y:auto; border:1px solid var(--border); border-radius:var(--radius-sm);">
+    <div style="max-height:220px; overflow-y:auto; border:1px solid var(--border); border-radius:var(--radius-sm);">
       <table style="width:100%; border-collapse:collapse; font-size:13px;">
         <thead>
           <tr>
@@ -2364,5 +2463,297 @@ function renderProfileModal(data) {
     </div>
   `;
 }
+
+/* ============================================================
+   Referral & Earn
+   ============================================================ */
+
+function loadReferralSection(container) {
+  container.innerHTML = '<div style="text-align:center; padding:16px; color:var(--text-dim);">Loading…</div>';
+  fetch(getApiPrefix() + 'api/referral')
+    .then(res => res.json().then(data => ({ ok: res.ok, data })))
+    .then(result => {
+      if (!result.ok || !result.data || !result.data.success) {
+        container.innerHTML = '<div style="text-align:center; padding:16px; color:var(--red);">'
+          + escapeHtml((result.data && result.data.error) || 'Could not load referral data.') + '</div>';
+        return;
+      }
+      renderReferralSection(container, result.data);
+    })
+    .catch(err => {
+      console.warn('Referral load error:', err);
+      container.innerHTML = '<div style="text-align:center; padding:16px; color:var(--red);">Cannot reach the server. Please try again.</div>';
+    });
+}
+
+function renderReferralSection(container, data) {
+  const link = location.origin + getApiPrefix() + 'index.html?ref=' + encodeURIComponent(data.referral_code);
+  window._bet1xReferralLink = link;
+  window._bet1xReferralCode = data.referral_code;
+
+  const playersRows = (data.players || []).length === 0
+    ? '<tr><td colspan="3" style="text-align:center; color:var(--text-dim); padding:14px;">No one yet — share your link!</td></tr>'
+    : data.players.map(pl => (
+        '<tr>'
+        + '<td style="padding:6px 8px; border-top:1px solid var(--border);">' + escapeHtml(pl.username) + '</td>'
+        + '<td style="padding:6px 8px; border-top:1px solid var(--border); color:var(--text-dim); font-size:11.5px; white-space:nowrap;">' + escapeHtml(profileFmtDate(pl.joined)) + '</td>'
+        + '<td style="padding:6px 8px; border-top:1px solid var(--border); font-family:var(--font-mono); color:var(--green); text-align:right;">' + profileFmtMoney(pl.earned_from) + '</td>'
+        + '</tr>'
+      )).join('');
+
+  container.innerHTML = `
+    <div style="margin:12px 0 10px;">
+      <div style="font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px;">Your Referral Code</div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <div style="flex:1; font-family:var(--font-mono); font-size:16px; font-weight:700; color:var(--gold); background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px 12px;">${escapeHtml(data.referral_code)}</div>
+        <button type="button" class="btn btn-ghost" onclick="shareReferralLink()" style="white-space:nowrap; padding:8px 14px;">Share</button>
+      </div>
+      <div style="font-size:11px; color:var(--text-dim); margin-top:6px; word-break:break-all;">${escapeHtml(link)}</div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px;">
+      <div class="profile-stat-tile"><div class="profile-stat-value">${data.total_referred || 0}</div><div class="profile-stat-label">Players Invited</div></div>
+      <div class="profile-stat-tile"><div class="profile-stat-value" style="color:var(--green);">${profileFmtMoney(data.total_earned)}</div><div class="profile-stat-label">Lifetime Earned</div></div>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; background:var(--violet-soft); border:1px solid var(--violet); border-radius:var(--radius-sm); padding:10px 14px; margin-bottom:12px;">
+      <div>
+        <div style="font-size:11px; color:var(--text-dim); text-transform:uppercase;">Unclaimed Bonus</div>
+        <div style="font-family:var(--font-mono); font-weight:700; color:var(--violet); font-size:16px;">${profileFmtMoney(data.referral_balance)}</div>
+      </div>
+      <button type="button" class="btn btn-primary" onclick="claimReferralBonus()" id="referral-claim-btn"
+              style="color:#000; font-weight:700; padding:8px 16px;" ${data.referral_balance > 0 ? '' : 'disabled'}>Claim</button>
+    </div>
+
+    <div style="font-size:12.5px; color:var(--text-dim); margin-bottom:6px;">Players You Referred</div>
+    <div style="max-height:160px; overflow-y:auto; border:1px solid var(--border); border-radius:var(--radius-sm);">
+      <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
+        <thead>
+          <tr>
+            <th style="text-align:left; padding:6px 8px; color:var(--text-dim); font-size:10.5px; text-transform:uppercase; position:sticky; top:0; background:var(--surface-2);">User ID</th>
+            <th style="text-align:left; padding:6px 8px; color:var(--text-dim); font-size:10.5px; text-transform:uppercase; position:sticky; top:0; background:var(--surface-2);">Joined</th>
+            <th style="text-align:right; padding:6px 8px; color:var(--text-dim); font-size:10.5px; text-transform:uppercase; position:sticky; top:0; background:var(--surface-2);">Earned</th>
+          </tr>
+        </thead>
+        <tbody>${playersRows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+window.shareReferralLink = function () {
+  const link = window._bet1xReferralLink;
+  const code = window._bet1xReferralCode;
+  if (!link) return;
+  const text = 'Join bet1x! Use my referral code ' + code + ' or sign up directly here: ' + link;
+  if (navigator.share) {
+    navigator.share({ title: 'bet1x', text: text, url: link }).catch(() => {});
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(text)
+      .then(() => showToast('Referral link copied!', 'success'))
+      .catch(() => showToast(text, 'success'));
+  }
+};
+
+window.claimReferralBonus = function () {
+  const btn = document.getElementById('referral-claim-btn');
+  if (!btn || btn.disabled) return;
+  btn.disabled = true;
+  btn.textContent = 'Claiming...';
+
+  fetch(getApiPrefix() + 'api/referral/claim', { method: 'POST' })
+    .then(res => res.json().then(data => ({ ok: res.ok, data })))
+    .then(result => {
+      const data = result.data || {};
+      if (!result.ok || !data.success) {
+        showToast(data.error || 'Could not claim the bonus.', 'error');
+        btn.disabled = false;
+        btn.textContent = 'Claim';
+        return;
+      }
+      localStorage.setItem(WALLET_KEY, walletFromServer(data.wallet_balance).toFixed(2));
+      renderWalletChips();
+      showToast('Claimed ' + profileFmtMoney(data.claimed) + '!', 'success');
+
+      const walletTile = document.getElementById('profile-wallet-value');
+      const referralTile = document.getElementById('profile-referral-value');
+      if (walletTile) walletTile.textContent = profileFmtMoney(data.wallet_balance);
+      if (referralTile) referralTile.textContent = profileFmtMoney(data.referral_balance);
+
+      const section = document.getElementById('profile-section-referral');
+      if (section) { section.dataset.loaded = ''; loadReferralSection(section); }
+    })
+    .catch(err => {
+      console.warn('Claim error:', err);
+      showToast('Cannot reach the server. Please try again.', 'error');
+      btn.disabled = false;
+      btn.textContent = 'Claim';
+    });
+};
+
+/* ============================================================
+   Account settings modal (username / email / password)
+   ============================================================ */
+
+function injectSettingsModal() {
+  if (document.getElementById('bet1x-settings-modal')) return;
+  const modal = document.createElement('div');
+  modal.id = 'bet1x-settings-modal';
+  modal.className = 'auth-modal-overlay';
+  modal.innerHTML = `
+    <div class="auth-modal-card" style="max-width:420px;">
+      <button class="auth-modal-close" onclick="closeSettingsModal()">&times;</button>
+      <h2 style="font-family:var(--font-display); margin:0 0 16px; color:var(--text);">Account Settings</h2>
+
+      <div class="auth-form-group">
+        <label for="settings-username">Username</label>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="settings-username" style="flex:1;" autocomplete="username">
+          <button type="button" class="btn btn-ghost" onclick="saveUsername()">Save</button>
+        </div>
+        <div id="settings-username-msg" style="font-size:12px; margin-top:4px; min-height:14px;"></div>
+      </div>
+
+      <div class="auth-form-group">
+        <label for="settings-email">Email Address</label>
+        <div style="display:flex; gap:8px;">
+          <input type="email" id="settings-email" style="flex:1;" autocomplete="email">
+          <button type="button" class="btn btn-ghost" onclick="saveEmail()">Save</button>
+        </div>
+        <div id="settings-email-msg" style="font-size:12px; margin-top:4px; min-height:14px;"></div>
+      </div>
+
+      <div class="auth-form-group">
+        <label for="settings-current-password">Current Password</label>
+        <input type="password" id="settings-current-password" autocomplete="current-password">
+      </div>
+      <div class="auth-form-group">
+        <label for="settings-new-password">New Password</label>
+        <input type="password" id="settings-new-password" autocomplete="new-password">
+      </div>
+      <div class="auth-form-group">
+        <label for="settings-confirm-password">Confirm New Password</label>
+        <input type="password" id="settings-confirm-password" autocomplete="new-password">
+      </div>
+      <button type="button" class="btn btn-primary btn-block" onclick="savePassword()" style="color:#000; font-weight:700;">Change Password</button>
+      <div id="settings-password-msg" style="font-size:12px; margin-top:6px; min-height:14px;"></div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeSettingsModal(); });
+}
+
+window.closeSettingsModal = function () {
+  const modal = document.getElementById('bet1x-settings-modal');
+  if (modal) modal.classList.remove('active');
+};
+
+window.openSettingsModal = function () {
+  injectSettingsModal();
+  const modal = document.getElementById('bet1x-settings-modal');
+  const user = getCurrentUser();
+  const usernameInput = document.getElementById('settings-username');
+  const emailInput = document.getElementById('settings-email');
+  if (usernameInput) usernameInput.value = (user && user.username) || '';
+  if (emailInput) emailInput.value = (user && user.email) || '';
+  ['settings-username-msg', 'settings-email-msg', 'settings-password-msg'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '';
+  });
+  const cp = document.getElementById('settings-current-password');
+  const np = document.getElementById('settings-new-password');
+  const cnp = document.getElementById('settings-confirm-password');
+  if (cp) cp.value = '';
+  if (np) np.value = '';
+  if (cnp) cnp.value = '';
+  modal.classList.add('active');
+  if (window.SoundFX) SoundFX.play('modalOpen');
+};
+
+function settingsMsg(id, msg, kind) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = msg || '';
+  el.style.color = kind === 'error' ? '#ff6b6b' : kind === 'success' ? '#2ecc71' : 'var(--text-dim)';
+}
+
+window.saveUsername = function () {
+  const input = document.getElementById('settings-username');
+  if (!input) return;
+  const value = input.value.trim();
+  fetch(getApiPrefix() + 'api/profile/username', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: value })
+  })
+    .then(res => res.json().then(data => ({ ok: res.ok, data })))
+    .then(result => {
+      const data = result.data || {};
+      if (!result.ok || !data.success) {
+        settingsMsg('settings-username-msg', data.error || 'Could not update username.', 'error');
+        return;
+      }
+      const user = getCurrentUser();
+      if (user) {
+        user.username = data.username;
+        localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+      }
+      if (data.token) localStorage.setItem(AUTH_TOKEN_KEY, data.token);
+      settingsMsg('settings-username-msg', 'Username updated!', 'success');
+      updateAuthHeaderUI();
+    })
+    .catch(() => settingsMsg('settings-username-msg', 'Cannot reach the server. Please try again.', 'error'));
+};
+
+window.saveEmail = function () {
+  const input = document.getElementById('settings-email');
+  if (!input) return;
+  const value = input.value.trim();
+  fetch(getApiPrefix() + 'api/profile/email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: value })
+  })
+    .then(res => res.json().then(data => ({ ok: res.ok, data })))
+    .then(result => {
+      const data = result.data || {};
+      if (!result.ok || !data.success) {
+        settingsMsg('settings-email-msg', data.error || 'Could not update email.', 'error');
+        return;
+      }
+      const user = getCurrentUser();
+      if (user) {
+        user.email = data.email;
+        localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+      }
+      settingsMsg('settings-email-msg', 'Email updated!', 'success');
+    })
+    .catch(() => settingsMsg('settings-email-msg', 'Cannot reach the server. Please try again.', 'error'));
+};
+
+window.savePassword = function () {
+  const cp = document.getElementById('settings-current-password');
+  const np = document.getElementById('settings-new-password');
+  const cnp = document.getElementById('settings-confirm-password');
+  if (!cp || !np || !cnp) return;
+  fetch(getApiPrefix() + 'api/profile/password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ current_password: cp.value, new_password: np.value, confirm_password: cnp.value })
+  })
+    .then(res => res.json().then(data => ({ ok: res.ok, data })))
+    .then(result => {
+      const data = result.data || {};
+      if (!result.ok || !data.success) {
+        settingsMsg('settings-password-msg', data.error || 'Could not change password.', 'error');
+        return;
+      }
+      cp.value = '';
+      np.value = '';
+      cnp.value = '';
+      settingsMsg('settings-password-msg', 'Password changed!', 'success');
+    })
+    .catch(() => settingsMsg('settings-password-msg', 'Cannot reach the server. Please try again.', 'error'));
+};
 
 

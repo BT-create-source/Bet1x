@@ -18,6 +18,9 @@ require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/helpers.php';
 require_once __DIR__ . '/../lib/ratelimit.php';
 require_once __DIR__ . '/../lib/riskcontrols.php';
+// The approve_deposit action below is the one place a real cashier deposit gets credited, which
+// is also the only trigger for referral commission — see lib/referral.php's file header.
+require_once __DIR__ . '/../lib/referral.php';
 require_once __DIR__ . '/chat.php';
 
 /** Read a table, falling back to the flat-file store when that is permitted. */
@@ -255,6 +258,10 @@ function register_legacy_routes(Router $app) {
                     if ($approving) {
                         $user = get_or_create_user($deposit['username']);
                         if ($user) credit_wallet($user['id'], (float)$deposit['amount']);
+                        // Referral commission, if this depositor was referred by someone — a
+                        // no-op otherwise. Deliberately after the deposit itself is credited and
+                        // never able to fail it (see the try/catch inside that function).
+                        referral_credit_commission($deposit['username'], (float)$deposit['amount'], $depId);
                     }
                     q("UPDATE \"Transaction\" SET \"status\" = ?
                        WHERE \"user\" = ? AND \"type\" = 'Deposit' AND \"status\" = 'Pending' AND \"details\" LIKE ?",
