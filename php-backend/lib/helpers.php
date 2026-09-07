@@ -260,6 +260,12 @@ function find_user_by_id($id) {
     return one('SELECT * FROM "User" WHERE "id" = ? LIMIT 1', [(int)$id]);
 }
 
+/** Case-insensitive lookup by email, for the forgot-password flow. */
+function find_user_by_email($email) {
+    if (!is_string($email) || $email === '') return null;
+    return one('SELECT * FROM "User" WHERE LOWER("email") = LOWER(?) LIMIT 1', [$email]);
+}
+
 /**
  * Look up a user by name, optionally creating one.
  *

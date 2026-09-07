@@ -1302,6 +1302,311 @@ function wireSignupVerification() {
   if (genBtn) genBtn.addEventListener('click', window.generateSignupUsername);
 }
 
+/* ============================================================
+   Forgot password
+   ============================================================
+   Reuses the same email-OTP shape as signup (send -> verify -> act), against
+   /api/auth/forgot-password/{send,verify} and /api/auth/reset-password. Available
+   unconditionally — unlike signup's email step, this is not gated behind /api/health's
+   email_verification flag, since account recovery shouldn't depend on that switch.
+   ------------------------------------------------------------ */
+
+window.bet1xForgotPassword = {
+  verified: false,       // this browser saw /api/auth/forgot-password/verify succeed
+  verifiedEmail: '',     // for exactly this address — a later edit invalidates it
+  cooldownTimer: null
+};
+
+function setForgotStatus(msg, kind) {
+  const el = document.getElementById('forgot-otp-status');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.style.color = kind === 'error'   ? '#ff6b6b'
+                 : kind === 'success' ? '#2ecc71'
+                 : 'var(--text-dim)';
+}
+
+function showForgotError(msg) {
+  const el = document.getElementById('forgot-error');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function startForgotOtpCooldown(seconds) {
+  const btn = document.getElementById('forgot-otp-send');
+  if (!btn) return;
+  const state = window.bet1xForgotPassword;
+  if (state.cooldownTimer) clearInterval(state.cooldownTimer);
+  let left = Math.max(0, parseInt(seconds, 10) || 0);
+  if (left === 0) { btn.disabled = false; btn.textContent = 'Send Code'; return; }
+  btn.disabled = true;
+  btn.textContent = 'Resend ' + left + 's';
+  state.cooldownTimer = setInterval(() => {
+    left -= 1;
+    if (left <= 0) {
+      clearInterval(state.cooldownTimer);
+      state.cooldownTimer = null;
+      btn.disabled = false;
+      btn.textContent = 'Resend Code';
+    } else {
+      btn.textContent = 'Resend ' + left + 's';
+    }
+  }, 1000);
+}
+
+// Resets the whole panel to its just-opened state — used both when the modal opens it and after a
+// successful reset, so a second attempt (or a re-open) never carries a stale email's progress.
+function resetForgotPasswordForm() {
+  const state = window.bet1xForgotPassword;
+  if (state.cooldownTimer) { clearInterval(state.cooldownTimer); state.cooldownTimer = null; }
+  state.verified = false;
+  state.verifiedEmail = '';
+
+  const emailInput = document.getElementById('forgot-email');
+  const otpInput = document.getElementById('forgot-otp');
+  const newPassInput = document.getElementById('forgot-new-password');
+  const confirmPassInput = document.getElementById('forgot-confirm-password');
+  if (emailInput) emailInput.value = '';
+  if (otpInput) { otpInput.value = ''; otpInput.disabled = false; }
+  if (newPassInput) newPassInput.value = '';
+  if (confirmPassInput) confirmPassInput.value = '';
+
+  const sendBtn = document.getElementById('forgot-otp-send');
+  const verifyBtn = document.getElementById('forgot-otp-verify');
+  const resetBtn = document.getElementById('forgot-reset-btn');
+  if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send Code'; }
+  if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.textContent = 'Verify'; }
+  if (resetBtn) resetBtn.style.display = 'none';
+
+  document.getElementById('forgot-otp-group').style.display = 'none';
+  document.getElementById('forgot-newpass-group').style.display = 'none';
+  document.getElementById('forgot-confirmpass-group').style.display = 'none';
+  const errEl = document.getElementById('forgot-error');
+  if (errEl) errEl.style.display = 'none';
+  setForgotStatus('');
+}
+
+window.showForgotPasswordForm = function () {
+  resetForgotPasswordForm();
+  const tabsBar = document.getElementById('auth-tabs-bar');
+  const loginForm = document.getElementById('form-login');
+  const signupForm = document.getElementById('form-signup');
+  const forgotForm = document.getElementById('form-forgot-password');
+  if (tabsBar) tabsBar.style.display = 'none';
+  if (loginForm) loginForm.classList.remove('active');
+  if (signupForm) signupForm.classList.remove('active');
+  if (forgotForm) forgotForm.classList.add('active');
+};
+
+window.showLoginFormFromForgot = function () {
+  const tabsBar = document.getElementById('auth-tabs-bar');
+  const forgotForm = document.getElementById('form-forgot-password');
+  if (forgotForm) forgotForm.classList.remove('active');
+  if (tabsBar) tabsBar.style.display = '';
+  switchAuthTab('login');
+};
+
+window.sendForgotOtp = function () {
+  const input = document.getElementById('forgot-email');
+  const btn = document.getElementById('forgot-otp-send');
+  if (!input || !btn) return;
+
+  const email = input.value.trim();
+  if (!isValidEmail(email)) {
+    showForgotError('Enter a valid email address.');
+    return;
+  }
+  document.getElementById('forgot-error').style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+
+  fetch(getApiPrefix() + 'api/auth/forgot-password/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email })
+  })
+    .then(res => res.json().then(data => ({ ok: res.ok, data })))
+    .then(result => {
+      const data = result.data || {};
+      if (!result.ok || !data.success) {
+        btn.disabled = false;
+        btn.textContent = 'Send Code';
+        showForgotError(data.error || 'Could not send the verification code.');
+        if (data.retry_after) startForgotOtpCooldown(data.retry_after);
+        return;
+      }
+      document.getElementById('forgot-otp-group').style.display = '';
+      const otpInput = document.getElementById('forgot-otp');
+      if (otpInput) { otpInput.value = ''; otpInput.focus(); }
+      // The backend answers identically whether or not the email has an account, so the message
+      // here has to stay just as non-committal — it cannot say "code sent" as fact.
+      setForgotStatus('If that email is registered, a code has been sent. It expires in a few '
+                     + 'minutes. Not in your inbox? Check your Spam/Junk folder.');
+      startForgotOtpCooldown(60);
+    })
+    .catch(err => {
+      console.warn('Forgot-password OTP send error:', err);
+      btn.disabled = false;
+      btn.textContent = 'Send Code';
+      showForgotError('Cannot reach the server. Please check your connection and try again.');
+    });
+};
+
+window.verifyForgotOtp = function () {
+  const emailInput = document.getElementById('forgot-email');
+  const otpInput = document.getElementById('forgot-otp');
+  const btn = document.getElementById('forgot-otp-verify');
+  if (!emailInput || !otpInput || !btn) return;
+
+  const email = emailInput.value.trim();
+  if (!isValidEmail(email)) { setForgotStatus('Enter a valid email address.', 'error'); return; }
+  const code = otpInput.value.trim();
+  if (!code) { setForgotStatus('Enter the code that was sent to your email.', 'error'); return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Checking...';
+  setForgotStatus('Checking the code...');
+
+  fetch(getApiPrefix() + 'api/auth/forgot-password/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email, otp: code })
+  })
+    .then(res => res.json().then(data => ({ ok: res.ok, data })))
+    .then(result => {
+      const data = result.data || {};
+      btn.disabled = false;
+      btn.textContent = 'Verify';
+      if (!result.ok || !data.verified) {
+        setForgotStatus(data.error || 'That code is not correct.', 'error');
+        return;
+      }
+      const state = window.bet1xForgotPassword;
+      state.verified = true;
+      state.verifiedEmail = email.toLowerCase();
+      setForgotStatus('Email verified. Choose a new password below.', 'success');
+      btn.disabled = true;
+      otpInput.disabled = true;
+      const sendBtn = document.getElementById('forgot-otp-send');
+      if (sendBtn) {
+        if (state.cooldownTimer) { clearInterval(state.cooldownTimer); state.cooldownTimer = null; }
+        sendBtn.disabled = true;
+        sendBtn.textContent = 'Verified';
+      }
+      document.getElementById('forgot-newpass-group').style.display = '';
+      document.getElementById('forgot-confirmpass-group').style.display = '';
+      const resetBtn = document.getElementById('forgot-reset-btn');
+      if (resetBtn) resetBtn.style.display = '';
+      const newPassInput = document.getElementById('forgot-new-password');
+      if (newPassInput) newPassInput.focus();
+    })
+    .catch(err => {
+      console.warn('Forgot-password OTP verify error:', err);
+      btn.disabled = false;
+      btn.textContent = 'Verify';
+      setForgotStatus('Cannot reach the server. Please check your connection and try again.', 'error');
+    });
+};
+
+window.submitPasswordReset = function () {
+  const state = window.bet1xForgotPassword;
+  const emailInput = document.getElementById('forgot-email');
+  const newPassInput = document.getElementById('forgot-new-password');
+  const confirmPassInput = document.getElementById('forgot-confirm-password');
+  const btn = document.getElementById('forgot-reset-btn');
+  if (!emailInput || !newPassInput || !confirmPassInput || !btn) return;
+
+  const email = emailInput.value.trim();
+  const errEl = document.getElementById('forgot-error');
+  errEl.style.display = 'none';
+
+  if (!state.verified || state.verifiedEmail !== email.toLowerCase()) {
+    showForgotError('Please verify your email first.');
+    return;
+  }
+  if (newPassInput.value.length < 8) {
+    showForgotError('Password must be at least 8 characters.');
+    return;
+  }
+  if (newPassInput.value !== confirmPassInput.value) {
+    showForgotError('Passwords do not match.');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Resetting...';
+
+  fetch(getApiPrefix() + 'api/auth/reset-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: email,
+      password: newPassInput.value,
+      confirm_password: confirmPassInput.value
+    })
+  })
+    .then(res => res.json().then(data => ({ ok: res.ok, data })))
+    .then(result => {
+      const data = result.data || {};
+      if (!result.ok || !data.success || !data.user) {
+        btn.disabled = false;
+        btn.textContent = 'Reset Password';
+        showForgotError(data.error || 'Could not reset the password.');
+        return;
+      }
+      // Same post-success shape as login/signup: store the session, close the modal, reload.
+      if (data.token) localStorage.setItem(AUTH_TOKEN_KEY, data.token);
+      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(data.user));
+      localStorage.setItem(WALLET_KEY, walletFromServer(data.user.wallet_balance).toFixed(2));
+      resetForgotPasswordForm();
+      closeAuthModal();
+      if (window.SoundFX) SoundFX.play('login');
+      showToast(`Password reset. Welcome back, ${data.user.username}!`, 'success');
+      updateAuthHeaderUI();
+      setTimeout(() => { location.reload(); }, 600);
+    })
+    .catch(err => {
+      console.warn('Reset-password error:', err);
+      btn.disabled = false;
+      btn.textContent = 'Reset Password';
+      showForgotError('Cannot reach the server. Please check your connection and try again.');
+    });
+};
+
+function wireForgotPassword() {
+  const showLink = document.getElementById('show-forgot-password');
+  const backLink = document.getElementById('show-login-from-forgot');
+  if (showLink) showLink.addEventListener('click', (e) => { e.preventDefault(); window.showForgotPasswordForm(); });
+  if (backLink) backLink.addEventListener('click', (e) => { e.preventDefault(); window.showLoginFormFromForgot(); });
+
+  const sendBtn = document.getElementById('forgot-otp-send');
+  const verifyBtn = document.getElementById('forgot-otp-verify');
+  const resetBtn = document.getElementById('forgot-reset-btn');
+  const emailInput = document.getElementById('forgot-email');
+  const otpInput = document.getElementById('forgot-otp');
+  if (sendBtn) sendBtn.addEventListener('click', window.sendForgotOtp);
+  if (verifyBtn) verifyBtn.addEventListener('click', window.verifyForgotOtp);
+  if (resetBtn) resetBtn.addEventListener('click', window.submitPasswordReset);
+  if (emailInput) {
+    emailInput.addEventListener('input', () => {
+      const state = window.bet1xForgotPassword;
+      if (state.verified && emailInput.value.trim().toLowerCase() !== state.verifiedEmail) {
+        resetForgotPasswordForm();
+        emailInput.focus();
+      }
+    });
+  }
+  if (otpInput) {
+    otpInput.addEventListener('input', () => {
+      otpInput.value = otpInput.value.replace(/\D/g, '').slice(0, 8);
+    });
+    otpInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); window.verifyForgotOtp(); }
+    });
+  }
+}
+
 function injectAuthModal() {
   if (document.getElementById('bet1x-auth-modal')) return;
   const modal = document.createElement('div');
@@ -1310,11 +1615,11 @@ function injectAuthModal() {
   modal.innerHTML = `
     <div class="auth-modal-card">
       <button class="auth-modal-close" onclick="closeAuthModal()">&times;</button>
-      <div class="auth-tabs">
+      <div class="auth-tabs" id="auth-tabs-bar">
         <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Log In</button>
         <button class="auth-tab" id="tab-signup" onclick="switchAuthTab('signup')">Sign Up</button>
       </div>
-      
+
       <!-- Login Form -->
       <form id="form-login" class="auth-form active" onsubmit="handleAuthSubmit(event, 'login')">
         <div class="auth-form-group">
@@ -1326,6 +1631,9 @@ function injectAuthModal() {
           <input type="password" id="login-password" placeholder="Enter password" required autocomplete="current-password">
         </div>
         <div id="login-error" class="auth-error-msg">Incorrect username or password.</div>
+        <div style="text-align:right; margin-top:6px;">
+          <a href="#" id="show-forgot-password" style="font-size:12.5px; color:var(--text-dim);">Forgot password?</a>
+        </div>
         <button type="submit" class="btn btn-primary btn-block" style="margin-top: 10px; color: #000; font-weight:700;">Sign In</button>
       </form>
       
@@ -1380,6 +1688,45 @@ function injectAuthModal() {
         <div id="signup-error" class="auth-error-msg">Passwords do not match.</div>
         <button type="submit" class="btn btn-primary btn-block" style="margin-top: 10px; color: #000; font-weight:700;">Create Account</button>
       </form>
+
+      <!-- Forgot Password — not part of the tab bar; reached via the link under the login form
+           and returns there via "Back to Log In". Three steps revealed in sequence: email -> OTP
+           -> new password, mirroring the signup email-OTP flow's own progressive disclosure. -->
+      <form id="form-forgot-password" class="auth-form" onsubmit="return false;">
+        <div class="auth-form-group">
+          <label for="forgot-email">Email Address</label>
+          <div style="display:flex; gap:8px;">
+            <input type="email" id="forgot-email" placeholder="you@example.com" required
+                   autocomplete="email" style="flex:1;">
+            <button type="button" id="forgot-otp-send" class="btn btn-ghost"
+                    style="white-space:nowrap; padding:0 14px;">Send Code</button>
+          </div>
+        </div>
+        <div class="auth-form-group" id="forgot-otp-group" style="display:none;">
+          <label for="forgot-otp">Enter Code</label>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="forgot-otp" placeholder="6-digit code" inputmode="numeric"
+                   maxlength="8" autocomplete="one-time-code" style="flex:1;">
+            <button type="button" id="forgot-otp-verify" class="btn btn-ghost"
+                    style="white-space:nowrap; padding:0 14px;">Verify</button>
+          </div>
+          <div id="forgot-otp-status" style="font-size:12px; margin-top:6px; color:var(--text-dim);"></div>
+        </div>
+        <div class="auth-form-group" id="forgot-newpass-group" style="display:none;">
+          <label for="forgot-new-password">New Password</label>
+          <input type="password" id="forgot-new-password" placeholder="Create new password" autocomplete="new-password">
+        </div>
+        <div class="auth-form-group" id="forgot-confirmpass-group" style="display:none;">
+          <label for="forgot-confirm-password">Confirm New Password</label>
+          <input type="password" id="forgot-confirm-password" placeholder="Confirm new password" autocomplete="new-password">
+        </div>
+        <div id="forgot-error" class="auth-error-msg" style="display:none;"></div>
+        <button type="button" id="forgot-reset-btn"
+                class="btn btn-primary btn-block" style="margin-top:10px; color:#000; font-weight:700; display:none;">Reset Password</button>
+        <div style="text-align:center; margin-top:12px;">
+          <a href="#" id="show-login-from-forgot" style="font-size:12.5px; color:var(--text-dim);">&larr; Back to Log In</a>
+        </div>
+      </form>
     </div>
   `;
   document.body.appendChild(modal);
@@ -1387,6 +1734,7 @@ function injectAuthModal() {
   // The modal is injected once per page, so this is also the right place to hook up the phone and
   // email fields and ask the backend whether email verification should be shown.
   wireSignupVerification();
+  wireForgotPassword();
 }
 
 function updateNavbarAuth() {
