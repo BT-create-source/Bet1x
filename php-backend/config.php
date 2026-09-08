@@ -260,14 +260,15 @@ $AVIATOR_SMART_CRASH    = env_bool('AVIATOR_SMART_CRASH', true);
 $AVIATOR_HIGH_STAKE_REF = env_num('AVIATOR_HIGH_STAKE_REF', 1000);
 
 // Teen Patti pads any table short of 4 seats with randomly-named NPC fillers, and runs a background
-// "organic traffic" engine that seats simulated players into rooms with nobody real in them at all
-// — useful in development so a table looks alive with zero testers, but a real-money launch should
-// only ever show players who actually sat down. Defaults to on in development (unchanged demo
-// behaviour) and off in production, exactly like ALLOW_JSON_FALLBACK above; a round still starts
-// fine with as few as 2 real players once this is off, it just no longer force-pads to 4. This does
-// not touch the separate "Admin" house seat used for rigging — see the bot-seat fallback in
-// teenpatti.php's tp_start_round().
-$TEENPATTI_AUTO_BOT_FILL = env_bool('TEENPATTI_AUTO_BOT_FILL', !$IS_PRODUCTION);
+// "organic traffic" engine that seats simulated players into rooms with nobody real in them at all,
+// each room topped up only to its own configured ambient target rather than always to full capacity
+// — see tp_room_bot_target() / tp_maybe_shuffle_room_bot_targets() in lib/botengine.php. Explicit
+// product decision: on by default in every environment, including production, so the lobby always
+// shows varied activity even with zero real players — set TEENPATTI_AUTO_BOT_FILL=false in .env to
+// fall back to a real-players-only table (a round still starts fine with as few as 2 real players
+// either way). This does not touch the separate "Admin" house seat used for rigging — see the
+// bot-seat fallback in teenpatti.php's tp_start_round().
+$TEENPATTI_AUTO_BOT_FILL = env_bool('TEENPATTI_AUTO_BOT_FILL', true);
 
 // --- Monitoring ---
 // How old the cron heartbeat may get before /api/ready reports the deployment as not-ready.

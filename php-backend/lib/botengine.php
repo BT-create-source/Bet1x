@@ -157,13 +157,17 @@ function tp_room_bot_target($roomId) {
  * target for every room the operator has NOT manually locked, from the pool above. Cheap to call
  * on every request — see tp_sweep() — because after the first call following midnight it is a
  * single state_get() and an immediate return.
+ *
+ * Returns true the one time it actually reshuffles (so the caller can immediately top every room
+ * up to its fresh target, rather than leaving it to the next organic traffic tick), false on every
+ * no-op call for the rest of that day.
  */
 function tp_maybe_shuffle_room_bot_targets() {
-    if (!cfg('TEENPATTI_AUTO_BOT_FILL')) return; // real-players-only mode — nothing to shuffle
+    if (!cfg('TEENPATTI_AUTO_BOT_FILL')) return false; // real-players-only mode — nothing to shuffle
 
     $config = tp_room_bot_config();
     $today = date('Y-m-d');
-    if ($config['last_shuffle_date'] === $today) return;
+    if ($config['last_shuffle_date'] === $today) return false;
 
     $unlocked = array_values(array_filter(tp_room_ids(), function ($id) use ($config) {
         return empty($config['rooms'][$id]['manual']);
@@ -179,6 +183,7 @@ function tp_maybe_shuffle_room_bot_targets() {
 
     $config['last_shuffle_date'] = $today;
     tp_room_bot_config_save($config);
+    return true;
 }
 
 // -------------------------------------------------------------------------------------------------

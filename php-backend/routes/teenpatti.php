@@ -443,6 +443,13 @@ function register_teenpatti_routes(Router $app) {
             }
 
             tp_room_bot_config_save($config);
+
+            // Reflect the new target on the room's actual seats immediately — an admin change
+            // must not wait for the next organic traffic tick or a hand to end. A room currently
+            // mid-hand is left alone by tp_apply_room_bot_target and picks up the new target the
+            // moment it next resets to 'waiting' on its own.
+            tp_apply_room_bot_target($roomId);
+
             $res->json(['success' => true, 'config' => $config]);
         } catch (Throwable $err) {
             fail500($res, $err, 'teenpatti');

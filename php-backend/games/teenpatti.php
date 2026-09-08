@@ -258,6 +258,54 @@ function tp_clear_all_seats($roomId) {
 function tp_reset_room_to_waiting($roomId) {
     tp_clear_all_seats($roomId);
     tp_update_room($roomId, ['status' => 'waiting', 'pot' => 0, 'winner_seat' => null]);
+    tp_apply_room_bot_target($roomId);
+}
+
+/**
+ * Bring this room's bot-seat count in line with its configured ambient target (see
+ * lib/botengine.php) RIGHT NOW, rather than waiting for the next organic traffic tick.
+ *
+ * Called after a daily shuffle, a manual admin override, and every room reset, which is what
+ * guarantees a room is never left looking empty for minutes at a time. Unlike tp_run_bot_fill this
+ * acts on a completely empty room too (no players seated yet at all), and it also REMOVES bot
+ * seats when the target has been lowered below the room's current bot count. Never touches a room
+ * mid-hand — a live 'playing' room is left alone and picks up the current target the next time it
+ * resets to 'waiting' on its own.
+ */
+function tp_apply_room_bot_target($roomId) {
+    try {
+        if (!cfg('TEENPATTI_AUTO_BOT_FILL')) return;
+        $room = tp_get_room($roomId);
+        if (!$room || $room['status'] !== 'waiting') return;
+
+        $seats = tp_get_seats($roomId);
+        $target = tp_room_bot_target($roomId);
+        $botSeats = array_values(array_filter($seats, function ($s) { return !empty($s['username']) && !empty($s['is_bot']); }));
+        $botCount = count($botSeats);
+
+        if ($botCount < $target) {
+            $empty = array_values(array_filter($seats, function ($s) { return empty($s['username']); }));
+            $need = min($target - $botCount, count($empty));
+            for ($i = 0; $i < $need; $i++) {
+                $filler = next_room_filler_username();
+                tp_update_seat($empty[$i]['id'], [
+                    'username' => $filler['username'],
+                    'is_bot'   => $filler['is_bot'] ? 1 : 0,
+                    'folded'   => 0,
+                    'balance'  => 1000 + (int) floor(js_random() * 5000),
+                ]);
+            }
+        } elseif ($botCount > $target) {
+            $excess = $botCount - $target;
+            for ($i = 0; $i < $excess; $i++) {
+                tp_update_seat($botSeats[$i]['id'], ['username' => null, 'is_bot' => 0, 'cards' => null, 'folded' => 0]);
+            }
+        }
+
+        $updatedSeats = tp_get_seats($roomId);
+        $occupied = count(array_filter($updatedSeats, function ($s) { return !empty($s['username']); }));
+        if ($occupied >= 2) tp_start_round($roomId);
+    } catch (Throwable $e) { log_error('[TP] Error applying room bot target: ' . $e->getMessage()); }
 }
 
 /**
@@ -776,6 +824,10 @@ function tp_finish_round_reset($roomId) {
 
         // Always clear any leftover per-hand rig now that this hand is fully over.
         tp_update_room($roomId, ['admin_rig' => null]);
+
+        // Bring this room straight back up to its configured ambient bot target rather than
+        // leaving it empty until the next organic traffic tick notices it.
+        tp_apply_room_bot_target($roomId);
     } catch (Throwable $e) { log_error('[TP] Room empty error: ' . $e->getMessage()); }
 }
 
@@ -867,7 +919,12 @@ function tp_run_bot_fill($roomId) {
  */
 function tp_sweep() {
     try {
-        tp_maybe_shuffle_room_bot_targets();
+        // Once a day this rolls fresh ambient bot targets for every unlocked room; when it does,
+        // apply them to every room's actual seats immediately rather than waiting on the slow
+        // organic trickle below to eventually notice each one.
+        if (tp_maybe_shuffle_room_bot_targets()) {
+            foreach (tp_room_ids() as $roomId) { tp_apply_room_bot_target($roomId); }
+        }
 
         $now = now_ms();
 
