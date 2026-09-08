@@ -29,8 +29,12 @@ require_once __DIR__ . '/../lib/rigaudit.php';
 
 const TP_TURN_TIMEOUT   = 15;     // seconds
 const TP_BOT_FILL_DELAY = 15000;  // 15s before fillers occupy empty seats
-const TP_BOT_THINK_MIN  = 1500;
-const TP_BOT_THINK_MAX  = 3500;
+// A bot's per-turn "thinking" delay — deliberately close to how long a real player takes to decide
+// (seen the cards, chaal vs fold, maybe a sideshow), not an instant reaction. This is the main lever
+// behind a hand's realistic pace: with 4 mandatory players and several chaal rounds each taking
+// 5-10s per turn, an ordinary hand runs a few minutes rather than resolving in seconds.
+const TP_BOT_THINK_MIN  = 5000;
+const TP_BOT_THINK_MAX  = 10000;
 const TP_ROUND_DELAY    = 5000;   // 5s between rounds
 
 /**
@@ -302,9 +306,12 @@ function tp_apply_room_bot_target($roomId) {
             }
         }
 
+        // Mandatory full table: tp_start_round itself now refuses anything short of 4/4, so a room
+        // sitting at 1-3 bots (its target, per the auto/manual allocation above) stays visibly
+        // "waiting" rather than dealing itself a hand — real players fill the remaining seats.
         $updatedSeats = tp_get_seats($roomId);
         $occupied = count(array_filter($updatedSeats, function ($s) { return !empty($s['username']); }));
-        if ($occupied >= 2) tp_start_round($roomId);
+        if ($occupied >= TP_ROOM_SEAT_COUNT) tp_start_round($roomId);
     } catch (Throwable $e) { log_error('[TP] Error applying room bot target: ' . $e->getMessage()); }
 }
 
@@ -337,15 +344,20 @@ function tp_evict_stale_admin_seat($roomId) {
 // Filler decision-making
 // -------------------------------------------------------------------------------------------------
 
+/**
+ * Weighted toward playing on rather than folding early — a hand that resolves by turn 1 or 2 on
+ * nearly every weak-hand fold reads as rigged/rushed rather than a natural multi-round Chaal/Blind
+ * progression, which is what these odds now favour even on a mediocre hand.
+ */
 function tp_bot_decide($cards, $stake) {
     $hand = tp_evaluate_hand($cards);
     $cat = $hand[0];
     $rand = js_random() * 100;
     if ($cat >= 5) return 'chaal';
-    if ($cat === 4 && $rand <= 90) return 'chaal';
-    if ($cat === 3 && $rand <= 70) return 'chaal';
-    if ($cat === 2 && $rand <= 55) return 'chaal';
-    if ($cat === 1 && $rand <= 25) return 'chaal';
+    if ($cat === 4 && $rand <= 92) return 'chaal';
+    if ($cat === 3 && $rand <= 82) return 'chaal';
+    if ($cat === 2 && $rand <= 68) return 'chaal';
+    if ($cat === 1 && $rand <= 45) return 'chaal';
     return 'fold';
 }
 
@@ -386,8 +398,12 @@ function tp_start_round($roomId) {
     if (!$room) return;
     $seats = tp_get_seats($roomId);
 
+    // Mandatory full table: a hand never deals with an empty seat still open. This is the one
+    // guard every caller ultimately relies on — tp_apply_room_bot_target, the join handler, and
+    // tp_run_bot_fill all still call tp_start_round speculatively, but none of them can make a
+    // hand start early because this check refuses anything short of every seat filled.
     $occupiedSeats = array_values(array_filter($seats, function ($s) { return !empty($s['username']); }));
-    if (count($occupiedSeats) < 2) return;   // need at least 2 players
+    if (count($occupiedSeats) < TP_ROOM_SEAT_COUNT) return;
 
     $bootAmt = (float)$room['boot_amount'];
 

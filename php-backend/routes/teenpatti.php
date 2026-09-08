@@ -153,31 +153,31 @@ function register_teenpatti_routes(Router $app) {
             $occupiedCount = count(array_filter($updatedSeats, function ($s) { return !empty($s['username']); }));
 
             if (!cfg('TEENPATTI_AUTO_BOT_FILL')) {
-                // Real players only: start as soon as there are enough to deal — tp_start_round's own
-                // minimum of 2 — and never pad the table with filler names.
-                if ($occupiedCount >= 2 && $updatedRoom['status'] === 'waiting') {
+                // Real players only, and mandatory full table: tp_start_round's own guard refuses
+                // anything short of 4/4, so this is safe to attempt on every join and never pads
+                // the table with filler names.
+                if ($updatedRoom['status'] === 'waiting') {
                     tp_start_round($roomId);
                 }
             } elseif ($updatedRoom['status'] === 'waiting') {
                 // Bot-padded mode: top this room's bots up to its configured ambient target (never
-                // straight to full capacity — see tp_run_bot_fill / lib/botengine.php), then start
-                // once that reaches the 2-occupant minimum.
+                // straight to full capacity — see tp_apply_room_bot_target / lib/botengine.php).
+                // tp_start_round's own mandatory-4 guard means none of these branches can deal a
+                // hand early, however the remaining seats end up filled.
                 $botCount = count(array_filter($updatedSeats, function ($s) { return !empty($s['username']) && !empty($s['is_bot']); }));
                 $target = tp_room_bot_target($roomId);
 
                 if ($occupiedCount >= 3) {
-                    // Already real activity in this room — top up and start without the usual
-                    // pause, same as the original "third player triggers an instant fill" feel.
+                    // Already real activity in this room — top up and try to start without the
+                    // usual pause, same as the original "third player triggers an instant fill" feel.
                     tp_run_bot_fill($roomId);
                 } elseif ($botCount < $target) {
                     // Below this room's ambient target — the usual 15s fill-and-deal pause, rather
                     // than surrounding a lone new arrival with bots instantly.
                     tp_schedule_bot_fill($roomId);
-                } elseif ($occupiedCount >= 2) {
-                    tp_start_round($roomId);
+                } else {
+                    tp_start_round($roomId); // no-ops unless this join happened to complete 4/4
                 }
-                // else: alone in a room already at its (0 or 1) bot target — nothing to do until
-                // another real player joins.
             }
 
             $res->json(['success' => true, 'seat' => (int)$targetSeat['seat']]);
@@ -411,37 +411,49 @@ function register_teenpatti_routes(Router $app) {
         }
     });
 
-    // --- POST /api/teenpatti/admin/room-bots — manually set or release one room's bot target ---
+    // --- POST /api/teenpatti/admin/room-bots — master mode toggle, or one room's manual target ---
     $app->post('/api/teenpatti/admin/room-bots', 'require_admin', function (Req $req, Res $res) {
         try {
+            $action = (string) ($req->b('action') ?? 'set_room');
+
+            if ($action === 'set_master') {
+                // The single ON/OFF switch: OFF (false) = Auto, every room comes from the periodic
+                // shuffle; ON (true) = Manual, the shuffle stops entirely and every room is exactly
+                // what an operator sets below.
+                $manual = js_truthy($req->b('master_manual'));
+                $config = tp_room_bot_config();
+                $config['master_manual'] = $manual;
+
+                if ($manual) {
+                    tp_room_bot_config_save($config);
+                } else {
+                    // Switching back to Auto: reshuffle right now rather than waiting for the next
+                    // calendar day to pick up a fresh distribution.
+                    $config['last_shuffle_date'] = null;
+                    tp_room_bot_config_save($config);
+                    tp_maybe_shuffle_room_bot_targets();
+                }
+
+                foreach (tp_room_ids() as $roomId) { tp_apply_room_bot_target($roomId); }
+                $res->json(['success' => true, 'config' => tp_room_bot_config()]);
+                return;
+            }
+
+            // action === 'set_room' — only meaningful in Manual mode, but harmless either way: an
+            // Auto-mode shuffle will simply overwrite it at the next reshuffle regardless.
             $roomId = (string) ($req->b('room_id') ?? '');
             if (!in_array($roomId, tp_room_ids(), true)) {
                 $res->status(400)->json(['error' => 'Unknown room_id.']);
                 return;
             }
-
-            $config = tp_room_bot_config();
-
-            if (js_truthy($req->b('auto'))) {
-                // Hand this room back to the daily shuffle, and give it a fresh value right now
-                // rather than leaving it at its last manual value until the next shuffle.
-                $pool = tp_bot_target_pool();
-                $config['rooms'][$roomId] = [
-                    'target' => $pool[(int) floor(js_random() * count($pool))],
-                    'manual' => false,
-                ];
-            } else {
-                $target = js_parse_int($req->b('target'));
-                if (!js_is_finite($target)) {
-                    $res->status(400)->json(['error' => 'target must be a number.']);
-                    return;
-                }
-                $config['rooms'][$roomId] = [
-                    'target' => max(0, min(TP_ROOM_SEAT_COUNT, (int) $target)),
-                    'manual' => true,
-                ];
+            $target = js_parse_int($req->b('target'));
+            if (!js_is_finite($target)) {
+                $res->status(400)->json(['error' => 'target must be a number.']);
+                return;
             }
 
+            $config = tp_room_bot_config();
+            $config['rooms'][$roomId]['target'] = max(0, min(TP_ROOM_SEAT_COUNT, (int) $target));
             tp_room_bot_config_save($config);
 
             // Reflect the new target on the room's actual seats immediately — an admin change
@@ -450,7 +462,7 @@ function register_teenpatti_routes(Router $app) {
             // moment it next resets to 'waiting' on its own.
             tp_apply_room_bot_target($roomId);
 
-            $res->json(['success' => true, 'config' => $config]);
+            $res->json(['success' => true, 'config' => tp_room_bot_config()]);
         } catch (Throwable $err) {
             fail500($res, $err, 'teenpatti');
         }
