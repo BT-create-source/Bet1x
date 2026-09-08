@@ -81,6 +81,23 @@
       }
     }
 
+    /* Color Prediction Bias Control: an explicit 3-column grid with ~800px of combined minimum
+       width, which never wraps on a phone (unlike auto-fit grids elsewhere) and forced the whole
+       card to overflow sideways. Stack to one column, and let the round/timer info box wrap
+       instead of staying pinned in a single nowrap row next to the title. */
+    @media (max-width: 900px) {
+      #colorBiasGrid {
+        grid-template-columns: 1fr !important;
+      }
+      #colorBiasHeaderRow {
+        flex-wrap: wrap;
+      }
+      #colorBiasRoundInfo {
+        max-width: 100% !important;
+        flex-basis: 100%;
+      }
+    }
+
     .admin-stat-card {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -572,11 +589,11 @@
         <div class="card" style="background:#1a222d; border:1px solid #242f3d; padding:16px; margin-top:0; margin-bottom:16px; width:100%;">
           
           <!-- Title & Round Info Row -->
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:20px; border-bottom:1px solid #242f3d; padding-bottom:8px; margin-bottom:12px;">
+          <div id="colorBiasHeaderRow" style="display:flex; justify-content:space-between; align-items:center; gap:20px; border-bottom:1px solid #242f3d; padding-bottom:8px; margin-bottom:12px;">
             <h4 style="margin:0; color:var(--gold); font-size:14.2px; display:flex; align-items:center; gap:6px; white-space:nowrap;">
               <span>🎨 Color Prediction Bias Control</span>
             </h4>
-            <div style="display:flex; align-items:center; justify-content:space-between; flex:1; max-width:650px; background:#0d0f12; padding:6px 16px; border-radius:6px; border:1px solid #242f3d;">
+            <div id="colorBiasRoundInfo" style="display:flex; align-items:center; justify-content:space-between; flex:1; max-width:650px; background:#0d0f12; padding:6px 16px; border-radius:6px; border:1px solid #242f3d;">
               <span style="font-size:11.5px; color:var(--text-dim); white-space:nowrap;">ROUND: <b style="color:var(--gold); font-family:var(--font-mono); font-size:12px;" id="adminColorRoundId">#------</b></span>
               <span style="font-size:11.5px; color:var(--text-dim); margin-left:12px; white-space:nowrap;">TIMER: <b style="color:var(--green); font-family:var(--font-mono); font-size:12px;" id="adminColorTimeVal">00:00</b></span>
               <div style="flex:1; height:6px; background:rgba(255,255,255,0.06); border-radius:3px; overflow:hidden; margin-left:16px; margin-right:4px;">
@@ -586,7 +603,7 @@
           </div>
 
           <!-- 3-Column Grid for Inputs, Heatmap, and Logs -->
-          <div style="display:grid; grid-template-columns: minmax(200px, 240px) minmax(360px, 1fr) minmax(240px, 280px); gap:16px; align-items:start;">
+          <div id="colorBiasGrid" style="display:grid; grid-template-columns: minmax(200px, 240px) minmax(360px, 1fr) minmax(240px, 280px); gap:16px; align-items:start;">
             
             <!-- Col 1: Manual Overrides & Selection & Bot Takeover -->
             <div style="display:flex; flex-direction:column; gap:10px; background:#0d0f12; padding:12px; border-radius:8px; border:1px solid #242f3d;">
@@ -4263,7 +4280,7 @@
       if (modeDesc) {
         modeDesc.textContent = isManual
           ? 'Auto-shuffle is stopped. Every room below is exactly what you set.'
-          : '4 rooms get 2 bots, 2 rooms show full — rotates automatically, no input needed.';
+          : '2 rooms full, 3 rooms at 3 bots, 1 room at 2 bots — rotates automatically, no input needed.';
       }
       if (modeBtn) {
         modeBtn.textContent = isManual ? 'Switch to Auto' : 'Switch to Manual';

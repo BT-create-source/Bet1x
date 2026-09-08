@@ -1224,13 +1224,20 @@ function renderGameState(state) {
   const tableEl = document.getElementById('tpTableArea');
   const playersArea = document.getElementById('playersArea');
 
-  if (state.status === 'waiting') {
+  const waitingOccupiedCount = (state.seats || []).filter(s => s.username).length;
+  if (state.status === 'waiting' && waitingOccupiedCount === 0) {
+    // Nobody at all in this room yet (bots included) — the generic "waiting" placeholder is
+    // correct here; there is nothing to show at the table.
     waitingEl.style.display = 'block';
     tableEl.style.display = 'none';
     playersArea.innerHTML = '';
     return;
   }
 
+  // A 'waiting' room with 1-3 seats already occupied (bots and/or a real player) falls through to
+  // the same seat rendering as 'playing'/'finished' below, so whoever is already seated is visibly
+  // sitting at the table instead of being hidden behind a generic spinner — the status message
+  // further down says "Waiting for the Nth player" instead of a turn/result line in this case.
   waitingEl.style.display = 'none';
   tableEl.style.display = 'block';
 
@@ -1309,7 +1316,7 @@ function renderGameState(state) {
 
     return `
       <div class="${classes}" id="seat-offset-${relOffset}" style="${positionStyles[relOffset]}">
-        <div class="player-name ${isMe ? 'is-me-name' : ''}">${badgeHtml}</div>
+        <div class="player-name ${isMe ? 'is-me-name' : ''}">${s.username} ${badgeHtml}</div>
         <div class="player-balance">Seat ${s.seat + 1}</div>
         ${cardsHtml}
         <div class="hand-label">${label}</div>
@@ -1332,7 +1339,14 @@ function renderGameState(state) {
       ? `<span style="color:var(--green)">🏆 YOU WON! ₹${state.pot} 🎉</span>`
       : `<span style="color:var(--green)">🏆 ${state.winner_name} WON! ₹${state.pot}</span>`) + rigNote;
   } else {
-    statusMsg.textContent = 'Waiting for players...';
+    // 'waiting' with 1-3 seats already filled (see waitingOccupiedCount above) — tell the player
+    // exactly how many more are needed rather than a generic message, since they can now see who
+    // is already seated at the table.
+    const seatedCount = state.seats.filter(s => s.username).length;
+    const stillNeeded = 4 - seatedCount;
+    statusMsg.textContent = stillNeeded > 0
+      ? `${seatedCount}/4 players — waiting for ${stillNeeded === 1 ? 'the 4th player' : stillNeeded + ' more players'} to join...`
+      : 'Waiting for players...';
   }
 
   // Controls & Action Buttons

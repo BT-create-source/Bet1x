@@ -844,9 +844,17 @@ function tp_finish_round_reset($roomId) {
         // Always clear any leftover per-hand rig now that this hand is fully over.
         tp_update_room($roomId, ['admin_rig' => null]);
 
-        // Bring this room straight back up to its configured ambient bot target rather than
-        // leaving it empty until the next organic traffic tick notices it.
-        tp_apply_room_bot_target($roomId);
+        // A hand finishing is also a natural trigger to reshuffle the whole 6-room distribution
+        // (subject to tp_maybe_shuffle_room_bot_targets()'s own interval throttle, so this cannot
+        // reshuffle on every single hand across six rooms) — "the lobby looks different after each
+        // game", not just once a day. When it does reshuffle, every room gets topped up to its
+        // fresh target; otherwise just bring this one room back up to its existing target rather
+        // than leaving it empty until the next organic traffic tick notices it.
+        if (tp_maybe_shuffle_room_bot_targets()) {
+            foreach (tp_room_ids() as $rid) { tp_apply_room_bot_target($rid); }
+        } else {
+            tp_apply_room_bot_target($roomId);
+        }
     } catch (Throwable $e) { log_error('[TP] Room empty error: ' . $e->getMessage()); }
 }
 
@@ -938,9 +946,9 @@ function tp_run_bot_fill($roomId) {
  */
 function tp_sweep() {
     try {
-        // Once a day this rolls fresh ambient bot targets for every unlocked room; when it does,
-        // apply them to every room's actual seats immediately rather than waiting on the slow
-        // organic trickle below to eventually notice each one.
+        // Periodically (see TP_BOT_SHUFFLE_INTERVAL_MS) this rolls fresh ambient bot targets for
+        // every room in Auto mode; when it does, apply them to every room's actual seats
+        // immediately rather than waiting on the slow organic trickle below to notice each one.
         if (tp_maybe_shuffle_room_bot_targets()) {
             foreach (tp_room_ids() as $roomId) { tp_apply_room_bot_target($roomId); }
         }

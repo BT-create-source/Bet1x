@@ -53,12 +53,15 @@ function profile_color_room_name($room) {
 /**
  * Turn a chronological list of {game, kind, amount, timestamp, details} rows into resolved
  * rounds. Every bet is paired with the next win of the SAME game that occurs before that game's
- * next fresh bet; an unmatched bet is a loss of its own (accumulated) stake.
+ * next fresh bet; an unmatched bet is a loss of its own stake.
  *
  * Teen Patti's "Boot" (once per hand) and "Chaal" (any number of raises within that hand) are both
  * Withdrawals with no shared round number, so consecutive bet rows for Teen Patti are folded
  * together into one hand's stake, split only at the next Boot (the one row type that reliably
- * marks a new hand starting).
+ * marks a new hand starting). Every OTHER game is strictly one bet == one round: two bet rows in a
+ * row with no win between them are two separate LOSSES, not one round with a doubled-up stake —
+ * merging them was the bug behind "a second Aviator loss doesn't get its own row, it just enlarges
+ * the first one".
  */
 function profile_build_rounds($txns) {
     $byGame = [];
@@ -76,8 +79,8 @@ function profile_build_rounds($txns) {
             $stake = (float) $rows[$i]['amount'];
             $roundAt = $rows[$i]['timestamp'];
             $j = $i + 1;
-            while ($j < $n && $rows[$j]['kind'] === 'bet') {
-                if ($game === 'Teen Patti' && stripos($rows[$j]['details'], 'Teen Patti Boot') === 0) break;
+            while ($game === 'Teen Patti' && $j < $n && $rows[$j]['kind'] === 'bet') {
+                if (stripos($rows[$j]['details'], 'Teen Patti Boot') === 0) break;
                 $stake += (float) $rows[$j]['amount'];
                 $j++;
             }

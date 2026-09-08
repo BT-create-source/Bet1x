@@ -2322,7 +2322,13 @@ function profileFmtMoney(n) {
 
 function profileFmtDate(ts) {
   if (!ts) return '';
-  const d = new Date(String(ts).replace(' ', 'T'));
+  // The backend stores and sends every timestamp as a naive "Y-m-d H:i:s.v" string that IS UTC
+  // (see ms_to_sql() in php-backend/lib/json.php) but carries no timezone marker of its own. Without
+  // one, `new Date(...)` parses a date-and-time string as the BROWSER's local time instead of UTC,
+  // so every round's displayed time was off by the visitor's UTC offset (5.5h out for IST) rather
+  // than matching their device clock. Appending "Z" marks it correctly as UTC; toLocaleDateString/
+  // toLocaleTimeString below already convert to the device's own local timezone by default.
+  const d = new Date(String(ts).replace(' ', 'T') + 'Z');
   if (isNaN(d.getTime())) return String(ts).split(' ')[0];
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
     + ', ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });

@@ -432,9 +432,9 @@ function register_teenpatti_routes(Router $app) {
                 if ($manual) {
                     tp_room_bot_config_save($config);
                 } else {
-                    // Switching back to Auto: reshuffle right now rather than waiting for the next
-                    // calendar day to pick up a fresh distribution.
-                    $config['last_shuffle_date'] = null;
+                    // Switching back to Auto: reshuffle right now rather than waiting out the
+                    // usual interval to pick up a fresh distribution.
+                    $config['last_shuffle_at'] = null;
                     tp_room_bot_config_save($config);
                     tp_maybe_shuffle_room_bot_targets();
                 }

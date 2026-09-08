@@ -118,12 +118,16 @@ function bot_takeover_state_fresh() {
 const TP_ROOM_SEAT_COUNT = 4;
 
 /**
- * Auto-mode distribution: exactly 4 of the 6 rooms get 2 bots (2 seats stay open for real players
- * to complete the mandatory 4/4 table), and exactly 2 rooms show completely full. Which 4 vs which
- * 2 rotates on every shuffle — see tp_maybe_shuffle_room_bot_targets() — so the lobby is never
- * static, but the SHAPE of the distribution (4-light / 2-full) is the fixed business rule.
+ * Auto-mode distribution: of the 6 rooms, exactly 2 show completely full, exactly 3 get 3 bots
+ * (1 seat left open for a real player to complete the mandatory 4/4 table), and the remaining 1
+ * gets 2 bots (2 seats open). WHICH rooms land in which group rotates on every reshuffle — see
+ * tp_maybe_shuffle_room_bot_targets() — so the lobby is never static; the counts themselves
+ * (2 full / 3 at three / 1 at two) are the fixed business rule.
  */
-function tp_bot_target_pattern() { return [2, 2, 2, 2, TP_ROOM_SEAT_COUNT, TP_ROOM_SEAT_COUNT]; }
+function tp_bot_target_pattern() { return [TP_ROOM_SEAT_COUNT, TP_ROOM_SEAT_COUNT, 3, 3, 3, 2]; }
+
+/** Minimum time between auto-mode reshuffles — see tp_maybe_shuffle_room_bot_targets(). */
+const TP_BOT_SHUFFLE_INTERVAL_MS = 5 * 60 * 1000;
 
 /**
  * The per-room config, defaults merged with whatever is stored — never a partial/missing room.
@@ -147,9 +151,9 @@ function tp_room_bot_config() {
         ];
     }
     return [
-        'master_manual'     => !empty($stored['master_manual']),
-        'last_shuffle_date' => $stored['last_shuffle_date'] ?? null,
-        'rooms'             => $rooms,
+        'master_manual'   => !empty($stored['master_manual']),
+        'last_shuffle_at' => isset($stored['last_shuffle_at']) ? (int) $stored['last_shuffle_at'] : null,
+        'rooms'           => $rooms,
     ];
 }
 
@@ -164,15 +168,16 @@ function tp_room_bot_target($roomId) {
 }
 
 /**
- * Runs once per calendar day (server timezone — see APP_TIMEZONE) while in Auto mode: re-rolls
- * EVERY room's bot-occupancy target from the 4-light/2-full pattern above. A no-op whenever the
- * operator has switched to Manual mode (master_manual), and cheap to call on every request — see
- * tp_sweep() — because after the first call following midnight it is a single state_get() and an
- * immediate return.
+ * Re-rolls EVERY room's bot-occupancy target from the pattern above, while in Auto mode, at most
+ * once every TP_BOT_SHUFFLE_INTERVAL_MS — called from tp_sweep() (every request + the cron) AND
+ * explicitly at the end of every hand (tp_finish_round_reset), so the distribution both drifts on
+ * its own over time AND gets a fresh chance to reshuffle each time a game actually finishes
+ * somewhere, without ever reshuffling so often it feels chaotic. A no-op whenever the operator has
+ * switched to Manual mode (master_manual).
  *
  * Returns true the one time it actually reshuffles (so the caller can immediately top every room
  * up to its fresh target, rather than leaving it to the next organic traffic tick), false on every
- * no-op call for the rest of that day.
+ * no-op call in between.
  */
 function tp_maybe_shuffle_room_bot_targets() {
     if (!cfg('TEENPATTI_AUTO_BOT_FILL')) return false; // real-players-only mode — nothing to shuffle
@@ -180,8 +185,10 @@ function tp_maybe_shuffle_room_bot_targets() {
     $config = tp_room_bot_config();
     if ($config['master_manual']) return false; // operator has taken full manual control
 
-    $today = date('Y-m-d');
-    if ($config['last_shuffle_date'] === $today) return false;
+    $now = now_ms();
+    if ($config['last_shuffle_at'] !== null && ($now - $config['last_shuffle_at']) < TP_BOT_SHUFFLE_INTERVAL_MS) {
+        return false;
+    }
 
     $roomIds = tp_room_ids();
     $values = js_shuffle(tp_bot_target_pattern());
@@ -189,7 +196,7 @@ function tp_maybe_shuffle_room_bot_targets() {
         $config['rooms'][$roomId]['target'] = $values[$i % count($values)];
     }
 
-    $config['last_shuffle_date'] = $today;
+    $config['last_shuffle_at'] = $now;
     tp_room_bot_config_save($config);
     return true;
 }
