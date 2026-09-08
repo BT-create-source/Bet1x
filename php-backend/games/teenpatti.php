@@ -829,19 +829,26 @@ function tp_run_bot_fill($roomId) {
         $seated = array_values(array_filter($seats, function ($s) { return !empty($s['username']); }));
         if (count($seated) === 0) return;   // nobody waiting
 
-        // Fill ALL empty seats to reach 4/4 with ordinary fillers. "Admin" is never seated here —
-        // that is decided once, live, in tp_start_round.
-        $empty = array_values(array_filter($seats, function ($s) { return empty($s['username']); }));
-        $botIdx = 0;
-        foreach ($empty as $seat) {
-            if ($botIdx >= 4) break;
-            $filler = next_room_filler_username();
-            tp_update_seat($seat['id'], [
-                'username' => $filler['username'],
-                'is_bot'   => $filler['is_bot'] ? 1 : 0,
-                'folded'   => 0,
-            ]);
-            $botIdx++;
+        // Top up bots to this room's configured ambient target (see lib/botengine.php), not
+        // always to full capacity — seats beyond the target stay empty on purpose, for a real
+        // player to join. "Admin" is never seated here — that is decided once, live, in
+        // tp_start_round.
+        $botCount = count(array_filter($seats, function ($s) { return !empty($s['username']) && !empty($s['is_bot']); }));
+        $need = max(0, tp_room_bot_target($roomId) - $botCount);
+
+        if ($need > 0) {
+            $empty = array_values(array_filter($seats, function ($s) { return empty($s['username']); }));
+            $botIdx = 0;
+            foreach ($empty as $seat) {
+                if ($botIdx >= $need) break;
+                $filler = next_room_filler_username();
+                tp_update_seat($seat['id'], [
+                    'username' => $filler['username'],
+                    'is_bot'   => $filler['is_bot'] ? 1 : 0,
+                    'folded'   => 0,
+                ]);
+                $botIdx++;
+            }
         }
 
         tp_start_round($roomId);
@@ -860,6 +867,8 @@ function tp_run_bot_fill($roomId) {
  */
 function tp_sweep() {
     try {
+        tp_maybe_shuffle_room_bot_targets();
+
         $now = now_ms();
 
         // --- per-room deadlines ---
@@ -947,9 +956,12 @@ function tp_sweep() {
 }
 
 /**
- * Sequential organic room filling: adds one filler to one waiting room every 6-12 seconds.
+ * Sequential organic room filling: adds one filler to one under-target waiting room every
+ * 6-12 seconds.
  *
- * Rooms stay open (0/4 -> 1/4 -> 2/4 -> 3/4) for a while before filling to 4/4 and starting.
+ * Each room stops receiving fillers once its bot count reaches that room's configured ambient
+ * target (see lib/botengine.php) — never always up to 4/4 — so seats beyond the target stay open
+ * for a real player to walk into at any time.
  */
 function tp_traffic_tick() {
     if (!cfg('TEENPATTI_AUTO_BOT_FILL')) return; // real-players-only mode — no simulated traffic
@@ -972,18 +984,19 @@ function tp_traffic_tick() {
             $room = tp_get_room($roomId);
             if (!$room || $room['status'] !== 'waiting') continue;
             $seats = tp_get_seats($roomId);
-            $count = count(array_filter($seats, function ($s) { return !empty($s['username']); }));
-            if ($count < 4) $waitingRooms[] = ['room' => $room, 'seats' => $seats, 'count' => $count];
+            $botCount = count(array_filter($seats, function ($s) { return !empty($s['username']) && !empty($s['is_bot']); }));
+            if ($botCount >= tp_room_bot_target($roomId)) continue;   // this room already at its target
+            $emptySeats = array_values(array_filter($seats, function ($s) { return empty($s['username']); }));
+            if (count($emptySeats) === 0) continue;
+            $waitingRooms[] = ['room' => $room, 'emptySeats' => $emptySeats];
         }
         if (count($waitingRooms) === 0) return;
 
-        $target = $waitingRooms[(int) floor(js_random() * count($waitingRooms))];
-        $emptySeats = array_values(array_filter($target['seats'], function ($s) { return empty($s['username']); }));
-        if (count($emptySeats) === 0) return;
+        $picked = $waitingRooms[(int) floor(js_random() * count($waitingRooms))];
 
         // Exactly one simulated player, always an ordinary filler name. "Admin" is never seated by
         // simulated traffic; that is decided once, live, in tp_start_round.
-        $nextSeat = $emptySeats[0];
+        $nextSeat = $picked['emptySeats'][0];
         $filler = next_room_filler_username();
         tp_update_seat($nextSeat['id'], [
             'username' => $filler['username'],
@@ -992,6 +1005,6 @@ function tp_traffic_tick() {
             'balance'  => 1000 + (int) floor(js_random() * 5000),
         ]);
 
-        if ($target['count'] + 1 >= 3) tp_schedule_bot_fill($target['room']['id']);
+        tp_schedule_bot_fill($picked['room']['id']);
     } catch (Throwable $e) { /* silent */ }
 }

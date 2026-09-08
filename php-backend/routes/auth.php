@@ -171,7 +171,10 @@ function register_auth_routes(Router $app) {
     });
 
     // --- Login (username or email + password) ---
-    $app->post(['/api/auth/login', '/api/db/users/login'], limiter('auth'), function (Req $req, Res $res) {
+    // Deliberately NOT behind limiter('auth') — unlimited login attempts, no IP/account lockout,
+    // by product decision. Signup, password reset, and account-settings changes below are
+    // unaffected and keep their own 'auth' bucket.
+    $app->post(['/api/auth/login', '/api/db/users/login'], function (Req $req, Res $res) {
         $username = trim((string)($req->b('username') ?? ''));
         $password = (string)($req->b('password') ?? '');
 

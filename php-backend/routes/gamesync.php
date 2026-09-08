@@ -725,10 +725,15 @@ function register_gamesync_routes(Router $app) {
     // Validation here is materially looser than /api/auth/signup (no username format check, no
     // confirm-password, no email validation). Both paths are kept exactly as they are.
     // ---------------------------------------------------------------------------------------------
-    $app->all('/api/auth.php', limiter('auth'), function (Req $req, Res $res) {
+    $app->all('/api/auth.php', function (Req $req, Res $res) {
         $action = $req->q('action');
         if (!js_truthy($action)) $action = $req->b('action');
         $action = (string)($action ?? '');
+
+        // Login is deliberately NOT rate-limited — unlimited attempts, no IP/account lockout, by
+        // product decision. Signup stays behind the shared 'auth' bucket: it guards against a
+        // different kind of abuse (mass account creation) than credential guessing.
+        if ($action === 'signup' && rate_limit('auth', $req, $res)) return;
 
         $username = $req->q('username');
         if (!js_truthy($username)) $username = $req->b('username');
