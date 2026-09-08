@@ -420,7 +420,12 @@ function register_teenpatti_routes(Router $app) {
                 // The single ON/OFF switch: OFF (false) = Auto, every room comes from the periodic
                 // shuffle; ON (true) = Manual, the shuffle stops entirely and every room is exactly
                 // what an operator sets below.
-                $manual = js_truthy($req->b('master_manual'));
+                //
+                // Deliberately NOT js_truthy() here: the frontend always sends the literal string
+                // "true" or "false", and js_truthy('false') is true — a non-empty string is truthy
+                // in JS, faithfully reproduced by that helper — so a request to switch back to Auto
+                // was silently being read as "stay Manual" and the toggle button appeared dead.
+                $manual = ($req->b('master_manual') === 'true');
                 $config = tp_room_bot_config();
                 $config['master_manual'] = $manual;
 

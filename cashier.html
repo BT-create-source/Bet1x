@@ -662,16 +662,31 @@
       }
     }
 
+    // The Transaction table is one shared ledger for every money movement on the site — a game bet
+    // is a Withdrawal row, a game win is a Deposit row, exactly like a real cashier deposit or
+    // withdrawal is — so /api/wallet/transactions returns all of it undifferentiated. This wallet
+    // history is meant to be cashier activity only (deposits/withdrawals); gameplay belongs in the
+    // profile's separate Game History instead. Same detail-text patterns profile.php's
+    // profile_classify_txn() already recognises server-side, mirrored here client-side so this one
+    // shared endpoint's contract (and every other page that reads it) stays untouched.
+    function isGameplayTransaction(details) {
+      const d = String(details || '');
+      return /^Aviator Wager/i.test(d) || /^Aviator Payout/i.test(d) ||
+             /^Color Guess Wager Room:/i.test(d) || /^Color Guess Win Payout Room:/i.test(d) ||
+             /^Mines Bet/i.test(d) || /^Mines Cash Out/i.test(d) ||
+             /^Teen Patti Boot/i.test(d) || /^Teen Patti Chaal/i.test(d) || /^Teen Patti Won Pot/i.test(d);
+    }
+
     function renderTransactions() {
       const tbody = document.getElementById('txnHistoryBody');
       tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-dim);">Loading transactions...</td></tr>';
-      
+
       const currentUser = getCurrentUser();
       if (!currentUser) return;
-      
+
       if (window.isOfflineMode) {
         // Offline file mode read from localStorage
-        const txns = JSON.parse(localStorage.getItem('bet1x_transactions') || '[]');
+        const txns = JSON.parse(localStorage.getItem('bet1x_transactions') || '[]').filter(c => !isGameplayTransaction(c.details));
         tbody.innerHTML = '';
         if (txns.length === 0) {
           tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-dim);">No transactions found.</td></tr>`;
@@ -709,7 +724,8 @@
       // account via acting_username(), newest first, and already the exact shape rendered below.
       fetch('api/wallet/transactions')
       .then(res => res.json())
-      .then(txns => {
+      .then(rawTxns => {
+        const txns = Array.isArray(rawTxns) ? rawTxns.filter(c => !isGameplayTransaction(c.details)) : rawTxns;
         tbody.innerHTML = '';
         if (!Array.isArray(txns) || txns.length === 0) {
           tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-dim);">No transactions found.</td></tr>`;

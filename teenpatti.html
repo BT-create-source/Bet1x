@@ -450,6 +450,64 @@
       width: 120px !important;
     }
   }
+
+  /* Narrow phones (most current handsets are 360-412px logical width) — the 540px breakpoint
+     above still leaves 120px-wide cards close enough together that they touch/overlap on these,
+     especially the two side seats. Scale everything down further rather than just repositioning. */
+  @media (max-width: 400px) {
+    .circular-table-wrapper {
+      height: 380px;
+      margin: 24px auto 90px;
+    }
+    .circular-felt {
+      top: 50px;
+      left: 20px;
+      right: 20px;
+      bottom: 50px;
+    }
+    .player-card {
+      padding: 5px 3px;
+    }
+    .player-name {
+      font-size: 11px;
+      margin-bottom: 3px;
+      gap: 4px;
+    }
+    .player-balance {
+      font-size: 9px;
+      margin-bottom: 4px;
+    }
+    .card-wrapper {
+      width: 30px !important;
+      height: 44px !important;
+      margin: 0 -5px;
+    }
+    .card-face {
+      font-size: 9px;
+      padding: 3px 2px;
+    }
+    .hand-label {
+      font-size: 9px;
+    }
+    #playersArea > div[id="seat-offset-3"] {
+      top: 40px !important;
+      left: -8px !important;
+      width: 98px !important;
+    }
+    #playersArea > div[id="seat-offset-2"] {
+      top: -42px !important;
+      width: 98px !important;
+    }
+    #playersArea > div[id="seat-offset-1"] {
+      top: 40px !important;
+      right: -8px !important;
+      width: 98px !important;
+    }
+    #playersArea > div[id="seat-offset-0"] {
+      bottom: -60px !important;
+      width: 98px !important;
+    }
+  }
 </style>
 </head>
 <body class="exchange-theme">
@@ -1251,7 +1309,7 @@ function renderGameState(state) {
 
     return `
       <div class="${classes}" id="seat-offset-${relOffset}" style="${positionStyles[relOffset]}">
-        <div class="player-name ${isMe ? 'is-me-name' : ''}">${s.username} ${badgeHtml}</div>
+        <div class="player-name ${isMe ? 'is-me-name' : ''}">${badgeHtml}</div>
         <div class="player-balance">Seat ${s.seat + 1}</div>
         ${cardsHtml}
         <div class="hand-label">${label}</div>

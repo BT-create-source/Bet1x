@@ -424,9 +424,12 @@ function tp_start_round($roomId) {
         }
     }
 
+    // Mandatory full table again: the boot-affordability ejection above can drop a real player who
+    // arrived with enough balance to join but not enough left to cover the boot right now. That
+    // must not leave a 3-player hand dealt anyway — cancel and let the room re-fill to 4/4 from
+    // scratch, the same as if it had never reached this point.
     $activeOccupied = array_values(array_filter($occupiedSeats, function ($s) { return !empty($s['username']); }));
-    if (count($activeOccupied) < 2) {
-        // Not enough players left, cancel round and reset room to waiting.
+    if (count($activeOccupied) < TP_ROOM_SEAT_COUNT) {
         tp_reset_room_to_waiting($roomId);
         return;
     }

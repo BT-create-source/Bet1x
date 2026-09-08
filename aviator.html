@@ -907,9 +907,17 @@ function syncAviator() {
                   bets[i].wagered = serverBet.amount;
                   actionBtn.disabled = false;
                   actionBtn.className = 'big-bet-btn cashout';
+                  // A bet only ever becomes "active" here at the start of a fresh flight (betting
+                  // is closed once one is already running), so the correct value is always exactly
+                  // the placed stake at 1.00x -- never `* currentMultiplier`, which at this instant
+                  // can still be holding the PREVIOUS round's ending multiplier: the server sends
+                  // current_multiplier:0 during "waiting", so the `if (data.current_multiplier)`
+                  // check a few lines up (falsy on 0) skips resetting it, and this line used to
+                  // render stake*stale_multiplier for the ~2s until the new flight's own tick loop
+                  // (updateConsoleCashoutValues) overwrote it with the correct figure.
                   actionBtn.innerHTML = `
                     <span class="label">Cash Out</span>
-                    <span class="sub-label" id="cashoutVal${i}">₹${(serverBet.amount * currentMultiplier).toFixed(2)}</span>
+                    <span class="sub-label" id="cashoutVal${i}">₹${(serverBet.amount * 1.0).toFixed(2)}</span>
                   `;
                 }
               } else if (serverBet.status === 'won') {

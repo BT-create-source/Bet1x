@@ -72,6 +72,15 @@
       }
     }
 
+    /* Teen Patti "Room Bot Allocation" panel: the 6-room grid and each room's row of count
+       buttons were cramped into 2 narrow columns on phones, which is what read as broken/
+       distorted. Stack to one full-width column instead. */
+    @media (max-width: 480px) {
+      #tpBotAllocGrid {
+        grid-template-columns: 1fr !important;
+      }
+    }
+
     .admin-stat-card {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -831,7 +840,7 @@
             </div>
 
             <!-- Master Mode toggle -->
-            <div style="display:flex; justify-content:space-between; align-items:center; background:#0d0f12; border:1px solid #242f3d; border-radius:6px; padding:10px 12px; margin-bottom:12px;">
+            <div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; align-items:center; background:#0d0f12; border:1px solid #242f3d; border-radius:6px; padding:10px 12px; margin-bottom:12px;">
               <div>
                 <div id="tpBotModeLabel" style="font-size:12.5px; font-weight:800; color:#e2e8f0;">Mode: …</div>
                 <div id="tpBotModeDesc" style="font-size:11px; color:var(--text-dim); margin-top:2px;"></div>
