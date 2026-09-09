@@ -434,14 +434,14 @@ function updateAuthHeaderUI() {
   // without any per-page branching here.
   if (user && user.username) {
     authArea.innerHTML = `
-      <div style="display:flex; align-items:center; gap:10px; color:var(--text); font-size:13.5px; flex-wrap:wrap; justify-content:flex-end;">
+      <div class="header-user-info" style="display:flex; align-items:center; gap:10px; color:var(--text); font-size:13.5px; flex-wrap:wrap; justify-content:flex-end;">
         <a href="${prefix}profile.html" class="header-profile-avatar" title="View your profile">
           <img src="${prefix}assets/10/avtar.png" alt="Profile">
         </a>
-        <span>Welcome, <strong style="color:var(--gold);">${escapeHtml(user.username)}</strong></span>
+        <span><span class="header-welcome-text">Welcome, </span><strong class="header-username" style="color:var(--gold);">${escapeHtml(user.username)}</strong></span>
         <span class="wallet-chip" data-wallet-chip style="margin:0;">₹ ${getWallet().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-        <a href="${prefix}cashier.html" style="background:var(--gold, #c9a054); color:#000; font-weight:800; font-size:12px; padding:6px 12px; border-radius:4px; text-decoration:none; display:inline-flex; align-items:center; gap:4px; box-shadow:0 0 12px rgba(201,160,84,0.4);">💰 Deposit</a>
-        <a href="#" onclick="handleHeaderLogout(event)" style="color:var(--red); font-weight:700; text-decoration:none; font-size:12.5px; border-left:1px solid var(--border); padding-left:10px;">Logout ⎋</a>
+        <a href="${prefix}cashier.html" class="header-deposit-btn" style="background:var(--gold, #c9a054); color:#000; font-weight:800; font-size:12px; padding:6px 12px; border-radius:4px; text-decoration:none; display:inline-flex; align-items:center; gap:4px; box-shadow:0 0 12px rgba(201,160,84,0.4);">💰 Deposit</a>
+        <a href="#" onclick="handleHeaderLogout(event)" class="header-logout-link" style="color:var(--red); font-weight:700; text-decoration:none; font-size:12.5px; border-left:1px solid var(--border); padding-left:10px;">Logout ⎋</a>
       </div>
     `;
   } else {

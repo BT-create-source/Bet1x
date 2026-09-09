@@ -162,6 +162,28 @@
       box-shadow: 0 0 10px var(--primary-glow);
     }
 
+    /* Top tab bar: a fixed 6-column grid was forcing all 8 tabs (Pending Cashouts, Pending UPI
+       Deposits, Payment Settings, User Accounts, All Transaction Logs, Game Betting History,
+       Outcome Bias Console, Cricket Ops) into narrow cells regardless of screen width, which is
+       what truncated their labels with an ellipsis. On phones, drop the grid for a horizontally
+       scrollable row (same pattern as .sub-navbar) so every label renders in full. */
+    @media (max-width: 768px) {
+      .admin-tabs {
+        display: flex !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+      .admin-tabs::-webkit-scrollbar {
+        display: none;
+      }
+      .admin-tab-btn {
+        flex: 0 0 auto;
+        white-space: nowrap;
+        padding: 8px 12px;
+      }
+    }
+
     .admin-content {
       display: none;
     }
