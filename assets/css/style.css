@@ -405,6 +405,20 @@ a { color: inherit; }
   transition: all .12s;
 }
 .num-btn:hover { border-color: var(--text-faint); }
+
+/* Per-number ball colors matching the reference design: 0 and 5 are half red/violet
+   and half green/violet respectively, the rest alternate red/green. */
+.num-btn[data-val="0"] { background: linear-gradient(135deg, var(--red) 50%, var(--violet) 50%); color: #fff; }
+.num-btn[data-val="1"] { background: var(--green); color: #fff; }
+.num-btn[data-val="2"] { background: var(--red); color: #fff; }
+.num-btn[data-val="3"] { background: var(--green); color: #fff; }
+.num-btn[data-val="4"] { background: var(--red); color: #fff; }
+.num-btn[data-val="5"] { background: linear-gradient(135deg, var(--green) 50%, var(--violet) 50%); color: #fff; }
+.num-btn[data-val="6"] { background: var(--red); color: #fff; }
+.num-btn[data-val="7"] { background: var(--green); color: #fff; }
+.num-btn[data-val="8"] { background: var(--red); color: #fff; }
+.num-btn[data-val="9"] { background: var(--green); color: #fff; }
+
 .num-btn.selected { border-color: var(--gold); background: var(--gold); color: #2b1e00; }
 
 .size-options { display: flex; gap: 12px; margin: 16px 0; }
@@ -414,6 +428,8 @@ a { color: inherit; }
   background: var(--surface-2); color: var(--text);
   cursor: pointer; font-weight: 700; font-family: var(--font-display);
 }
+.size-btn[data-val="Big"] { background: var(--gold); color: #2b1e00; }
+.size-btn[data-val="Small"] { background: #3d8bfd; color: #fff; }
 .size-btn.selected { border-color: var(--violet); background: var(--violet-soft); color: var(--violet); }
 
 .amount-row { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
@@ -1218,6 +1234,13 @@ select {
    ============================================================ */
 
 .aviator-wrapper {
+  /* Lighter blue theme for the Vimaan game only — scoped here (rather than the
+     shared --bg/--surface tokens) so no other page's theme is affected. */
+  --bg-soft:   #1c3766;
+  --surface:   #1f3e70;
+  --surface-2: #274a82;
+  --border:    #35588f;
+
   display: flex;
   flex-direction: column;
   gap: 20px;
