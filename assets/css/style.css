@@ -1272,7 +1272,7 @@ select {
   position: relative;
   width: 100%;
   height: 380px;
-  background: radial-gradient(circle at 10% 90%, #151e36 0%, #080a12 80%);
+  background: radial-gradient(circle at 10% 90%, #1e2f57 0%, #0a0d18 80%);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
@@ -1415,6 +1415,15 @@ select {
   gap: 12px;
   align-items: stretch;
 }
+
+.big-bet-btn.bet {
+  background: linear-gradient(160deg, var(--red), var(--red-deep));
+  color: #fff;
+}
+.big-bet-btn.bet .label {
+  font-size: 16px;
+}
+
 @media (max-width: 480px) {
   .console-body {
     flex-direction: row;
@@ -1428,7 +1437,7 @@ select {
     min-height: 64px !important;
   }
   .big-bet-btn .label {
-    font-size: 13px !important;
+    font-size: 14px !important;
   }
   .big-bet-btn .sub-label {
     font-size: 11px !important;

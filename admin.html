@@ -479,6 +479,9 @@
       <!-- Tab 2: User Accounts Manager -->
       <div id="admin-users" class="admin-content">
         <h3 style="margin-bottom:12px; font-size:16px;">User Accounts Manager</h3>
+        <div style="margin-bottom:12px;">
+          <input type="text" id="adminUserSearchInput" placeholder="Search by username or email..." oninput="filterAdminUsers(this.value)" style="max-width:320px; margin-bottom:0;">
+        </div>
         <div style="overflow-x:auto;">
           <table class="admin-table">
             <thead>
@@ -2087,54 +2090,62 @@
     };
 
     // Tab 2: Render User Accounts manager
-    function renderUsers() {
+    let allAdminUsersCache = [];
+
+    function renderUsersTable(users) {
       const tbody = document.getElementById('adminUsersBody');
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-dim); padding:16px;">Loading...</td></tr>';
+      tbody.innerHTML = '';
+      if (users.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-dim); padding:16px;">No matching users.</td></tr>`;
+        return;
+      }
 
-      if (window.isOfflineMode) {
-        tbody.innerHTML = '';
-        const users = getUsers();
-        if (users.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-dim); padding:16px;">No registered users.</td></tr>`;
-          return;
-        }
-
-        users.forEach(u => {
-          const row = document.createElement('tr');
-          row.innerHTML = `
+      users.forEach(u => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
             <td><b>${escapeHtml(u.username)}</b></td>
-            <td>${escapeHtml(u.email || (u.username + '@bet1x.com'))}</td>
+            <td>${escapeHtml(u.email)}</td>
             <td style="color:var(--gold); font-weight:700; font-family:var(--font-mono);">₹${(parseFloat(u.wallet) || 0).toFixed(2)}</td>
             <td>
               <button class="btn-action edit" onclick="openBalanceModal('${escapeHtml(u.username)}')">Adjust Balance</button>
             </td>
           `;
-          tbody.appendChild(row);
-        });
+        tbody.appendChild(row);
+      });
+    }
+
+    window.filterAdminUsers = function (query) {
+      const q = (query || '').trim().toLowerCase();
+      const filtered = !q ? allAdminUsersCache : allAdminUsersCache.filter(u =>
+        (u.username || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q)
+      );
+      renderUsersTable(filtered);
+    };
+
+    function renderUsers() {
+      const tbody = document.getElementById('adminUsersBody');
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-dim); padding:16px;">Loading...</td></tr>';
+
+      if (window.isOfflineMode) {
+        const users = getUsers();
+        allAdminUsersCache = users.map(u => ({
+          username: u.username,
+          email: u.email || (u.username + '@bet1x.com'),
+          wallet: u.wallet
+        }));
+        filterAdminUsers(document.getElementById('adminUserSearchInput').value);
         return;
       }
 
       fetch('api/admin.php?action=users')
         .then(res => res.json())
         .then(users => {
-          tbody.innerHTML = '';
-          if (users.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-dim); padding:16px;">No registered users.</td></tr>`;
-            return;
-          }
-
-          users.forEach(u => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-            <td><b>${escapeHtml(u.username)}</b></td>
-            <td>${escapeHtml(u.email)}</td>
-            <td style="color:var(--gold); font-weight:700; font-family:var(--font-mono);">₹${(parseFloat(u.wallet_balance) || 0).toFixed(2)}</td>
-            <td>
-              <button class="btn-action edit" onclick="openBalanceModal('${escapeHtml(u.username)}')">Adjust Balance</button>
-            </td>
-          `;
-            tbody.appendChild(row);
-          });
+          allAdminUsersCache = users.map(u => ({
+            username: u.username,
+            email: u.email,
+            wallet: u.wallet_balance
+          }));
+          filterAdminUsers(document.getElementById('adminUserSearchInput').value);
         });
     }
 
