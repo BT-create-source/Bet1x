@@ -1234,12 +1234,14 @@ select {
    ============================================================ */
 
 .aviator-wrapper {
-  /* Lighter blue theme for the Vimaan game only — scoped here (rather than the
-     shared --bg/--surface tokens) so no other page's theme is affected. */
-  --bg-soft:   #1c3766;
-  --surface:   #1f3e70;
-  --surface-2: #274a82;
-  --border:    #35588f;
+  /* Vimaan-only theme, scoped here (rather than the shared --bg/--surface
+     tokens) so no other page's theme is affected. Outer panels (mult-history
+     bar, bet-console card, provably-fair bar) use the darkest tone; inner
+     boxes (bet amount stepper, quick-bet buttons) use the lighter tone. */
+  --bg-soft:   #040C21;
+  --surface:   #040C21;
+  --surface-2: #1A2A4D;
+  --border:    #263a66;
 
   display: flex;
   flex-direction: column;
