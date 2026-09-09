@@ -1235,12 +1235,13 @@ select {
 
 .aviator-wrapper {
   /* Vimaan-only theme, scoped here (rather than the shared --bg/--surface
-     tokens) so no other page's theme is affected. A lighter blue than the
-     site-wide dark-navy tokens, per the reference screenshot. */
-  --bg-soft:   #142c54;
-  --surface:   #17325f;
-  --surface-2: #204a86;
-  --border:    #35578f;
+     tokens) so no other page's theme is affected. Outer panels (mult-history
+     bar, bet-console card, provably-fair bar) use the darkest tone; inner
+     boxes (bet amount stepper, quick-bet buttons) use the lighter tone. */
+  --bg-soft:   #040C21;
+  --surface:   #040C21;
+  --surface-2: #1A2A4D;
+  --border:    #263a66;
 
   display: flex;
   flex-direction: column;
@@ -2599,50 +2600,7 @@ body.exchange-theme .footer {
     align-items: center !important;
     justify-content: space-between !important;
   }
-
-  /* Logged-in header (hamburger + logo on the left, avatar/welcome/wallet/deposit/logout on the
-     right) was overflowing/cramping on phones — shrink each piece and drop the "Welcome," word
-     (username itself stays visible) so the row fits without any part getting clipped. */
-  .exchange-logo-box {
-    font-size: 17px !important;
-    padding: 5px 10px !important;
-  }
-
-  .header-user-info {
-    gap: 6px !important;
-    font-size: 11px !important;
-    row-gap: 6px !important;
-  }
-
-  .header-profile-avatar {
-    width: 24px !important;
-    height: 24px !important;
-    min-width: 24px !important;
-  }
-
-  .header-welcome-text {
-    display: none !important;
-  }
-
-  .header-username {
-    font-size: 11px !important;
-  }
-
-  #headerAuthArea .wallet-chip {
-    padding: 4px 8px !important;
-    font-size: 10.5px !important;
-  }
-
-  .header-deposit-btn {
-    padding: 4px 8px !important;
-    font-size: 10.5px !important;
-  }
-
-  .header-logout-link {
-    font-size: 10.5px !important;
-    padding-left: 6px !important;
-  }
-
+  
   .header-login-form {
     gap: 4px !important;
   }
