@@ -1264,6 +1264,14 @@ select {
   display: none;
 }
 
+.aviator-round-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+  padding: 0 4px;
+}
+
 .mult-badge {
   flex: 0 0 auto;
   font-family: var(--font-mono);

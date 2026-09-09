@@ -61,6 +61,7 @@
       <div class="aviator-mult-history" id="multHistory">
         <!-- Populated dynamically -->
       </div>
+      <div class="aviator-round-label" id="topRoundLabel">Round: #—</div>
 
       <!-- Center: Stage / Canvas Area -->
       <div class="aviator-stage">
@@ -362,6 +363,9 @@ function generateNewSeed() {
   // console indexes rounds by.
   const refEl = document.getElementById('seedCommitment');
   if (refEl) refEl.textContent = `Round #${roundId}`;
+
+  const topRoundEl = document.getElementById('topRoundLabel');
+  if (topRoundEl) topRoundEl.textContent = `Round: #${roundId}`;
 
   // check local storage admin bias first!
   const cheatCrash = localStorage.getItem('cheat_aviator_crash');
