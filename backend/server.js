@@ -30,6 +30,40 @@ const { logger, requestLogger, errorHandler } = require('./lib/logger');
 const auth = require('./lib/auth');
 const rigAudit = require('./lib/rig-audit');
 const cricket = require('./lib/cricket');
+const botCore = require('../bot_core');
+
+// Every bot/rig/fake-user mechanism in the app now lives in bot_core/ (see that folder's own
+// index.js for the full audit/design note). These names are destructured here, at module scope, so
+// every one of their ~60 existing call sites below is completely unchanged — each one still reads
+// as a plain local function/variable, just now backed by bot_core instead of a same-file
+// definition. botCore.init({ prisma, resolveColorNumber, ... }) is called later, at the exact
+// point the original bot-engine code used to live, once resolveColorNumber exists.
+const {
+  botTakeoverState,
+  isBotTakeoverActive,
+  botRigBags,
+  ensureBotRigBag,
+  LIVE_USERS,
+  LIVE_INSTANCES,
+  markUserActive,
+  getLiveUsernames,
+  botTargetedUsers,
+  refreshBotTargeting,
+  isUserTargeted,
+  markInstanceActive,
+  getLiveInstances,
+  shouldBotRigThisRound,
+  randomFillerName,
+  nextRoomFillerUsername,
+  pickAviatorCrashPoint,
+  calculateAviatorLiveProfit,
+  aviatorShouldCrashNow,
+  calculateColorOptimalOutcome,
+  shouldRigMinesReveal,
+  AVIATOR_CRASH_AGGRESSIVE,
+  AVIATOR_CRASH_RELAXED,
+  AVIATOR_CRASH_FLOOR
+} = botCore;
 
 const app = express();
 const PORT = config.PORT;
@@ -345,12 +379,8 @@ cricket.init({
   // Your 11 draws from the same exact 100-slot bag every other game uses, rather than a second
   // mechanism that would drift from the configured percentage on its own. `fillerName` is the same
   // generator that names simulated Teen Patti players, so a house entry on a leaderboard is
-  // indistinguishable from any other entrant.
-  houseEdge: {
-    shouldRig: shouldBotRigThisRound,
-    fillerName: randomFillerName,
-    account: config.CRICKET_HOUSE_ACCOUNT || null
-  }
+  // indistinguishable from any other entrant. Assembled by bot_core/games/cricket.bot.js.
+  houseEdge: botCore.createCricketHouseEdgeAdapter({ account: config.CRICKET_HOUSE_ACCOUNT || null })
 });
 cricket.registerIngest(app);
 
@@ -1317,34 +1347,10 @@ app.post('/api/db/recent-results', async (req, res) => {
 });
 
 // --- UNIFIED GAMING BACKEND ENGINE (NODE.JS) ---
-
-// Realistic filler names for empty-seat auto-fill — no seat is ever named/labeled "bot" anywhere in
-// the app. The only seat that ever wins on purpose is explicitly renamed to "Admin" at the exact
-// moment the takeover algorithm selects it (see tpStartRound's ADMIN AUTO-WIN / AI BOT TAKEOVER
-// branches below); every other auto-filled seat just gets a plain human-looking name.
-const TP_SIMULATED_NAMES = [
-  'Aarav', 'Vivaan', 'Aditya', 'Vihaan', 'Arjun', 'Sai', 'Reyansh', 'Arav', 'Pranav', 'Krishna',
-  'Ishaan', 'Shaurya', 'Atharv', 'Rohan', 'Rudra', 'Aryan', 'Dev', 'Karan', 'Dhruv', 'Siddharth',
-  'Ananya', 'Diya', 'Ishika', 'Kiara', 'Myra', 'Aria', 'Saanvi', 'Riya', 'Prisha', 'Anika'
-];
-function randomFillerName() {
-  return TP_SIMULATED_NAMES[Math.floor(Math.random() * TP_SIMULATED_NAMES.length)] + '_' + (10 + Math.floor(Math.random() * 90));
-}
-
-// Called by every seat-fill path right before it occupies a seat with an ordinary filler player.
 //
-// This used to also decide whether the seat being filled was "Admin" — rooms were pre-selected at
-// toggle time (round(pct/100 * 6) of them, a separate percentage-of-rooms calculation) to reserve a
-// random arrival position for the house's own seat, independent of the per-round decision every
-// other rig path draws from. That meant a room could win its "one guaranteed Admin seat" from this
-// mechanism on top of whatever the per-round engine also produced afterwards — two independent
-// percentage-pct mechanisms stacking instead of summing to the one percentage the operator configured
-// is exactly why 50% could show up as "8 of 10 games." Every seat filled through here is now always
-// an ordinary filler; "Admin" is seated exactly one way, in tpStartRound, for hands that table's own
-// ledger selected — one ledger per table, one percentage, no double-booking.
-function nextRoomFillerUsername() {
-  return { username: randomFillerName(), is_bot: true };
-}
+// TP_SIMULATED_NAMES / randomFillerName / nextRoomFillerUsername now live in
+// bot_core/engine/filler-names.js (destructured at the top of this file) — fake-user generation is
+// bot logic, not core Teen Patti orchestration.
 
 function tpShuffle(arr) {
   const a = [...arr];
@@ -1381,28 +1387,16 @@ async function evictStaleAdminSeat(roomId) {
   }
 }
 
-// Central AI Bot Takeover In-Memory State & DB Sync
-const botTakeoverState = {
-  global: { enabled: false, profit_pct: 90 },
-  color_guess: { enabled: false, profit_pct: 90 },
-  aviator: { enabled: false, profit_pct: 90 },
-  teenpatti: { enabled: false, profit_pct: 90 },
-  mines: { enabled: false, profit_pct: 90 },
-  // Your 11's percentage counts CONTESTS, drawn per match (docs/YOUR11-SCOPE.md section 4). There is
-  // deliberately no `boundary` key: Boundary Baazi resolves from the ball event log and nothing
-  // else, and test_cricket.js asserts positively that no rig path for it exists.
-  youreleven: { enabled: false, profit_pct: 90 }
-};
-
+// The in-memory bot-takeover config, the rig-decision bag engine, and the live-user/live-instance
+// targeting engine all now live in bot_core/ (engine/takeover-state.js, engine/rig-bag.js,
+// engine/targeting.js, engine/decide.js — destructured at the top of this file, so every call site
+// below is unchanged). What stays here is only the piece that is genuine Teen Patti seat/game-state
+// logic: evicting a stale "Admin" seat left over from before the bot was toggled off, which must run
+// in the same sequence as loading the takeover config from the database, and the wiring bot_core
+// needs from this file's own core game logic (resolveColorNumber, AVIATOR_HIGH_STAKE_REF).
 async function initBotTakeoverState() {
   try {
-    const keys = Object.keys(botTakeoverState);
-    for (const k of keys) {
-      const record = await prisma.gameState.findUnique({ where: { key: `bot_takeover_${k}` } });
-      if (record && record.data) {
-        botTakeoverState[k] = { ...botTakeoverState[k], ...record.data };
-      }
-    }
+    await botCore.loadTakeoverStateFromDb();
 
     // If Teen Patti's bot takeover isn't active on boot (or is active but a stale seat/rig record
     // somehow survived — e.g. the process crashed mid-hand), make sure no room comes back up with a
@@ -1424,308 +1418,19 @@ async function initBotTakeoverState() {
     console.error("Error initializing bot takeover state:", err);
   }
 }
+
+// resolveColorNumber is a hoisted function declaration further down this file, so this reference is
+// valid regardless of where this call sits — placed here, at the exact spot this code used to live,
+// to minimize how much of the file's structure changed. Must run BEFORE initBotTakeoverState() is
+// invoked below: that call's first line awaits a bot_core function that reads the injected Prisma
+// client synchronously (before its own first await suspends it), so bot_core needs deps wired in
+// before anything calls into it, not merely before this line finishes executing.
+botCore.init({
+  prisma,
+  resolveColorNumber,
+  config: { AVIATOR_HIGH_STAKE_REF: config.AVIATOR_HIGH_STAKE_REF }
+});
 initBotTakeoverState();
-
-function isBotTakeoverActive(gameKey) {
-  const gameConf = botTakeoverState[gameKey];
-
-  // An unregistered key is never active, not even under the global master switch.
-  //
-  // Every real game is pre-initialised in botTakeoverState with an explicit enabled:true/false, so
-  // this costs nothing for any of them — the per-game branches below always short-circuit first.
-  // What it stops is a key that is NOT a game being treated as one: `/api/bot_status/:gameKey` and
-  // `/api/bot_decide/:gameKey` take the key straight from the URL, so before this, a typo or an
-  // invented name reported `active: true` whenever the global switch was on, and would have drawn
-  // real decisions out of a bag created on the spot for it.
-  //
-  // It is also the guarantee that Boundary Baazi has no rig path: that game deliberately has no key
-  // here, and adding one has to be a deliberate act rather than something the global switch confers.
-  // test_rigging.js asserts this positively.
-  if (!gameConf) {
-    return { active: false, profit_pct: 0, source: 'none' };
-  }
-
-  if (gameConf.enabled) {
-    return { active: true, profit_pct: gameConf.profit_pct || 90, source: 'game' };
-  }
-  if (gameConf.enabled === false) {
-    // If the game was explicitly turned off by the admin, respect that!
-    return { active: false, profit_pct: gameConf.profit_pct || 90, source: 'none' };
-  }
-  if (botTakeoverState.global && botTakeoverState.global.enabled) {
-    const pct = (gameConf && gameConf.profit_pct) ? gameConf.profit_pct : (botTakeoverState.global.profit_pct || 90);
-    return { active: true, profit_pct: pct, source: 'global' };
-  }
-  return { active: false, profit_pct: (gameConf && gameConf.profit_pct) || 90, source: 'none' };
-}
-
-// --- Memory-Tracked Bucketed Bot Decision Engine ---
-//
-// v1 of this was a plain running counter: `shouldRig = (counter % 100) < pct`. That handed out the
-// first `pct` calls out of every 100 all true in a solid unbroken row, then the rest all false — an
-// operator watching soon after enabling the bot saw a long deterministic streak, not a coin flip.
-//
-// v2 fixed the streak by shuffling a 100-slot bag (pct true, the rest false) instead of counting
-// through it in order. That is exact over every complete 100-draw cycle, but a genuinely independent
-// shuffle can still cluster locally — nothing stops 8 of the first 10 slots in a random permutation
-// of 50 true/50 false from landing true purely by chance (measured: ~4.6% of 10-round windows did,
-// almost as bad as a plain 50% coin flip). That is exactly what was reported next: "10 games, 8 won
-// by admin, at 50%."
-//
-// v3 (this one) keeps every 100-slot cycle exact — for ANY integer percentage, not just multiples of
-// ten, with no rounding drift ever — while also keeping every 10-round window close to the
-// configured ratio. It splits the 100 slots into 10 buckets of 10, hands each bucket
-// floor((i+1)*pct/10) - floor(i*pct/10) true slots (the standard "spread K items across N buckets as
-// evenly as possible" formula — every bucket gets within one of every other bucket, and the ten
-// bucket counts always sum to exactly `pct`), shuffles the true/false slots *within* each bucket for
-// genuine per-round unpredictability, then shuffles the *order the buckets are drawn in* so which
-// bucket comes first isn't fixed either. Measured improvement at 50%: the chance of an 8-or-worse
-// 10-round window drops from ~4.6% to ~0.5% — the same 100 draws are still exactly 50/50 rigged, but
-// no longer clumped.
-//
-// The in-progress bag doubles as the "memory" this is asking for: it is what decides whether the
-// next match should be rigged, it is exactly what determines when the house last entered a room
-// (lastRiggedAt below), and it is persisted per game (bot_rig_bag_<gameKey> in GameState) so a
-// restart resumes the current cycle instead of silently starting a fresh one.
-const BOT_RIG_BUCKETS = 10;
-const BOT_RIG_BUCKET_SIZE = 10; // BOT_RIG_BUCKETS * BOT_RIG_BUCKET_SIZE must stay 100
-
-const botRigBags = {
-  color_guess: null,
-  aviator: null,
-  teenpatti: null,
-  mines: null
-};
-
-function buildBotRigBag(pct) {
-  const buckets = [];
-  for (let i = 0; i < BOT_RIG_BUCKETS; i++) {
-    const trueCount = Math.floor((i + 1) * pct / BOT_RIG_BUCKETS) - Math.floor(i * pct / BOT_RIG_BUCKETS);
-    const slots = [];
-    for (let j = 0; j < BOT_RIG_BUCKET_SIZE; j++) slots.push(j < trueCount);
-    buckets.push(tpShuffle(slots));
-  }
-  const queue = [].concat(...tpShuffle(buckets));
-  return {
-    pct,
-    queue,
-    totalDecisions: 0,
-    totalRigged: 0,
-    lastDecisionAt: null,
-    lastRiggedAt: null
-  };
-}
-
-// Builds (or reuses) the bag for `gameKey` at the given percentage, WITHOUT drawing from it. Shared
-// by the real decision (which then draws) and the status-peek endpoint (which only reads the next
-// slot), so both agree on exactly the same cycle. A changed percentage starts a fresh cycle rather
-// than finishing out the old one at the old ratio.
-function ensureBotRigBag(gameKey, pct) {
-  let bag = botRigBags[gameKey];
-  if (!bag || bag.pct !== pct || bag.queue.length === 0) {
-    const carryOver = bag && bag.pct === pct ? bag : null; // exhausted cycle at the same pct: keep the running totals
-    bag = buildBotRigBag(pct);
-    if (carryOver) {
-      bag.totalDecisions = carryOver.totalDecisions;
-      bag.totalRigged = carryOver.totalRigged;
-      bag.lastDecisionAt = carryOver.lastDecisionAt;
-      bag.lastRiggedAt = carryOver.lastRiggedAt;
-    }
-    botRigBags[gameKey] = bag;
-  }
-  return bag;
-}
-
-let botRigBagSaveQueued = {};
-function persistBotRigBag(gameKey) {
-  // Debounced: a busy room can draw several decisions a second, and every draw does not need its own
-  // database round trip. The in-memory copy is already authoritative moment to moment — this only
-  // needs to survive a restart, so a couple of seconds of lag on the saved copy is harmless.
-  if (botRigBagSaveQueued[gameKey]) return;
-  botRigBagSaveQueued[gameKey] = true;
-  setTimeout(async () => {
-    botRigBagSaveQueued[gameKey] = false;
-    const bag = botRigBags[gameKey];
-    if (!bag) return;
-    try {
-      await prisma.gameState.upsert({
-        where: { key: `bot_rig_bag_${gameKey}` },
-        update: { data: bag },
-        create: { key: `bot_rig_bag_${gameKey}`, data: bag }
-      });
-    } catch (e) { /* best-effort persistence; the in-memory bag stays authoritative either way */ }
-  }, 2000);
-}
-
-// Colour Prediction and Teen Patti both keep one cycle per room/table (see shouldBotRigThisRound's
-// ledgerKey). Those ledgers are created on demand, so they have to be named explicitly here to be
-// restored after a restart — iterating botRigBags alone would only ever find the game-level keys.
-const COLOR_ROOMS = ['sapre', 'becone', 'emred', 'vip'];
-const TP_ROOM_IDS = ['room_101', 'room_102', 'room_103', 'room_104', 'room_105', 'room_106'];
-const BOT_RIG_LEDGER_KEYS = Object.keys(botRigBags)
-  .concat(COLOR_ROOMS.map(r => `color_guess:${r}`))
-  .concat(TP_ROOM_IDS.map(r => `teenpatti:${r}`));
-
-async function loadBotRigBags() {
-  for (const gameKey of BOT_RIG_LEDGER_KEYS) {
-    try {
-      const record = await prisma.gameState.findUnique({ where: { key: `bot_rig_bag_${gameKey}` } });
-      if (record && record.data && Array.isArray(record.data.queue)) {
-        botRigBags[gameKey] = record.data;
-      }
-    } catch (e) { /* a fresh bag on next draw is a safe fallback */ }
-  }
-}
-// Called here, immediately after its own definition, and not any earlier: botRigBags is a `const`
-// declared further up this file but not yet *initialized* at the point initBotTakeoverState() runs,
-// so calling this any earlier throws "Cannot access 'botRigBags' before initialization" the moment
-// the for-of loop above evaluates Object.keys(botRigBags).
-loadBotRigBags(); // resume each game's in-progress rig cycle instead of starting a fresh one on restart
-
-// --- Live Active-User Tracking & Percentage-Based Targeting Engine ---
-// Generalizes the Mines MINES_USER_SESSIONS/target_users precedent into a single, continuous,
-// server-side mechanism that works for every game: whenever the bot is enabled at profit_pct X% for
-// a game, a randomly-sampled X%-of-currently-live-users subset is kept fresh on a timer — entirely
-// server side, so it keeps running even if the admin panel is never opened / gets closed.
-const LIVE_USERS = {
-  color_guess: {},
-  aviator: {},
-  teenpatti: {},
-  mines: {}
-};
-const LIVE_USER_TTL_MS = 45000; // a user drops out of "currently active" if not refreshed within 45s
-
-function markUserActive(gameKey, username) {
-  if (!username || typeof username !== 'string') return; // anonymous viewers are not "live players"
-  if (!username || !LIVE_USERS[gameKey]) return;
-  const key = String(username);
-  const bucket = LIVE_USERS[gameKey];
-  const wasLive = bucket[key] !== undefined && (Date.now() - bucket[key]) <= LIVE_USER_TTL_MS;
-  bucket[key] = Date.now();
-
-  // A player who has just arrived must become eligible for selection immediately, not whenever the
-  // 4-second timer next happens to fire. Load testing made the cost of waiting obvious: 25 players
-  // started Mines boards inside 431ms, the timer had not run since they became live, so the targeted
-  // subset was still empty and NONE of them were rigged — a bot configured at 90% delivered 0%.
-  // Any session shorter than one timer tick was previously never rigged at all.
-  //
-  // Only on genuine arrival, not on every heartbeat: this is called from polling endpoints several
-  // times a second per player, and re-sampling that often would be pure waste.
-  if (!wasLive) refreshBotTargeting(gameKey);
-}
-
-function getLiveUsernames(gameKey) {
-  const bucket = LIVE_USERS[gameKey];
-  if (!bucket) return [];
-  const now = Date.now();
-  return Object.keys(bucket).filter(u => (now - bucket[u]) <= LIVE_USER_TTL_MS);
-}
-
-// The current server-computed targeted subset per game, refreshed continuously by the interval below.
-const botTargetedUsers = {
-  color_guess: [],
-  aviator: [],
-  teenpatti: [],
-  mines: []
-};
-
-function refreshBotTargeting(gameKey) {
-  if (!LIVE_USERS[gameKey]) return;
-  const bot = isBotTakeoverActive(gameKey);
-  if (!bot.active) { botTargetedUsers[gameKey] = []; return; }
-  const live = getLiveUsernames(gameKey);
-  if (live.length === 0) { botTargetedUsers[gameKey] = []; return; }
-  const pct = bot.profit_pct || 90;
-  const count = pct >= 100 ? live.length : Math.max(1, Math.min(live.length, Math.round((pct / 100) * live.length)));
-
-  // Keep whoever is still live and still selected, then top up from the rest at random. Re-drawing
-  // the whole subset from scratch on every pass used to mean a player could be targeted for one
-  // reveal and untargeted for the next within a single Mines board, and now that arrivals also
-  // trigger a refresh, a busy room would reshuffle constantly. The proportion is identical either
-  // way; this just stops it thrashing.
-  //
-  // Note this stickiness is safe for PLAYERS but was not for TABLES: a per-player subset is
-  // re-sampled as players come and go, whereas a small set of long-lived tables would have pinned
-  // the same tables for ever. Teen Patti therefore uses a per-table ledger instead of this engine.
-  const previous = (botTargetedUsers[gameKey] || []).filter(u => live.includes(u));
-  const keep = previous.slice(0, count);
-  const remaining = tpShuffle(live.filter(u => !keep.includes(u)));
-  botTargetedUsers[gameKey] = keep.concat(remaining.slice(0, count - keep.length));
-}
-
-function isUserTargeted(gameKey, username) {
-  if (!username || !botTargetedUsers[gameKey]) return false;
-  const lower = String(username).toLowerCase();
-  return botTargetedUsers[gameKey].some(u => u.toLowerCase() === lower);
-}
-
-// --- Live Instance Tracking & Percentage-Based Instance Targeting -------------------------------
-//
-// The engine above samples X% of live *players*. For a game whose concurrent unit is a table rather
-// than a player that is the wrong denominator: Teen Patti runs six rooms at once, and "50%" is meant
-// to mean three of those six tables are the house's, not "half the people somewhere across all six".
-//
-// This is deliberately the ONLY rig decision for such a game — it replaces the per-round bag draw for
-// Teen Patti rather than stacking on top of it. That distinction matters and is not stylistic: an
-// earlier version of this file ran a separate "arm N of 6 rooms" pass *alongside* the per-round
-// decision, and the two mechanisms multiplied instead of agreeing, which is exactly how a configured
-// 50% turned into a reported "8 of 10 games". One ledger, one percentage.
-//
-// A table only counts as live once a real person is sitting at it. Rigging a table occupied purely
-// by NPCs moves no money, and counting those tables in the denominator would silently dilute the
-// percentage the operator asked for.
-const LIVE_INSTANCES = { teenpatti: {} };
-const LIVE_INSTANCE_TTL_MS = 45000;
-
-function markInstanceActive(gameKey, instanceId) {
-  if (!instanceId || !LIVE_INSTANCES[gameKey]) return;
-  LIVE_INSTANCES[gameKey][String(instanceId)] = Date.now();
-}
-
-function getLiveInstances(gameKey) {
-  const bucket = LIVE_INSTANCES[gameKey];
-  if (!bucket) return [];
-  const now = Date.now();
-  return Object.keys(bucket).filter(id => (now - bucket[id]) <= LIVE_INSTANCE_TTL_MS);
-}
-
-// Keep every game's targeted subset fresh continuously, regardless of whether admin.html is open.
-setInterval(() => {
-  Object.keys(LIVE_USERS).forEach(gameKey => refreshBotTargeting(gameKey));
-}, 4000);
-
-/**
- * Call this once per round/match/session for the given game.
- * Returns { shouldRig: boolean, profit_pct: number, active: boolean, source: string }
- *
- * `ledgerKey` optionally splits the 100-slot cycle into independent sub-ledgers while keeping a
- * single shared on/off/percentage config. Colour Prediction needs this: its four rooms run on
- * different clocks (30s / 60s / 180s / 300s), so a single shared cycle let the fast room burn through
- * most of the rigged slots before the slow room had settled a handful of rounds — each room was
- * nominally at the configured percentage but none of them actually was. One ledger per room makes
- * every room exact on its own. Omitting it keeps the original single-cycle behaviour for every
- * existing caller.
- */
-function shouldBotRigThisRound(gameKey, ledgerKey) {
-  const bot = isBotTakeoverActive(gameKey);
-  if (!bot.active) {
-    return { shouldRig: false, profit_pct: bot.profit_pct, active: false, source: 'none' };
-  }
-
-  const pct = bot.profit_pct || 90;
-  const bag = ensureBotRigBag(ledgerKey || gameKey, pct);
-  const shouldRig = bag.queue.pop();
-
-  // The bag itself is the memory: totals for diagnostics, and lastRiggedAt records exactly when the
-  // house last entered a room / changed an outcome for this game, which is what /api/bot_status
-  // surfaces to the operator.
-  bag.totalDecisions++;
-  bag.lastDecisionAt = Date.now();
-  if (shouldRig) { bag.totalRigged++; bag.lastRiggedAt = Date.now(); }
-  persistBotRigBag(ledgerKey || gameKey); // must match the bag that was actually drawn from
-
-  return { shouldRig, profit_pct: pct, active: true, source: bot.source };
-}
 
 // --- Bot Status API Endpoint (for client-side games to query) ---
 // House-edge configuration is operator information; exposing it publicly told any player exactly
@@ -2032,105 +1737,10 @@ let aviatorState = {
 // handler for the "a round is already in the air right now" side.
 let nextAviatorOverride = null;
 
-// Aviator's live profit-advisory calculator — the Aviator equivalent of calculateColorOptimalOutcome.
-// Computes what the admin's profit would be if the round crashed RIGHT NOW: still-pending stakes and
-// already-lost stakes become house profit, while payouts already given to users who cashed out early
-// are a cost. Optionally scoped to a subset of usernames (the bot's currently-targeted live players).
-function calculateAviatorLiveProfit(bets, targetedUsernames) {
-  const list = Array.isArray(bets) ? bets : [];
-  const targeted = Array.isArray(targetedUsernames) && targetedUsernames.length > 0
-    ? new Set(targetedUsernames.map(u => String(u).toLowerCase()))
-    : null;
-  const scoped = targeted ? list.filter(b => targeted.has(String(b.username || '').toLowerCase())) : list;
-
-  const pendingStake = scoped.filter(b => b.status === 'pending').reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
-  const lostStake = scoped.filter(b => b.status === 'lost').reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
-  const alreadyPaid = scoped.filter(b => b.status === 'won').reduce((s, b) => s + (parseFloat(b.amount) || 0) * (parseFloat(b.cashed_multiplier) || 1), 0);
-
-  return {
-    scoped_count: scoped.length,
-    pending_stake: parseFloat(pendingStake.toFixed(2)),
-    already_paid: parseFloat(alreadyPaid.toFixed(2)),
-    profit_if_crash_now: parseFloat((pendingStake + lostStake - alreadyPaid).toFixed(2))
-  };
-}
-
-// --- Aviator crash-point selection, driven by the live book -------------------------------------
-//
-// The original rigged crash point was `1.12 + Math.random() * 0.42` — a number that never looked at
-// a single bet on the table. calculateAviatorLiveProfit above already knew what the round was
-// actually worth, but nothing consumed it outside an admin readout. These two functions close that
-// gap: the same profit figure the operator sees is now what decides the round.
-//
-// One property of this game drives the whole design. profit_if_crash_now is
-// `pendingStake + lostStake - alreadyPaid`, and during a flight it can only ever move DOWN: the sole
-// event that changes it is a player cashing out, which removes their stake from `pending` and adds
-// `stake × multiplier` to `alreadyPaid`. So house profit peaks the instant the plane takes off and
-// erodes from there. A naive "maximise profit" rule therefore degenerates to "crash at 1.00x every
-// round", which would be maximally profitable and instantly obvious.
-//
-// So the real objective is: take the profit near its peak, but not so early that the crash history
-// stops looking like a game. That is a stake-weighted trade-off, and it is what these two do —
-// pickAviatorCrashPoint sets the ceiling before takeoff, and aviatorShouldCrashNow watches for the
-// first sign of erosion during the flight and takes the money then.
-
-const AVIATOR_CRASH_AGGRESSIVE = 1.12; // tightest plausible crash — used when a lot of stake is exposed
-const AVIATOR_CRASH_RELAXED = 1.54;    // upper end of the rigged band — the original code's ceiling
-const AVIATOR_CRASH_FLOOR = 1.10;      // never intercept below this: a sub-1.10 crash reads as broken
-
-/**
- * Chooses the crash point for a round the takeover engine has already selected.
- *
- * Scaling is deliberate rather than cosmetic: crashing low costs credibility, so it is spent only
- * where it buys something. A round with heavy targeted exposure crashes near AVIATOR_CRASH_AGGRESSIVE
- * because the profit justifies it; a near-empty round is allowed to run to a natural-looking
- * multiplier, because holding it down would burn plausibility to win almost nothing.
- *
- * Returns null when the round has no targeted stake to act on, letting the caller keep its existing
- * behaviour untouched.
- */
-function pickAviatorCrashPoint(bets, targetedUsernames) {
-  const list = Array.isArray(bets) ? bets : [];
-  const targeted = Array.isArray(targetedUsernames) && targetedUsernames.length > 0
-    ? new Set(targetedUsernames.map(u => String(u).toLowerCase()))
-    : null;
-
-  const pending = list.filter(b => b.status === 'pending');
-  if (pending.length === 0) return null; // nothing at risk — caller keeps its no-bets behaviour
-
-  const scoped = targeted ? pending.filter(b => targeted.has(String(b.username || '').toLowerCase())) : pending;
-  const scopedStake = scoped.reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
-  if (scopedStake <= 0) return null;
-
-  // 0 → no meaningful exposure, 1 → at or above the "large round" reference.
-  const ref = config.AVIATOR_HIGH_STAKE_REF > 0 ? config.AVIATOR_HIGH_STAKE_REF : 1000;
-  const exposure = Math.max(0, Math.min(1, scopedStake / ref));
-
-  const band = AVIATOR_CRASH_RELAXED - AVIATOR_CRASH_AGGRESSIVE;
-  const base = AVIATOR_CRASH_RELAXED - (exposure * band);
-
-  // A little jitter so repeated similar rounds do not produce an identical multiplier every time,
-  // which would be a clearer tell than the low crash itself.
-  const jitter = (Math.random() - 0.5) * 0.08;
-  const crash = Math.max(AVIATOR_CRASH_FLOOR, base + jitter);
-  return parseFloat(crash.toFixed(2));
-}
-
-/**
- * In-flight erosion check: has a cash-out started eating into the round's profit?
- *
- * Because profit only falls, any drop below the high-water mark means a player has taken money off
- * the table and the rest of the pending stake is now at risk of following. That is the moment to
- * crash. The `epsilon` avoids reacting to floating-point noise, and the multiplier floor keeps an
- * early cash-out from producing an implausible sub-1.10 crash.
- */
-function aviatorShouldCrashNow(currentMultiplier, peakProfit, currentProfit) {
-  if (currentMultiplier < AVIATOR_CRASH_FLOOR) return false;
-  if (!Number.isFinite(peakProfit) || !Number.isFinite(currentProfit)) return false;
-  const epsilon = 0.01;
-  return currentProfit < peakProfit - epsilon;
-}
-
+// calculateAviatorLiveProfit, pickAviatorCrashPoint, aviatorShouldCrashNow, and the AVIATOR_CRASH_*
+// constants now live in bot_core/games/aviator.bot.js (destructured at the top of this file). The
+// round-tick loop below is core game physics/settlement and stays here — it only calls into
+// bot_core for the rig decision and the crash-point math.
 function tickAviator() {
   const now = Date.now();
   const elapsed = (now - aviatorState.phase_start) / 1000;
@@ -2288,80 +1898,9 @@ function resolveColorNumber(num) {
   return { color: 'Red', dotClass: 'red', size: num >= 5 ? 'Big' : 'Small' };
 }
 
-// Calculate the exact optimal outcome for Admin profit across all numbers (0-9)
-// `targetedUsernames`, when provided, scopes the profit/payout calculation to ONLY that subset of
-// bettors (the bot's currently-targeted live players) — the returned best_number/max_profit then
-// reflects the number that maximizes admin profit against just that subset, not the whole room.
-// Omitting it (existing behavior, used by every manual-override call site) is unaffected.
-function calculateColorOptimalOutcome(bets, roundSeed, targetedUsernames) {
-  const roundBets = Array.isArray(bets) ? bets : [];
-  const targeted = Array.isArray(targetedUsernames) && targetedUsernames.length > 0
-    ? new Set(targetedUsernames.map(u => String(u).toLowerCase()))
-    : null;
-  const scopedBets = targeted ? roundBets.filter(b => targeted.has(String(b.username || '').toLowerCase())) : roundBets;
-  const totalVolume = roundBets.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
-  const scopedVolume = scopedBets.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
-
-  const outcomes = [];
-  for (let n = 0; n <= 9; n++) {
-    const resolved = resolveColorNumber(n);
-    let playerPayout = 0;
-
-    for (const b of scopedBets) {
-      const amt = parseFloat(b.amount) || 0;
-      if (b.category === 'color') {
-        if (b.value === resolved.color) {
-          playerPayout += amt * (b.value === 'Violet' ? 4.5 : 2.0);
-        }
-      } else if (b.category === 'number') {
-        if (parseInt(b.value) === n) {
-          playerPayout += amt * 9.0;
-        }
-      } else if (b.category === 'size') {
-        if (b.value === resolved.size) {
-          playerPayout += amt * 2.0;
-        }
-      }
-    }
-
-    const adminProfit = scopedVolume - playerPayout;
-    outcomes.push({
-      number: n,
-      color: resolved.color,
-      dotClass: resolved.dotClass,
-      size: resolved.size,
-      playerPayout: parseFloat(playerPayout.toFixed(2)),
-      adminProfit: parseFloat(adminProfit.toFixed(2))
-    });
-  }
-
-  // Find max and min profit
-  const maxProfit = Math.max(...outcomes.map(o => o.adminProfit));
-  const minProfit = Math.min(...outcomes.map(o => o.adminProfit));
-  
-  const bestCandidates = outcomes.filter(o => o.adminProfit === maxProfit);
-  const worstCandidates = outcomes.filter(o => o.adminProfit === minProfit);
-
-  // Pick deterministically among equally profitable choices using roundSeed
-  const roundSeedNum = parseInt(String(roundSeed || '').slice(-5)) || 0;
-  const best = bestCandidates[roundSeedNum % bestCandidates.length] || bestCandidates[0];
-  const worst = worstCandidates[0] || outcomes[0];
-
-  return {
-    total_volume: parseFloat(totalVolume.toFixed(2)),
-    total_bets_count: roundBets.length,
-    scoped_volume: parseFloat(scopedVolume.toFixed(2)),
-    scoped_bets_count: scopedBets.length,
-    best_number: best.number,
-    best_color: best.color,
-    best_size: best.size,
-    max_profit: best.adminProfit,
-    min_payout: best.playerPayout,
-    worst_number: worst.number,
-    worst_loss: worst.playerPayout,
-    outcomes: outcomes // Index 0..9 for fast lookup
-  };
-}
+// calculateColorOptimalOutcome now lives in bot_core/games/color.bot.js (destructured at the top of
+// this file). resolveColorNumber above stays here and is injected into bot_core via botCore.init()
+// — it is core game-rule logic (used by the fair-random path too), not bot logic.
 
 function generateInitialSeedHistory(room, currentSec) {
   const durations = { sapre: 30, becone: 60, emred: 180, vip: 300 };
@@ -5067,7 +4606,7 @@ app.post('/api/mines/reveal', auth.requireAuth, async (req, res) => {
           session.mine_positions = session.mine_positions.filter(m => m !== tileIndex);
         }
       }
-    } else if (isBotTakeoverActive('mines').active && isUserTargeted('mines', username)) {
+    } else if (shouldRigMinesReveal(username)) {
       // No manual rig is configured at all — the autonomous bot engine decides this reveal instead,
       // for a currently live-targeted user only. Being selected by the percentage-based targeting
       // engine (refreshBotTargeting — X% of currently live bettors, resampled continuously) IS the rig
