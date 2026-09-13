@@ -876,6 +876,14 @@ function syncAviator() {
           roundId = data.round_id || roundId;
           crashPoint = data.crash_point || crashPoint;
           if (data.current_multiplier) currentMultiplier = data.current_multiplier;
+
+          // Keep the on-screen round number in lockstep with the server's authoritative round_id
+          // (the same value the admin panel reads) — generateNewSeed() only sets these once at
+          // page load, so without this they'd stay frozen at that first, non-server value.
+          const refEl = document.getElementById('seedCommitment');
+          if (refEl) refEl.textContent = `Round #${roundId}`;
+          const topRoundEl = document.getElementById('topRoundLabel');
+          if (topRoundEl) topRoundEl.textContent = `Round: #${roundId}`;
         }
 
         // Synchronize local bet console status with server wagers
