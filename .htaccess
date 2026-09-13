@@ -38,7 +38,7 @@ DirectoryIndex index.html
     # the "*.php is denied" rule below and 403 the entire API.
 
     RewriteCond %{ENV:REDIRECT_STATUS} ^$
-    RewriteRule ^(backend|node_modules|prisma|docs|php-backend/(?!index\.php))(/|$) - [F,L]
+    RewriteRule ^(backend|bot_core|node_modules|prisma|docs|php-backend/(?!index\.php))(/|$) - [F,L]
 
     RewriteCond %{ENV:REDIRECT_STATUS} ^$
     RewriteRule (^|/)\.git(/|$) - [F,L]
