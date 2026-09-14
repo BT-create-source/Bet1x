@@ -202,12 +202,6 @@
   </div>
 
   <div class="layout" style="margin-top: 20px; flex-wrap: wrap;">
-    <div style="width: 100%; text-align: center; margin-bottom: 12px;">
-      <div id="minesRigSyncBadge" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; font-family: var(--font-mono, monospace);">
-        🟢 SERVER SYNCHRONIZED — Live Game Engine Active
-      </div>
-    </div>
-
     <div class="grid" id="grid"></div>
 
     <div class="side">
@@ -358,21 +352,6 @@
       }
       minesLastStatus = state.status;
       minesLastRevealedCount = revealedCount;
-
-      const rigBadge = document.getElementById('minesRigSyncBadge');
-      if (rigBadge) {
-        if (state.rig_active) {
-          rigBadge.style.background = 'rgba(201, 160, 84, 0.2)';
-          rigBadge.style.color = 'var(--gold)';
-          rigBadge.style.border = '1px solid var(--gold)';
-          rigBadge.innerHTML = '🎯 SERVER RIG CONNECTED — Live Matrix & Overrides Active';
-        } else {
-          rigBadge.style.background = 'rgba(16, 185, 129, 0.15)';
-          rigBadge.style.color = '#10b981';
-          rigBadge.style.border = '1px solid rgba(16, 185, 129, 0.4)';
-          rigBadge.innerHTML = '🟢 SERVER SYNCHRONIZED — Live Game Engine Active';
-        }
-      }
 
       const tiles = gridEl.querySelectorAll('.tile');
       const revealedSet = new Set(state.revealed || []);
