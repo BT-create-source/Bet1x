@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>bet1x — Live Prediction Exchange</title>
+
+  <!-- Splash screen shows the same logo mark via CSS background-image (see .splash-dot-core in
+       style.css); without this hint the browser only discovers that image after parsing the
+       stylesheet, so it visibly popped in partway through the splash animation. Preloading it here,
+       as early in <head> as possible, lets it fetch in parallel with everything else. -->
+  <link rel="preload" as="image" href="assets/logo-icon.png">
+
+  <!--
+    Splash pre-boot.
+
+    The splash overlay is injected from ui-common.js on DOMContentLoaded, which is far too late: the
+    browser paints as it parses, so the lobby was fully on screen for a moment BEFORE the splash
+    appeared over it — the page flashed, then the splash ran, then the page came back.
+
+    This hides the lobby from the very first paint, so the splash is the first thing seen. It must
+    stay inline and ahead of the stylesheet link: a separate file is another request that can lose
+    the race, which is the exact problem being fixed.
+
+    Everything here fails safe. The class is only added when the splash is actually going to run
+    (same sessionStorage key ui-common.js checks), any error leaves the page visible, and the
+    watchdog reveals the page after 6s even if the script never runs at all — nothing can leave a
+    visitor staring at a blank screen.
+  -->
+  <style>
+    html.splash-booting body > *:not(#bet1x-splash) { visibility: hidden !important; }
+    html.splash-booting body { background: #0b0e1d; }
+  </style>
+  <script>
+    (function () {
+      try {
+        if (!sessionStorage.getItem('bet1x_splash_shown')) {
+          document.documentElement.classList.add('splash-booting');
+          setTimeout(function () {
+            document.documentElement.classList.remove('splash-booting');
+          }, 6000);
+        }
+      } catch (e) { /* private mode, storage disabled: just show the page */ }
+    })();
+  </script>
+
+  <link rel="stylesheet" href="assets/css/style.css?v=3">
+</head>
+
+<body class="exchange-theme">
+
+  <!-- Dismissible top promo strip (docs/NEW-DESIGN section 4.1) -->
+  <div class="promo-strip" id="promoStrip">
+    <button type="button" class="promo-strip-close"
+      onclick="document.getElementById('promoStrip').style.display='none';" aria-label="Dismiss">×</button>
+    <span class="promo-strip-text">Get the bet1x experience — all your favourite games, one account</span>
+    <a href="#games" class="promo-strip-cta">Explore</a>
+  </div>
+
+  <!-- Header -->
+  <nav class="navbar exchange-header">
+    <div style="display:flex; align-items:center; gap:12px;">
+      <button class="mobile-hamburger-btn" onclick="toggleMobileDrawer()"
+        style="background:none; border:none; color:var(--text); font-size:24px; cursor:pointer; padding:0; display:flex; align-items:center; justify-content:center; height:32px; width:32px;">☰</button>
+      <div class="exchange-logo-box">
+        Bet1x
+      </div>
+    </div>
+
+    <!-- Dynamic Authentication UI -->
+    <div id="headerAuthArea">
+      <!-- Local updateAuthHeaderUI() populated here -->
+    </div>
+  </nav>
+
+  <!-- Red Sub Navigation Bar moved below promo banner -->
+
+  <!-- Two Column Layout: Main Content + Games Directory Sidebar -->
+  <div class="exchange-layout">
+
+    <!-- Center Column: Main Promo & Exchange Grid -->
+    <main class="exchange-main-content">
+
+      <!-- Live Winning Ticker -->
+      <div class="ticker-wrap">
+        <div class="ticker-title">🔊</div>
+        <div class="ticker-container">
+          <div class="ticker-track" id="liveTickerTrack">
+            <span class="ticker-item">Welcome to bet1x Live Exchange! Play responsibly.</span>
+            <span class="ticker-item">All transaction histories and wallets are securely synchronized.</span>
+          </div>
+        </div>
+        <button type="button" class="ticker-detail-btn"
+          onclick="document.querySelector('.exchange-section-header')?.scrollIntoView({behavior:'smooth'});">Detail</button>
+      </div>
+
+      <!-- Hero Banner Slideshow (Compact & Sleek) -->
+      <div class="banner-slideshow" id="bannerSlideshow">
+        <div class="banner-track" id="bannerTrack">
+          <div class="banner-slide" style="background-image: url('assets/banners/banner_cyber.jpg');"></div>
+          <div class="banner-slide" style="background-image: url('assets/banners/banner_cricket.jpg');"></div>
+          <div class="banner-slide" style="background-image: url('assets/banners/banner1.jpg');"></div>
+          <div class="banner-slide" style="background-image: url('assets/banners/banner2.jpg');"></div>
+          <div class="banner-slide" style="background-image: url('assets/banners/banner3.jpg');"></div>
+          <div class="banner-slide" style="background-image: url('assets/banners/banner_cyber.jpg');"></div>
+        </div>
+        <!-- Prev/Next arrows -->
+        <button type="button" class="banner-arrow banner-arrow--prev" id="bannerPrev"
+          aria-label="Previous slide">‹</button>
+        <button type="button" class="banner-arrow banner-arrow--next" id="bannerNext" aria-label="Next slide">›</button>
+        <!-- Navigation dots -->
+        <div class="banner-dots" id="bannerDots">
+          <span class="banner-dot active" data-index="0"></span>
+          <span class="banner-dot" data-index="1"></span>
+          <span class="banner-dot" data-index="2"></span>
+          <span class="banner-dot" data-index="3"></span>
+          <span class="banner-dot" data-index="4"></span>
+        </div>
+      </div>
+
+      <!-- Quick Sub Navigation Bar -->
+      <div class="sub-navbar" style="margin-bottom: 10px; border-radius: 4px;">
+        <ul class="sub-navbar-links">
+          <li class="sub-navbar-item"><a href="index.html" class="sub-navbar-link active">Home</a></li>
+          <li class="sub-navbar-item"><a href="aviator.html" class="sub-navbar-link">Vimaan</a></li>
+          <li class="sub-navbar-item"><a href="win.html" class="sub-navbar-link">Sapre</a></li>
+          <li class="sub-navbar-item"><a href="win1.html" class="sub-navbar-link">Becone</a></li>
+          <li class="sub-navbar-item"><a href="win2.html" class="sub-navbar-link">Emred</a></li>
+          <li class="sub-navbar-item"><a href="teenpatti.html" class="sub-navbar-link">Teen Patti</a></li>
+          <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
+          <li data-feature="cricket" class="sub-navbar-item"><a href="youreleven.html" class="sub-navbar-link">Your 11</a></li>
+          <li data-feature="cricket" class="sub-navbar-item"><a href="boundarybaazi.html" class="sub-navbar-link">Boundary Baazi</a></li>
+          <li class="sub-navbar-item"><a href="win3.html" class="sub-navbar-link">VIP</a></li>
+        </ul>
+      </div>
+
+      <!-- Universe Games Section Header & Category Filter Tabs -->
+      <div class="exchange-section-header"
+        style="background: linear-gradient(to right, #b51212, #c8102e); margin-top: 10px; margin-bottom: 0; color: #fff; padding: 7px 12px; font-size: 14px;">
+        Universe Games
+      </div>
+      <div class="exchange-tabs-bar" id="gameCategoryTabs">
+        <button class="exchange-tab-btn active" data-filter="all">🔥 All Games</button>
+        <button class="exchange-tab-btn" data-filter="crash">⚡ Crash & Fast</button>
+        <button class="exchange-tab-btn" data-filter="cards">🃏 Live Cards</button>
+        <button class="exchange-tab-btn" data-feature="cricket" data-filter="cricket">🏏 Cricket</button>
+        <button class="exchange-tab-btn" data-filter="color">🎨 Color Win</button>
+      </div>
+
+      <!-- Rich Contextual Game Showcase (Cover Image Boxes, No Emojis) -->
+      <div id="games">
+        <div class="game-cards-showcase" id="gamesContainer">
+
+          <!-- Game 1: Vimaan (Aviator Crash) -->
+          <a href="aviator.html" class="game-cover-card" data-category="all crash popular"
+            title="Vimaan (Aviator Crash Game)">
+            <div class="game-cover-card-bg" style="background-image: url('assets/game_vimaan.jpg');"></div>
+            <div class="game-cover-card-overlay"></div>
+            <div class="game-cover-top">
+              <span class="game-badge-category game-badge-category--red">CRASH</span>
+            </div>
+            <div class="game-cover-bottom">
+              <div class="game-cover-title">Vimaan</div>
+              <div class="game-cover-meta">
+                <span>Multipliers</span>
+                <span class="game-cover-action">Play &rsaquo;</span>
+              </div>
+            </div>
+          </a>
+
+          <!-- Game 2: 20-20 Teen Patti -->
+          <a href="teenpatti.html" class="game-cover-card" data-category="all cards popular"
+            title="20-20 Teen Patti Poker">
+            <div class="game-cover-card-bg" style="background-image: url('assets/game_teenpatti.jpg');"></div>
+            <div class="game-cover-card-overlay"></div>
+            <div class="game-cover-top">
+              <span class="game-badge-category game-badge-category--purple">CARDS</span>
+            </div>
+            <div class="game-cover-bottom">
+              <div class="game-cover-title">Teen Patti</div>
+              <div class="game-cover-meta">
+                <span>20-20 Poker</span>
+                <span class="game-cover-action">Play &rsaquo;</span>
+              </div>
+            </div>
+          </a>
+
+          <!-- Game 3: Sapre Color Trading (30s) -->
+          <a href="win.html" class="game-cover-card" data-category="all color popular"
+            title="Sapre Color Prediction (30s)">
+            <div class="game-cover-card-bg" style="background-image: url('assets/game_sapre.jpg');"></div>
+            <div class="game-cover-card-overlay"></div>
+            <div class="game-cover-top">
+              <span class="game-badge-category game-badge-category--green">COLOR 30S</span>
+            </div>
+            <div class="game-cover-bottom">
+              <div class="game-cover-title">Sapre Color</div>
+              <div class="game-cover-meta">
+                <span>30s Prediction</span>
+                <span class="game-cover-action">Play &rsaquo;</span>
+              </div>
+            </div>
+          </a>
+
+          <!-- Game 4: Mines Game -->
+          <a href="mining.html" class="game-cover-card" data-category="all crash popular"
+            title="Mines Diamond Grid Game">
+            <div class="game-cover-card-bg" style="background-image: url('assets/game_mines.jpg');"></div>
+            <div class="game-cover-card-overlay"></div>
+            <div class="game-cover-top">
+              <span class="game-badge-category game-badge-category--teal">MINES</span>
+            </div>
+            <div class="game-cover-bottom">
+              <div class="game-cover-title">Mines</div>
+              <div class="game-cover-meta">
+                <span>Diamond Matrix</span>
+                <span class="game-cover-action">Play &rsaquo;</span>
+              </div>
+            </div>
+          </a>
+
+          <!-- Game 5: Your 11 (Fantasy Cricket) -->
+          <a data-feature="cricket" href="youreleven.html" class="game-cover-card" data-category="all cricket popular"
+            title="Your 11 Fantasy Cricket">
+            <div class="game-cover-card-bg" style="background-image: url('assets/game_youreleven.jpg');"></div>
+            <div class="game-cover-card-overlay"></div>
+            <div class="game-cover-top">
+              <span class="game-badge-category game-badge-category--gold">FANTASY XI</span>
+            </div>
+            <div class="game-cover-bottom">
+              <div class="game-cover-title">Your 11</div>
+              <div class="game-cover-meta">
+                <span>Cricket League</span>
+                <span class="game-cover-action">Play &rsaquo;</span>
+              </div>
+            </div>
+          </a>
+
+          <!-- Game 6: Boundary Baazi (Live Cricket Prediction) -->
+          <a data-feature="cricket" href="boundarybaazi.html" class="game-cover-card" data-category="all cricket popular"
+            title="Boundary Baazi Live Cricket Prediction">
+            <div class="game-cover-card-bg" style="background-image: url('assets/game_boundary.jpg');"></div>
+            <div class="game-cover-card-overlay"></div>
+            <div class="game-cover-top">
+              <span class="game-badge-category game-badge-category--red">LIVE CRICKET</span>
+            </div>
+            <div class="game-cover-bottom">
+              <div class="game-cover-title">Boundary Baazi</div>
+              <div class="game-cover-meta">
+                <span>Over Prediction</span>
+                <span class="game-cover-action">Play &rsaquo;</span>
+              </div>
+            </div>
+          </a>
+
+          <!-- Game 7: Becone Color Trading (1m) -->
+          <a href="win1.html" class="game-cover-card" data-category="all color"
+            title="Becone 1-Minute Color Prediction">
+            <div class="game-cover-card-bg" style="background-image: url('assets/game_becone.jpg');"></div>
+            <div class="game-cover-card-overlay"></div>
+            <div class="game-cover-top">
+              <span class="game-badge-category game-badge-category--purple">COLOR 1M</span>
+            </div>
+            <div class="game-cover-bottom">
+              <div class="game-cover-title">Becone Color</div>
+              <div class="game-cover-meta">
+                <span>1-Min Rounds</span>
+                <span class="game-cover-action">Play &rsaquo;</span>
+              </div>
+            </div>
+          </a>
+
+          <!-- Game 8: Emred Color Trading (3m) -->
+          <a href="win2.html" class="game-cover-card" data-category="all color"
+            title="Emred 3-Minute Color Prediction">
+            <div class="game-cover-card-bg" style="background-image: url('assets/game_emred.jpg');"></div>
+            <div class="game-cover-card-overlay"></div>
+            <div class="game-cover-top">
+              <span class="game-badge-category game-badge-category--purple">COLOR 3M</span>
+            </div>
+            <div class="game-cover-bottom">
+              <div class="game-cover-title">Emred Color</div>
+              <div class="game-cover-meta">
+                <span>3-Min Rounds</span>
+                <span class="game-cover-action">Play &rsaquo;</span>
+              </div>
+            </div>
+          </a>
+
+          <!-- Game 9: VIP High-Roller Room -->
+          <a href="win3.html" class="game-cover-card" data-category="all color"
+            title="VIP High-Roller Color Room">
+            <div class="game-cover-card-bg" style="background-image: url('assets/game_vip.jpg');"></div>
+            <div class="game-cover-card-overlay"></div>
+            <div class="game-cover-top">
+              <span class="game-badge-category game-badge-category--gold">VIP ROOM</span>
+            </div>
+            <div class="game-cover-bottom">
+              <div class="game-cover-title">VIP Room</div>
+              <div class="game-cover-meta">
+                <span>5-Min Special</span>
+                <span class="game-cover-action">Play &rsaquo;</span>
+              </div>
+            </div>
+          </a>
+
+        </div>
+      </div>
+
+      <!-- Compact Global Quick Stats Bar.
+           Values are computed from the clock by updateQuickStats() at the bottom of this file, not
+           hardcoded — the previous fixed 14,812 / 345,129 / 4.8M / 97.2% never moved, so anyone who
+           opened the site twice could see it was decoration. The markup ships empty placeholders so
+           a stale figure can never be what a visitor is left looking at if the script fails. -->
+      <div class="exchange-quick-stats">
+        <div class="quick-stat-item">👥 Active: <strong style="color:var(--green)" id="qsActive">—</strong></div>
+        <div class="quick-stat-item">🎯 Bets Today: <strong style="color:var(--gold-deep)" id="qsBets">—</strong></div>
+        <div class="quick-stat-item">💰 Volume: <strong style="color:var(--violet)" id="qsVolume">—</strong></div>
+        <div class="quick-stat-item">⚡ Payout: <strong style="color:#00e676" id="qsPayout">—</strong></div>
+      </div>
+    </main>
+
+    <!-- Right Column: Games Directory Sidebar Menu -->
+    <aside class="exchange-left-sidebar">
+      <div class="exchange-menu-header">
+        <span>Games Directory</span>
+      </div>
+      <ul class="exchange-menu-list">
+        <li class="exchange-menu-item"
+          style="background: rgba(201,160,84,0.12); border: 1px solid var(--gold); border-radius:4px; margin-bottom:6px;">
+          <a href="cashier.html" style="color:var(--gold-deep); font-weight:800;">💰 Wallet & Deposit <span
+              class="exchange-menu-chevron">›</span></a>
+        </li>
+        <li class="exchange-menu-item"><a href="aviator.html">Vimaan (Aviator) <span
+              class="exchange-menu-chevron">›</span></a></li>
+        <li class="exchange-menu-item"><a href="win.html">Sapre (30s Color) <span
+              class="exchange-menu-chevron">›</span></a></li>
+        <li class="exchange-menu-item"><a href="win1.html">Becone (1m Color) <span
+              class="exchange-menu-chevron">›</span></a></li>
+        <li class="exchange-menu-item"><a href="win2.html">Emred (3m Color) <span
+              class="exchange-menu-chevron">›</span></a></li>
+        <li class="exchange-menu-item"><a href="win3.html">VIP (5m Color) <span
+              class="exchange-menu-chevron">›</span></a></li>
+        <li class="exchange-menu-item"><a href="teenpatti.html">Teen Patti <span
+              class="exchange-menu-chevron">›</span></a></li>
+        <li class="exchange-menu-item"><a href="mining.html">Mines Game <span
+              class="exchange-menu-chevron">›</span></a></li>
+        <li data-feature="cricket" class="exchange-menu-item"><a href="youreleven.html">Your 11 (Fantasy Cricket)
+            <span class="exchange-menu-chevron">›</span></a></li>
+        <li data-feature="cricket" class="exchange-menu-item"><a href="boundarybaazi.html">Boundary Baazi <span
+              class="exchange-menu-chevron">›</span></a></li>
+      </ul>
+
+      <!-- Simulated Live Chat Box -->
+      <div class="card live-chat-card"
+        style="margin-top: 16px; border: 1px solid var(--border); padding: 0 !important; overflow: hidden; background: var(--surface);">
+        <div class="exchange-menu-header"
+          style="border-radius: 0; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center;">
+          <span>Platform Live Chat</span>
+        </div>
+        <div class="live-chat-messages" id="liveChatMessages"
+          style="height: 180px; overflow-y: auto; padding: 12px; font-size: 12px; display: flex; flex-direction: column; gap: 8px; background: var(--surface-2); border-bottom: 1px solid var(--border); text-align: left;">
+          <!-- Chat messages will roll here -->
+        </div>
+        <div class="live-chat-input-wrap" style="display:flex; padding: 8px; background: var(--surface);">
+          <input type="text" id="liveChatInput" placeholder="Join the chat..."
+            style="flex:1; background:var(--surface-2); border:1px solid var(--border); color:var(--text); font-size:12px; padding: 6px 10px; border-radius: 4px;">
+          <button type="button" id="liveChatSendBtn"
+            style="background:var(--green); border:none; color:#000000; font-weight:700; font-size:11px; padding: 0 10px; border-radius:4px; margin-left:6px; cursor:pointer;">Send</button>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+  <div class="footer">
+    bet1x — live prediction exchange. Play responsibly; 18+ only.
+  </div>
+
+  <script src="assets/js/ui-common.js"></script>
+  <script src="assets/js/sound-fx.js?v=2"></script>
+  <script>
+    // ═══════ Banner Slideshow (Guaranteed Auto-Sliding Track) ═══════
+    (function () {
+      const track = document.getElementById('bannerTrack');
+      const dots = document.querySelectorAll('.banner-dot');
+      const prev = document.getElementById('bannerPrev');
+      const next = document.getElementById('bannerNext');
+      const wrap = document.getElementById('bannerSlideshow');
+      if (!track) return;
+
+      const TOTAL_REAL_SLIDES = 5;
+      let currentIndex = 0;
+      let timer = null;
+      const SLIDE_INTERVAL = 4500; // 4.5 seconds per slide
+      const TRANSITION_STYLE = 'transform 0.8s cubic-bezier(0.22, 1, 0.36, 1)';
+
+      function updateDots(activeIdx) {
+        const dotIdx = activeIdx % TOTAL_REAL_SLIDES;
+        dots.forEach((dot, idx) => {
+          if (idx === dotIdx) dot.classList.add('active');
+          else dot.classList.remove('active');
+        });
+      }
+
+      function goToSlide(index, withTransition = true) {
+        currentIndex = index;
+        if (withTransition) {
+          track.style.transition = TRANSITION_STYLE;
+        } else {
+          track.style.transition = 'none';
+        }
+        track.style.transform = 'translateX(-' + (currentIndex * 100) + '%)';
+        updateDots(currentIndex);
+
+        // If we transitioned to the clone slide at index 5 (which looks identical to slide 0),
+        // silently snap back to real slide 0 once the 800ms transition finishes
+        if (currentIndex === TOTAL_REAL_SLIDES) {
+          setTimeout(() => {
+            track.style.transition = 'none';
+            currentIndex = 0;
+            track.style.transform = 'translateX(0%)';
+            void track.offsetWidth; // flush CSS reflow
+          }, 820);
+        }
+      }
+
+      function nextSlide() {
+        if (currentIndex >= TOTAL_REAL_SLIDES) {
+          // If already at or past clone, instantly reset first
+          track.style.transition = 'none';
+          currentIndex = 0;
+          track.style.transform = 'translateX(0%)';
+          void track.offsetWidth;
+        }
+        goToSlide(currentIndex + 1, true);
+      }
+
+      function prevSlide() {
+        if (currentIndex <= 0) {
+          // Instantly jump to clone (index 5), then smoothly slide back to 4
+          track.style.transition = 'none';
+          currentIndex = TOTAL_REAL_SLIDES;
+          track.style.transform = 'translateX(-' + (TOTAL_REAL_SLIDES * 100) + '%)';
+          void track.offsetWidth;
+          setTimeout(() => {
+            goToSlide(TOTAL_REAL_SLIDES - 1, true);
+          }, 20);
+        } else {
+          goToSlide(currentIndex - 1, true);
+        }
+      }
+
+      function resetAutoPlay() {
+        clearInterval(timer);
+        timer = setInterval(nextSlide, SLIDE_INTERVAL);
+      }
+
+      // Hook click events
+      if (next) {
+        next.addEventListener('click', (e) => {
+          e.preventDefault();
+          nextSlide();
+          resetAutoPlay();
+        });
+      }
+
+      if (prev) {
+        prev.addEventListener('click', (e) => {
+          e.preventDefault();
+          prevSlide();
+          resetAutoPlay();
+        });
+      }
+
+      dots.forEach((dot) => {
+        dot.addEventListener('click', (e) => {
+          e.preventDefault();
+          const target = parseInt(dot.dataset.index, 10);
+          if (!isNaN(target)) {
+            goToSlide(target, true);
+            resetAutoPlay();
+          }
+        });
+      });
+
+      // Pause on hover, resume on leave
+      if (wrap) {
+        wrap.addEventListener('mouseenter', () => clearInterval(timer));
+        wrap.addEventListener('mouseleave', resetAutoPlay);
+      }
+
+      // Initial state
+      track.style.transition = 'none';
+      track.style.transform = 'translateX(0%)';
+      updateDots(0);
+
+      // Start auto-sliding immediately
+      resetAutoPlay();
+    })();
+
+    // Universe Games tabs active class toggle & category filter
+    const universeTabs = document.querySelectorAll('.exchange-tabs-bar .exchange-tab-btn');
+    const gameCards = document.querySelectorAll('#gamesContainer .game-cover-card');
+    universeTabs.forEach(btn => {
+      btn.addEventListener('click', () => {
+        universeTabs.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const filter = btn.getAttribute('data-filter') || 'all';
+        gameCards.forEach(card => {
+          const cat = card.getAttribute('data-category') || '';
+          if (filter === 'all' || cat.includes(filter)) {
+            card.style.display = 'flex';
+          } else {
+            card.style.display = 'none';
+          }
+        });
+      });
+    });
+
+    // Mobile Drawer Toggles
+    window.toggleMobileDrawer = function () {
+      const drawer = document.getElementById('mobileGamesDrawer');
+      const overlay = document.getElementById('mobileDrawerOverlay');
+      if (drawer && overlay) {
+        drawer.classList.toggle('active');
+        overlay.classList.toggle('active');
+      }
+    };
+
+    // Initialize UI on page load
+    updateAuthHeaderUI();
+
+    // Live Odds Feed Flashing Simulator
+    setInterval(() => {
+      const boxes = document.querySelectorAll('.odds-box');
+      if (boxes.length === 0) return;
+
+      const count = Math.random() > 0.5 ? 2 : 1;
+      for (let i = 0; i < count; i++) {
+        const randomBox = boxes[Math.floor(Math.random() * boxes.length)];
+        if (randomBox.classList.contains('flash-up') || randomBox.classList.contains('flash-down')) continue;
+
+        const isUp = Math.random() > 0.5;
+        const flashClass = isUp ? 'flash-up' : 'flash-down';
+
+        const valSpan = randomBox.querySelector('.odds-val');
+        if (valSpan) {
+          let val = parseFloat(valSpan.textContent);
+          if (!isNaN(val) && val > 1.05 && val < 50) {
+            const change = (Math.random() * 0.08 - 0.04);
+            val = Math.max(1.01, val + change);
+            valSpan.textContent = val.toFixed(2);
+          }
+        }
+
+        randomBox.classList.add(flashClass);
+        setTimeout(() => {
+          randomBox.classList.remove(flashClass);
+        }, 1000);
+      }
+    }, 2500);
+
+    // Live Chat & Online Users setup
+    document.addEventListener('DOMContentLoaded', () => {
+      const chatInput = document.getElementById('liveChatInput');
+      const chatSendBtn = document.getElementById('liveChatSendBtn');
+      const chatMessages = document.getElementById('liveChatMessages');
+      const user = getCurrentUser();
+
+      function fetchChatMessages() {
+        if (!chatMessages) return;
+        fetch('api/chat.php')
+          .then(res => res.json())
+          .then(messages => {
+            if (!Array.isArray(messages)) return;
+            if (messages.length === 0) {
+              chatMessages.innerHTML = '<div class="text-dim" style="color:var(--text-dim); text-align:center; padding-top:20px;">Welcome to bet1x Live Chat! No messages yet.</div>';
+              return;
+            }
+            renderChatArray(messages);
+          })
+          .catch(err => {
+            console.warn("Unable to fetch messages from chat server, loading from localStorage fallback:", err);
+            const localMsgs = JSON.parse(localStorage.getItem('bet1x_local_chat_messages') || '[]');
+            if (localMsgs.length === 0) {
+              chatMessages.innerHTML = '<div class="text-dim" style="color:var(--text-dim); text-align:center; padding-top:20px;">Welcome to bet1x Live Chat! No messages yet.</div>';
+              return;
+            }
+            renderChatArray(localMsgs);
+          });
+      }
+
+      const COLOR_PALETTE = [
+        '#e8971a', // Gold/Yellow
+        '#1a9f5a', // Green
+        '#c71f2c', // Red
+        '#8a2be2', // BlueViolet
+        '#0e7490', // Sky Blue
+        '#c2185b', // Pink
+        '#ff7b00', // Orange
+        '#00897b', // Teal
+        '#6a4fb5'  // Purple
+      ];
+
+      function getUsernameColor(uName) {
+        if (!uName) return 'var(--violet)';
+        let hash = 0;
+        for (let i = 0; i < uName.length; i++) {
+          hash = uName.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        const index = Math.abs(hash) % COLOR_PALETTE.length;
+        return COLOR_PALETTE[index];
+      }
+
+      function renderChatArray(arr) {
+        chatMessages.innerHTML = arr.map(msg => {
+          // Chat is free-form, attacker-controlled text rendered into every visitor's browser.
+          // Both fields MUST be escaped — see escapeHtml() in ui-common.js. uColor is derived from
+          // a fixed palette by hash, so it is not user-controlled and needs no escaping.
+          const uName = escapeHtml(msg.username || 'Anonymous');
+          const text = escapeHtml(msg.message || '');
+          const uColor = getUsernameColor(msg.username || 'Anonymous');
+          return `<div style="margin-bottom: 4px;"><span style="color: ${uColor}; font-weight:700;">${uName}:</span> <span style="color: var(--text);">${text}</span></div>`;
+        }).join('');
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+
+      // Initial fetch
+      fetchChatMessages();
+
+      // Poll chat messages every 3 seconds to keep it live
+      setInterval(fetchChatMessages, 3000);
+
+      if (chatSendBtn && chatInput) {
+        chatSendBtn.addEventListener('click', () => {
+          if (!user) {
+            alert('Please login to send chat messages!');
+            return;
+          }
+          const val = chatInput.value.trim();
+          if (!val) return;
+
+          fetch('api/chat.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              username: user.username,
+              message: val
+            })
+          })
+            .then(res => res.json())
+            .then(data => {
+              chatInput.value = '';
+              fetchChatMessages();
+            })
+            .catch(err => {
+              console.warn("Chat server offline, storing message in localStorage:", err);
+              chatInput.value = '';
+
+              const localMsgs = JSON.parse(localStorage.getItem('bet1x_local_chat_messages') || '[]');
+              localMsgs.push({
+                username: user.username,
+                message: val,
+                timestamp: new Date().toISOString()
+              });
+              if (localMsgs.length > 30) {
+                localMsgs.shift();
+              }
+              localStorage.setItem('bet1x_local_chat_messages', JSON.stringify(localMsgs));
+              fetchChatMessages();
+            });
+        });
+
+        chatInput.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            chatSendBtn.click();
+          }
+        });
+      }
+    });
+  </script>
+
+  <!-- The fixed mobile bottom navigation bar was removed on request: the top navigation
+       already covers every destination it duplicated (Home, Vimaan, Sapre, Cards, Wallet),
+       and it was the only element requiring the body bottom padding in the <=768px media
+       query, which is removed alongside it in assets/css/style.css. -->
+
+  <!-- Floating action stack (docs/NEW-DESIGN section: visual pattern only — see chat reply for
+       why the reference's Telegram/Facebook/WhatsApp icons aren't reproduced here). Both point at
+       real, already-existing destinations on this page. -->
+  <div class="fab-stack">
+    <a href="#liveChatMessages" class="fab-btn fab-btn--support" title="Live chat"
+      onclick="document.getElementById('liveChatMessages')?.scrollIntoView({behavior:'smooth'}); document.getElementById('liveChatInput')?.focus();">💬</a>
+    <a href="cashier.html" class="fab-btn fab-btn--bonus" title="Wallet & Deposit">💰</a>
+  </div>
+
+  <!-- Mobile Sidebar Drawer Overlay -->
+  <div class="mobile-drawer-overlay" id="mobileDrawerOverlay" onclick="toggleMobileDrawer()"></div>
+
+  <!-- Mobile Sidebar Drawer -->
+  <div class="mobile-games-drawer" id="mobileGamesDrawer">
+    <div class="exchange-menu-header" style="justify-content: space-between; border-radius:0;">
+      <span>Games Directory</span>
+      <button onclick="toggleMobileDrawer()"
+        style="background:none; border:none; color:#ffffff; font-size:24px; cursor:pointer; line-height:1;">&times;</button>
+    </div>
+    <ul class="exchange-menu-list"
+      style="flex:1; overflow-y:auto; margin:0; border:none; border-radius:0; background:var(--surface);">
+      <li class="exchange-menu-item"><a href="aviator.html">Vimaan (Aviator) <span
+            class="exchange-menu-chevron">›</span></a></li>
+      <li class="exchange-menu-item"><a href="win.html">Sapre (30s Color) <span
+            class="exchange-menu-chevron">›</span></a></li>
+      <li class="exchange-menu-item"><a href="win1.html">Becone (1m Color) <span
+            class="exchange-menu-chevron">›</span></a></li>
+      <li class="exchange-menu-item"><a href="win2.html">Emred (3m Color) <span
+            class="exchange-menu-chevron">›</span></a></li>
+      <li class="exchange-menu-item"><a href="win3.html">VIP (5m Color) <span class="exchange-menu-chevron">›</span></a>
+      </li>
+      <li class="exchange-menu-item"><a href="teenpatti.html">Teen Patti <span
+            class="exchange-menu-chevron">›</span></a></li>
+      <li class="exchange-menu-item"><a href="mining.html">Mines Game <span class="exchange-menu-chevron">›</span></a>
+      </li>
+      <li data-feature="cricket" class="exchange-menu-item"><a href="youreleven.html">Your 11 (Fantasy Cricket) <span
+            class="exchange-menu-chevron">›</span></a></li>
+      <li data-feature="cricket" class="exchange-menu-item"><a href="boundarybaazi.html">Boundary Baazi <span
+            class="exchange-menu-chevron">›</span></a></li>
+    </ul>
+  </div>
+
+  <script>
+    /* ===========================================================================================
+       Lobby quick-stats.
+
+       These four figures used to be hardcoded (14,812 active / 345,129 bets / 4.8M / 97.2%). They
+       never changed, so anyone who opened the site twice could see they were decoration.
+
+       They are still illustrative rather than a live count of real players — the platform does not
+       expose a public metrics feed — but they now behave the way a real counter behaves:
+
+         - Everything is derived from the CLOCK, not from Math.random(). Two visitors loading the
+           page at the same moment see the same numbers, which a random figure could never manage,
+           and a refresh does not make the "active" count jump around implausibly.
+         - "Active" starts at 2,423 just after midnight and climbs across the day in 48 half-hourly
+           steps (the ~40-50 increments asked for), following a mild evening-weighted curve rather
+           than a straight line.
+         - "Bets Today" and "Volume" are today-counters, so they accumulate every minute from
+           midnight and reset with the date, which is what makes a second visit later in the day
+           show visibly different figures.
+         - Everything is scaled off the same active count, so the four numbers stay consistent with
+           each other instead of drifting into an impossible combination.
+       =========================================================================================== */
+    (function () {
+      var STEPS_PER_DAY = 48;                        // one "active" step every 30 minutes
+      var STEP_MINUTES  = 1440 / STEPS_PER_DAY;
+      var ACTIVE_AT_MIDNIGHT = 2423;                 // the requested starting point
+      var ACTIVE_DAILY_GAIN  = 2700;                 // climbs to roughly 5.1k by late evening
+
+      function fmtInt(n) {
+        return Math.round(n).toLocaleString('en-IN');
+      }
+
+      function fmtVolume(n) {
+        if (n >= 1000000) return 'PTS ' + (n / 1000000).toFixed(1) + 'M';
+        if (n >= 1000)    return 'PTS ' + (n / 1000).toFixed(1) + 'K';
+        return 'PTS ' + Math.round(n);
+      }
+
+      // Small deterministic wobble in [-1, 1] from an integer seed, so the payout figure varies
+      // between steps without ever being random per-visitor.
+      function wobble(seed) {
+        var x = Math.sin(seed * 12.9898) * 43758.5453;
+        return (x - Math.floor(x)) * 2 - 1;
+      }
+
+      function updateQuickStats() {
+        var elActive  = document.getElementById('qsActive');
+        var elBets    = document.getElementById('qsBets');
+        var elVolume  = document.getElementById('qsVolume');
+        var elPayout  = document.getElementById('qsPayout');
+        if (!elActive || !elBets || !elVolume || !elPayout) return;
+
+        var now  = new Date();
+        var mins = now.getHours() * 60 + now.getMinutes();
+        var step = Math.floor(mins / STEP_MINUTES);
+
+        // Evening-weighted ramp: quiet mornings, busiest late. Exponent > 1 keeps the early hours
+        // flatter than a straight line would.
+        var dayFraction = step / STEPS_PER_DAY;
+        var curve = Math.pow(dayFraction, 1.35);
+        var active = ACTIVE_AT_MIDNIGHT + Math.round(ACTIVE_DAILY_GAIN * curve);
+
+        // Today-counters: accumulate with the minute, so they differ on nearly every visit and
+        // reset at midnight along with the date.
+        var betsToday = Math.round(mins * (active / 60) * 0.35);
+        var volume    = betsToday * 118;             // ~PTS 118 average stake
+
+        // Payout drifts inside a narrow, believable band.
+        var payout = 96.4 + wobble(step) * 0.9;
+
+        elActive.textContent = fmtInt(active);
+        elBets.textContent   = fmtInt(betsToday);
+        elVolume.textContent = fmtVolume(volume);
+        elPayout.textContent = payout.toFixed(1) + '%';
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', updateQuickStats);
+      } else {
+        updateQuickStats();
+      }
+      // Keeps a page left open on screen drifting rather than frozen.
+      setInterval(updateQuickStats, 60000);
+    })();
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,52 @@
+# ---------------------------------------------------------------------------
+# Secrets — never commit these.
+# NOTE: backend/.env is already in this repository's history. Adding it here
+# stops future commits but does NOT remove the value that is already committed.
+# Rotate the database password and any API keys, then untrack the file:
+#     git rm --cached backend/.env
+# See DEPLOYMENT.md ("Secrets that are already in git history").
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Runtime data
+backend/data/*.json
+!backend/data/.gitkeep
+*.log
+logs/
+pids/
+*.pid
+*.seed
+
+# Build / tooling output
+dist/
+build/
+coverage/
+.nyc_output/
+.cache/
+
+# Editor & OS noise
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+*~
+
+# Backups and scratch files
+*.bak
+*.backup
+*.orig
+*.orig-backup
+*.tmp

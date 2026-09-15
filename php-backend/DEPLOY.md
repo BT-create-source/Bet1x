@@ -1,0 +1,428 @@
+# Deploying the PHP backend to cPanel
+
+This replaces the Node/Express process. The frontend is unchanged — every HTML, CSS and JS file in
+the repository stays exactly as it is.
+
+---
+
+## 1. What goes on the server
+
+Upload the whole repository to the account's document root (`public_html`), or `git pull` it there.
+Everything is needed except `backend/` and `node_modules/`, which the `.htaccess` blocks from the
+web anyway and which you may leave in place for reference.
+
+The two files that make it work:
+
+| File | Job |
+|---|---|
+| `.htaccess` (repo root) | Sends every `/api/*` request into the PHP front controller, and blocks the paths that must never be served |
+| `php-backend/index.php` | The front controller — the whole API |
+
+**The dead PHP layer has been removed.** `api/`, `aviator/`, `mining/`, `teenpati/` and
+`backend/api/` contained an older, unused PHP implementation that the root `.htaccess` had to keep
+unreachable. Two things made that worth deleting rather than merely blocking:
+
+* `api/config.php` and `backend/api/config.php` carried a **hardcoded superadmin password**. The
+  only thing standing between that and the public internet was a rewrite rule.
+* Under PHP, Apache would *execute* those files rather than leak them as text, so a single
+  `.htaccess` mistake — mod_rewrite unavailable, a botched edit — meant the old login logic running
+  against the old config.
+
+Deleting them is safe because the API rewrite is unconditional (`RewriteRule ^api/.*$` has no `!-f`
+guard), so `/api/*` reaches the front controller whether or not a matching file exists. The denial
+rules for those paths are left in `.htaccess` as belt-and-braces in case anything is ever restored.
+
+The `.htaccess` is still load-bearing for `backend/`, `node_modules/`, `.env` and `.git` — see §6.
+
+---
+
+## 2. Database
+
+This backend ships with two schema files depending on what the cPanel host actually offers under
+"Databases" — check for a **MySQL Databases** icon vs a **PostgreSQL Databases** icon before
+picking one; some hosts (including plenty of shared cPanel plans) only offer one or the other.
+
+### Option A — MySQL / MariaDB
+
+Create a MySQL database and user in cPanel, grant all privileges, then run the schema once:
+
+```bash
+mysql -u DBUSER -p DBNAME < php-backend/sql/schema.sql
+```
+
+Or paste the file into phpMyAdmin's SQL tab.
+
+### Option B — PostgreSQL
+
+Create a PostgreSQL database and user in cPanel (the "PostgreSQL Database Wizard"), then run the
+Postgres-flavoured schema once:
+
+```bash
+psql -U DBUSER -d DBNAME -f php-backend/sql/schema-postgres.sql
+```
+
+Or paste the file into phpPgAdmin's SQL tab if the host provides one. `lib/db.php` in this build
+connects via `pgsql:` — it is the PostgreSQL edition of the connection layer; the two schema files
+and `lib/db.php` must match (don't run `schema.sql` against a Postgres database or vice versa). See
+the type-choices comment at the top of `sql/schema-postgres.sql` for why a few flag columns are
+`SMALLINT` rather than native `BOOLEAN` — that is deliberate, not an oversight.
+
+Either way, this creates the 11 tables that mirror the Prisma models, 4 runtime tables that replace
+state which used to live in the Node process's memory, and seeds the six Teen Patti rooms.
+
+**Do not run `sql/schema-cricket.sql`** — it does not exist in this build. The two cricket games are
+deferred to v2.
+
+### The `Admin` house account — required, and it fails silently without it
+
+`schema.sql` seeds a user row named `Admin`. **Do not delete it, and if you are migrating an existing
+database, make sure the row exists there too.**
+
+Teen Patti's two house-win paths — the operator rig (`/api/teenpatti/admin/rig`) and the per-table
+takeover — both seat a player literally named `Admin`. When the hand is dealt, the engine checks that
+every seated non-filler can cover the boot, looks the name up in `User`, finds nothing, and ejects the
+seat. The operator flips the rig, the seat vanishes, and the house wins nothing — with no error
+anywhere. The original Node build behaves identically; this was an install gap in both, found during
+live-play testing of the port.
+
+The rest of the design assumes the row exists: the engine tops the account up to 5000 before each
+hand, credits it the pot when it wins, and the superadmin dashboard excludes it from house-profit
+maths by name. The winnings need a real wallet to land in.
+
+The seeded row's password column deliberately holds a value that is not a valid bcrypt hash, so
+nobody can sign in as the house. Operators sign in with `ADMIN_USERNAME` / `ADMIN_PASSWORD_HASH`;
+this is a ledger account, not a login.
+
+### Migrating existing data
+
+Table and column names are identical to the Prisma model names, so a dump from the old PostgreSQL
+database loads with no renaming. Order matters because of the foreign key:
+`User`, `Transaction`, `Deposit`, `Withdrawal`, `PaymentLog`, `GameState`, `RecentResult`,
+`ChatMessage`, `TeenPattiRoom`, `TeenPattiSeat`, `GameBet`.
+
+Password hashes carry over untouched — see §5.
+
+---
+
+## 3. Configuration
+
+### Generate the production .env — do not hand-edit the development one
+
+The most likely way to go live insecurely is to upload the development `.env`. Every fail-fast guard
+in `config.php` only runs when `NODE_ENV=production`, and the development file sets
+`NODE_ENV=development` — so the entire safety net sits switched off, with a placeholder `APP_SECRET`
+(forgeable session tokens), a plaintext `admin123` password, and `DISABLE_RATE_LIMITS=true`.
+
+Generate a correct one instead:
+
+```bash
+php php-backend/tools/make-production-env.php \
+    --domain=https://yourdomain.com \
+    --db-name=cpaneluser_bet1x --db-user=cpaneluser_bet1x --db-pass='...'
+```
+
+It writes `php-backend/.env.production` (mode 0600) with a 96-character `APP_SECRET`, bcrypt hashes
+for both operator accounts, HTTPS forced, an exact CORS allowlist, rate limits on, JSON fallback off,
+`SIGNUP_BONUS=0`, and the withdrawal controls enabled. **It prints the two operator passwords once —
+save them immediately**, only the hashes are written to disk.
+
+Then on the server:
+
+```bash
+mv php-backend/.env.production php-backend/.env && chmod 600 php-backend/.env
+```
+
+Confirm the cutover actually took — this is invisible from the browser otherwise:
+
+```bash
+curl -s https://SITE/api/health     # must show "env":"production"
+```
+
+And confirm the old credentials are dead (must return 401):
+
+```bash
+curl -s -X POST https://SITE/api/admin.php -d 'action=login&username=admin&password=admin123'
+```
+
+### Apply the risk-control migration
+
+MySQL:
+
+```bash
+mysql -u DBUSER -p DBNAME < php-backend/sql/migration-002-risk-controls.sql
+```
+
+PostgreSQL:
+
+```bash
+psql -U DBUSER -d DBNAME -f php-backend/sql/migration-002-risk-controls-postgres.sql
+```
+
+Additive and safe on a live database. Without it the withdrawal/abuse checks degrade to permissive
+rather than erroring, so applying it is what actually switches them on.
+
+### Apply the phone-verification migration
+
+Only needed if you intend to turn phone verification on. PostgreSQL only — `lib/db.php` connects
+with a `pgsql:` DSN and the upsert in `lib/otp.php` uses `ON CONFLICT`, so this backend does not run
+on MySQL regardless of what `sql/schema.sql` suggests.
+
+```bash
+psql -U DBUSER -d DBNAME -f php-backend/sql/migration-003-phone-otp-postgres.sql
+```
+
+Additive and re-runnable: it adds `User.phone` / `User.phone_verified`, a **partial** unique index on
+`User.phone` covering only rows where a number is set, and the `PhoneOtp` table. Existing accounts
+all have `phone IS NULL`, so none of them collide and none are retroactively locked out.
+
+**No shell access, and phpPgAdmin logs you in as the wrong role?** This is common on cPanel:
+`ALTER TABLE` and `CREATE INDEX` both require being the table's *owner* (or a superuser), which a
+plain "grant all privileges" from cPanel's PostgreSQL Databases page does not confer, and cPanel's
+phpPgAdmin single-sign-on logs in as the bare cPanel account rather than the owner role — with no
+way from that UI to pick a different one. `php-backend/tools/apply-otp-migration.php` runs this
+migration by opening its own connection as whichever role you give it (the owner), bypassing
+phpPgAdmin entirely; see the usage instructions in that file's docblock for the CLI and
+browser-only paths. It self-deletes once every statement applies cleanly.
+
+### Phone verification at signup
+
+Off unless `PHONE_VERIFICATION_REQUIRED=true`. With it off, nothing about signup changes and no SMS
+is ever sent — so the code can be deployed well before the SMS account is ready.
+
+**Verification happens once, at signup.** Logging in afterwards is username and password only; no
+code is sent on login. The running cost is therefore one SMS per new account, not one per session.
+
+| Variable | Notes |
+|---|---|
+| `PHONE_VERIFICATION_REQUIRED` | The master switch. In production, turning it on with an empty `FAST2SMS_API_KEY` is a **boot failure** rather than a silent one — otherwise every signup would fail with no clue why. |
+| `FAST2SMS_API_KEY` | Server-side only; it never reaches the browser. Anyone holding it can spend the account's SMS balance. |
+| `FAST2SMS_ROUTE` | `otp`, `dlt` or `q`. Indian transactional SMS requires DLT registration with TRAI, so which of these works is a property of the Fast2SMS account. Start with `otp`. |
+| `FAST2SMS_SENDER_ID`, `FAST2SMS_MESSAGE_ID` | Only for the `dlt` route. |
+| `OTP_TTL_SECONDS`, `OTP_MAX_ATTEMPTS`, `OTP_RESEND_COOLDOWN_SEC`, `OTP_MAX_SENDS_PER_DAY` | Abuse brakes, defaulting to 300 / 5 / 60 / 8. Every send is billed, so these are cost controls too. A per-IP cap sits on top of them in `lib/ratelimit.php` and catches the other axis — one attacker walking through many numbers. |
+
+Turn it on only after sending yourself a test code. With the switch on and a bad key, nobody can
+register at all.
+
+The frontend needs no configuration: it reads `phone_verification` from `/api/health` and shows the
+phone fields only when that reports true.
+
+> The verification is never taken on the browser's word. `/api/otp/verify` records it server-side and
+> signup re-checks it with `otp_is_verified()`, then deletes the row so one code cannot register a
+> second account. A client that simply posts `verified: true` gets a rejected signup.
+
+**Currently parked**: Fast2SMS's OTP route needs an account-side enablement step (their API answers
+`status_code: 996` — "complete website verification" — with no self-service toggle visible in the
+dashboard for this account) that is pending on Fast2SMS support. `PHONE_VERIFICATION_REQUIRED` is
+off in production for now. The phone number field is still collected and stored at signup as plain
+contact info (`User.phone`, with `phone_verified` always `0`) — see the "Phone number" comment above
+the signup handler in `routes/gamesync.php`. Turning verification back on once Fast2SMS unblocks the
+account is a config flip (set the flag, confirm a test send, done) — none of this section's code
+changed.
+
+### Email verification at signup (direct SMTP) — the interim verified channel
+
+Off unless `EMAIL_VERIFICATION_REQUIRED=true`. With it off, signup still asks for an email address
+(format-checked only) but sends no code, exactly like phone verification's dark-ship story above.
+
+`lib/mailer.php` speaks SMTP directly to whatever `SMTP_HOST`/`SMTP_PORT` point at — no third-party
+HTTP API, no Composer dependency, hand-rolled the same way `lib/sms.php` talks to Fast2SMS directly.
+It is provider-agnostic: point it at Gmail, Brevo's SMTP relay, or any other server that takes
+standard SMTP AUTH, by changing config only.
+
+| Variable | Notes |
+|---|---|
+| `EMAIL_VERIFICATION_REQUIRED` | The master switch. In production, turning it on with an empty `SMTP_HOST`, `SMTP_USER` or `SMTP_PASSWORD` is a **boot failure** rather than a silent one. |
+| `SMTP_HOST`, `SMTP_PORT` | `smtp.gmail.com` (465 or 587) for Gmail; `smtp-relay.brevo.com` (587) for Brevo. Port 465 is treated as implicit TLS, anything else as STARTTLS — see the comment in `lib/mailer.php`. |
+| `SMTP_USER` | The account authenticated against. Gmail: the Gmail address itself. Brevo: the Login shown on the account's SMTP & API → **SMTP** tab (not the API Keys tab). |
+| `SMTP_PASSWORD` | Gmail: a 16-character **App Password** (Google Account → Security → App Passwords — needs 2-Step Verification on first), never the account's normal login password, which Gmail's SMTP no longer accepts. Brevo: the **SMTP key** from the same SMTP tab as `SMTP_USER` — not an API key, Brevo's SMTP server rejects those. Server-side only; it never reaches the browser. Anyone holding it can send mail as this account. |
+| `SMTP_SENDER_EMAIL` | The verified "From" address. Blank defaults to `SMTP_USER` (correct for Gmail, where they're always the same account). Set explicitly for Brevo, where the SMTP login and the verified sending address can differ — Brevo dashboard → Senders. |
+| `SMTP_SENDER_NAME` | Display name on the "From" line. Defaults to `bet1x`. |
+| `OTP_TTL_SECONDS`, `OTP_MAX_ATTEMPTS`, `OTP_RESEND_COOLDOWN_SEC`, `OTP_MAX_SENDS_PER_DAY` | Shared with phone verification above — same abuse brakes, same defaults. |
+
+Turn it on only after sending yourself a test code (`php-backend/routes/email_otp.php`'s
+`/api/email-otp/send`, or `lib/mailer.php`'s `mailer_send_otp()` directly). With the switch on and a
+bad password, nobody can register at all — exactly the same failure mode as phone verification, so
+the same "test before flipping the switch" discipline applies.
+
+> Gmail's own anti-abuse heuristics can land a fresh sending account's mail in Spam rather than the
+> inbox, since a personal @gmail.com address has no sending reputation or domain-level SPF/DKIM/DMARC
+> alignment. This is a deliverability property of the account, not a bug in this code — a dedicated
+> transactional provider (Brevo, etc.) with a verified sending domain avoids it. A plain Gmail
+> account also caps outgoing mail at roughly 500/day.
+
+The frontend needs no configuration: it reads `email_verification` from `/api/health` and shows the
+Send OTP / Verify controls only when that reports true; the email field itself is always shown and
+required regardless.
+
+
+
+```bash
+cp php-backend/.env.example php-backend/.env
+```
+
+Fill it in. The four that matter most:
+
+| Variable | Why |
+|---|---|
+| `APP_SECRET` | Set it to the **same value the Node build used** and every session token already in a player's browser stays valid. Change it and everyone is signed out once — nothing else breaks. |
+| `ADMIN_PASSWORD_HASH` | `php -r "echo password_hash('your-password', PASSWORD_BCRYPT, ['cost'=>12]);"` |
+| `DATABASE_URL` or `DB_*` | `mysql://` on the MySQL schema, `postgresql://` on the Postgres one — must match whichever `sql/schema*.sql` you actually ran (§2) |
+| `APP_TIMEZONE` | Must match the zone the Node process ran in. Colour-prediction history timestamps are bare local `HH:MM:SS` with no date and no offset, so a wrong zone shifts them by hours. |
+
+`php-backend/.htaccess` blocks HTTP access to the whole directory, so `.env` is not web-readable.
+
+---
+
+## 4. The cron job
+
+cPanel → **Cron Jobs** → add, every minute:
+
+```bash
+* * * * * /usr/local/bin/php /home/USERNAME/public_html/php-backend/cron/tick.php >/dev/null 2>&1
+```
+
+Adjust the PHP binary path and the document root to match the account.
+
+**What breaks without it:** nothing a player can see while they are playing — every game page polls,
+and the traffic that reads a game is what advances it. What stops is an *idle* site: an empty Teen
+Patti lobby never fills, a colour round that ends with nobody watching does not settle until the
+next visitor arrives, and Aviator sits in whatever phase it was in when the last player left. The
+cron runs exactly the same functions those requests would have, so an unattended site keeps running.
+
+### Detecting a dead cron
+
+Because none of the above breaks page loads, a stopped cron is otherwise silent — you would find out
+from customer complaints. Each completed tick now records a heartbeat, and `/api/ready` turns it
+into an alertable signal:
+
+```bash
+curl -s https://SITE/api/ready
+```
+
+```json
+{"ready":true,"database":"connected","store":"postgres","cron":"ok","cron_age_sec":12,"env":"production"}
+```
+
+(`"store"` reads `"mysql"` instead if you deployed against the MySQL schema — either is correct,
+it just reflects which schema file you ran in §2.)
+
+Once the heartbeat is older than `CRON_STALE_SECONDS` (default 300s — four missed runs), the same
+endpoint returns **HTTP 503** with `"cron":"stale"`. Point any uptime monitor at `/api/ready` and
+alert on non-200; that one check covers both a dead database and a dead cron.
+
+### The nightly backup
+
+Add a second cron job, offset from the minute tick so the two never overlap:
+
+```bash
+17 3 * * * /usr/local/bin/php /home/USERNAME/public_html/php-backend/cron/backup.php >/dev/null 2>&1
+```
+
+Set `BACKUP_DIR` to a path **outside** `public_html` — the dumps contain every password hash on the
+platform. The script writes a compressed dump (`mysqldump` on the MySQL schema, `pg_dump` on the
+Postgres one — it uses whichever matches your `DB_*` settings automatically), prunes anything older
+than `BACKUP_KEEP_DAYS` (default 14), and treats a dump under 2 KB as a failure, deleting it rather
+than leaving a truncated file to be mistaken for a good backup.
+
+**Test the restore before you need it.** An untested restore is a guess:
+
+MySQL:
+
+```bash
+gunzip -c backups/bet1x-YYYY-MM-DD-HHMM.sql.gz | mysql -u DBUSER -p SCRATCH_DB
+```
+
+PostgreSQL:
+
+```bash
+gunzip -c backups/bet1x-YYYY-MM-DD-HHMM.sql.gz | psql -U DBUSER -d SCRATCH_DB
+```
+
+Then compare `SELECT COUNT(*) FROM User` and `SELECT SUM(wallet_balance) FROM User` against the live
+database — total wallet liability is the number that must match exactly.
+
+---
+
+## 5. Passwords — one check before you trust the cutover
+
+Existing hashes are bcrypt (`$2a$` and `$2b$`), written by bcryptjs. PHP's `password_verify()`
+handles both, so nobody should be locked out — but confirm it on **your** host's PHP version rather
+than taking it on trust. Take a hash from the `User` table whose password you know and run:
+
+```bash
+php -r "var_dump(password_verify('the-known-password', '\$2b\$12\$paste.the.hash.here'));"
+```
+
+Expect `bool(true)`. If it returns false, tell me — the fix is a transparent rehash at next login,
+never a lockout, but it needs to be built before go-live rather than after.
+
+---
+
+## 6. Verify after deploying
+
+Run these in order. Each one should behave as described.
+
+| # | Check | Expected |
+|---|---|---|
+| 1 | `curl https://SITE/api/health` | `{"status":"ok","service":"bet1x-backend","timestamp":"..."}` |
+| 2 | `curl https://SITE/api/ready` | `{"ready":true,"database":"connected",...}` — if `false`, the DB credentials are wrong |
+| 3 | `curl https://SITE/api/auth.php` | JSON, **not** PHP source and **not** the old implementation's output. If you see anything else, the `.htaccess` rewrite is not active — check `AllowOverride`. |
+| 4 | `curl https://SITE/backend/.env` | 403 or 404, never the file |
+| 5 | `curl https://SITE/php-backend/lib/db.php` | 403, never the source |
+| 6 | Open the site, sign up, log in | Balance shows, no console errors |
+| 7 | Open `win.html` | Timer counts down, history fills, a round settles |
+| 8 | Open `aviator.html` | Plane flies, crashes, next round starts ~9s later |
+| 9 | Place a bet and cash out on Aviator | Balance moves by the right amount both ways |
+| 10 | Open `teenpatti.html`, join a room | Fillers arrive, a hand is dealt, turns advance |
+| 11 | Play a Mines round | Reveals work, cash-out pays, double-clicking Start takes one stake |
+| 12 | Log into `admin.html` | All six tabs load; Cricket Ops is hidden |
+| 13 | Toggle a bot percentage in admin | `/api/admin/rig-audit` shows decisions accumulating |
+| 14 | Open `superadmin.html` | Dashboard populates from the transaction ledger |
+
+**Check 3 is the important one.** Under Node those `.php` paths were only ever leaked as source
+text; now that the backend genuinely is PHP, Apache would *execute* the stale files in `api/` if the
+rewrite were not catching every `/api/*` request first. That is why the rewrite has no `!-f`
+condition — adding one would let those files win precisely because they exist.
+
+---
+
+## 7. Rolling back
+
+Nothing in this port modifies the Node backend. `backend/server.js` and its data are untouched, so
+rolling back is: stop using the PHP host, point DNS back, start Node. The only shared state is the
+database — the Node build always speaks PostgreSQL, and this PHP build speaks whichever engine you
+deployed it against (MySQL or PostgreSQL, per §2). If you ran the MySQL schema, the two databases
+are on different engines entirely and cannot corrupt each other's data; if you ran the Postgres
+schema they are still two separate databases (Node's original one vs. this port's) unless you
+deliberately pointed both at the same instance. Either way they do not share data by default, so
+anything played on one is not visible to the other.
+Pick one and stay on it.
+
+---
+
+## 8. Known differences from the Node build
+
+Four, all documented in full where they occur in the code:
+
+1. **Aviator's in-flight crash intercepts are lazy.** They evaluate on each incoming request rather
+   than every 100 ms. Because every player in a round polls independently at 250 ms, they fire
+   within a fraction of a second of where they used to. The one genuine loss: if nobody polls at all
+   between a cash-out and the natural crash, the erosion trip is missed and the house makes slightly
+   less on that rigged round. Players see no difference.
+
+2. **Mines boards now survive a restart.** They lived in process memory before, so a Node restart
+   wiped every board in flight. They are rows now. Strictly better; still a difference.
+
+3. **Rate-limit counters now survive a restart** for the same reason. A limit is genuinely enforced
+   across a deploy where it previously reset.
+
+4. **A Teen Patti seat records its heartbeat at join.** The Node build only recorded one when the
+   player first polled for room state, and got away with it because its presence sweep ran on a
+   five-second timer, so the client's first poll always won that race. Here the sweep is synchronous
+   at the top of every Teen Patti request, so without recording at join the player's own next request
+   would evict them and nobody could stay seated. Net effect: a player who joins and then vanishes is
+   removed after ~10 seconds rather than at the next 5-second tick.
+
+Everything else — routes, JSON shapes, status codes, error strings, game rules, payout maths, the
+house-edge engine, the admin and superadmin surfaces — is reproduced as-is, including the handful of
+latent bugs listed in the migration dossier.
