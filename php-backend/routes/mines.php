@@ -291,17 +291,25 @@ function register_mines_routes(Router $app) {
             $hitMine = in_array($tileIndex, $session['mine_positions'], true);
             $wasRiggedThisReveal = false;
 
-            // 1. Admin matrix override for this tile — highest precedence.
+            // 1. Admin matrix override for this tile.
+            //
+            // 'mine' still applies: an operator marking a further tile mid-round is stacking the
+            // board, which is allowed and only ever makes it harder.
+            //
+            // 'safe' deliberately no longer forces a tile safe. It used to set hitMine = false AND
+            // delete the tile from mine_positions, which quietly destroyed the player's chosen mine
+            // count: the board is laid at start with the operator's mines plus random extras up to
+            // the number of mines the PLAYER selected, and every one of those extras that happened
+            // to sit on a tile marked 'safe' was removed again the moment it was clicked. With 9
+            // rigged mines against a player on 15, that left only the operator's 9 genuinely live,
+            // so 16 tiles could be opened safely. The count the player chose is authoritative, so
+            // the board laid at start is what stands. 'safe' is still honoured where it does not
+            // break that count: tiles marked 'safe' never receive one of the operator's own mines.
             $matrixTile = $rig['matrix'][$tileIndex] ?? 'auto';
             if ($matrixTile === 'mine') {
                 $hitMine = true;
                 $wasRiggedThisReveal = true;
                 if (!in_array($tileIndex, $session['mine_positions'], true)) $session['mine_positions'][] = $tileIndex;
-            } elseif ($matrixTile === 'safe') {
-                $hitMine = false;
-                $wasRiggedThisReveal = true;
-                $session['mine_positions'] = array_values(array_filter($session['mine_positions'],
-                    function ($m) use ($tileIndex) { return $m !== $tileIndex; }));
             }
 
             // 2. Manual admin targeting/rig config always takes full precedence over the autonomous

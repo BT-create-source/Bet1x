@@ -329,7 +329,29 @@
       try {
         const res = await fetch(`api/mines/state?username=${encodeURIComponent(username)}`);
         const data = await res.json();
-        if (data.ok) render(data.state);
+        if (data.ok) {
+          // Opening the page must always offer a fresh board with Start ready — never the leftover
+          // reveal from a round that already finished (possibly days ago). This function only runs
+          // once, at load; the board shown straight after a bust or cash-out is rendered from that
+          // request's own response, so the result is still displayed normally when it happens.
+          const s = data.state;
+          if (s.status === 'busted' || s.status === 'cashed') {
+            render({
+              status: 'idle',
+              grid_size: s.grid_size || 25,
+              mines_count: s.mines_count || 3,
+              bet_amount: 0,
+              revealed: [],
+              multiplier: 1,
+              potential_payout: 0,
+              mine_positions: [],
+              balance: s.balance,
+              session_ref: null
+            });
+          } else {
+            render(s);
+          }
+        }
       } catch (e) {
         if (window.isOfflineMode) {
           offlineMinesState.balance = getWallet();

@@ -2495,7 +2495,7 @@ function renderGameHistorySection(data) {
       }).join('');
 
   el.innerHTML = `
-    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(85px, 1fr)); gap:8px; margin:12px 0;">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(100px, 1fr)); gap:6px; margin:12px 0;">
       <div class="profile-stat-tile"><div class="profile-stat-value">${s.games_played || 0}</div><div class="profile-stat-label">Played</div></div>
       <div class="profile-stat-tile"><div class="profile-stat-value" style="color:var(--green);">${s.wins || 0}</div><div class="profile-stat-label">Wins</div></div>
       <div class="profile-stat-tile"><div class="profile-stat-value" style="color:var(--red);">${s.losses || 0}</div><div class="profile-stat-label">Losses</div></div>
