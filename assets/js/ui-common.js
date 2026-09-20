@@ -136,6 +136,19 @@ window.fetch = function (input, init) {
     init.credentials = (isApiCall && url.indexOf(window.location.origin) !== 0) ? 'omit' : 'same-origin';
   }
 
+  // Never let an API reply be served from the browser cache. Every one of these is live state —
+  // the current round, its timer, the multiplier, a wallet balance — and a cached copy freezes the
+  // game on screen while the server has long moved on. This is not hypothetical: the host injects
+  // `Cache-Control: public, max-age=604800` (ExpiresDefault "access plus 1 week") onto these JSON
+  // replies, overriding the no-store rule in .htaccess, so every poll after the first was being
+  // answered from disk cache and every game appeared frozen. Fixed here, at the one place every
+  // game's polling already funnels through, so it holds regardless of what the host's cache config
+  // does to the response headers.
+  if (isApiCall) {
+    if (!init) init = {};
+    if (!init.cache) init.cache = 'no-store';
+  }
+
   return originalFetch(url, init);
 };
 
@@ -164,7 +177,11 @@ window.ServerClock = {
   async sync() {
     const t0 = Date.now();
     try {
-      const res = await originalFetch(window.BET1X_API_BASE + '/api/server_time');
+      // Deliberately originalFetch (not the patched window.fetch) to skip the interceptor's token
+      // and URL rewriting — so it must opt out of the cache itself. A cached /api/server_time is
+      // the worst case of all: every room's countdown is computed from this clock, so a stale
+      // timestamp freezes or jitters every timer on the site at once.
+      const res = await originalFetch(window.BET1X_API_BASE + '/api/server_time', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         const t1 = Date.now();

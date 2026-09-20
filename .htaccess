@@ -90,6 +90,27 @@ DirectoryIndex index.html
     </FilesMatch>
 </IfModule>
 
+# --- 3c. API replies must never be cached -------------------------------------------------------
+# Every /api/* request is rewritten to php-backend/index.php (rule 1 above), and every reply it
+# sends is live state: the current round and its timer, the Aviator multiplier, a wallet balance.
+#
+# The blanket no-store in 3a is NOT enough on this host, and that caused a real outage. The host
+# injects `Cache-Control: public, max-age=604800` (ExpiresDefault "access plus 1 week") onto these
+# JSON responses, which beat the plain `Header set` above — browsers then served every poll after
+# the first from their own disk cache, so every game froze on screen while the server was running
+# perfectly. `Header always` writes to the table that wins here, and switching mod_expires off for
+# this one handler stops the injected Expires/max-age at the source.
+<FilesMatch "^index\.php$">
+    <IfModule mod_expires.c>
+        ExpiresActive Off
+    </IfModule>
+    <IfModule mod_headers.c>
+        Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+        Header always set Pragma "no-cache"
+        Header always unset Expires
+    </IfModule>
+</FilesMatch>
+
 # The compression() middleware's equivalent.
 <IfModule mod_deflate.c>
     AddOutputFilterByType DEFLATE text/html text/plain text/css text/javascript application/javascript application/json image/svg+xml

@@ -95,6 +95,20 @@ function security_headers(Req $req, Res $res) {
     header('X-XSS-Protection: 0');
     header_remove('X-Powered-By');   // app.disable('x-powered-by')
 
+    // Every reply from this front controller is live state — the current round and its timer, the
+    // Aviator multiplier, a wallet balance — and must never be served from a cache.
+    //
+    // This is not belt-and-braces, it is a fix for an outage: the host injects
+    // `Cache-Control: public, max-age=604800` (ExpiresDefault "access plus 1 week") onto these JSON
+    // responses, which overrode the no-store rule in the root .htaccess. Browsers then answered
+    // every poll after the first from their own disk cache, so every game froze on screen — the
+    // colour timers stopped or jittered, Aviator's multiplier stuck and toggled, and Teen Patti sat
+    // on "playing" forever — while the server was running perfectly the whole time. Sending these
+    // from PHP, and dropping the injected Expires, is what actually reaches the browser.
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header_remove('Expires');
+
     if (cfg('FORCE_HTTPS')) {
         header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
     }
