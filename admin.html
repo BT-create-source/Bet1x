@@ -4299,15 +4299,38 @@
       room_104: 'Room 4', room_105: 'Room 5', room_106: 'Room 6'
     };
 
-    window.loadTeenPattiBotAllocation = function() {
+    // `attempt` is internal: this panel used to fetch exactly once at page load and, on any failure,
+    // silently `return` — leaving "Loading…" on screen permanently with no error and no retry. The
+    // first call can lose a race at page load (the admin session/token not established yet), which
+    // is why the panel appeared dead until some later action happened to re-trigger it, and why it
+    // seemed to need a couple of taps before it would open. It now retries a few times and, if it
+    // genuinely cannot load, says so and offers a Retry instead of pretending to still be loading.
+    window.loadTeenPattiBotAllocation = function(attempt) {
+      attempt = attempt || 1;
+      const MAX_ATTEMPTS = 4;
+
+      const failed = (why) => {
+        if (attempt < MAX_ATTEMPTS) {
+          setTimeout(() => window.loadTeenPattiBotAllocation(attempt + 1), 400 * attempt);
+          return;
+        }
+        console.error('Error loading Teen Patti room bot allocation:', why);
+        const grid = document.getElementById('tpBotAllocGrid');
+        if (grid) {
+          grid.innerHTML = '<div style="color:var(--red); font-size:12px;">Could not load bot allocation. '
+            + '<a href="#" onclick="loadTeenPattiBotAllocation(); return false;" '
+            + 'style="color:var(--gold); text-decoration:underline;">Retry</a></div>';
+        }
+      };
+
       fetch('api/teenpatti/admin/room-bots')
-        .then(res => res.json())
-        .then(data => {
-          if (!data || !data.success) return;
+        .then(res => res.json().catch(() => null).then(data => ({ ok: res.ok, data })))
+        .then(({ ok, data }) => {
+          if (!ok || !data || !data.success) { failed((data && data.error) || 'request failed'); return; }
           window.tpBotAllocData = data;
           renderTpBotAllocGrid(data);
         })
-        .catch(err => console.error('Error loading Teen Patti room bot allocation:', err));
+        .catch(failed);
     };
 
     function renderTpBotAllocGrid(data) {

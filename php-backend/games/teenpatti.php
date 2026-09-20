@@ -42,6 +42,13 @@ const TP_BOT_THINK_MIN  = 2000;
 const TP_BOT_THINK_MAX  = 4000;
 const TP_ROUND_DELAY    = 3000;   // 3s between rounds
 
+// Last-resort watchdog: a hand whose turn has not moved in this long is not a slow hand, it is a
+// stuck one, and the room is returned to 'waiting'. Deliberately far longer than any real hand
+// (turns move every 2-4s), so it only ever fires on a genuine deadlock. A room where "Admin" holds
+// the turn is exempt in practice without special-casing: the timeout branch below refreshes
+// turn_start for Admin on every sweep, which is what gives that seat unlimited time.
+const TP_STUCK_ROOM_MS  = 5 * 60 * 1000;
+
 /**
  * Realistic filler names for empty-seat auto-fill — no seat is ever named or labelled "bot"
  * anywhere in the app. The only seat that ever wins on purpose is explicitly renamed to "Admin" at
@@ -995,11 +1002,51 @@ function tp_sweep() {
                 continue;
             }
 
-            if ($room['turn_start'] === null) continue;
+            // Watchdog first, so it catches a deadlock arising from ANY cause — including one the
+            // specific repairs below do not anticipate. Without a backstop like this a single stuck
+            // room stays stuck for ever, and because tp_apply_room_bot_target only touches rooms in
+            // 'waiting', that one room also becomes permanently deaf to both Auto reshuffles and
+            // Manual admin changes.
+            if ($room['turn_start'] !== null && ($now - sql_to_ms($room['turn_start'])) >= TP_STUCK_ROOM_MS) {
+                log_warn('[TP] room stuck in playing — returning it to waiting', [
+                    'room' => $room['id'], 'turn_seat' => $room['turn_seat'],
+                    'stalled_sec' => (int) (($now - sql_to_ms($room['turn_start'])) / 1000),
+                ]);
+                tp_reset_room_to_waiting($room['id']);
+                continue;
+            }
+
+            // A playing room with no turn clock can never be advanced by the timeout logic below and
+            // would sit in 'playing' for ever. Start its clock instead of skipping it.
+            if ($room['turn_start'] === null) {
+                tp_update_room($room['id'], ['turn_start' => ms_to_sql()]);
+                continue;
+            }
+
+            // The turn can legitimately land on a seat that is empty (tp_start_round picks the first
+            // seat from a list that still contains anyone vacated for an unaffordable boot) or on one
+            // that has since folded. Neither can ever act, and the timeout branch below only acts on
+            // a seated, unfolded player — so before this, such a room deadlocked in 'playing' for
+            // ever: it never returned to 'waiting', so tp_apply_room_bot_target skipped it and no
+            // Auto reshuffle or Manual admin change could touch it again. That is exactly the
+            // "room hamesha playing dikhata hai, kabhi vacant nahi hota, auto/manual kuch kaam nahi
+            // karta" report. Hand the turn straight to the next active seat instead of waiting for a
+            // timeout that would do nothing.
+            $turnSeatRow = null;
+            foreach ($seats as $s) { if ((int)$s['seat'] === (int)$room['turn_seat']) { $turnSeatRow = $s; break; } }
+            if (!$turnSeatRow || empty($turnSeatRow['username']) || !empty($turnSeatRow['folded'])) {
+                $nextSeat = tp_next_active_seat($seats, (int)$room['turn_seat']);
+                if ($nextSeat === null) {
+                    tp_reset_room_to_waiting($room['id']);
+                } else {
+                    tp_update_room($room['id'], ['turn_seat' => $nextSeat, 'turn_start' => ms_to_sql()]);
+                }
+                continue;
+            }
+
             $elapsed = ($now - sql_to_ms($room['turn_start'])) / 1000.0;
             if ($elapsed >= TP_TURN_TIMEOUT) {
-                $currentSeat = null;
-                foreach ($seats as $s) { if ((int)$s['seat'] === (int)$room['turn_seat']) { $currentSeat = $s; break; } }
+                $currentSeat = $turnSeatRow;
                 if ($currentSeat && !empty($currentSeat['username']) && empty($currentSeat['folded'])) {
                     if (strtolower($currentSeat['username']) === 'admin') {
                         // Admin NEVER auto-folds on timeout. Reset the timer to give it unlimited time.
