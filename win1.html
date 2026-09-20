@@ -60,9 +60,9 @@
 
         <label>Color</label>
         <div class="bet-options">
-          <button type="button" class="color-btn green" data-cat="color" data-val="Green">Green<span class="mult">×2.0</span></button>
-          <button type="button" class="color-btn violet" data-cat="color" data-val="Violet">Violet<span class="mult">×4.5</span></button>
-          <button type="button" class="color-btn red" data-cat="color" data-val="Red">Red<span class="mult">×2.0</span></button>
+          <button type="button" class="color-btn green" data-cat="color" data-val="Green">Green<span class="mult">×1.96</span></button>
+          <button type="button" class="color-btn violet" data-cat="color" data-val="Violet">Violet<span class="mult">×1.96</span></button>
+          <button type="button" class="color-btn red" data-cat="color" data-val="Red">Red<span class="mult">×1.96</span></button>
         </div>
 
         <label>...or Number (0–9)</label>
@@ -116,6 +116,7 @@
 
 <script src="assets/js/ui-common.js"></script>
 <script src="assets/js/sound-fx.js"></script>
+<script src="assets/js/result-popup.js"></script>
 <script>
 const ROOM_KEY = 'becone';
 const ROOM_DURATION = 60;
@@ -226,7 +227,7 @@ function updateBetButtonsSummary(aggs) {
   const btnGreen = document.querySelector('[data-cat="color"][data-val="Green"]');
   if (btnGreen) {
     btnGreen.innerHTML = `
-      <span style="font-size: 15px; font-weight: 800; display: block; letter-spacing: 0.5px;">Green <span style="font-family: var(--font-mono); font-size: 11px; opacity: 0.85;">×2.0</span></span>
+      <span style="font-size: 15px; font-weight: 800; display: block; letter-spacing: 0.5px;">Green <span style="font-family: var(--font-mono); font-size: 11px; opacity: 0.85;">×1.96</span></span>
       <div style="font-family: var(--font-mono); font-size: 10.5px; background: rgba(0,0,0,0.22); padding: 4px 6px; border-radius: 6px; margin-top: 5px; font-weight: 700; display: inline-block; width: 100%; box-sizing: border-box; line-height: 1.2; text-align: center;">
         ${aggs.Green.count} players · ₹${aggs.Green.amount.toLocaleString()}
       </div>
@@ -235,7 +236,7 @@ function updateBetButtonsSummary(aggs) {
   const btnViolet = document.querySelector('[data-cat="color"][data-val="Violet"]');
   if (btnViolet) {
     btnViolet.innerHTML = `
-      <span style="font-size: 15px; font-weight: 800; display: block; letter-spacing: 0.5px;">Violet <span style="font-family: var(--font-mono); font-size: 11px; opacity: 0.85;">×4.5</span></span>
+      <span style="font-size: 15px; font-weight: 800; display: block; letter-spacing: 0.5px;">Violet <span style="font-family: var(--font-mono); font-size: 11px; opacity: 0.85;">×1.96</span></span>
       <div style="font-family: var(--font-mono); font-size: 10.5px; background: rgba(0,0,0,0.22); padding: 4px 6px; border-radius: 6px; margin-top: 5px; font-weight: 700; display: inline-block; width: 100%; box-sizing: border-box; line-height: 1.2; text-align: center;">
         ${aggs.Violet.count} players · ₹${aggs.Violet.amount.toLocaleString()}
       </div>
@@ -244,7 +245,7 @@ function updateBetButtonsSummary(aggs) {
   const btnRed = document.querySelector('[data-cat="color"][data-val="Red"]');
   if (btnRed) {
     btnRed.innerHTML = `
-      <span style="font-size: 15px; font-weight: 800; display: block; letter-spacing: 0.5px;">Red <span style="font-family: var(--font-mono); font-size: 11px; opacity: 0.85;">×2.0</span></span>
+      <span style="font-size: 15px; font-weight: 800; display: block; letter-spacing: 0.5px;">Red <span style="font-family: var(--font-mono); font-size: 11px; opacity: 0.85;">×1.96</span></span>
       <div style="font-family: var(--font-mono); font-size: 10.5px; background: rgba(0,0,0,0.22); padding: 4px 6px; border-radius: 6px; margin-top: 5px; font-weight: 700; display: inline-block; width: 100%; box-sizing: border-box; line-height: 1.2; text-align: center;">
         ${aggs.Red.count} players · ₹${aggs.Red.amount.toLocaleString()}
       </div>
@@ -255,7 +256,7 @@ function updateBetButtonsSummary(aggs) {
   const btnSmall = document.querySelector('[data-cat="size"][data-val="Small"]');
   if (btnSmall) {
     btnSmall.innerHTML = `
-      <span style="font-size: 15px; font-weight: 800; display: block; letter-spacing: 0.5px;">Small (0–4) <span style="font-family: var(--font-mono); font-size: 11px; opacity: 0.85;">×2</span></span>
+      <span style="font-size: 15px; font-weight: 800; display: block; letter-spacing: 0.5px;">Small (0–4) <span style="font-family: var(--font-mono); font-size: 11px; opacity: 0.85;">×1.96</span></span>
       <div style="font-family: var(--font-mono); font-size: 10.5px; background: rgba(0,0,0,0.22); padding: 4px 6px; border-radius: 6px; margin-top: 5px; font-weight: 700; display: inline-block; width: 100%; box-sizing: border-box; line-height: 1.2; text-align: center;">
         ${aggs.Small.count} players · ₹${aggs.Small.amount.toLocaleString()}
       </div>
@@ -264,7 +265,7 @@ function updateBetButtonsSummary(aggs) {
   const btnBig = document.querySelector('[data-cat="size"][data-val="Big"]');
   if (btnBig) {
     btnBig.innerHTML = `
-      <span style="font-size: 15px; font-weight: 800; display: block; letter-spacing: 0.5px;">Big (5–9) <span style="font-family: var(--font-mono); font-size: 11px; opacity: 0.85;">×2</span></span>
+      <span style="font-size: 15px; font-weight: 800; display: block; letter-spacing: 0.5px;">Big (5–9) <span style="font-family: var(--font-mono); font-size: 11px; opacity: 0.85;">×1.96</span></span>
       <div style="font-family: var(--font-mono); font-size: 10.5px; background: rgba(0,0,0,0.22); padding: 4px 6px; border-radius: 6px; margin-top: 5px; font-weight: 700; display: inline-block; width: 100%; box-sizing: border-box; line-height: 1.2; text-align: center;">
         ${aggs.Big.count} players · ₹${aggs.Big.amount.toLocaleString()}
       </div>
@@ -422,20 +423,20 @@ function settleRoundLocally() {
   let hasBets = myBetsThisRound.length > 0;
   myBetsThisRound.forEach(b => {
     let won = false, mult = 0;
-    if (b.category === 'number') { won = parseInt(b.value) === winningNum; mult = 9; }
-    else if (b.category === 'size') { won = b.value.toLowerCase() === newResult.size.toLowerCase(); mult = 2; }
+    if (b.category === 'number') { won = parseInt(b.value) === winningNum; mult = 8.96; }
+    else if (b.category === 'size') { won = b.value.toLowerCase() === newResult.size.toLowerCase(); mult = 1.96; }
     else if (b.category === 'color') {
       const bc = b.value.toLowerCase();
       const rc = newResult.color.toLowerCase();
       if (bc === rc) {
         won = true;
         if (rc === 'violet') {
-          mult = 4.5;
+          mult = 1.96;
         } else {
           if (winningNum === 0 || winningNum === 5) {
             mult = 1.5;
           } else {
-            mult = 2;
+            mult = 1.96;
           }
         }
       }
@@ -448,6 +449,7 @@ function settleRoundLocally() {
     showSettlementAlert(`Round settled! Result: ${winningNum} (${newResult.color}, ${newResult.size}) — you won ₹${totalPayout.toFixed(2)}${rigNoteOffline}`, 'success');
     SoundFX.play(hasBigMult ? 'bigWin' : 'win');
     triggerWinShower(document.querySelector('.card'));
+    if (typeof ResultPopup !== 'undefined') ResultPopup.show({ outcome: 'win', amount: totalPayout, big: hasBigMult });
     if (typeof getHistory === 'function') {
       const hist = getHistory();
       const item = hist.find(x => x.room === ROOM_KEY.toUpperCase() && x.status === 'pending');
@@ -460,6 +462,10 @@ function settleRoundLocally() {
   } else if (hasBets) {
     showSettlementAlert(`Round settled. Result: ${winningNum} (${newResult.color}, ${newResult.size}) — no win this round.${rigNoteOffline}`, 'error');
     SoundFX.play('lose');
+    if (typeof ResultPopup !== 'undefined') {
+      const lostStake = myBetsThisRound.reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
+      ResultPopup.show({ outcome: 'lose', amount: lostStake });
+    }
     if (typeof getHistory === 'function') {
       const hist = getHistory();
       const item = hist.find(x => x.room === ROOM_KEY.toUpperCase() && x.status === 'pending');
@@ -506,20 +512,20 @@ function syncState() {
         let hasBets = myBetsThisRound.length > 0;
         myBetsThisRound.forEach(b => {
           let won = false, mult = 0;
-          if (b.category === 'number') { won = parseInt(b.value) === lastResult.number; mult = 9; }
-          else if (b.category === 'size') { won = b.value.toLowerCase() === lastResult.size.toLowerCase(); mult = 2; }
+          if (b.category === 'number') { won = parseInt(b.value) === lastResult.number; mult = 8.96; }
+          else if (b.category === 'size') { won = b.value.toLowerCase() === lastResult.size.toLowerCase(); mult = 1.96; }
           else if (b.category === 'color') {
             const bc = b.value.toLowerCase();
             const rc = lastResult.color.toLowerCase();
             if (bc === rc) {
               won = true;
               if (rc === 'violet') {
-                mult = 4.5;
+                mult = 1.96;
               } else {
                 if (lastResult.number === 0 || lastResult.number === 5) {
                   mult = 1.5;
                 } else {
-                  mult = 2;
+                  mult = 1.96;
                 }
               }
             }
@@ -531,9 +537,14 @@ function syncState() {
           showSettlementAlert(`Round settled! Result: ${lastResult.number} (${lastResult.color}, ${lastResult.size}) — you won ₹${totalPayout.toFixed(2)}${rigNote}`, 'success');
           SoundFX.play(hasBigMult ? 'bigWin' : 'win');
           triggerWinShower(document.querySelector('.card'));
+          if (typeof ResultPopup !== 'undefined') ResultPopup.show({ outcome: 'win', amount: totalPayout, big: hasBigMult });
         } else if (hasBets) {
           showSettlementAlert(`Round settled. Result: ${lastResult.number} (${lastResult.color}, ${lastResult.size}) — no win this round.${rigNote}`, 'error');
           SoundFX.play('lose');
+          if (typeof ResultPopup !== 'undefined') {
+            const lostStake = myBetsThisRound.reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
+            ResultPopup.show({ outcome: 'lose', amount: lostStake });
+          }
         }
       }
       myBetsThisRound = [];

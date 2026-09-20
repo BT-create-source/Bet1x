@@ -102,12 +102,12 @@ function color_optimal_outcome($bets, $roundSeed, $targetedUsernames = null) {
             $cat = $b['category'] ?? null;
             $val = $b['value'] ?? null;
             if ($cat === 'color') {
-                if ($val === $resolved['color']) $playerPayout += $amt * ($val === 'Violet' ? 4.5 : 2.0);
+                if ($val === $resolved['color']) $playerPayout += $amt * 1.96;
             } elseif ($cat === 'number') {
                 $parsed = js_parse_int($val);
-                if (!is_nan($parsed) && (int)$parsed === $n) $playerPayout += $amt * 9.0;
+                if (!is_nan($parsed) && (int)$parsed === $n) $playerPayout += $amt * 8.96;
             } elseif ($cat === 'size') {
-                if ($val === $resolved['size']) $playerPayout += $amt * 2.0;
+                if ($val === $resolved['size']) $playerPayout += $amt * 1.96;
             }
         }
         $outcomes[] = [
@@ -393,12 +393,12 @@ function settle_color_round($room, $targetRound, array &$state) {
         $val = $b['value'] ?? null;
 
         if ($cat === 'color') {
-            if ($val === $resolved['color']) { $won = true; $multiplier = ($val === 'Violet') ? 4.5 : 2.0; }
+            if ($val === $resolved['color']) { $won = true; $multiplier = 1.96; }
         } elseif ($cat === 'number') {
             $parsed = js_parse_int($val);
-            if (!is_nan($parsed) && (int)$parsed === $num) { $won = true; $multiplier = 9.0; }
+            if (!is_nan($parsed) && (int)$parsed === $num) { $won = true; $multiplier = 8.96; }
         } elseif ($cat === 'size') {
-            if ($val === $resolved['size']) { $won = true; $multiplier = 2.0; }
+            if ($val === $resolved['size']) { $won = true; $multiplier = 1.96; }
         }
 
         if ($won) {

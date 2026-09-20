@@ -164,6 +164,7 @@
 
 <script src="assets/js/ui-common.js"></script>
 <script src="assets/js/sound-fx.js"></script>
+<script src="assets/js/result-popup.js"></script>
 
 <script>
 // Load custom airplane image
@@ -667,6 +668,7 @@ window.handleBtnClick = function(consoleId) {
       
       showAlert('success', `Cashed out at ${currentMultiplier.toFixed(2)}x (+₹${payout.toFixed(2)})!`);
       triggerWinShower(document.querySelector('.aviator-stage'));
+      if (typeof ResultPopup !== 'undefined') ResultPopup.show({ outcome: 'win', amount: payout, big: currentMultiplier >= 5 });
       return;
     }
     
@@ -707,6 +709,7 @@ window.handleBtnClick = function(consoleId) {
         
         showAlert('success', `Cashed out at ${data.multiplier.toFixed(2)}x (+₹${data.payout.toFixed(2)})!`);
         triggerWinShower(document.querySelector('.aviator-stage'));
+        if (typeof ResultPopup !== 'undefined') ResultPopup.show({ outcome: 'win', amount: data.payout, big: data.multiplier >= 5 });
       }
     })
     .catch(err => {
@@ -802,6 +805,7 @@ function handleRoundLosses() {
         <span class="label">Busted</span>
         <span class="sub-label" style="color:var(--red)">Lost ₹${b.wagered.toFixed(2)}</span>
       `;
+      if (typeof ResultPopup !== 'undefined') ResultPopup.show({ outcome: 'lose', amount: b.wagered });
     }
   }
 }
@@ -951,6 +955,10 @@ function syncAviator() {
                     <span class="label">Busted</span>
                     <span class="sub-label" style="color:var(--red)">Lost ₹${serverBet.amount.toFixed(2)}</span>
                   `;
+                  // Fallback for a page that (re)loaded after the crash already happened locally
+                  // (e.g. a refresh mid-flight) — handleRoundLosses' own popup call never ran for
+                  // this bet, so this is the only place the loss is ever surfaced to the player.
+                  if (typeof ResultPopup !== 'undefined') ResultPopup.show({ outcome: 'lose', amount: serverBet.amount });
                 }
               }
             } else {

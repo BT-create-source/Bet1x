@@ -31,13 +31,31 @@ window.BET1X_TOKEN_KEY = window.BET1X_ADMIN_CONSOLE ? 'bet1x_admin_token' : 'bet
 
 /* Referral code carried in via a shared link (?ref=CODE). Captured once at load time into
  * sessionStorage so it survives the click from landing page to signup form even if the visitor
- * lands on a different page than the one that opens the auth modal. */
+ * lands on a different page than the one that opens the auth modal.
+ *
+ * A fresh referral click also redirects straight to the dedicated signup page (auth.html) with the
+ * code already filled in, rather than leaving the visitor to find the Sign Up button themselves.
+ * Guarded to fire only once, for a genuine new click (the ?ref= param present on THIS page load,
+ * not merely carried over in sessionStorage from an earlier one), and never for a browser that
+ * already has someone signed in or for the operator console — an existing player or an admin
+ * opening an old shared link must never be yanked out of whatever page they're already on. Reads
+ * the session key directly by its literal name rather than the CURRENT_USER_KEY constant declared
+ * further down this file, since this block runs before that declaration is reached. */
 (function () {
   try {
     var params = new URLSearchParams(window.location.search);
     var ref = params.get('ref');
-    if (ref) sessionStorage.setItem('bet1x_referral_code', ref.trim());
-  } catch (e) { /* no-op — referral prefill is a convenience, not a requirement */ }
+    if (!ref) return;
+    ref = ref.trim();
+    sessionStorage.setItem('bet1x_referral_code', ref);
+
+    var alreadyLoggedIn = !!localStorage.getItem('bet1x_current_user');
+    var onAuthPage = /\/auth\.html$/i.test(window.location.pathname);
+    if (!alreadyLoggedIn && !onAuthPage && !window.BET1X_ADMIN_CONSOLE) {
+      var authUrl = 'auth.html?tab=signup&ref=' + encodeURIComponent(ref);
+      window.location.replace(authUrl);
+    }
+  } catch (e) { /* no-op — referral prefill/redirect is a convenience, not a requirement */ }
 })();
 
 /* ---------------------------------------------------------------------------------------------
@@ -447,8 +465,8 @@ function updateAuthHeaderUI() {
   } else {
     authArea.innerHTML = `
       <div class="header-guest-wrap" style="display:flex; align-items:center; gap:8px;">
-        <button type="button" class="btn btn-ghost header-login-btn" onclick="openAuthModal('login')" style="padding:6px 14px; font-size:13px; font-weight:700; border:1px solid var(--border); border-radius:4px; color:var(--text); background:var(--surface-2); cursor:pointer; transition:all 0.2s;">Log In</button>
-        <button type="button" class="btn btn-primary header-signup-btn" onclick="openAuthModal('signup')" style="padding:6px 14px; font-size:13px; font-weight:800; background:var(--red); color:#ffffff; border:none; border-radius:4px; cursor:pointer; box-shadow:0 0 12px var(--red-soft); transition:all 0.2s;">Sign Up</button>
+        <a href="${prefix}auth.html?tab=login" class="btn btn-ghost header-login-btn" style="padding:6px 14px; font-size:13px; font-weight:700; border:1px solid var(--border); border-radius:4px; color:var(--text); background:var(--surface-2); cursor:pointer; transition:all 0.2s; text-decoration:none; display:inline-flex; align-items:center;">Log In</a>
+        <a href="${prefix}auth.html?tab=signup" class="btn btn-primary header-signup-btn" style="padding:6px 14px; font-size:13px; font-weight:800; background:var(--red); color:#ffffff; border:none; border-radius:4px; cursor:pointer; box-shadow:0 0 12px var(--red-soft); transition:all 0.2s; text-decoration:none; display:inline-flex; align-items:center;">Sign Up</a>
       </div>
     `;
   }

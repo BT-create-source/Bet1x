@@ -593,6 +593,7 @@
 
 <script src="assets/js/ui-common.js"></script>
 <script src="assets/js/sound-fx.js"></script>
+<script src="assets/js/result-popup.js"></script>
 <script>
 // The backend serves this page, so the API lives on the page's own origin. Pinning port 5000
 // broke the moment the site sat behind a reverse proxy on 80/443.
@@ -1215,7 +1216,14 @@ function renderGameState(state) {
     SoundFX.play('showdown');
     if (state.my_seat !== null && state.my_seat !== undefined && state.winner_name) {
       const isMeWinner = state.winner_name.toLowerCase() === getUsername().toLowerCase();
-      setTimeout(() => SoundFX.play(isMeWinner ? (state.pot >= 2000 ? 'bigWin' : 'win') : 'lose'), 200);
+      const isBigPot = state.pot >= 2000;
+      setTimeout(() => SoundFX.play(isMeWinner ? (isBigPot ? 'bigWin' : 'win') : 'lose'), 200);
+      if (typeof ResultPopup !== 'undefined') {
+        setTimeout(() => {
+          if (isMeWinner) ResultPopup.show({ outcome: 'win', amount: state.pot, big: isBigPot });
+          else ResultPopup.show({ outcome: 'lose' });
+        }, 200);
+      }
     }
   }
   tpLastRenderedStatus = state.status;

@@ -3549,3 +3549,109 @@ body.exchange-theme .footer {
   border: 2px solid var(--gold);
   box-shadow: 0 0 16px rgba(201,160,84,0.25);
 }
+
+/* ============================================================
+   Global Win/Loss Result Popup — assets/js/result-popup.js
+   One shared component, loaded on every game page, so every game's win/loss moment gets the same
+   unmissable full-screen confirmation instead of each game inventing its own.
+   ============================================================ */
+.bet1x-result-popup {
+  position: fixed;
+  inset: 0;
+  z-index: 9995;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 7, 15, 0.6);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  overflow: hidden;
+}
+.bet1x-result-popup.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+.bet1x-result-card {
+  position: relative;
+  z-index: 2;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 32px 44px;
+  text-align: center;
+  min-width: 220px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+  transform: scale(0.6);
+  opacity: 0;
+  transition: transform 0.35s cubic-bezier(.2,1.4,.4,1), opacity 0.25s ease;
+}
+.bet1x-result-popup.active .bet1x-result-card {
+  transform: scale(1);
+  opacity: 1;
+}
+.bet1x-result-popup.is-win .bet1x-result-card {
+  border-color: var(--green);
+  box-shadow: 0 0 50px rgba(46,212,122,0.35), 0 20px 60px rgba(0,0,0,0.45);
+}
+.bet1x-result-popup.is-lose .bet1x-result-card {
+  border-color: var(--red);
+  box-shadow: 0 0 40px rgba(255,75,110,0.25), 0 20px 60px rgba(0,0,0,0.45);
+}
+.bet1x-result-icon {
+  font-size: 52px;
+  line-height: 1;
+  margin-bottom: 8px;
+  animation: bet1x-result-bounce 0.6s ease;
+}
+.bet1x-result-title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 800;
+  margin-bottom: 6px;
+  letter-spacing: -0.01em;
+}
+.bet1x-result-popup.is-win .bet1x-result-title { color: var(--green); }
+.bet1x-result-popup.is-lose .bet1x-result-title { color: var(--red); }
+.bet1x-result-amount {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 700;
+}
+.bet1x-result-popup.is-win .bet1x-result-amount { color: var(--green); }
+.bet1x-result-popup.is-lose .bet1x-result-amount { color: var(--red); }
+
+@keyframes bet1x-result-bounce {
+  0% { transform: scale(0.3) rotate(-15deg); }
+  50% { transform: scale(1.15) rotate(8deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+.bet1x-result-confetti {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.bet1x-confetti-piece {
+  position: absolute;
+  top: -10px;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  opacity: 0;
+  animation-name: bet1x-confetti-fall;
+  animation-timing-function: ease-in;
+  animation-fill-mode: forwards;
+}
+@keyframes bet1x-confetti-fall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(70vh) rotate(360deg); opacity: 0; }
+}
+
+@media (max-width: 480px) {
+  .bet1x-result-card { padding: 24px 30px; min-width: 180px; }
+  .bet1x-result-icon { font-size: 40px; }
+  .bet1x-result-title { font-size: 19px; }
+  .bet1x-result-amount { font-size: 16px; }
+}

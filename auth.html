@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>bet1x — Log In / Sign Up</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body class="exchange-theme">
+
+  <nav class="navbar exchange-header">
+    <a href="index.html" class="exchange-logo-box" style="text-decoration:none;">
+      Bet1x
+    </a>
+    <div id="headerAuthArea">
+      <!-- Loaded dynamically by ui-common.js -->
+    </div>
+  </nav>
+
+  <div class="footer">
+    bet1x — live prediction exchange. Play responsibly; 18+ only.
+  </div>
+
+  <script src="assets/js/ui-common.js"></script>
+  <script src="assets/js/sound-fx.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // This page is a dedicated home for the exact same login/signup form every other page opens
+      // as an overlay via openAuthModal() — same markup, same handleAuthSubmit/switchAuthTab/
+      // wireSignupVerification/wireForgotPassword logic, nothing duplicated or reimplemented. Only
+      // its container (a standalone page instead of a dismissible overlay) differs.
+      const params = new URLSearchParams(window.location.search);
+      const initialTab = params.get('tab') === 'signup' ? 'signup' : 'login';
+      openAuthModal(initialTab);
+
+      // The overlay's own close (x) button and its "reload the current page" behaviour on a
+      // successful login/signup both assume there is a page underneath to return to. On a
+      // dedicated page there isn't one, so both need to go to the lobby instead.
+      const closeBtn = document.querySelector('.auth-modal-close');
+      if (closeBtn) closeBtn.onclick = () => { window.location.href = 'index.html'; };
+
+      const redirectOnceLoggedIn = setInterval(() => {
+        if (localStorage.getItem('bet1x_current_user')) {
+          clearInterval(redirectOnceLoggedIn);
+          window.location.href = 'index.html';
+        }
+      }, 250);
+    });
+  </script>
+</body>
+</html>

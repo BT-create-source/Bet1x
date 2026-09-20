@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="assets/css/style.css">
   <script src="assets/js/ui-common.js"></script>
   <script src="assets/js/sound-fx.js"></script>
+  <script src="assets/js/result-popup.js"></script>
   <style>
     body {
       margin: 0;
@@ -347,8 +348,11 @@
         SoundFX.play('gemReveal', { streak: revealedCount });
       } else if (state.status === 'busted' && minesLastStatus !== 'busted') {
         SoundFX.play('mineHit');
+        if (typeof ResultPopup !== 'undefined') ResultPopup.show({ outcome: 'lose', amount: state.bet_amount });
       } else if (state.status === 'cashed' && minesLastStatus !== 'cashed') {
-        SoundFX.play(state.multiplier >= 5 ? 'bigWin' : 'cashout');
+        const isBig = state.multiplier >= 5;
+        SoundFX.play(isBig ? 'bigWin' : 'cashout');
+        if (typeof ResultPopup !== 'undefined') ResultPopup.show({ outcome: 'win', amount: state.potential_payout, big: isBig });
       }
       minesLastStatus = state.status;
       minesLastRevealedCount = revealedCount;

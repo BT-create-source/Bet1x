@@ -2550,9 +2550,9 @@
           let payout = 0;
           bets.forEach(b => {
             const amt = parseFloat(b.amount) || 0;
-            if (b.category === 'color' && b.value === res.color) payout += amt * (b.value === 'Violet' ? 4.5 : 2.0);
-            else if (b.category === 'number' && parseInt(b.value) === n) payout += amt * 9.0;
-            else if (b.category === 'size' && b.value === res.size) payout += amt * 2.0;
+            if (b.category === 'color' && b.value === res.color) payout += amt * 1.96;
+            else if (b.category === 'number' && parseInt(b.value) === n) payout += amt * 8.96;
+            else if (b.category === 'size' && b.value === res.size) payout += amt * 1.96;
           });
           outcomes.push({ number: n, color: res.color, dotClass: res.dotClass, size: res.size, playerPayout: payout, adminProfit: totalVolume - payout });
         }

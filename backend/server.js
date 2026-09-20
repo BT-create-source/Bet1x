@@ -2139,17 +2139,17 @@ async function settleColorRound(room, targetRound, state) {
     if (b.category === 'color') {
       if (b.value === resolved.color) {
         won = true;
-        multiplier = (b.value === 'Violet') ? 4.5 : 2.0;
+        multiplier = 1.96;
       }
     } else if (b.category === 'number') {
       if (parseInt(b.value) === num) {
         won = true;
-        multiplier = 9.0;
+        multiplier = 8.96;
       }
     } else if (b.category === 'size') {
       if (b.value === resolved.size) {
         won = true;
-        multiplier = 2.0;
+        multiplier = 1.96;
       }
     }
     

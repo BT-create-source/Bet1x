@@ -161,7 +161,7 @@ async function main() {
       console.log(`       result #${result.number} ${result.color}/${result.size}${result.is_rigged ? '  [' + result.rig_desc + ']' : ''}`);
       await sleep(1500); // let the payout write land
       const settled = await balance(token);
-      const expected = afterBets + STAKE * (result.color === 'Violet' ? 4.5 : 2.0);
+      const expected = afterBets + STAKE * 1.96;
       check('the winning colour pays at its stated multiplier', money(settled, expected), { afterBets, settled, expected, color: result.color });
 
       const tx = await req('GET', '/api/wallet/transactions', { token });
