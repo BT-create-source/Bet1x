@@ -418,7 +418,13 @@
         }
       });
 
-      startBtn.disabled = state.status === 'active';
+      // The label tracks the real game status alongside the disabled flag, so it is correct however
+      // the round ended — cash-out, bomb, or a state refresh — without each of those paths having
+      // to remember to reset it. A greyed-out button alone gave no indication that the tap had
+      // registered or that a round was underway.
+      const roundActive = state.status === 'active';
+      startBtn.disabled = roundActive;
+      startBtn.textContent = roundActive ? 'Game Started' : 'Start Game';
       cashoutBtn.disabled = !(state.status === 'active' && state.revealed.length > 0);
 
       // Neutral session reference for support lookups.
@@ -439,6 +445,9 @@
       if (minesRequestInFlight) return;
       minesRequestInFlight = true;
       startBtn.disabled = true;
+      // Immediate feedback on tap, without waiting for the server round-trip. render() takes the
+      // label over from here once the real state arrives.
+      startBtn.textContent = 'Game Started';
       let renderedFreshState = false;
 
       const bet = parseFloat(betAmountEl.value);
@@ -521,7 +530,12 @@
         // an error or an early-return, where render() never ran and the button would otherwise
         // stay stuck disabled.
         minesRequestInFlight = false;
-        if (!renderedFreshState) startBtn.disabled = false;
+        if (!renderedFreshState) {
+          startBtn.disabled = false;
+          // The round never actually began (error or early return), so the optimistic
+          // "Game Started" label set on tap must not be left showing.
+          startBtn.textContent = 'Start Game';
+        }
       }
     });
 
