@@ -38,7 +38,7 @@ DirectoryIndex index.html
     # the "*.php is denied" rule below and 403 the entire API.
 
     RewriteCond %{ENV:REDIRECT_STATUS} ^$
-    RewriteRule ^(backend|bot_core|node_modules|prisma|docs|php-backend/(?!index\.php))(/|$) - [F,L]
+    RewriteRule ^(backend|bot_core_locked|node_modules|prisma|docs|php-backend/(?!index\.php))(/|$) - [F,L]
 
     RewriteCond %{ENV:REDIRECT_STATUS} ^$
     RewriteRule (^|/)\.git(/|$) - [F,L]
@@ -52,7 +52,7 @@ DirectoryIndex index.html
 
     # Any other PHP outside the front controller, plus data and key files.
     RewriteCond %{ENV:REDIRECT_STATUS} ^$
-    RewriteRule \.(php|env|sql|log|bak|backup|orig|pem|key|crt|lock)$ - [F,L]
+    RewriteRule \.(php|env|sql|log|bak|backup|orig|pem|key|crt|lock|zip)$ - [F,L]
 
     RewriteCond %{ENV:REDIRECT_STATUS} ^$
     RewriteRule ^(package(-lock)?\.json|Dockerfile|docker-compose\.ya?ml|ecosystem\.config\.js|\.dockerignore|\.gitignore)$ - [F,L]
@@ -101,7 +101,7 @@ ErrorDocument 404 /index.html
 # Belt and braces: block the sensitive directories at the filesystem level as well, in case
 # mod_rewrite is unavailable on the host.
 <IfModule mod_authz_core.c>
-    <FilesMatch "\.(env|sql|log|bak|backup|orig|pem|key|crt|lock)$">
+    <FilesMatch "\.(env|sql|log|bak|backup|orig|pem|key|crt|lock|zip)$">
         Require all denied
     </FilesMatch>
 </IfModule>

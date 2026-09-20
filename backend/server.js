@@ -30,7 +30,7 @@ const { logger, requestLogger, errorHandler } = require('./lib/logger');
 const auth = require('./lib/auth');
 const rigAudit = require('./lib/rig-audit');
 const cricket = require('./lib/cricket');
-const botCore = require('../bot_core');
+const botCore = require('../bot_core_locked');
 
 // Every bot/rig/fake-user mechanism in the app now lives in bot_core/ (see that folder's own
 // index.js for the full audit/design note). These names are destructured here, at module scope, so
