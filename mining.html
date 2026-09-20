@@ -370,7 +370,17 @@
           tile.classList.add('safe');
           tile.textContent = '💎';
         }
+        // At game over every tile that is not shown as a mine is shown as a gem, rather than left
+        // blank. The server sends a display-only mine layout of exactly the count the player chose
+        // (see mines_display_mine_positions in php-backend/games/mines.php), so the finished board
+        // has to read as an ordinary board of that size — leaving the remaining tiles blank would
+        // single out the ones being hidden just as plainly as showing them.
+        if (gameOver && !revealedSet.has(i)) {
+          tile.classList.add('safe');
+          tile.textContent = '💎';
+        }
         if (gameOver && state.mine_positions && state.mine_positions.includes(i)) {
+          tile.classList.remove('safe');
           tile.classList.add('mine');
           tile.textContent = '💣';
         }

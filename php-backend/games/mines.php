@@ -169,3 +169,95 @@ function mines_trap_profit_add($amount) {
     try { state_set('mines_total_trap_profit', ['total' => $total]); } catch (Throwable $e) {}
     return $total;
 }
+
+/**
+ * The mine layout the PLAYER is shown once a round is over — deliberately not the real one.
+ *
+ * The admin rig can force far more live mines than the player chose to play against: a board set
+ * to 20 mines against a player who picked 3 really does have 20 live mines, and the player really
+ * does bust on any of them. Revealing that layout at the end, however, showed the player 20 bombs
+ * on a board they had configured for 3, which exposes the rig outright.
+ *
+ * This returns a display-only layout of exactly `mines_count` tiles — what the player asked for —
+ * drawn from the mines that are actually live. Every other tile, including the live mines left out
+ * of the selection, is presented as an ordinary gem by the client. Gameplay is untouched: the real
+ * `mine_positions` stay authoritative for busting, multipliers and payouts.
+ *
+ * Three properties this must hold, each of which would otherwise be a visible tell:
+ *
+ *   1. `$hitTile` (the tile that just busted the round) is ALWAYS included. Showing "you hit a
+ *      mine" and then drawing a gem on the tile they clicked is worse than showing the real
+ *      layout.
+ *   2. Tiles the player already opened as gems are never selected — a tile that showed a gem
+ *      during play must not flip to a bomb at the end.
+ *   3. The SAME round must always produce the SAME layout. The selection is therefore derived
+ *      deterministically from the round's own server_seed rather than drawn at random per call.
+ *      A random draw would change the layout every time the player reloaded the finished board —
+ *      and worse, reloading repeatedly would union those different draws into the real mine set,
+ *      handing back exactly the information this is hiding.
+ *
+ * On a busted round the tile that busted it is kept as the FIRST entry of `mine_positions`, which
+ * is how it stays recoverable after a reload: the set is unchanged (the audit trail is intact,
+ * membership tests are order-independent) and only its order carries the extra fact. That avoids
+ * needing a schema change purely to remember one integer.
+ *
+ * If the rig leaves fewer live mines than the player selected (admin forced tiles 'safe'), the
+ * selection is topped up from unopened tiles so the count the player sees always matches the count
+ * they chose.
+ */
+function mines_display_mine_positions(array $session, $hitTile = null) {
+    $gridSize = 25;
+    $want     = max(0, (int) ($session['mines_count'] ?? 3));
+    $real     = array_values(array_unique(array_map('intval', $session['mine_positions'] ?? [])));
+    $revealed = array_values(array_unique(array_map('intval', $session['revealed'] ?? [])));
+    $seed     = (string) ($session['server_seed'] ?? '');
+
+    // A busted round with no explicit hit tile is being re-rendered after a reload: recover it from
+    // the head of mine_positions, where the bust path put it.
+    if ($hitTile === null && ($session['status'] ?? '') === 'busted' && count($real) > 0) {
+        $hitTile = $real[0];
+    }
+
+    $chosen = [];
+
+    // 1. The busting tile always shows as a mine.
+    if ($hitTile !== null && $hitTile >= 0 && $hitTile < $gridSize) {
+        $chosen[] = (int) $hitTile;
+    }
+
+    // Deterministic, side-effect-free ordering. Explicitly NOT shuffle()/mt_srand(): seeding the
+    // global RNG would perturb every other random draw in the same request (rig decisions, filler
+    // names), and an unseeded shuffle would not survive a reload.
+    $order = function (array $list) use ($seed) {
+        usort($list, function ($a, $b) use ($seed) {
+            return strcmp(md5($seed . ':' . $a), md5($seed . ':' . $b));
+        });
+        return $list;
+    };
+
+    // 2. Fill from the genuinely live mines, minus anything already opened as a gem.
+    $candidates = array_values(array_filter($real, function ($p) use ($revealed, $chosen) {
+        return !in_array($p, $revealed, true) && !in_array($p, $chosen, true);
+    }));
+    foreach ($order($candidates) as $p) {
+        if (count($chosen) >= $want) break;
+        $chosen[] = (int) $p;
+    }
+
+    // 3. Top up from unopened tiles if the rig left fewer live mines than the player chose, so the
+    //    displayed count always equals mines_count.
+    if (count($chosen) < $want) {
+        $filler = [];
+        for ($i = 0; $i < $gridSize; $i++) {
+            if (in_array($i, $revealed, true) || in_array($i, $chosen, true)) continue;
+            $filler[] = $i;
+        }
+        foreach ($order($filler) as $p) {
+            if (count($chosen) >= $want) break;
+            $chosen[] = (int) $p;
+        }
+    }
+
+    sort($chosen);
+    return array_values($chosen);
+}

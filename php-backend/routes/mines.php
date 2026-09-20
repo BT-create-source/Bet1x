@@ -69,7 +69,15 @@ function register_mines_routes(Router $app) {
                 'session_ref'      => js_truthy($session['server_seed'] ?? null)
                                       ? strtoupper(substr(hash('sha256', (string)$session['server_seed']), 0, 12))
                                       : null,
-                'mine_positions'   => $finished ? array_values($session['mine_positions'] ?? []) : null,
+                // Display layout, not the live one — see mines_display_mine_positions(). It is
+                // derived deterministically from this round's server_seed (and, on a busted round,
+                // the hit tile recorded at the head of mine_positions), so reloading a finished
+                // board reproduces exactly the same layout. That matters for more than tidiness:
+                // if each reload drew a fresh layout, reloading repeatedly would union those draws
+                // back into the real mine set.
+                'mine_positions'   => $finished
+                                      ? mines_display_mine_positions($session, null)
+                                      : null,
                 'balance'          => $walletBalance,
                 'rig_active'       => $matrixRigged || js_truthy($rig['next_tile']) || js_truthy($rig['rig_type'])
                                       || (is_array($rig['target_users']) && count($rig['target_users']) > 0),
@@ -314,6 +322,19 @@ function register_mines_routes(Router $app) {
 
             if ($hitMine) {
                 $session['status'] = 'busted';
+
+                // Keep the busting tile at the head of mine_positions. The set is unchanged — same
+                // members, so the audit trail and every in_array() membership test are unaffected —
+                // but the order now records WHICH tile busted, which is what lets the finished board
+                // be reproduced identically if the player reloads the page. mines_session_write
+                // persists this column, so it survives; a separate display column would have needed
+                // a schema migration to remember one integer.
+                $session['mine_positions'] = array_values(array_unique(array_merge(
+                    [(int) $tileIndex],
+                    array_map('intval', $session['mine_positions'])
+                )));
+
+                $displayMines = mines_display_mine_positions($session, $tileIndex);
                 mines_session_write($username, $session);
                 log_debug('mines busted', ['username' => $username, 'tile' => $tileIndex + 1]);
 
@@ -326,7 +347,8 @@ function register_mines_routes(Router $app) {
                     'multiplier'       => 0,
                     'potential_payout' => 0,
                     'server_seed'      => $session['server_seed'],
-                    'mine_positions'   => array_values($session['mine_positions']),
+                    // Display layout, not the live one — see mines_display_mine_positions().
+                    'mine_positions'   => $displayMines,
                     'balance'          => (float)$user['wallet_balance'],
                     'was_rigged'       => $wasRiggedThisReveal,
                 ]]);
@@ -381,6 +403,13 @@ function register_mines_routes(Router $app) {
                 return;
             }
 
+            // Freeze the player-facing layout for this finished round, exactly as the bust path
+            // does. No hit tile here — the player never stepped on one — so the whole selection is
+            // drawn from the live mines, skipping every tile they already opened as a gem.
+            $session['status'] = 'cashed';
+            $displayMines = mines_display_mine_positions($session, null);
+            mines_session_write($username, $session);
+
             $user = get_or_create_user($username);
             if (!$user) { $res->status(404)->json(['ok' => false, 'error' => 'Account not found.']); return; }
             $balanceAfterCredit = credit_wallet($user['id'], $payout);
@@ -410,7 +439,8 @@ function register_mines_routes(Router $app) {
                 'multiplier'       => $session['multiplier'],
                 'potential_payout' => $payout,
                 'server_seed'      => $session['server_seed'],
-                'mine_positions'   => array_values($session['mine_positions']),
+                // Display layout, not the live one — see mines_display_mine_positions().
+                'mine_positions'   => $displayMines,
                 'balance'          => $balanceAfterCredit,
             ]]);
         } catch (Throwable $err) {
