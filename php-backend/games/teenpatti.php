@@ -28,14 +28,19 @@ require_once __DIR__ . '/../lib/botengine.php';
 require_once __DIR__ . '/../lib/rigaudit.php';
 
 const TP_TURN_TIMEOUT   = 15;     // seconds
-const TP_BOT_FILL_DELAY = 15000;  // 15s before fillers occupy empty seats
-// A bot's per-turn "thinking" delay — deliberately close to how long a real player takes to decide
-// (seen the cards, chaal vs fold, maybe a sideshow), not an instant reaction. This is the main lever
-// behind a hand's realistic pace: with 4 mandatory players and several chaal rounds each taking
-// 5-10s per turn, an ordinary hand runs a few minutes rather than resolving in seconds.
-const TP_BOT_THINK_MIN  = 5000;
-const TP_BOT_THINK_MAX  = 10000;
-const TP_ROUND_DELAY    = 5000;   // 5s between rounds
+const TP_BOT_FILL_DELAY = 5000;   // 5s before fillers occupy empty seats
+// A bot's per-turn "thinking" delay — close to how long a real player takes to decide (seen the
+// cards, chaal vs fold, maybe a sideshow), not an instant reaction. This is the main lever behind a
+// hand's pace: with 4 mandatory players and several chaal rounds, every second here is multiplied
+// many times over across a hand.
+//
+// Lowered from 5-10s (and the fill delay from 15s) on operator request — at the old values an
+// ordinary hand ran several minutes, which read as the game being stuck rather than deliberate. At
+// 2-4s a hand still paces like people deciding rather than machines, but finishes in well under
+// half the time. These four constants are the whole speed control: raise them to slow hands down.
+const TP_BOT_THINK_MIN  = 2000;
+const TP_BOT_THINK_MAX  = 4000;
+const TP_ROUND_DELAY    = 3000;   // 3s between rounds
 
 /**
  * Realistic filler names for empty-seat auto-fill — no seat is ever named or labelled "bot"

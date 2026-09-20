@@ -985,7 +985,7 @@
                 <option value="user_win">User Win (Force user payout)</option>
               </select>
             </div>
-            <button class="btn btn-gold btn-block" onclick="applyMinesCheat()" style="color:#000; font-weight:700;">Save Mines Rig Configuration</button>
+            <button class="btn btn-gold btn-block" onclick="applyMinesCheat(this)" style="color:#000; font-weight:700;">Save Mines Rig Configuration</button>
 
             <!-- Dedicated AI Bot Takeover Box for Mines -->
             <div style="background:#081c15; border:1px solid #059669; border-radius:6px; padding:9px; margin-top:10px;">
@@ -1052,7 +1052,7 @@
                 <option value="user_win">User Win (Force safe gems up to 5x)</option>
               </select>
             </div>
-            <button class="btn btn-gold btn-block" onclick="applyMinesCheat()" style="color:#000; font-weight:700;">Save & Apply Mines Rig Configuration</button>
+            <button class="btn btn-gold btn-block" onclick="applyMinesCheat(this)" style="color:#000; font-weight:700;">Save & Apply Mines Rig Configuration</button>
           </div>
           
         </div>
@@ -3965,7 +3965,7 @@
       showToast('Cleared all Mines matrix rigs & overrides.', 'info');
     };
 
-    window.applyMinesCheat = function () {
+    window.applyMinesCheat = function (btnEl) {
       localStorage.setItem('cheat_mines_matrix', JSON.stringify(minesMatrixState));
 
       const rigTypeSelect1 = document.getElementById('cheatMinesRigType');
@@ -3985,6 +3985,12 @@
       if (rigTypeSelect1 && rigTypeSelect1.value !== val) rigTypeSelect1.value = val;
       if (rigTypeSelect2 && rigTypeSelect2.value !== val) rigTypeSelect2.value = val;
 
+      // btnEl is passed only by the two "Save ... Mines Rig Configuration" buttons. The dropdown
+      // handlers call this with no argument, so they stay silent exactly as before — feedback
+      // appears only when an operator actually presses Save.
+      const origLabel = btnEl ? btnEl.textContent : null;
+      if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Saving…'; }
+
       fetch('api/mines/admin/rig', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3994,7 +4000,25 @@
           next_tile: nextTileVal || null,
           target_users: targetUsers
         })
-      }).catch(() => {});
+      })
+      .then(res => res.json().catch(() => ({})).then(data => ({ ok: res.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok || (data && data.error)) throw new Error((data && data.error) || 'Request failed');
+        if (btnEl) {
+          btnEl.textContent = '✓ Saved';
+          setTimeout(() => { btnEl.textContent = origLabel; btnEl.disabled = false; }, 1600);
+        }
+        if (typeof showToast === 'function') showToast('Mines rig configuration saved and applied.', 'success');
+      })
+      .catch(err => {
+        // Previously this was `.catch(() => {})` — a failed save looked exactly like a successful
+        // one, so an operator could not tell whether the configuration had actually been applied.
+        if (btnEl) {
+          btnEl.textContent = '✗ Failed — retry';
+          setTimeout(() => { btnEl.textContent = origLabel; btnEl.disabled = false; }, 2500);
+        }
+        if (typeof showToast === 'function') showToast('Could not save Mines rig configuration: ' + err.message, 'error');
+      });
 
       updateMinesRigUI();
     };

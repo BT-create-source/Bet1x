@@ -444,8 +444,7 @@ function register_teenpatti_routes(Router $app) {
                 return;
             }
 
-            // action === 'set_room' — only meaningful in Manual mode, but harmless either way: an
-            // Auto-mode shuffle will simply overwrite it at the next reshuffle regardless.
+            // action === 'set_room' — an explicit per-room figure from the operator.
             $roomId = (string) ($req->b('room_id') ?? '');
             if (!in_array($roomId, tp_room_ids(), true)) {
                 $res->status(400)->json(['error' => 'Unknown room_id.']);
@@ -459,6 +458,15 @@ function register_teenpatti_routes(Router $app) {
 
             $config = tp_room_bot_config();
             $config['rooms'][$roomId]['target'] = max(0, min(TP_ROOM_SEAT_COUNT, (int) $target));
+
+            // Setting a room by hand IS taking manual control of it, so switch the master mode over
+            // rather than saving a figure the next Auto reshuffle would silently overwrite. Before
+            // this, an operator could set a room's bot count, watch it hold for a few minutes, and
+            // then see it change back on its own at the next 5-minute reshuffle — which is exactly
+            // the "admin panel ka set kiya hua count respect nahi ho raha" report. In Manual mode
+            // tp_maybe_shuffle_room_bot_targets() is a no-op, so the operator's figure is final
+            // until they switch back to Auto themselves.
+            $config['master_manual'] = true;
             tp_room_bot_config_save($config);
 
             // Reflect the new target on the room's actual seats immediately — an admin change

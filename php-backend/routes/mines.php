@@ -26,6 +26,16 @@ function register_mines_routes(Router $app) {
     $app->get('/api/mines/state', 'require_auth', function (Req $req, Res $res) {
         $username = acting_username($req);
         try {
+            // Keep this player in the live set for as long as they actually have the game open.
+            // Presence expires after LIVE_USER_TTL_MS (45s) and was previously only recorded by
+            // /api/mines/start — but a board lasts far longer than 45 seconds, so a player sitting
+            // on an open board silently dropped out of the live set. The targeting engine then
+            // sampled its P% from a set that no longer contained them, is_user_targeted() went
+            // false, and the reveal handler below never rigged anything: the operator switched the
+            // Mines bot on in the admin panel and nothing whatsoever happened on the site. This
+            // poll runs continuously while the board is open, which is exactly the right heartbeat.
+            mark_user_active('mines', $username);
+
             $user = get_or_create_user($username);
             $session = mines_session_get($username);
             if (!$session) $session = ['status' => 'idle'];
@@ -220,6 +230,11 @@ function register_mines_routes(Router $app) {
         $tileIndex = js_parse_int($req->b('index'));
 
         try {
+            // Same reason as /api/mines/state above: a tile click is proof this player is live, and
+            // the rig decision a few lines down depends on them being in the live set to be
+            // targeted at all.
+            mark_user_active('mines', $username);
+
             $session = mines_session_get($username);
             if (!$session || $session['status'] !== 'active') {
                 $res->status(400)->json(['ok' => false, 'error' => 'No active game round.']);
