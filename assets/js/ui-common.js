@@ -2445,8 +2445,8 @@ function renderProfilePage(data) {
     </div>
 
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;">
-      <div class="profile-stat-tile"><div class="profile-stat-value" id="profile-wallet-value" style="color:var(--gold);">${profileFmtMoney(p.wallet_balance)}</div><div class="profile-stat-label">My Balance</div></div>
-      <div class="profile-stat-tile"><div class="profile-stat-value" id="profile-referral-value" style="color:var(--violet);">${profileFmtMoney(p.referral_balance)}</div><div class="profile-stat-label">Referral / Invite Bonus</div></div>
+      <div class="profile-stat-tile"><div class="profile-stat-value is-money" id="profile-wallet-value" style="color:var(--gold);">${profileFmtMoney(p.wallet_balance)}</div><div class="profile-stat-label">My Balance</div></div>
+      <div class="profile-stat-tile"><div class="profile-stat-value is-money" id="profile-referral-value" style="color:var(--violet);">${profileFmtMoney(p.referral_balance)}</div><div class="profile-stat-label">Referral / Invite Bonus</div></div>
     </div>
 
     <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-bottom:18px;">
@@ -2499,8 +2499,8 @@ function renderGameHistorySection(data) {
       <div class="profile-stat-tile"><div class="profile-stat-value">${s.games_played || 0}</div><div class="profile-stat-label">Played</div></div>
       <div class="profile-stat-tile"><div class="profile-stat-value" style="color:var(--green);">${s.wins || 0}</div><div class="profile-stat-label">Wins</div></div>
       <div class="profile-stat-tile"><div class="profile-stat-value" style="color:var(--red);">${s.losses || 0}</div><div class="profile-stat-label">Losses</div></div>
-      <div class="profile-stat-tile"><div class="profile-stat-value" style="color:var(--green); font-size:14px;">${profileFmtMoney(s.total_won)}</div><div class="profile-stat-label">Won</div></div>
-      <div class="profile-stat-tile"><div class="profile-stat-value" style="color:var(--red); font-size:14px;">${profileFmtMoney(s.total_lost)}</div><div class="profile-stat-label">Lost</div></div>
+      <div class="profile-stat-tile"><div class="profile-stat-value is-money" style="color:var(--green);">${profileFmtMoney(s.total_won)}</div><div class="profile-stat-label">Won</div></div>
+      <div class="profile-stat-tile"><div class="profile-stat-value is-money" style="color:var(--red);">${profileFmtMoney(s.total_lost)}</div><div class="profile-stat-label">Lost</div></div>
     </div>
     <div style="max-height:220px; overflow-y:auto; border:1px solid var(--border); border-radius:var(--radius-sm);">
       <table style="width:100%; border-collapse:collapse; font-size:13px;">
@@ -2572,7 +2572,7 @@ function renderReferralSection(container, data) {
 
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px;">
       <div class="profile-stat-tile"><div class="profile-stat-value">${data.total_referred || 0}</div><div class="profile-stat-label">Players Invited</div></div>
-      <div class="profile-stat-tile"><div class="profile-stat-value" style="color:var(--green);">${profileFmtMoney(data.total_earned)}</div><div class="profile-stat-label">Lifetime Earned</div></div>
+      <div class="profile-stat-tile"><div class="profile-stat-value is-money" style="color:var(--green);">${profileFmtMoney(data.total_earned)}</div><div class="profile-stat-label">Lifetime Earned</div></div>
     </div>
 
     <div style="display:flex; justify-content:space-between; align-items:center; background:var(--violet-soft); border:1px solid var(--violet); border-radius:var(--radius-sm); padding:10px 14px; margin-bottom:12px;">

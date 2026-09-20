@@ -152,22 +152,44 @@ function register_mines_routes(Router $app) {
                 return;
             }
 
-            $allIndices = range(0, 24);
-            for ($i = count($allIndices) - 1; $i > 0; $i--) {
-                $j = (int) floor(js_random() * ($i + 1));
-                $tmp = $allIndices[$i]; $allIndices[$i] = $allIndices[$j]; $allIndices[$j] = $tmp;
-            }
-            $minePositions = array_slice($allIndices, 0, $minesNum);
-
-            // Apply the admin matrix rig overrides.
+            // Lay the board: the admin's rigged mines are fixed, then the count is topped up at
+            // random to the number of mines the PLAYER chose.
+            //
+            // Previously this laid $minesNum random mines and then let the matrix add its 'mine'
+            // tiles and, crucially, REMOVE any random mine sitting on a 'safe' tile. With 9 rigged
+            // mines against a player who selected 15, the 'safe' marks stripped the random ones out
+            // and the board ended up with only the admin's 9 — so the player could open 16 tiles
+            // without ever hitting anything. The admin's layout was overriding the player's chosen
+            // difficulty instead of sitting inside it.
+            //
+            // Now: every 'mine' tile stays exactly where the admin put it, and the shortfall up to
+            // the player's count is scattered at random over the rest of the board — deliberately
+            // including tiles the admin marked 'safe', since the player's selection is what
+            // determines how many live mines the board carries.
             $rig = mines_rig_get();
+
+            $minePositions = [];
             foreach ($rig['matrix'] as $idx => $tileState) {
-                if ($tileState === 'mine' && !in_array($idx, $minePositions, true)) {
-                    $minePositions[] = $idx;
-                } elseif ($tileState === 'safe' && in_array($idx, $minePositions, true)) {
-                    $minePositions = array_values(array_filter($minePositions, function ($m) use ($idx) { return $m !== $idx; }));
-                }
+                if ($tileState === 'mine') $minePositions[] = (int) $idx;
             }
+            $minePositions = array_values(array_unique($minePositions));
+
+            // A rig heavier than the player's selection is left intact — that is the operator
+            // deliberately stacking the board, and the reveal layer shows only as many mines as the
+            // player chose (see mines_display_mine_positions).
+            if (count($minePositions) < $minesNum) {
+                $pool = [];
+                for ($i = 0; $i <= 24; $i++) {
+                    if (!in_array($i, $minePositions, true)) $pool[] = $i;
+                }
+                for ($i = count($pool) - 1; $i > 0; $i--) {
+                    $j = (int) floor(js_random() * ($i + 1));
+                    $tmp = $pool[$i]; $pool[$i] = $pool[$j]; $pool[$j] = $tmp;
+                }
+                $need = $minesNum - count($minePositions);
+                $minePositions = array_merge($minePositions, array_slice($pool, 0, $need));
+            }
+            $minePositions = array_values($minePositions);
 
             $serverSeed = 'SEED_' . substr(base_convert(bin2hex(random_bytes(8)), 16, 36), 0, 11);
             mark_user_active('mines', $username);

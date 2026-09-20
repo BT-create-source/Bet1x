@@ -18,19 +18,45 @@ require_once __DIR__ . '/../lib/db.php';
 require_once __DIR__ . '/../lib/helpers.php';
 
 /**
- * The multiplier after N safe reveals: the inverse of the cumulative safe-draw probability,
- * times a 0.97 house edge, rounded to 2dp.
+ * The multiplier paid for clearing the ENTIRE board at a given mine count — the operator's table,
+ * used verbatim rather than derived.
+ *
+ * It replaces the previous inverse-probability formula, which was mathematically fair but paid out
+ * far too steeply at the top of the range: 24 mines returned 24.25x where this table pays 5.00x.
+ */
+function mines_max_multiplier($minesCount) {
+    static $table = [
+        1  => 1.02, 2  => 1.08, 3  => 1.16, 4  => 1.25, 5  => 1.34, 6  => 1.44,
+        7  => 1.55, 8  => 1.66, 9  => 1.78, 10 => 1.91, 11 => 2.05, 12 => 2.19,
+        13 => 2.35, 14 => 2.51, 15 => 2.69, 16 => 2.87, 17 => 3.07, 18 => 3.27,
+        19 => 3.49, 20 => 3.71, 21 => 3.95, 22 => 4.20, 23 => 4.50, 24 => 5.00,
+    ];
+    $n = (int) $minesCount;
+    if (isset($table[$n])) return $table[$n];
+    // Outside 1-24 the round could not have been started (/api/mines/start enforces the range);
+    // clamp rather than return null so a bad stored session can never produce a null payout.
+    if ($n < 1)  return $table[1];
+    return $table[24];
+}
+
+/**
+ * The multiplier after N safe reveals.
+ *
+ * The table above is the payout for clearing the whole board; a partially-cleared board earns a
+ * proportional share of it. So with 3 mines (22 safe tiles, 1.16x for the lot): 11 gems pays
+ * 1.08x, all 22 pays the full 1.16x. At 24 mines there is a single safe tile, so opening it pays
+ * the whole 5.00x.
+ *
+ * Signature is unchanged, so every existing caller keeps working.
  */
 function calculate_mines_multiplier($gridSize, $minesCount, $revealedCount) {
     if ($revealedCount <= 0) return 1.0;
-    $prob = 1.0;
-    for ($i = 0; $i < $revealedCount; $i++) {
-        $safeLeft  = $gridSize - $minesCount - $i;
-        $totalLeft = $gridSize - $i;
-        if ($safeLeft <= 0) return 0.0;
-        $prob *= ($safeLeft / $totalLeft);
-    }
-    return to_fixed_num((1.0 / $prob) * 0.97, 2);
+    $safeTiles = $gridSize - $minesCount;
+    if ($safeTiles <= 0) return 0.0;
+    if ($revealedCount > $safeTiles) $revealedCount = $safeTiles;
+
+    $target = mines_max_multiplier($minesCount);
+    return to_fixed_num(1.0 + ($target - 1.0) * ($revealedCount / $safeTiles), 2);
 }
 
 // -------------------------------------------------------------------------------------------------

@@ -886,6 +886,15 @@ select {
   opacity: 1;
   visibility: visible;
 }
+
+/* Log In / Sign Up covers the page completely, so it reads as its own screen rather than a panel
+   floating over a site the visitor can still see and half-read behind it. Scoped to this one
+   overlay by id: #bet1x-settings-modal reuses the same class and deliberately keeps the
+   see-through treatment, since it IS a panel over the page you were already on. */
+#bet1x-auth-modal {
+  background: var(--bg);
+  backdrop-filter: none;
+}
 .auth-modal-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -3434,14 +3443,30 @@ body.exchange-theme .footer {
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 10px 12px;
+  padding: 10px 8px;
   text-align: center;
+  /* Grid/flex items default to min-width:auto, i.e. they refuse to shrink below their content.
+     That is what let a long amount like ₹18,528.78 push straight out of its tile and overlap the
+     next one. min-width:0 lets the tile hold its track, and overflow:hidden guarantees nothing
+     can ever paint outside its border. */
+  min-width: 0;
+  overflow: hidden;
 }
 .profile-stat-value {
   font-family: var(--font-mono);
-  font-size: 17px;
+  /* Scales with the tile instead of a fixed 17px, so a 6-7 digit amount fits on a narrow phone
+     while short values (a win count) still read at full size on a wide screen. */
+  font-size: clamp(12px, 3.6vw, 17px);
   font-weight: 700;
   color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+/* Money tiles (Won / Lost) carry the longest strings, so they start a step smaller. */
+.profile-stat-value.is-money {
+  font-size: clamp(10.5px, 3.1vw, 14px);
 }
 .profile-stat-label {
   font-size: 10.5px;
