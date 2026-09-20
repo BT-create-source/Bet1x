@@ -833,18 +833,24 @@ function tp_finish_round_reset($roomId) {
         tp_clear_all_seats($roomId);
         tp_update_room($roomId, ['status' => 'waiting', 'pot' => 0, 'winner_seat' => null, 'round_end_due_at' => null]);
 
-        // Pre-seed a seat so the table looks populated. This is a cosmetic room-filling heuristic
-        // only — purely about how lively an idle room looks — so it draws its own plain coin flip
-        // rather than should_bot_rig_this_round: consuming a real decision from the shared rig
-        // engine here, for a filler that is always an ordinary name and never "Admin", would only
-        // dilute that engine's memory with draws that do not correspond to a match outcome.
-        if (bot_takeover_active('teenpatti')['active'] && js_random() < 0.5) {
-            $randomSeat = (int) floor(js_random() * 4);
-            $filler = next_room_filler_username();
-            q('UPDATE "TeenPattiSeat" SET "username" = ?, "is_bot" = ?, "folded" = 0
-               WHERE "room_id" = ? AND "seat" = ?',
-              [$filler['username'], $filler['is_bot'] ? 1 : 0, $roomId, $randomSeat]);
-        }
+        // A cosmetic "pre-seed a random seat on a coin flip" step used to run here. It is deleted
+        // rather than fixed, because it was the reason a room's bot count did not match what the
+        // operator configured:
+        //
+        //   - it ignored the room's configured target entirely, so it could seat a bot in a room
+        //     already at (or meant to be below) its target;
+        //   - it was keyed on bot_takeover_active('teenpatti') — the WIN-RATE takeover switch,
+        //     which is deliberately a separate control from the room bot-allocation config (see
+        //     the header of lib/botengine.php) — so switching the win-rate bot on silently changed
+        //     lobby occupancy too;
+        //   - alone among the filler paths it had no TEENPATTI_AUTO_BOT_FILL gate, so in
+        //     real-players-only mode (the production default) it seated bots that
+        //     tp_apply_room_bot_target then refused to clean up, because that function returns
+        //     early under the same flag. Those seats simply stayed.
+        //
+        // Nothing is lost by removing it: tp_apply_room_bot_target($roomId) runs a few lines below
+        // and fills the room to exactly its configured target, which is the behaviour that was
+        // wanted from this in the first place.
 
         // Always clear any leftover per-hand rig now that this hand is fully over.
         tp_update_room($roomId, ['admin_rig' => null]);
