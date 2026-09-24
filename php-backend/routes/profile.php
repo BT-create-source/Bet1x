@@ -105,6 +105,29 @@ function profile_build_rounds($txns) {
     return $rounds;
 }
 
+/**
+ * Keep at most $perGame rounds for each game, and at most $total overall, preserving the
+ * newest-first order the list already carries.
+ *
+ * This replaced a flat array_slice() over the whole list, which whichever game the player had been
+ * grinding most recently would consume entirely — leaving every other game they had ever played
+ * missing from the history section. Purely a display cap: the stats above it are computed from the
+ * complete round list and are not affected by anything here.
+ */
+function profile_cap_per_game($rounds, $perGame, $total) {
+    $kept = [];
+    $out  = [];
+    foreach ($rounds as $r) {
+        $game = $r['game'];
+        $n = isset($kept[$game]) ? $kept[$game] : 0;
+        if ($n >= $perGame) continue;
+        $kept[$game] = $n + 1;
+        $out[] = $r;
+        if (count($out) >= $total) break;
+    }
+    return $out;
+}
+
 function register_profile_routes(Router $app) {
     $app->get('/api/profile', 'require_auth', function (Req $req, Res $res) {
         try {
@@ -115,11 +138,16 @@ function register_profile_routes(Router $app) {
                 return;
             }
 
+            // Newest rows, not oldest. With ASC the cap kept a player's FIRST N transactions, so
+            // once someone crossed it their recent play stopped reaching this page at all. The
+            // list is flipped back into chronological order immediately afterwards, because
+            // pairing a bet with the win that follows it only works reading forwards.
             $rows = all(
                 'SELECT "details","amount","timestamp" FROM "Transaction" '
-                . 'WHERE LOWER("user") = LOWER(?) ORDER BY "timestamp" ASC LIMIT 1000',
+                . 'WHERE LOWER("user") = LOWER(?) ORDER BY "timestamp" DESC LIMIT 5000',
                 [$username]
             );
+            $rows = array_reverse($rows);
 
             $classified = [];
             foreach ($rows as $r) {
@@ -165,8 +193,10 @@ function register_profile_routes(Router $app) {
                     'total_lost'   => round($totalLost, 2),
                     'net'          => round($totalWon - $totalLost, 2),
                 ],
-                // Most recent first, capped — this is a profile view, not a full statement.
-                'history' => array_slice($rounds, 0, 50),
+                // Most recent first, capped per game rather than across the whole list, so every
+                // game the player has actually played reaches the per-game tabs. Still a profile
+                // view, not a full statement.
+                'history' => profile_cap_per_game($rounds, 50, 400),
             ]);
         } catch (Throwable $err) {
             fail500($res, $err, 'profile');
