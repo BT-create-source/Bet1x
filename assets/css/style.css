@@ -3477,6 +3477,46 @@ body.exchange-theme .footer {
   margin-top: 3px;
 }
 
+/* Per-game filter tabs above the Game History table (assets/js/ui-common.js builds them from the
+   games actually present in the history). Scrolls sideways rather than wrapping, so a player with
+   several games keeps the table at a predictable height on a phone. */
+.profile-history-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 0 0 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.profile-history-tabs::-webkit-scrollbar { display: none; }
+
+.profile-history-tab {
+  flex: 0 0 auto;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--text-dim);
+  font-family: var(--font-body);
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 6px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.profile-history-tab:hover { color: var(--text); border-color: var(--text-faint); }
+.profile-history-tab.active {
+  background: var(--gold-soft);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.profile-history-tab-count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  opacity: 0.75;
+  margin-left: 2px;
+}
+
 .profile-menu {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);

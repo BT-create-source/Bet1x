@@ -2481,11 +2481,20 @@ function renderGameHistorySection(data) {
   const el = document.getElementById('profile-section-game-history');
   if (!el) return;
 
+  // One tab per game the player has actually played, built from the history itself rather than a
+  // hardcoded list — so the colour rooms, Teen Patti, Mines, Vimaan and anything added later all
+  // appear on their own without this needing to know about them. "All" keeps the original mixed
+  // view as the default, so nothing changes for someone who does not touch the tabs.
+  const gameNames = [];
+  history.forEach(h => { if (h.game && gameNames.indexOf(h.game) === -1) gameNames.push(h.game); });
+
   const historyRows = history.length === 0
     ? '<tr><td colspan="4" style="text-align:center; color:var(--text-dim); padding:18px;">No games played yet.</td></tr>'
     : history.map(h => {
         const won = h.result === 'won';
-        return '<tr>'
+        // data-game drives the filtering; rows are shown/hidden in place rather than re-rendered,
+        // so switching tabs cannot lose or reorder anything.
+        return '<tr data-game="' + escapeHtml(h.game || '') + '">'
           + '<td style="padding:7px 10px; border-top:1px solid var(--border);">' + escapeHtml(h.game) + '</td>'
           + '<td style="padding:7px 10px; border-top:1px solid var(--border);"><span class="badge ' + (won ? 'won' : 'lost') + '">' + (won ? 'Won' : 'Lost') + '</span></td>'
           + '<td style="padding:7px 10px; border-top:1px solid var(--border); font-family:var(--font-mono); font-weight:700; color:' + (won ? 'var(--green)' : 'var(--red)') + ';">'
@@ -2502,6 +2511,16 @@ function renderGameHistorySection(data) {
       <div class="profile-stat-tile"><div class="profile-stat-value is-money" style="color:var(--green);">${profileFmtMoney(s.total_won)}</div><div class="profile-stat-label">Won</div></div>
       <div class="profile-stat-tile"><div class="profile-stat-value is-money" style="color:var(--red);">${profileFmtMoney(s.total_lost)}</div><div class="profile-stat-label">Lost</div></div>
     </div>
+    ${gameNames.length > 1 ? `
+    <div class="profile-history-tabs" id="profile-history-tabs">
+      <button type="button" class="profile-history-tab active" data-filter="__all__">All <span class="profile-history-tab-count">${history.length}</span></button>
+      ${gameNames.map(g => {
+        const count = history.filter(h => h.game === g).length;
+        return '<button type="button" class="profile-history-tab" data-filter="' + escapeHtml(g) + '">'
+             + escapeHtml(g) + ' <span class="profile-history-tab-count">' + count + '</span></button>';
+      }).join('')}
+    </div>` : ''}
+
     <div style="max-height:220px; overflow-y:auto; border:1px solid var(--border); border-radius:var(--radius-sm);">
       <table style="width:100%; border-collapse:collapse; font-size:13px;">
         <thead>
@@ -2516,6 +2535,26 @@ function renderGameHistorySection(data) {
       </table>
     </div>
   `;
+
+  // Wired here rather than with inline onclick handlers, because a game label goes into the
+  // attribute and the colour-room names contain spaces — quoting those into an onclick string is
+  // exactly the kind of thing that breaks quietly on one room and not the others.
+  const tabsEl = el.querySelector('#profile-history-tabs');
+  if (!tabsEl) return;
+
+  const tabs = tabsEl.querySelectorAll('.profile-history-tab');
+  const rows = el.querySelectorAll('tbody tr[data-game]');
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const filter = tab.getAttribute('data-filter');
+      tabs.forEach(t => t.classList.toggle('active', t === tab));
+      rows.forEach(row => {
+        const show = (filter === '__all__') || (row.getAttribute('data-game') === filter);
+        row.hidden = !show;
+      });
+    });
+  });
 }
 
 /* ============================================================
