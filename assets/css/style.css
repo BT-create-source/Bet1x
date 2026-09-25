@@ -3789,6 +3789,51 @@ body.exchange-theme .footer {
 .gh-loss { color: var(--red); }
 .gh-time { color: var(--text-dim); font-size: 11.5px; white-space: nowrap; }
 
+/* Phones and small tablets.
+
+   The site-wide mobile block at this same 768px breakpoint contains
+
+       table { display: block; overflow-x: auto; }
+
+   and `display: block` on a <table> throws away real table layout: the rows then get wrapped
+   in an anonymous shrink-to-fit table box, so the columns collapse to their content, bunch up
+   against the left edge and leave dead space down the right-hand side. That is the squeezed
+   layout reported on the live site.
+
+   These rules restore proper table behaviour for THIS panel only, by id-free but
+   panel-scoped selectors. The global rule is deliberately left exactly as it is, because
+   other tables on the site rely on its horizontal scrolling. */
+@media (max-width: 768px) {
+  .gh-panel  { width: 100%; box-sizing: border-box; }
+  .gh-scroll { width: 100%; }
+
+  .gh-panel .gh-table       { display: table; table-layout: fixed; width: 100%; }
+  .gh-panel .gh-table thead { display: table-header-group; }
+  .gh-panel .gh-table tbody { display: table-row-group; }
+  .gh-panel .gh-table tr    { display: table-row; }
+  .gh-panel .gh-table th,
+  .gh-panel .gh-table td    { display: table-cell; }
+
+  /* Four proportional columns totalling 100%, so a row fills the panel edge to edge with no
+     gap left over. Width AND alignment are declared once for each column and applied to the
+     th and the td together — that pairing is what keeps every header label sitting directly
+     above its own data instead of drifting out of step with it. */
+  .gh-panel .gh-table th:nth-child(1),
+  .gh-panel .gh-table td:nth-child(1) { width: 25%; text-align: left; }
+  .gh-panel .gh-table th:nth-child(2),
+  .gh-panel .gh-table td:nth-child(2) { width: 25%; text-align: center; }
+  .gh-panel .gh-table th:nth-child(3),
+  .gh-panel .gh-table td:nth-child(3) { width: 27%; text-align: center; }
+  .gh-panel .gh-table th:nth-child(4),
+  .gh-panel .gh-table td:nth-child(4) { width: 23%; text-align: right; }
+
+  /* Fixed layout means a cell can no longer widen itself, so values wrap onto a second line
+     instead. Deliberately NOT truncated with an ellipsis — amounts must stay readable in
+     full. */
+  .gh-bet, .gh-amt { white-space: normal; overflow-wrap: anywhere; }
+  .gh-time { white-space: normal; }
+}
+
 /* Phones. The four columns have to survive a 320px-wide screen, so the padding tightens,
    the badge shrinks, and the timestamp drops its year and puts the clock on a second line
    ("25 Sep" over "10:00 am") instead of holding the table open on one long nowrap line. */
