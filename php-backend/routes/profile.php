@@ -95,6 +95,11 @@ function profile_build_rounds($txns) {
                 'game'      => $game,
                 'result'    => $won ? 'won' : 'lost',
                 'amount'    => round($won ? (float) $won['amount'] : $stake, 2),
+                // The wagered amount, kept separately because 'amount' above is the PAYOUT on a
+                // win and the stake only on a loss — so on its own it cannot answer "how much did
+                // I bet on this round". Added for the per-game history panels on the game pages;
+                // purely an extra field, nothing that already read this array is affected.
+                'stake'     => round($stake, 2),
                 'timestamp' => $roundAt,
             ];
             $i = $j;

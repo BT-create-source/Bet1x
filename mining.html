@@ -225,6 +225,11 @@
     </div>
   </div>
 
+  <!-- This player's own Mines history. Read-only; filled by initGameHistoryPanel()
+       in assets/js/ui-common.js. Width matches .layout above. -->
+  <div id="mines-history" style="max-width:900px; margin:0 auto; padding:0 14px;"></div>
+  <script>initGameHistoryPanel({ mount: 'mines-history', games: ['Mines'] });</script>
+
   <script>
     const gridEl = document.getElementById('grid');
     const startBtn = document.getElementById('startBtn');

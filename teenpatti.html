@@ -591,9 +591,15 @@
   <div class="log-box" id="logBox"></div>
 </div>
 
+<!-- This player's own Teen Patti history. Deliberately outside #tpLobby and #tpGame so it
+     stays visible both in the lobby and at the table. Read-only; filled by
+     initGameHistoryPanel() in assets/js/ui-common.js, called once that file has loaded. -->
+<div id="teenpatti-history" style="max-width:900px; margin:0 auto; padding:0 14px;"></div>
+
 <script src="assets/js/ui-common.js"></script>
 <script src="assets/js/sound-fx.js"></script>
 <script src="assets/js/result-popup.js"></script>
+<script>initGameHistoryPanel({ mount: 'teenpatti-history', games: ['Teen Patti'] });</script>
 <script>
 // The backend serves this page, so the API lives on the page's own origin. Pinning port 5000
 // broke the moment the site sat behind a reverse proxy on 80/443.

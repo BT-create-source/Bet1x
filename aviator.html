@@ -156,6 +156,10 @@
       </div>
     </div>
   </div>
+
+  <!-- This player's own Vimaan history. Read-only; filled by initGameHistoryPanel()
+       in assets/js/ui-common.js, called below once that file has loaded. -->
+  <div id="vimaan-history"></div>
 </div>
 
 <div class="footer">
@@ -165,6 +169,7 @@
 <script src="assets/js/ui-common.js"></script>
 <script src="assets/js/sound-fx.js"></script>
 <script src="assets/js/result-popup.js"></script>
+<script>initGameHistoryPanel({ mount: 'vimaan-history', games: ['Vimaan'] });</script>
 
 <script>
 // Load custom airplane image

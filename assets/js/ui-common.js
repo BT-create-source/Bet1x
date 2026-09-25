@@ -2558,6 +2558,149 @@ function renderGameHistorySection(data) {
 }
 
 /* ============================================================
+   Per-game "My History" panel (bottom of each game page)
+   ------------------------------------------------------------
+   One shared implementation for all seven game pages. A page mounts it with
+
+       initGameHistoryPanel({ mount: 'mines-history', games: ['Mines'] });
+
+   and gets back only that game's finished rounds — what was staked, won or
+   lost, how much, and when — in the same shape the profile page's history
+   table uses.
+
+   It reads GET /api/profile, the endpoint the profile page already calls, and
+   filters by the game name the backend assigns in profile_classify_txn(). This
+   is a read-only view mounted after a game's own markup: it never touches game
+   state, betting or the wallet.
+
+   Kept live WITHOUT polling on a timer. Every game page already loads
+   result-popup.js and calls ResultPopup.show() when a round resolves, so the
+   panel wraps that one function and refreshes just after it fires, then calls
+   straight through to the original. That means one request per round the
+   player actually finishes rather than a fixed interval per open tab —
+   /api/profile scans the transaction ledger, so an interval poll from every
+   player on every game page would be real database load for no benefit.
+   ============================================================ */
+
+(function () {
+  var panels = [];       // every panel mounted on this page
+  var popupHooked = false;
+  var pending = null;    // in-flight request, shared so N panels cost 1 request
+  var lastLoadAt = 0;
+
+  function ghMoney(n) {
+    return '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function ghShell(panel, inner) {
+    panel.el.innerHTML =
+      '<div class="gh-panel">'
+      + '<div class="gh-head">'
+      +   '<span class="gh-title">' + escapeHtml(panel.title) + '</span>'
+      +   '<button type="button" class="gh-refresh">Refresh</button>'
+      + '</div>'
+      + inner
+      + '</div>';
+    var btn = panel.el.querySelector('.gh-refresh');
+    if (btn) btn.addEventListener('click', function () { ghLoad(true); });
+  }
+
+  function ghMessage(panel, text, isError) {
+    ghShell(panel, '<div class="gh-msg' + (isError ? ' gh-msg-error' : '') + '">' + escapeHtml(text) + '</div>');
+  }
+
+  function ghRows(rows) {
+    return rows.map(function (h) {
+      var won = h.result === 'won';
+      // 'stake' is sent alongside these panels; fall back to 'amount' so that if the
+      // page is ever served against an older backend a loss still shows a sane number.
+      var stake = (h.stake === undefined || h.stake === null) ? h.amount : h.stake;
+      return '<tr>'
+        + '<td class="gh-bet">' + ghMoney(stake) + '</td>'
+        + '<td><span class="badge ' + (won ? 'won' : 'lost') + '">' + (won ? 'Won' : 'Lost') + '</span></td>'
+        + '<td class="gh-amt ' + (won ? 'gh-win' : 'gh-loss') + '">' + (won ? '+' : '-') + ghMoney(h.amount) + '</td>'
+        + '<td class="gh-time">' + escapeHtml(profileFmtDate(h.timestamp)) + '</td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  function ghRender(panel, history) {
+    var rows = history.filter(function (h) { return panel.games.indexOf(h.game) !== -1; });
+    if (!rows.length) {
+      ghMessage(panel, 'No rounds yet. Your finished rounds will show up here.');
+      return;
+    }
+    ghShell(panel,
+      '<div class="gh-scroll">'
+      + '<table class="gh-table">'
+      +   '<thead><tr><th>Bet</th><th>Result</th><th>Amount</th><th>Time</th></tr></thead>'
+      +   '<tbody>' + ghRows(rows) + '</tbody>'
+      + '</table>'
+      + '</div>');
+  }
+
+  function ghLoad(force) {
+    if (!panels.length) return;
+    if (!getCurrentUser()) {
+      panels.forEach(function (p) { ghMessage(p, 'Log in to see your history.'); });
+      return;
+    }
+    if (pending) return;
+    if (!force && Date.now() - lastLoadAt < 3000) return;
+
+    pending = fetch(getApiPrefix() + 'api/profile')
+      .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
+      .then(function (result) {
+        lastLoadAt = Date.now();
+        if (!result.ok || !result.data || !result.data.success) {
+          panels.forEach(function (p) { ghMessage(p, 'Could not load your history.', true); });
+          return;
+        }
+        var history = result.data.history || [];
+        panels.forEach(function (p) { ghRender(p, history); });
+      })
+      .catch(function (err) {
+        console.warn('Game history panel:', err);
+        panels.forEach(function (p) { ghMessage(p, 'Cannot reach the server.', true); });
+      })
+      .then(function () { pending = null; });
+  }
+
+  function ghHookPopup() {
+    if (popupHooked || !window.ResultPopup || typeof window.ResultPopup.show !== 'function') return;
+    var original = window.ResultPopup.show;
+    window.ResultPopup.show = function () {
+      var out = original.apply(this, arguments);
+      // Let the backend finish writing the payout row before re-reading the ledger.
+      setTimeout(function () { ghLoad(true); }, 1500);
+      return out;
+    };
+    popupHooked = true;
+  }
+
+  window.initGameHistoryPanel = function (options) {
+    options = options || {};
+    var el = document.getElementById(options.mount);
+    if (!el) return;
+
+    var games = options.games || [];
+    if (typeof games === 'string') games = [games];
+    if (!games.length) return;
+
+    panels.push({ el: el, games: games, title: options.title || 'My History' });
+    ghMessage(panels[panels.length - 1], 'Loading…');
+    ghHookPopup();
+    ghLoad(true);
+  };
+
+  // Coming back to the tab refreshes too, so a round that finished while the phone
+  // was locked or another tab was in front is not left missing from the list.
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) ghLoad(false);
+  });
+})();
+
+/* ============================================================
    Referral & Earn
    ============================================================ */
 
