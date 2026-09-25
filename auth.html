@@ -29,6 +29,18 @@
       // as an overlay via openAuthModal() — same markup, same handleAuthSubmit/switchAuthTab/
       // wireSignupVerification/wireForgotPassword logic, nothing duplicated or reimplemented. Only
       // its container (a standalone page instead of a dismissible overlay) differs.
+      // Where handleAuthSubmit should send the player once credentials are accepted. Without
+      // it that code falls back to reloading, and reloading THIS page re-opens the login form
+      // for a moment before the poller below redirects — the flash this replaces.
+      window.bet1xAuthRedirect = 'index.html';
+
+      // Already signed in (returned to this URL, or logged in from another tab): go straight
+      // to the lobby rather than painting a login form that is about to be redirected away.
+      if (localStorage.getItem('bet1x_current_user')) {
+        window.location.replace('index.html');
+        return;
+      }
+
       const params = new URLSearchParams(window.location.search);
       const initialTab = params.get('tab') === 'signup' ? 'signup' : 'login';
       openAuthModal(initialTab);

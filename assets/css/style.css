@@ -3766,7 +3766,9 @@ body.exchange-theme .footer {
   font-size: 12.5px;
 }
 .gh-msg-error { color: var(--red); }
-.gh-scroll { max-height: 250px; overflow-y: auto; }
+/* overflow-x is a safety net: if a very long value still does not fit a narrow phone the
+   table scrolls sideways inside the panel instead of being cut off by the screen edge. */
+.gh-scroll { max-height: 250px; overflow-y: auto; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .gh-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .gh-table th {
   text-align: left;
@@ -3787,9 +3789,67 @@ body.exchange-theme .footer {
 .gh-loss { color: var(--red); }
 .gh-time { color: var(--text-dim); font-size: 11.5px; white-space: nowrap; }
 
+/* Phones. The four columns have to survive a 320px-wide screen, so the padding tightens,
+   the badge shrinks, and the timestamp drops its year and puts the clock on a second line
+   ("25 Sep" over "10:00 am") instead of holding the table open on one long nowrap line. */
 @media (max-width: 480px) {
+  .gh-panel { margin: 12px 0 18px; }
+  .gh-head { padding: 9px 10px; }
+  .gh-title { font-size: 12.5px; }
+  .gh-refresh { padding: 3px 10px; font-size: 11px; }
   .gh-table { font-size: 11.5px; }
-  .gh-table th { padding: 7px 9px; }
-  .gh-table td { padding: 7px 9px; }
-  .gh-time { font-size: 10.5px; }
+  .gh-table th { padding: 6px 7px; font-size: 9.5px; letter-spacing: 0.02em; }
+  .gh-table td { padding: 6px 7px; }
+  .gh-bet, .gh-amt { font-size: 11px; }
+  .gh-panel .badge { padding: 2px 8px; font-size: 10px; }
+  .gh-time { white-space: normal; font-size: 10.5px; line-height: 1.35; }
+  .gh-year { display: none; }
+  .gh-clock { display: block; }
+}
+
+/* Small phones (320–360px). */
+@media (max-width: 360px) {
+  .gh-table th, .gh-table td { padding: 5px 5px; }
+  .gh-bet, .gh-amt { font-size: 10.5px; }
+  .gh-table th { font-size: 9px; }
+  .gh-panel .badge { padding: 2px 6px; font-size: 9.5px; }
+}
+
+/* ============================================================
+   Login / signup hand-off overlay
+   Shown by showAuthPending() in assets/js/ui-common.js from the moment Sign In is
+   pressed until the browser navigates, so the form cannot reappear in between.
+   Sits above the auth modal (99998) but below the toast layer (999999).
+   ============================================================ */
+#bet1x-auth-pending {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  z-index: 999998;
+}
+#bet1x-auth-pending.active { display: flex; }
+.auth-pending-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 0 24px;
+  text-align: center;
+}
+.auth-pending-spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid var(--border);
+  border-top-color: var(--gold);
+  animation: authPendingSpin 0.8s linear infinite;
+}
+@keyframes authPendingSpin { to { transform: rotate(360deg); } }
+.auth-pending-text { font-size: 14px; font-weight: 600; color: var(--text); }
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-pending-spinner { animation-duration: 2.4s; }
 }

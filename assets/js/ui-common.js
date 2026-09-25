@@ -713,6 +713,49 @@ window.switchAuthTab = function(tab) {
   document.getElementById('signup-error').style.display = 'none';
 };
 
+/* ------------------------------------------------------------
+   Post-login/signup hand-off.
+
+   The success path used to re-enable the submit button, close the modal and then
+   call location.reload(). On auth.html — the dedicated login page — "reload" means
+   loading the login page again, which re-opens the form; the 250ms "already logged
+   in?" poller there only redirects a moment later. That gap is the login form
+   flashing back into view for a second before the lobby appears.
+
+   Two parts to the fix. A page can now say where to go instead of reloading
+   (auth.html sets bet1xAuthRedirect), and an opaque overlay covers the form from
+   the moment Sign In is pressed until the browser actually navigates, so nothing
+   underneath can show through in between.
+   ------------------------------------------------------------ */
+
+function showAuthPending(message) {
+  let el = document.getElementById('bet1x-auth-pending');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'bet1x-auth-pending';
+    el.innerHTML = '<div class="auth-pending-card">'
+      + '<div class="auth-pending-spinner"></div>'
+      + '<div class="auth-pending-text"></div>'
+      + '</div>';
+    document.body.appendChild(el);
+  }
+  el.querySelector('.auth-pending-text').textContent = message || 'Please wait…';
+  el.classList.add('active');
+}
+
+function hideAuthPending() {
+  const el = document.getElementById('bet1x-auth-pending');
+  if (el) el.classList.remove('active');
+}
+
+function authHandOff() {
+  // replace() rather than href: the login page should not stay in the history stack,
+  // or pressing Back puts the player straight back on the form they just completed.
+  const target = window.bet1xAuthRedirect;
+  if (target) window.location.replace(target);
+  else window.location.reload();
+}
+
 window.handleAuthSubmit = function(e, type) {
   e.preventDefault();
   
@@ -735,7 +778,7 @@ window.handleAuthSubmit = function(e, type) {
         closeAuthModal();
         showToast(`Welcome back, ${matched.username}!`, 'success');
         updateNavbarAuth();
-        setTimeout(() => { location.reload(); }, 800);
+        setTimeout(authHandOff, 800);
       } else {
         errEl.textContent = 'Incorrect username or password.';
         errEl.style.display = 'block';
@@ -779,7 +822,7 @@ window.handleAuthSubmit = function(e, type) {
       closeAuthModal();
       showToast(`Account created successfully! Welcome, ${userInp}!`, 'success');
       updateNavbarAuth();
-      setTimeout(() => { location.reload(); }, 800);
+      setTimeout(authHandOff, 800);
     }
     return;
   }
@@ -792,6 +835,8 @@ window.handleAuthSubmit = function(e, type) {
     const errEl = document.getElementById('login-error');
     const submitBtn = e.target ? e.target.querySelector('button[type="submit"]') : null;
     if (submitBtn) submitBtn.disabled = true;
+    // Cover the form the instant Sign In is pressed, not only once the server answers.
+    showAuthPending('Signing you in…');
     
     const body = new URLSearchParams();
     body.append('username', userInp);
@@ -804,8 +849,9 @@ window.handleAuthSubmit = function(e, type) {
     })
     .then(res => res.json())
     .then(data => {
-      if (submitBtn) submitBtn.disabled = false;
       if (data.success && data.user) {
+        // The button stays disabled and the overlay stays up: this page is navigating
+        // away, and re-enabling the form here is exactly what let it flash back.
         if (data.token) localStorage.setItem(AUTH_TOKEN_KEY, data.token);
         localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(data.user));
         localStorage.setItem(WALLET_KEY, walletFromServer(data.user.wallet_balance).toFixed(2));
@@ -813,14 +859,17 @@ window.handleAuthSubmit = function(e, type) {
         if (window.SoundFX) SoundFX.play('login');
         showToast(`Welcome back, ${data.user.username}!`, 'success');
         updateAuthHeaderUI();
-        setTimeout(() => { location.reload(); }, 600);
+        setTimeout(authHandOff, 600);
       } else {
+        if (submitBtn) submitBtn.disabled = false;
+        hideAuthPending();
         errEl.textContent = data.error || 'Incorrect username or password.';
         errEl.style.display = 'block';
       }
     })
     .catch(err => {
       if (submitBtn) submitBtn.disabled = false;
+      hideAuthPending();
       console.warn("Login API error:", err);
       // Ask for the offline fallback, but only retry if it was actually granted. The setter refuses
       // on any deployment that has not opted in, and retrying regardless simply ran the same failing
@@ -881,6 +930,8 @@ window.handleAuthSubmit = function(e, type) {
     }
 
     if (submitBtn) submitBtn.disabled = true;
+    // Same cover as the login path: signup shares this form and had the identical flash.
+    showAuthPending('Creating your account…');
 
     const body = new URLSearchParams();
     body.append('username', userInp);
@@ -900,8 +951,8 @@ window.handleAuthSubmit = function(e, type) {
     })
     .then(res => res.json())
     .then(data => {
-      if (submitBtn) submitBtn.disabled = false;
       if (data.success && data.user) {
+        // Button stays disabled and the overlay stays up until the browser navigates.
         if (data.token) localStorage.setItem(AUTH_TOKEN_KEY, data.token);
         localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(data.user));
         localStorage.setItem(WALLET_KEY, walletFromServer(data.user.wallet_balance).toFixed(2));
@@ -909,14 +960,17 @@ window.handleAuthSubmit = function(e, type) {
         if (window.SoundFX) SoundFX.play('login');
         showToast(`Account created successfully! Welcome, ${data.user.username}!`, 'success');
         updateAuthHeaderUI();
-        setTimeout(() => { location.reload(); }, 600);
+        setTimeout(authHandOff, 600);
       } else {
+        if (submitBtn) submitBtn.disabled = false;
+        hideAuthPending();
         errEl.textContent = data.error || 'Registration failed.';
         errEl.style.display = 'block';
       }
     })
     .catch(err => {
       if (submitBtn) submitBtn.disabled = false;
+      hideAuthPending();
       console.warn("Signup API error:", err);
       // Ask for the offline fallback, but only retry if it was actually granted. The setter refuses
       // on any deployment that has not opted in, and retrying regardless simply ran the same failing
@@ -2609,6 +2663,23 @@ function renderGameHistorySection(data) {
     ghShell(panel, '<div class="gh-msg' + (isError ? ' gh-msg-error' : '') + '">' + escapeHtml(text) + '</div>');
   }
 
+  // The timestamp is emitted as three spans so the narrow-screen rules can drop the year
+  // and move the clock onto its own line — "25 Sep 2026, 10:00 am" is what forced the
+  // table wider than a phone. profileFmtDate() stays the single source of truth for the
+  // formatting and timezone handling; this only splits up what it returns, and falls back
+  // to the plain string if it ever returns a shape this does not recognise.
+  function ghTimeCell(ts) {
+    var full = profileFmtDate(ts);
+    var m = /^(\d{1,2}\s+\S+)\s+(\d{4}),\s*(.+)$/.exec(full);
+    if (!m) return escapeHtml(full);
+    return '<span class="gh-day">' + escapeHtml(m[1]) + '</span>'
+         // The separating spaces live inside this span so that hiding it on a phone removes
+         // them too, and so the desktop line reads exactly as profileFmtDate() wrote it
+         // rather than relying on a CSS margin to fake the gap.
+         + '<span class="gh-year"> ' + escapeHtml(m[2]) + ', </span>'
+         + '<span class="gh-clock">' + escapeHtml(m[3]) + '</span>';
+  }
+
   function ghRows(rows) {
     return rows.map(function (h) {
       var won = h.result === 'won';
@@ -2619,7 +2690,7 @@ function renderGameHistorySection(data) {
         + '<td class="gh-bet">' + ghMoney(stake) + '</td>'
         + '<td><span class="badge ' + (won ? 'won' : 'lost') + '">' + (won ? 'Won' : 'Lost') + '</span></td>'
         + '<td class="gh-amt ' + (won ? 'gh-win' : 'gh-loss') + '">' + (won ? '+' : '-') + ghMoney(h.amount) + '</td>'
-        + '<td class="gh-time">' + escapeHtml(profileFmtDate(h.timestamp)) + '</td>'
+        + '<td class="gh-time">' + ghTimeCell(h.timestamp) + '</td>'
         + '</tr>';
     }).join('');
   }
