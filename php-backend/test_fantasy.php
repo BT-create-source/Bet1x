@@ -58,6 +58,7 @@ function all($sql, $params = []) {
 
 require_once __DIR__ . '/lib/fantasy.php';
 require_once __DIR__ . '/lib/fantasy-source.php';
+require_once __DIR__ . '/lib/fantasy-teams.php';
 
 // -------------------------------------------------------------------------------------------------
 
@@ -303,6 +304,163 @@ $row['lock_time'] = ms_to_sql(TEST_NOW_MS - 1000);
 $pastPub = fantasy_public_match($row);
 ok($pastPub['is_locked'] === true,          'a passed lock time is locked');
 ok($pastPub['seconds_to_lock'] < 0,         'seconds_to_lock goes negative rather than clamping');
+
+// -------------------------------------------------------------------------------------------------
+section('Lineup validation (phase 2) — ported from contests.js validateLineup()');
+// -------------------------------------------------------------------------------------------------
+
+/**
+ * Build a squad map of 22 players, 11 per side, with a controllable price so budget cases can be
+ * set up exactly. Ids are 1..22; India is 1..11, Australia is 12..22.
+ */
+function mkSquad(callable $price = null) {
+    $shape = [['WK', 2], ['BAT', 4], ['ALL', 2], ['BOWL', 3]];
+    $map = [];
+    $id = 1;
+    foreach (['India', 'Australia'] as $team) {
+        foreach ($shape as $s) {
+            for ($i = 0; $i < $s[1]; $i++) {
+                $map[$id] = [
+                    'id' => $id, 'name' => $team . ' ' . $s[0] . ($i + 1), 'team_name' => $team,
+                    'role' => $s[0],
+                    'credits' => $price ? (float) $price($id, $s[0], $team) : 8.0,
+                    'is_playing' => null,
+                ];
+                $id++;
+            }
+        }
+    }
+    return $map;
+}
+// India ids by role: WK 1-2, BAT 3-6, ALL 7-8, BOWL 9-11
+// Aus   ids by role: WK 12-13, BAT 14-17, ALL 18-19, BOWL 20-22
+// A legal XI: 6 from India + 5 from Australia -> WK1 BAT4 ALL2 BOWL4
+$LEGAL = [1, 3, 4, 7, 9, 10,   14, 15, 18, 20, 21];
+function lineup($players, $c = null, $vc = null) {
+    return ['players' => $players,
+            'captain' => $c === null ? $players[0] : $c,
+            'vice_captain' => $vc === null ? $players[1] : $vc];
+}
+function vres($lineup, $squad = null) {
+    return fantasy_validate_lineup($lineup, ['squad' => $squad ?: mkSquad(), 'rules' => fantasy_rules()]);
+}
+
+$good = vres(lineup($LEGAL));
+ok($good['ok'] === true, 'a legal XI validates' . ($good['ok'] ? '' : ' — ' . $good['error']));
+ok(abs($good['credits_used'] - 88.0) < 0.001, 'credits total 11 x 8.0 = 88 (got ' . $good['credits_used'] . ')');
+ok($good['role_counts'] === ['WK' => 1, 'BAT' => 4, 'ALL' => 2, 'BOWL' => 4], 'role counts reported');
+ok($good['team_counts'] === ['India' => 6, 'Australia' => 5], 'per-team counts reported');
+
+// --- squad size ---
+$short = vres(lineup(array_slice($LEGAL, 0, 10)));
+ok($short['ok'] === false && strpos($short['error'], 'exactly 11') !== false,
+   '10 players rejected: ' . $short['error']);
+$long = vres(lineup(array_merge($LEGAL, [22])));
+ok($long['ok'] === false && strpos($long['error'], 'exactly 11') !== false,
+   '12 players rejected: ' . $long['error']);
+
+// --- duplicates and unknown players ---
+$dup = $LEGAL; $dup[10] = $dup[0];
+$dupRes = vres(lineup($dup));
+ok($dupRes['ok'] === false && stripos($dupRes['error'], 'twice') !== false,
+   'the same player twice is rejected: ' . $dupRes['error']);
+$ghost = $LEGAL; $ghost[10] = 9999;
+$ghostRes = vres(lineup($ghost));
+ok($ghostRes['ok'] === false && stripos($ghostRes['error'], 'squad') !== false,
+   'a player outside the squad is rejected: ' . $ghostRes['error']);
+// Ids are the ONLY thing taken from the request, so a forged id must not slip through.
+$negative = $LEGAL; $negative[10] = -5;
+ok(vres(lineup($negative))['ok'] === false, 'a negative player id is rejected');
+
+// --- captain / vice-captain ---
+$cOut = vres(lineup($LEGAL, 9999));
+ok($cOut['ok'] === false && stripos($cOut['error'], 'captain') !== false,
+   'a captain outside the XI is rejected: ' . $cOut['error']);
+$cNone = vres(lineup($LEGAL, 0));
+ok($cNone['ok'] === false && stripos($cNone['error'], 'captain') !== false, 'a missing captain is rejected');
+$vcOut = vres(lineup($LEGAL, 1, 9999));
+ok($vcOut['ok'] === false && stripos($vcOut['error'], 'vice-captain') !== false,
+   'a vice-captain outside the XI is rejected: ' . $vcOut['error']);
+$vcNone = vres(lineup($LEGAL, 1, 0));
+ok($vcNone['ok'] === false && stripos($vcNone['error'], 'vice-captain') !== false, 'a missing vice-captain is rejected');
+$same = vres(lineup($LEGAL, 1, 1));
+ok($same['ok'] === false && stripos($same['error'], 'different') !== false,
+   'captain and vice-captain must differ: ' . $same['error']);
+// The pair may be any two of the eleven, in either order.
+ok(vres(lineup($LEGAL, 21, 3))['ok'] === true, 'any two distinct members can be C and VC');
+
+// --- role composition ---
+// No wicket-keeper: swap the WK for another bowler (Aus BOWL 22).
+$noWk = $LEGAL; $noWk[0] = 22;
+$noWkRes = vres(lineup($noWk, 3, 4));
+ok($noWkRes['ok'] === false && strpos($noWkRes['error'], 'at least 1 WK') !== false,
+   'zero WK rejected: ' . $noWkRes['error']);
+// Seven batsmen (max 6): WK1 + BAT 3,4,5,6,14,15,16 + ALL 7 + BOWL 9,10  -> BAT 7
+$manyBat = [1, 3, 4, 5, 6, 14, 15, 16, 7, 9, 10];
+$manyBatRes = vres(lineup($manyBat, 1, 3));
+ok($manyBatRes['ok'] === false && strpos($manyBatRes['error'], 'at most 6 BAT') !== false,
+   'seven BAT rejected: ' . $manyBatRes['error']);
+// Only two bowlers (min 3): WK1,2 + BAT 3,4,5,6 + ALL 7,8,18 + BOWL 9,10
+$fewBowl = [1, 2, 3, 4, 5, 6, 7, 8, 18, 9, 10];
+$fewBowlRes = vres(lineup($fewBowl, 1, 3));
+ok($fewBowlRes['ok'] === false && strpos($fewBowlRes['error'], 'at least 3 BOWL') !== false,
+   'two BOWL rejected: ' . $fewBowlRes['error']);
+// Five WK (max 4) is impossible with only 4 keepers in the squad, so check the max via ALL instead:
+// five all-rounders needs 5 ALL but only 4 exist — use BAT max, already covered above.
+
+// --- max players from one real team ---
+// Eight from India: WK1, BAT 3,4,5,6, ALL 7, BOWL 9,10 = 8 India + 3 Aus
+$stacked = [1, 3, 4, 5, 6, 7, 9, 10, 14, 18, 20];
+$stackedRes = vres(lineup($stacked, 1, 3));
+ok($stackedRes['ok'] === false && stripos($stackedRes['error'], 'at most 7 players from one team') !== false,
+   'eight from one team rejected: ' . $stackedRes['error']);
+// Exactly seven is allowed: 7 India + 4 Aus, WK1 BAT4 ALL2 BOWL4
+$sevens = [1, 3, 4, 5, 7, 9, 10,   14, 18, 20, 21];
+$sevensRes = vres(lineup($sevens, 1, 3));
+ok($sevensRes['ok'] === true, 'exactly seven from one team is allowed' . ($sevensRes['ok'] ? '' : ' — ' . $sevensRes['error']));
+
+// --- credit budget ---
+$dear = mkSquad(function () { return 10.0; });           // 11 x 10.0 = 110
+$dearRes = vres(lineup($LEGAL), $dear);
+ok($dearRes['ok'] === false && stripos($dearRes['error'], 'over budget') !== false,
+   'over budget rejected: ' . $dearRes['error']);
+// Exactly 100.0: ten at 9.1 plus one at 9.0 = 100.0. Proves the epsilon, because summing 9.1
+// eleven times in floating point does not land on a round number.
+$exact = mkSquad(function ($id) { return $id === 1 ? 9.0 : 9.1; });
+$exactRes = vres(lineup($LEGAL), $exact);
+ok($exactRes['ok'] === true, 'a team costing exactly the cap is allowed (float epsilon)'
+   . ($exactRes['ok'] ? ' — used ' . $exactRes['credits_used'] : ' — ' . $exactRes['error']));
+// A hair over must still fail.
+$over = mkSquad(function ($id) { return $id === 1 ? 9.2 : 9.1; });
+ok(vres(lineup($LEGAL), $over)['ok'] === false, 'a team a tenth over the cap is rejected');
+
+// --- the "unpriced is not free" rule ---
+// A zero/missing credit must fall back to the mid-band, never to free: otherwise a botched ingest
+// becomes a way to field an otherwise-unaffordable XI.
+$unpriced = mkSquad(function ($id) { return $id <= 11 ? 0.0 : 10.0; });
+$unpricedRes = vres(lineup($LEGAL), $unpriced);
+$expected = (6 * 8.0) + (5 * 10.0);   // 6 India unpriced -> 8.0 each, 5 Aus at 10.0
+ok(abs($unpricedRes['credits_used'] - $expected) < 0.001,
+   "unpriced players cost the 8.0 default, not 0 (got {$unpricedRes['credits_used']}, want $expected)");
+
+// -------------------------------------------------------------------------------------------------
+section('Lock-time enforcement');
+// -------------------------------------------------------------------------------------------------
+$openMatch   = ['status' => 'UPCOMING', 'lock_time' => ms_to_sql(TEST_NOW_MS + 60000)];
+$closedMatch = ['status' => 'UPCOMING', 'lock_time' => ms_to_sql(TEST_NOW_MS - 1)];
+ok(fantasy_match_open_for_entry($openMatch)['ok'] === true, 'a match before its deadline is open');
+$closed = fantasy_match_open_for_entry($closedMatch);
+ok($closed['ok'] === false && stripos($closed['error'], 'closed') !== false,
+   'one second past the deadline is closed: ' . $closed['error']);
+// The boundary itself is closed, not open — >= not >.
+$exactLock = ['status' => 'UPCOMING', 'lock_time' => ms_to_sql(TEST_NOW_MS)];
+ok(fantasy_match_open_for_entry($exactLock)['ok'] === false, 'the deadline instant itself is closed');
+foreach (['LIVE', 'SETTLED', 'CANCELLED'] as $st) {
+    $r2 = fantasy_match_open_for_entry(['status' => $st, 'lock_time' => ms_to_sql(TEST_NOW_MS + 60000)]);
+    ok($r2['ok'] === false, "status $st refuses entry even before the deadline");
+}
+ok(fantasy_match_open_for_entry(['status' => 'UPCOMING', 'lock_time' => null])['ok'] === false,
+   'a match with no deadline set refuses entry rather than defaulting to open');
 
 // -------------------------------------------------------------------------------------------------
 section('API contract the lobby page depends on');

@@ -66,6 +66,11 @@ function fantasy_rules() {
         ],
         'captain_multiplier'      => 2.0,
         'vice_captain_multiplier' => 1.5,
+        // How many separate XIs one player may build for one match. Not a rule the source prompt
+        // specified, but an unbounded count is an abuse vector — nothing otherwise stops a script
+        // creating a hundred thousand teams for a single fixture. Eleven matches the ceiling the
+        // established fantasy apps use.
+        'max_teams_per_match'     => 11,
     ];
 }
 

@@ -17,8 +17,10 @@
  */
 
 require_once __DIR__ . '/../lib/http.php';
+require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/helpers.php';
 require_once __DIR__ . '/../lib/fantasy.php';
+require_once __DIR__ . '/../lib/fantasy-teams.php';
 
 function register_fantasy_routes(Router $app) {
 
@@ -92,6 +94,133 @@ function register_fantasy_routes(Router $app) {
             ]);
         } catch (Throwable $err) {
             fail500($res, $err, 'fantasy_players');
+        }
+    });
+
+    // ---------------------------------------------------------------------------------------------
+    // Teams. Authenticated: a team belongs to an account, and every read is scoped to the caller so
+    // one player cannot fetch another's XI by guessing an id.
+    //
+    // No money moves in any of these. Entry fees arrive with contests in the next phase; a saved
+    // team on its own costs nothing, which is why a player may keep several and edit them freely
+    // until the deadline.
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * Shared by create and replace.
+     *
+     * Only player IDS are read from the request. Credits, roles and team names all come from the
+     * stored squad inside fantasy_save_team(), so a forged credit value in the body cannot buy a
+     * team that would not otherwise be legal.
+     */
+    $saveTeam = function (Req $req, Res $res, $teamId) {
+        $username = acting_username($req);
+        $user = get_or_create_user($username);
+        if (!$user) {
+            $res->status(404)->json(['error' => 'Account not found.']);
+            return;
+        }
+
+        $matchId = (int) $req->b('match_id', 0);
+        if ($matchId <= 0) {
+            $res->status(422)->json(['error' => 'match_id is required.']);
+            return;
+        }
+
+        $lineup = [
+            'players'      => (array) $req->b('players', []),
+            'captain'      => $req->b('captain_player_id', 0),
+            'vice_captain' => $req->b('vice_captain_player_id', 0),
+            'team_name'    => $req->b('team_name', ''),
+        ];
+
+        $result = fantasy_save_team((int) $user['id'], $matchId, $lineup, $teamId);
+        if (!$result['ok']) {
+            $res->status((int) ($result['status'] ?? 422))->json(['error' => $result['error']]);
+            return;
+        }
+
+        $res->json([
+            'success'      => true,
+            'team'         => fantasy_team_with_players($result['team_id'], (int) $user['id']),
+            'credits_used' => $result['credits_used'],
+            'role_counts'  => $result['role_counts'],
+            'team_counts'  => $result['team_counts'],
+        ]);
+    };
+
+    /** POST /api/fantasy/teams — save a new XI. */
+    $app->post('/api/fantasy/teams', 'require_auth', function (Req $req, Res $res) use ($saveTeam) {
+        try {
+            $saveTeam($req, $res, null);
+        } catch (Throwable $err) {
+            fail500($res, $err, 'fantasy_team_create');
+        }
+    });
+
+    /**
+     * POST /api/fantasy/teams/:id — replace one of the caller's existing XIs.
+     *
+     * POST rather than PUT because the Router in lib/http.php only routes GET and POST, matching the
+     * rest of this backend.
+     */
+    $app->post('/api/fantasy/teams/:id', 'require_auth', function (Req $req, Res $res) use ($saveTeam) {
+        try {
+            $saveTeam($req, $res, (int) $req->p('id'));
+        } catch (Throwable $err) {
+            fail500($res, $err, 'fantasy_team_update');
+        }
+    });
+
+    /** GET /api/fantasy/my-teams[?match_id=N] — the caller's saved XIs. */
+    $app->get('/api/fantasy/my-teams', 'require_auth', function (Req $req, Res $res) {
+        try {
+            $username = acting_username($req);
+            $user = get_or_create_user($username);
+            if (!$user) {
+                $res->status(404)->json(['error' => 'Account not found.']);
+                return;
+            }
+            $matchId = $req->q('match_id', null);
+            $teams = fantasy_list_user_teams((int) $user['id'], $matchId === null ? null : (int) $matchId);
+            $res->json([
+                'success' => true,
+                'count'   => count($teams),
+                'teams'   => $teams,
+                'rules'   => fantasy_rules(),
+                'server_time_ms' => now_ms(),
+            ]);
+        } catch (Throwable $err) {
+            fail500($res, $err, 'fantasy_my_teams');
+        }
+    });
+
+    /** GET /api/fantasy/teams/:id — one of the caller's XIs, with its eleven players. */
+    $app->get('/api/fantasy/teams/:id', 'require_auth', function (Req $req, Res $res) {
+        try {
+            $username = acting_username($req);
+            $user = get_or_create_user($username);
+            if (!$user) {
+                $res->status(404)->json(['error' => 'Account not found.']);
+                return;
+            }
+            $team = fantasy_team_with_players((int) $req->p('id'), (int) $user['id']);
+            if (!$team) {
+                // Deliberately the same 404 whether the team does not exist or belongs to someone
+                // else, so ids cannot be probed for existence.
+                $res->status(404)->json(['error' => 'Team not found.']);
+                return;
+            }
+            $match = fantasy_find_match($team['match_id']);
+            $res->json([
+                'success' => true,
+                'team'    => $team,
+                'match'   => $match ? fantasy_public_match($match) : null,
+                'rules'   => fantasy_rules(),
+                'server_time_ms' => now_ms(),
+            ]);
+        } catch (Throwable $err) {
+            fail500($res, $err, 'fantasy_team_get');
         }
     });
 }
