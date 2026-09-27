@@ -286,6 +286,34 @@ function fantasy_is_support_role($role) {
     return false;
 }
 
+/**
+ * Recover the source's own match id from an external_key ("cb:151532" -> 151532).
+ *
+ * The key is built by this file, so parsing it belongs here too. A key whose suffix is not a positive
+ * integer returns 0, and the caller treats that as "cannot poll this fixture" rather than fetching
+ * some arbitrary match.
+ */
+function fantasy_source_id_from_key($key) {
+    $parts = explode(':', (string) $key);
+    $last = trim(end($parts));
+    return ctype_digit($last) ? (int) $last : 0;
+}
+
+/**
+ * Has the source reported this match as over?
+ *
+ * "Stumps" is deliberately NOT final — a multi-day match resumes the next morning, and treating stumps
+ * as the end would freeze the scoreboard and let settlement run a day early.
+ */
+function fantasy_state_is_final($state) {
+    $s = strtolower(trim((string) $state));
+    if ($s === '') return false;
+    foreach (['complete', 'abandon', 'cancel', 'no result', 'washed out'] as $needle) {
+        if (strpos($s, $needle) !== false) return true;
+    }
+    return false;
+}
+
 /** A team/player crest URL, or null when the source gave no image id. */
 function fantasy_cb_image($imageId) {
     $id = (int) $imageId;
@@ -366,6 +394,196 @@ function fantasy_parse_squad($html) {
     }
 
     return ['ok' => true, 'error' => null, 'players' => $players];
+}
+
+// -------------------------------------------------------------------------------------------------
+// Public API: live scorecard
+// -------------------------------------------------------------------------------------------------
+
+/**
+ * Per-player match figures for one fixture.
+ *
+ * Returns ['ok' => bool, 'error' => ?string, 'players' => [external_key => stats], 'state' => string].
+ *
+ * Every figure is CUMULATIVE for the match, never a delta, which is what lets the caller overwrite
+ * rather than add and makes a missed or repeated poll harmless.
+ */
+function fantasy_source_scorecard($sourceMatchId) {
+    if (fantasy_source_mode() === 'mock') return fantasy_mock_scorecard($sourceMatchId);
+
+    $id = (int) $sourceMatchId;
+    $res = fantasy_http_get('https://www.cricbuzz.com/live-cricket-scorecard/' . $id);
+    if (!$res['ok']) {
+        return ['ok' => false, 'error' => 'scorecard fetch failed: ' . $res['error'], 'players' => []];
+    }
+    return fantasy_parse_scorecard($res['body'], $id);
+}
+
+/**
+ * Parse a scorecard into per-player figures. Split from the fetch so it can be tested against a real
+ * saved page.
+ *
+ * =================================================================================================
+ * WHY THIS MAPS BY ID AND NOT BY NAME
+ * =================================================================================================
+ * The scorecard carries "batId" and "bowlerId", and those are the SAME identifiers the squads page
+ * gives as "id" — so a player ingested as external_key "cb:8271" is the same person as batId 8271
+ * here. Mapping is therefore an exact key match, not a name comparison.
+ *
+ * That matters because this feeds settlement. Fuzzy name matching exists as a documented FALLBACK in
+ * lib/fantasy-live.php for the rare row whose id we never ingested, but it is not the primary
+ * mechanism: "V Kohli" versus "Virat Kohli" is a solvable problem, whereas two players named
+ * "M Shahzad" in one squad is not, and guessing between them would mispay real money.
+ *
+ * =================================================================================================
+ * FIELDING IS DERIVED FROM DISMISSALS
+ * =================================================================================================
+ * There is no fielding table. Each dismissal in the batting list carries a wicketCode plus up to
+ * three fielder ids, so catches, stumpings and run-outs are counted from the other side of each
+ * wicket. A run-out with a second fielder is credited to both as shared rather than to one as direct.
+ */
+function fantasy_parse_scorecard($html, $expectMatchId = null) {
+    $blob = fantasy_unescape_payload($html);
+
+    // This page also carries other fixtures in its navigation, so a bare search for "state" would
+    // find several. The match's own state is read from the matchInfo object whose matchId is the one
+    // we asked for; anything else is left as null and the caller does not act on it, rather than a
+    // neighbouring fixture's "Complete" being mistaken for this one's.
+    $state = null;
+    $statusText = null;
+    if ($expectMatchId !== null) {
+        foreach (fantasy_extract_json_objects($blob, 'matchInfo') as $info) {
+            if (isset($info['matchId']) && (int) $info['matchId'] === (int) $expectMatchId) {
+                $state = isset($info['state']) ? (string) $info['state'] : null;
+                $statusText = isset($info['status']) ? (string) $info['status'] : null;
+                break;
+            }
+        }
+    }
+
+    $batGroups  = fantasy_extract_json_objects($blob, 'batsmenData');
+    $bowlGroups = fantasy_extract_json_objects($blob, 'bowlersData');
+    if (!$batGroups && !$bowlGroups) {
+        return ['ok' => false, 'error' => 'no batsmenData/bowlersData found (source shape changed?)',
+                'players' => [], 'state' => $state, 'status_text' => $statusText];
+    }
+
+    $players = [];
+    /** Start (or fetch) a player's accumulator. */
+    $slot = function ($id, $name) use (&$players) {
+        $key = 'cb:' . (int) $id;
+        if (!isset($players[$key])) {
+            $players[$key] = [
+                'external_key' => $key, 'source_id' => (int) $id, 'name' => (string) $name,
+                'runs' => 0, 'balls' => 0, 'fours' => 0, 'sixes' => 0,
+                'is_out' => 0, 'did_bat' => 0,
+                'wickets' => 0, 'overs' => 0.0, 'maidens' => 0, 'runs_conceded' => 0, 'bowled_lbw' => 0,
+                'catches' => 0, 'stumpings' => 0, 'runouts_direct' => 0, 'runouts_shared' => 0,
+            ];
+        } elseif ($players[$key]['name'] === '' && $name !== '') {
+            $players[$key]['name'] = (string) $name;
+        }
+        return $key;
+    };
+
+    // --- batting, accumulated across every innings on the page ---
+    $dismissals = [];
+    foreach ($batGroups as $group) {
+        foreach ($group as $entry) {
+            if (!is_array($entry) || !isset($entry['batId'])) continue;
+            $id = (int) $entry['batId'];
+            if ($id <= 0) continue;
+            $key = $slot($id, $entry['batName'] ?? ($entry['batShortName'] ?? ''));
+
+            $players[$key]['runs']  += (int) ($entry['runs'] ?? 0);
+            $players[$key]['balls'] += (int) ($entry['balls'] ?? 0);
+            $players[$key]['fours'] += (int) ($entry['fours'] ?? 0);
+            $players[$key]['sixes'] += (int) ($entry['sixes'] ?? 0);
+            $players[$key]['did_bat'] = 1;
+
+            // An empty wicketCode is a not-out innings ("not out" in outDesc), which must not be
+            // mistaken for a duck.
+            $code = strtoupper(trim((string) ($entry['wicketCode'] ?? '')));
+            if ($code !== '' && $code !== 'NOTOUT') {
+                $players[$key]['is_out'] = 1;
+                $dismissals[] = [
+                    'code'   => $code,
+                    'bowler' => (int) ($entry['bowlerId'] ?? 0),
+                    'f1'     => (int) ($entry['fielderId1'] ?? 0),
+                    'f2'     => (int) ($entry['fielderId2'] ?? 0),
+                    'f3'     => (int) ($entry['fielderId3'] ?? 0),
+                ];
+            }
+        }
+    }
+
+    // --- bowling ---
+    foreach ($bowlGroups as $group) {
+        foreach ($group as $entry) {
+            if (!is_array($entry) || !isset($entry['bowlerId'])) continue;
+            $id = (int) $entry['bowlerId'];
+            if ($id <= 0) continue;
+            $key = $slot($id, $entry['bowlName'] ?? ($entry['bowlShortName'] ?? ''));
+
+            $players[$key]['wickets']  += (int) ($entry['wickets'] ?? 0);
+            $players[$key]['maidens']  += (int) ($entry['maidens'] ?? 0);
+            // NOTE: on a bowling row "runs" means runs CONCEDED, not runs scored. Adding it to the
+            // batting total would hand every bowler a batting score they never made.
+            $players[$key]['runs_conceded'] += (int) ($entry['runs'] ?? 0);
+            $players[$key]['overs'] = round($players[$key]['overs'] + (float) ($entry['overs'] ?? 0), 1);
+        }
+    }
+
+    // --- fielding and the bowled/LBW bonus, from the other side of each dismissal ---
+    foreach ($dismissals as $d) {
+        switch ($d['code']) {
+            case 'BOWLED':
+            case 'LBW':
+                if ($d['bowler'] > 0) {
+                    $key = $slot($d['bowler'], '');
+                    $players[$key]['bowled_lbw']++;
+                }
+                break;
+
+            case 'CAUGHT':
+                // Caught-and-bowled arrives as CAUGHT with the fielder equal to the bowler; that is
+                // still a catch, so no special case is needed.
+                if ($d['f1'] > 0) {
+                    $key = $slot($d['f1'], '');
+                    $players[$key]['catches']++;
+                }
+                break;
+
+            case 'STUMPED':
+                if ($d['f1'] > 0) {
+                    $key = $slot($d['f1'], '');
+                    $players[$key]['stumpings']++;
+                }
+                break;
+
+            case 'RUNOUT':
+                // Two fielders involved means neither did it alone, so both are credited as shared
+                // rather than one being paid the higher direct rate.
+                $involved = array_values(array_filter([$d['f1'], $d['f2'], $d['f3']], function ($x) {
+                    return $x > 0;
+                }));
+                if (count($involved) === 1) {
+                    $players[$slot($involved[0], '')]['runouts_direct']++;
+                } else {
+                    foreach ($involved as $fid) $players[$slot($fid, '')]['runouts_shared']++;
+                }
+                break;
+
+            default:
+                // HITWICKET, RETIRED, OBSTRUCTING and anything new: the batter is out (already
+                // recorded) and no fielder or bowler bonus is awarded. Unknown codes must not invent
+                // credit for someone.
+                break;
+        }
+    }
+
+    return ['ok' => true, 'error' => null, 'players' => $players,
+            'state' => $state, 'status_text' => $statusText];
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -455,4 +673,79 @@ function fantasy_mock_squad($sourceMatchId) {
     }
 
     return ['ok' => true, 'error' => null, 'players' => $players];
+}
+
+/**
+ * Deterministic match figures for a mock fixture's squad.
+ *
+ * Deterministic on purpose: the same fixture always produces the same scorecard, so a test can assert
+ * an exact points total, and a developer watching the live worker sees numbers that stop moving once
+ * the "match" is over rather than a jitter that makes real bugs hard to spot.
+ *
+ * The spread is chosen to exercise the interesting branches: a century, a fifty, a thirty, a duck, a
+ * five-wicket haul, a three-wicket haul, maidens, each kind of fielding dismissal, and a player who
+ * neither batted nor bowled.
+ */
+function fantasy_mock_scorecard($sourceMatchId) {
+    $squad = fantasy_mock_squad($sourceMatchId);
+    $players = [];
+    $i = 0;
+
+    foreach ($squad['players'] as $p) {
+        $i++;
+        $s = [
+            'external_key' => $p['external_key'], 'source_id' => $i, 'name' => $p['name'],
+            'runs' => 0, 'balls' => 0, 'fours' => 0, 'sixes' => 0, 'is_out' => 0, 'did_bat' => 0,
+            'wickets' => 0, 'overs' => 0.0, 'maidens' => 0, 'runs_conceded' => 0, 'bowled_lbw' => 0,
+            'catches' => 0, 'stumpings' => 0, 'runouts_direct' => 0, 'runouts_shared' => 0,
+        ];
+
+        switch ($i % 11) {
+            case 1:  // century
+                $s = array_merge($s, ['runs' => 104, 'balls' => 62, 'fours' => 9, 'sixes' => 6,
+                                      'did_bat' => 1, 'is_out' => 1]);
+                break;
+            case 2:  // fifty, not out
+                $s = array_merge($s, ['runs' => 57, 'balls' => 40, 'fours' => 5, 'sixes' => 2,
+                                      'did_bat' => 1, 'is_out' => 0]);
+                break;
+            case 3:  // thirty
+                $s = array_merge($s, ['runs' => 34, 'balls' => 25, 'fours' => 3, 'sixes' => 1,
+                                      'did_bat' => 1, 'is_out' => 1]);
+                break;
+            case 4:  // duck
+                $s = array_merge($s, ['runs' => 0, 'balls' => 3, 'did_bat' => 1, 'is_out' => 1]);
+                break;
+            case 5:  // five-wicket haul with a maiden
+                $s = array_merge($s, ['wickets' => 5, 'overs' => 4.0, 'maidens' => 1,
+                                      'runs_conceded' => 22, 'bowled_lbw' => 2]);
+                break;
+            case 6:  // three wickets
+                $s = array_merge($s, ['wickets' => 3, 'overs' => 4.0, 'maidens' => 0,
+                                      'runs_conceded' => 31, 'bowled_lbw' => 1]);
+                break;
+            case 7:  // keeper: catches and a stumping
+                $s = array_merge($s, ['runs' => 12, 'balls' => 10, 'did_bat' => 1, 'is_out' => 1,
+                                      'catches' => 2, 'stumpings' => 1]);
+                break;
+            case 8:  // run-outs
+                $s = array_merge($s, ['runs' => 8, 'balls' => 7, 'did_bat' => 1, 'is_out' => 0,
+                                      'runouts_direct' => 1, 'runouts_shared' => 1]);
+                break;
+            case 9:  // one wicket, below every haul tier
+                $s = array_merge($s, ['wickets' => 1, 'overs' => 3.0, 'runs_conceded' => 28]);
+                break;
+            case 10: // neither batted nor bowled
+                break;
+            default: // a small contribution
+                $s = array_merge($s, ['runs' => 19, 'balls' => 14, 'fours' => 2, 'did_bat' => 1,
+                                      'is_out' => 1, 'catches' => 1]);
+                break;
+        }
+
+        $players[$p['external_key']] = $s;
+    }
+
+    return ['ok' => true, 'error' => null, 'players' => $players,
+            'state' => 'In Progress', 'status_text' => 'mock match in progress'];
 }

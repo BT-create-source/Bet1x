@@ -22,6 +22,8 @@ require_once __DIR__ . '/../lib/helpers.php';
 require_once __DIR__ . '/../lib/fantasy.php';
 require_once __DIR__ . '/../lib/fantasy-teams.php';
 require_once __DIR__ . '/../lib/fantasy-contests.php';
+require_once __DIR__ . '/../lib/fantasy-scoring.php';
+require_once __DIR__ . '/../lib/fantasy-live.php';
 
 function register_fantasy_routes(Router $app) {
 
@@ -364,4 +366,128 @@ function register_fantasy_routes(Router $app) {
             fail500($res, $err, 'fantasy_contest_create');
         }
     });
+
+    // ---------------------------------------------------------------------------------------------
+    // Live scoring
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * GET /api/fantasy/matches/:id/scoreboard
+     *
+     * Every player's figures and points for a match, highest first. Public: this is match data, the
+     * same information the scorecard it came from shows.
+     *
+     * The scoring rules are sent alongside so the screen can explain a total rather than only display
+     * it — a player who cannot see why they scored what they did has no way to tell a low score from a
+     * bug.
+     */
+    $app->get('/api/fantasy/matches/:id/scoreboard', function (Req $req, Res $res) {
+        try {
+            $match = fantasy_find_match($req->p('id'));
+            if (!$match) {
+                $res->status(404)->json(['error' => 'Match not found.']);
+                return;
+            }
+            $res->json([
+                'success'       => true,
+                'match'         => fantasy_public_match($match),
+                // What the SOURCE says, kept distinct from our own status: "the game is over" is not
+                // the same statement as "the contests have been settled".
+                'source_state'  => $match['source_state'] ?? null,
+                'source_status' => $match['source_status_text'] ?? null,
+                'last_synced_at' => $match['last_synced_at'] ?? null,
+                'scoring_rules' => fantasy_scoring_rules(),
+                'players'       => fantasy_live_scoreboard((int) $match['id']),
+                'server_time_ms' => now_ms(),
+            ]);
+        } catch (Throwable $err) {
+            fail500($res, $err, 'fantasy_scoreboard');
+        }
+    });
+
+    /**
+     * GET /api/fantasy/teams/:id/points — the caller's own XI, scored player by player.
+     *
+     * Returns the same breakdown the engine produced, including each player's multiplier, so a total
+     * can be checked line by line instead of taken on trust.
+     */
+    $app->get('/api/fantasy/teams/:id/points', 'require_auth', function (Req $req, Res $res) {
+        try {
+            $user = get_or_create_user(acting_username($req));
+            if (!$user) {
+                $res->status(404)->json(['error' => 'Account not found.']);
+                return;
+            }
+            $team = fantasy_team_with_players((int) $req->p('id'), (int) $user['id']);
+            if (!$team) {
+                $res->status(404)->json(['error' => 'Team not found.']);
+                return;
+            }
+            $stats = fantasy_stored_stats($team['match_id']);
+            $scored = fantasy_score_team($team['players'], $stats, fantasy_scoring_rules());
+            $res->json([
+                'success' => true,
+                'team_id' => $team['id'],
+                'team_name' => $team['team_name'],
+                'total'   => $scored['total'],
+                'players' => $scored['players'],
+                'server_time_ms' => now_ms(),
+            ]);
+        } catch (Throwable $err) {
+            fail500($res, $err, 'fantasy_team_points');
+        }
+    });
+
+    /**
+     * POST /api/admin/fantasy/matches/:id/override-stats
+     *
+     * The escape hatch for the scraper being wrong: a source that changes shape mid-match, a name that
+     * could not be mapped to a squad player, or a scorecard correction the source has not published.
+     *
+     * An operator corrects the FACTS — runs, wickets, catches — and the engine recomputes the points.
+     * Points are deliberately not settable directly, so the scoring rules stay the only authority on
+     * what a performance is worth, and an override is auditable as a change to figures rather than as
+     * an unexplained number.
+     *
+     * Only the fields sent are changed; the rest keep their stored values, so fixing one figure does
+     * not require restating the other fourteen and cannot accidentally zero them.
+     *
+     * Body: {"player_id":123,"runs":62,"fours":6,"sixes":3,"is_out":1,"did_bat":1}
+     */
+    $app->post('/api/admin/fantasy/matches/:id/override-stats', 'require_admin',
+        function (Req $req, Res $res) {
+            try {
+                $playerId = (int) $req->b('player_id', 0);
+                if ($playerId <= 0) {
+                    $res->status(422)->json(['error' => 'player_id is required.']);
+                    return;
+                }
+                $fields = [];
+                foreach (fantasy_live_stat_fields() as $f) {
+                    if ($req->b($f, null) !== null) $fields[$f] = $req->b($f);
+                }
+                if (!$fields) {
+                    $res->status(422)->json([
+                        'error' => 'Send at least one stat field.',
+                        'allowed' => fantasy_live_stat_fields(),
+                    ]);
+                    return;
+                }
+
+                $result = fantasy_override_player_stats((int) $req->p('id'), $playerId, $fields);
+                if (!$result['ok']) {
+                    $res->status((int) ($result['status'] ?? 422))->json(['error' => $result['error']]);
+                    return;
+                }
+                $res->json([
+                    'success' => true,
+                    'player'  => $result['player'],
+                    'stats'   => $result['stats'],
+                    'points'  => $result['points'],
+                    'teams_rescored' => $result['teams_scored'],
+                ]);
+            } catch (Throwable $err) {
+                fail500($res, $err, 'fantasy_override_stats');
+            }
+        });
 }
