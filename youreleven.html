@@ -183,18 +183,18 @@
     }
     .y11-role-tab.active { background: var(--gold-soft); border-color: var(--gold); color: var(--gold-deep); }
 
-    .y11-player-row {
+    #panelSquad .y11-player-row {
       display: flex; align-items: center; gap: 10px;
       padding: 9px 11px; border: 1px solid var(--border); border-radius: var(--radius-sm);
-      margin-bottom: 7px; background: var(--surface);
+      margin-bottom: 7px; background: var(--surface); cursor: default;
     }
-    .y11-player-main { min-width: 0; flex: 1 1 auto; }
-    .y11-player-name {
+    #panelSquad .y11-player-main { min-width: 0; flex: 1 1 auto; }
+    #panelSquad .y11-player-name {
       font-size: 13px; font-weight: 600; color: var(--text);
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .y11-player-meta { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
-    .y11-player-credits {
+    #panelSquad .y11-player-meta { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+    #panelSquad .y11-player-credits {
       font-family: var(--font-mono); font-size: 13px; font-weight: 700;
       color: var(--gold-deep); flex: 0 0 auto;
     }
@@ -208,8 +208,8 @@
       .y11-series-head { margin: 16px 0 8px; }
       .y11-series-name { font-size: 13px; }
       .y11-countdown { font-size: 11px; padding: 3px 9px; }
-      .y11-player-row { padding: 8px 9px; gap: 8px; }
-      .y11-player-name { font-size: 12.5px; }
+      #panelSquad .y11-player-row { padding: 8px 9px; gap: 8px; }
+      #panelSquad .y11-player-name { font-size: 12.5px; }
       .y11-role-tab { padding: 4px 11px; font-size: 11.5px; }
       .y11-rule-pill { font-size: 10.5px; padding: 3px 8px; }
     }
@@ -272,6 +272,11 @@
 
       <div class="y11-panel active" id="panelSquad">
         <div class="y11-squad-rules" id="squadRules"></div>
+        <div style="display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
+          <button class="btn btn-primary" id="createTeamBtn" type="button">Create team</button>
+        </div>
+        <div id="myTeamsBox"></div>
+        <h4 style="margin:18px 0 8px; font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.04em;">Squad</h4>
         <div class="y11-role-tabs" id="roleTabs"></div>
         <div id="squadList"></div>
       </div>
@@ -644,6 +649,10 @@
         renderSquadRules(data.rules || {}, data.match);
         renderRoleTabs();
         renderSquadList();
+        updateCreateButton();
+        // Signed-in players see their existing XIs for this match; a signed-out visitor just gets
+        // the squad, and loadMyTeams() swallows the 401 rather than showing them an error.
+        loadMyTeams();
       }).catch(function (err) {
         $('matchHeader').innerHTML = '<div class="y11-empty">Could not load this match. '
           + esc(err && err.message ? err.message : '') + '</div>';
@@ -654,6 +663,324 @@
       $('viewMatch').style.display = 'none';
       $('viewFixtures').style.display = '';
       squadCache = null;
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // My teams for the open match
+    // ---------------------------------------------------------------------------------------------
+
+    function renderMyTeams(teams) {
+      var box = $('myTeamsBox');
+      if (!teams.length) { box.innerHTML = ''; return; }
+      box.innerHTML = '<h4 style="margin:4px 0 8px; font-size:12px; color:var(--text-dim);'
+        + ' text-transform:uppercase; letter-spacing:.04em;">Your teams (' + teams.length + ')</h4>'
+        + teams.map(function (t) {
+          var c = '', vc = '';
+          for (var i = 0; i < t.players.length; i++) {
+            if (t.players[i].is_captain) c = t.players[i].name;
+            if (t.players[i].is_vice_captain) vc = t.players[i].name;
+          }
+          return '<div class="y11-player-row" style="cursor:default;">'
+            + '<div class="y11-player-main">'
+            +   '<div class="y11-player-name">' + esc(t.team_name) + '</div>'
+            +   '<div class="y11-player-meta">C: ' + esc(c) + ' &middot; VC: ' + esc(vc) + '</div>'
+            + '</div>'
+            + '<div class="y11-player-credits">' + Number(t.total_credits).toFixed(1) + '</div>'
+            + '<button class="btn btn-ghost" type="button" data-edit-team="' + t.id + '"'
+            +   ' style="padding:4px 12px; font-size:11.5px;">Edit</button>'
+            + '</div>';
+        }).join('');
+    }
+
+    function loadMyTeams() {
+      if (!squadCache) return Promise.resolve();
+      return apiGet('api/fantasy/my-teams?match_id=' + encodeURIComponent(squadCache.match.id))
+        .then(function (data) { renderMyTeams(data.teams || []); })
+        .catch(function () { /* not signed in, or a transient failure: the list simply stays empty */ });
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Team builder
+    // ---------------------------------------------------------------------------------------------
+    // Enforces the same rules the server does, but only as a convenience: every one of them is
+    // re-checked in fantasy_validate_lineup() against the stored squad, so this code being edited in
+    // a browser cannot produce a team the server would accept.
+    //
+    // Hard maxima (squad size, per-role max, per-team max, budget) block a tap outright, with the
+    // reason shown. Minima cannot block a tap — you have to be allowed to build up to them — so they
+    // gate the submit button instead and show live in the role counter.
+
+    var ROLES = ['WK', 'BAT', 'ALL', 'BOWL'];
+    var bSquad = [];        // flat player list for the open match
+    var bSel = [];          // selected player ids, in pick order
+    var bCaptain = 0;
+    var bVice = 0;
+    var bRoleFilter = 'ALL_ROLES';
+    var bEditingId = null;
+
+    function bRules() { return (squadCache && squadCache.rules) || {}; }
+    function bLimits() { return bRules().role_limits || {}; }
+    function bSize() { return Number(bRules().squad_size || 11); }
+    function bCap() { return Number(bRules().credit_cap || 100); }
+    function bMaxTeam() { return Number(bRules().max_per_real_team || 7); }
+
+    function bPlayer(id) {
+      for (var i = 0; i < bSquad.length; i++) if (bSquad[i].id === id) return bSquad[i];
+      return null;
+    }
+    function bRoleCounts() {
+      var c = {};
+      for (var i = 0; i < bSel.length; i++) { var p = bPlayer(bSel[i]); if (p) c[p.role] = (c[p.role] || 0) + 1; }
+      return c;
+    }
+    function bTeamCounts() {
+      var c = {};
+      for (var i = 0; i < bSel.length; i++) { var p = bPlayer(bSel[i]); if (p) c[p.team_name] = (c[p.team_name] || 0) + 1; }
+      return c;
+    }
+    function bCredits() {
+      var t = 0;
+      for (var i = 0; i < bSel.length; i++) { var p = bPlayer(bSel[i]); if (p) t += Number(p.credits); }
+      return Math.round(t * 100) / 100;
+    }
+
+    /** null when this player can be picked, otherwise the reason they cannot. */
+    function bBlockReason(p) {
+      if (bSel.indexOf(p.id) !== -1) return null;             // deselecting is always allowed
+      if (bSel.length >= bSize()) return 'You already have ' + bSize() + ' players.';
+
+      var counts = bRoleCounts();
+      var lim = bLimits()[p.role];
+      if (lim && (counts[p.role] || 0) >= Number(lim.max)) return 'At most ' + lim.max + ' ' + p.role + '.';
+
+      var teams = bTeamCounts();
+      if ((teams[p.team_name] || 0) >= bMaxTeam()) return 'At most ' + bMaxTeam() + ' from ' + p.team_name + '.';
+
+      if (bCredits() + Number(p.credits) > bCap() + 0.001) return 'Not enough credits left.';
+
+      // Would this pick leave too few slots to still reach every role minimum? Without this check a
+      // player can fill up on batsmen and then find no legal XI is reachable, with nothing on screen
+      // explaining why — the maxima alone do not prevent it.
+      var after = {};
+      for (var r in counts) after[r] = counts[r];
+      after[p.role] = (after[p.role] || 0) + 1;
+      var need = 0;
+      for (var i = 0; i < ROLES.length; i++) {
+        var rl = bLimits()[ROLES[i]];
+        if (rl) need += Math.max(0, Number(rl.min) - (after[ROLES[i]] || 0));
+      }
+      if (need > bSize() - (bSel.length + 1)) {
+        return 'That would leave too few slots for the required roles.';
+      }
+      return null;
+    }
+
+    function bMinimumsMet() {
+      var counts = bRoleCounts();
+      for (var i = 0; i < ROLES.length; i++) {
+        var rl = bLimits()[ROLES[i]];
+        if (rl && (counts[ROLES[i]] || 0) < Number(rl.min)) return false;
+      }
+      return true;
+    }
+
+    function bIsComplete() {
+      return bSel.length === bSize() && bMinimumsMet()
+          && bCaptain > 0 && bVice > 0 && bCaptain !== bVice
+          && bCredits() <= bCap() + 0.001;
+    }
+
+    function bInitials(name) {
+      var parts = String(name || '').trim().split(/\s+/);
+      if (!parts.length) return '?';
+      if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    function bAvatar(p) {
+      // Colour by real team so the two sides are distinguishable at a glance.
+      var teamA = squadCache && squadCache.teams && squadCache.teams[0] ? squadCache.teams[0].name : '';
+      var bg = p.team_name === teamA ? 'var(--gold)' : 'var(--green)';
+      return '<div class="y11-avatar" style="background:' + bg + ';">' + esc(bInitials(p.name)) + '</div>';
+    }
+
+    function bRender() {
+      var counts = bRoleCounts();
+      var credits = bCredits();
+
+      $('builderCreditsUsed').textContent = credits.toFixed(1);
+      $('builderCreditsBudget').textContent = String(bCap());
+      $('builderCount').textContent = String(bSel.length);
+
+      // Role counter: a minimum not yet met reads in red, so what is missing is visible without
+      // pressing submit to find out.
+      $('builderRoleCounts').innerHTML = ROLES.map(function (r) {
+        var rl = bLimits()[r] || { min: 0, max: bSize() };
+        var n = counts[r] || 0;
+        var short = n < Number(rl.min);
+        return '<span class="y11-chip" style="' + (short ? 'color:var(--red);border-color:var(--red);' : '') + '">'
+             + r + ' ' + n + '<span style="opacity:.6;"> / ' + rl.min + '-' + rl.max + '</span></span>';
+      }).join('');
+
+      // Role filter chips.
+      $('builderRoleFilter').innerHTML = ['ALL_ROLES'].concat(ROLES).map(function (r) {
+        var label = r === 'ALL_ROLES' ? 'All' : r;
+        var active = bRoleFilter === r;
+        return '<button type="button" class="y11-chip" data-brole="' + r + '" style="cursor:pointer;'
+             + (active ? 'background:var(--gold-soft);border-color:var(--gold);color:var(--gold-deep);' : '')
+             + '">' + label + '</button>';
+      }).join('');
+
+      // Player list.
+      var list = bSquad.filter(function (p) { return bRoleFilter === 'ALL_ROLES' || p.role === bRoleFilter; });
+      $('builderPlayerList').innerHTML = list.map(function (p) {
+        var picked = bSel.indexOf(p.id) !== -1;
+        var reason = bBlockReason(p);
+        var blocked = !picked && reason !== null;
+        return '<div class="y11-player-row' + (picked ? ' selected' : '') + '" data-bpick="' + p.id + '"'
+          + (blocked ? ' data-blocked="' + esc(reason) + '" style="opacity:.42;"' : '') + '>'
+          + bAvatar(p)
+          + '<div class="y11-player-name">' + esc(p.name)
+          +   '<div class="y11-player-sub">' + esc(p.team_name) + ' &middot; ' + esc(p.role) + '</div>'
+          + '</div>'
+          + '<div class="y11-player-credits">' + Number(p.credits).toFixed(1) + '</div>'
+          + '</div>';
+      }).join('') || '<div class="y11-empty">No players in this role.</div>';
+
+      // Captain / vice-captain, only once the XI is full — picking them earlier just gets undone.
+      var cvc = $('builderCvcSection');
+      if (bSel.length === bSize()) {
+        cvc.style.display = '';
+        $('builderCvcGrid').innerHTML = bSel.map(function (id) {
+          var p = bPlayer(id);
+          if (!p) return '';
+          var cls = id === bCaptain ? ' captain' : (id === bVice ? ' vc' : '');
+          var tag = id === bCaptain ? 'C' : (id === bVice ? 'VC' : '&nbsp;');
+          return '<div class="y11-cvc-chip' + cls + '" data-bcvc="' + id + '">'
+               + bAvatar(p)
+               + '<span class="y11-tag">' + tag + '</span>'
+               + '</div>';
+        }).join('');
+      } else {
+        cvc.style.display = 'none';
+        $('builderCvcGrid').innerHTML = '';
+      }
+
+      var btn = $('builderSubmit');
+      btn.disabled = !bIsComplete();
+      btn.textContent = bEditingId ? 'Save changes' : 'Submit team';
+      if (bSel.length !== bSize()) {
+        btn.textContent = 'Pick ' + (bSize() - bSel.length) + ' more';
+      } else if (!bMinimumsMet()) {
+        btn.textContent = 'Role minimums not met';
+      } else if (!bCaptain || !bVice) {
+        btn.textContent = 'Choose a captain and vice-captain';
+      }
+    }
+
+    function bSetError(msg) {
+      var el = $('builderError');
+      el.textContent = msg || '';
+      el.style.display = msg ? '' : 'none';
+    }
+
+    /**
+     * "Create team" only offers what the server would actually accept.
+     *
+     * Past the deadline it says so instead of opening a builder whose save is guaranteed to be
+     * refused, and a signed-out visitor is sent to the login overlay rather than filling in eleven
+     * players and only then discovering they need an account.
+     */
+    function updateCreateButton() {
+      var btn = $('createTeamBtn');
+      if (!btn || !squadCache) return;
+      var locked = squadCache.match.is_locked === true
+        || (Number(squadCache.match.seconds_to_lock) <= 0);
+      btn.disabled = locked;
+      btn.textContent = locked ? 'Entries closed'
+        : (typeof getCurrentUser === 'function' && !getCurrentUser() ? 'Log in to create a team'
+                                                                    : 'Create team');
+    }
+
+    function openBuilder(teamId) {
+      if (!squadCache) return;
+      if (typeof getCurrentUser === 'function' && !getCurrentUser()) {
+        if (window.openAuthModal) openAuthModal('login');
+        return;
+      }
+
+      // Flatten the grouped squad once; the grouped shape is for the tabbed squad list.
+      bSquad = [];
+      ROLES.forEach(function (r) {
+        (squadCache.players[r] || []).forEach(function (p) { bSquad.push(p); });
+      });
+
+      bSel = [];
+      bCaptain = 0;
+      bVice = 0;
+      bRoleFilter = 'ALL_ROLES';
+      bEditingId = teamId || null;
+      bSetError('');
+      $('builderTeamName').value = '';
+      $('builderTitle').textContent = bEditingId ? 'Edit your XI' : 'Build your XI';
+      $('builderModal').classList.add('active');
+      bRender();
+
+      if (!bEditingId) return;
+
+      // Editing: preload the saved XI. Done after opening so the modal is never blank-then-filled
+      // from the player's point of view.
+      apiGet('api/fantasy/teams/' + encodeURIComponent(bEditingId)).then(function (data) {
+        var t = data.team;
+        bSel = t.players.map(function (p) { return p.id; });
+        bCaptain = t.captain_player_id;
+        bVice = t.vice_captain_player_id;
+        $('builderTeamName').value = t.team_name;
+        bRender();
+      }).catch(function (err) {
+        bSetError('Could not load that team: ' + (err && err.message ? err.message : ''));
+      });
+    }
+
+    function closeBuilder() {
+      $('builderModal').classList.remove('active');
+    }
+
+    function submitTeam() {
+      if (!bIsComplete() || !squadCache) return;
+      var btn = $('builderSubmit');
+      btn.disabled = true;
+      bSetError('');
+
+      var path = bEditingId ? ('api/fantasy/teams/' + encodeURIComponent(bEditingId)) : 'api/fantasy/teams';
+      // Only ids go up. Credits and roles are read from the stored squad server-side.
+      fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify({
+          match_id: squadCache.match.id,
+          players: bSel,
+          captain_player_id: bCaptain,
+          vice_captain_player_id: bVice,
+          team_name: $('builderTeamName').value
+        })
+      }).then(function (res) {
+        return res.json().catch(function () { return null; }).then(function (data) {
+          if (!res.ok || !data || data.success !== true) {
+            throw new Error((data && data.error) || ('HTTP ' + res.status));
+          }
+          return data;
+        });
+      }).then(function () {
+        closeBuilder();
+        if (window.showToast) showToast(bEditingId ? 'Team updated.' : 'Team saved.', 'success');
+        return loadMyTeams();
+      }).catch(function (err) {
+        // The server's message is already a player-facing sentence, including the lock-time refusal,
+        // so it is shown as-is rather than replaced with something vaguer.
+        bSetError(err && err.message ? err.message : 'Could not save your team.');
+        bRender();
+      });
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -692,6 +1019,64 @@
         renderRoleTabs();
         renderSquadList();
       });
+
+      // --- builder ---------------------------------------------------------------------------
+      $('createTeamBtn').addEventListener('click', function () { openBuilder(null); });
+
+      $('myTeamsBox').addEventListener('click', function (e) {
+        var btn = e.target.closest ? e.target.closest('[data-edit-team]') : null;
+        if (btn) openBuilder(parseInt(btn.getAttribute('data-edit-team'), 10));
+      });
+
+      $('builderClose').addEventListener('click', closeBuilder);
+      // Clicking the backdrop closes; clicking inside the card must not.
+      $('builderModal').addEventListener('click', function (e) {
+        if (e.target === $('builderModal')) closeBuilder();
+      });
+
+      $('builderRoleFilter').addEventListener('click', function (e) {
+        var btn = e.target.closest ? e.target.closest('[data-brole]') : null;
+        if (!btn) return;
+        bRoleFilter = btn.getAttribute('data-brole');
+        bRender();
+      });
+
+      $('builderPlayerList').addEventListener('click', function (e) {
+        var row = e.target.closest ? e.target.closest('[data-bpick]') : null;
+        if (!row) return;
+        var id = parseInt(row.getAttribute('data-bpick'), 10);
+        var p = bPlayer(id);
+        if (!p) return;
+        var idx = bSel.indexOf(id);
+        if (idx !== -1) {
+          bSel.splice(idx, 1);
+          // A dropped player cannot stay captain or vice-captain.
+          if (bCaptain === id) bCaptain = 0;
+          if (bVice === id) bVice = 0;
+          bSetError('');
+        } else {
+          var reason = bBlockReason(p);
+          if (reason) { bSetError(reason); return; }
+          bSel.push(id);
+          bSetError('');
+        }
+        bRender();
+      });
+
+      $('builderCvcGrid').addEventListener('click', function (e) {
+        var chip = e.target.closest ? e.target.closest('[data-bcvc]') : null;
+        if (!chip) return;
+        var id = parseInt(chip.getAttribute('data-bcvc'), 10);
+        if (bSel.indexOf(id) === -1) return;
+        // Tap once for captain, again on the same player for vice-captain, again to clear.
+        if (bCaptain === id)   { bCaptain = 0; bVice = id; }
+        else if (bVice === id) { bVice = 0; }
+        else                   { bCaptain = id; }
+        if (bCaptain !== 0 && bCaptain === bVice) bVice = 0;
+        bRender();
+      });
+
+      $('builderSubmit').addEventListener('click', submitTeam);
 
       window.addEventListener('hashchange', route);
 
