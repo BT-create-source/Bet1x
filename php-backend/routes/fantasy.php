@@ -21,6 +21,7 @@ require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/helpers.php';
 require_once __DIR__ . '/../lib/fantasy.php';
 require_once __DIR__ . '/../lib/fantasy-teams.php';
+require_once __DIR__ . '/../lib/fantasy-contests.php';
 
 function register_fantasy_routes(Router $app) {
 
@@ -221,6 +222,146 @@ function register_fantasy_routes(Router $app) {
             ]);
         } catch (Throwable $err) {
             fail500($res, $err, 'fantasy_team_get');
+        }
+    });
+
+    // ---------------------------------------------------------------------------------------------
+    // Contests
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * GET /api/fantasy/matches/:id/contests
+     *
+     * Public, so a visitor who has not signed in can still see what is on offer. When a token IS
+     * present each contest is flagged with whether that account has already entered — attach_session()
+     * in index.php populates $req->auth for every request without rejecting anonymous ones, so this
+     * needs no middleware to tell the two cases apart.
+     */
+    $app->get('/api/fantasy/matches/:id/contests', function (Req $req, Res $res) {
+        try {
+            $match = fantasy_find_match($req->p('id'));
+            if (!$match) {
+                $res->status(404)->json(['error' => 'Match not found.']);
+                return;
+            }
+            $userId = null;
+            if ($req->auth) {
+                $user = get_or_create_user(acting_username($req));
+                if ($user) $userId = (int) $user['id'];
+            }
+            $res->json([
+                'success'   => true,
+                'match'     => fantasy_public_match($match),
+                'contests'  => fantasy_list_contests((int) $match['id'], $userId),
+                'server_time_ms' => now_ms(),
+            ]);
+        } catch (Throwable $err) {
+            fail500($res, $err, 'fantasy_contests');
+        }
+    });
+
+    /**
+     * POST /api/fantasy/contests/:id/join — pay the entry fee and enter a team.
+     *
+     * The only route in this module that moves money. Everything about how it does so lives in
+     * fantasy_join_contest(); this is just the HTTP shell, including mapping its status code.
+     */
+    $app->post('/api/fantasy/contests/:id/join', 'require_auth', function (Req $req, Res $res) {
+        try {
+            $username = acting_username($req);
+            $user = get_or_create_user($username);
+            if (!$user) {
+                $res->status(404)->json(['error' => 'Account not found.']);
+                return;
+            }
+
+            $teamId = (int) $req->b('team_id', 0);
+            if ($teamId <= 0) {
+                $res->status(422)->json(['error' => 'team_id is required.']);
+                return;
+            }
+
+            $result = fantasy_join_contest((int) $user['id'], $user['username'],
+                                           (int) $req->p('id'), $teamId);
+            if (!$result['ok']) {
+                $res->status((int) ($result['status'] ?? 409))->json(['error' => $result['error']]);
+                return;
+            }
+
+            $res->json([
+                'success'     => true,
+                'entry_id'    => $result['entry_id'],
+                'entry_fee'   => $result['entry_fee'],
+                'new_balance' => $result['new_balance'],
+            ]);
+        } catch (Throwable $err) {
+            fail500($res, $err, 'fantasy_contest_join');
+        }
+    });
+
+    /** GET /api/fantasy/my-entries[?match_id=N] — the caller's contest entries. */
+    $app->get('/api/fantasy/my-entries', 'require_auth', function (Req $req, Res $res) {
+        try {
+            $user = get_or_create_user(acting_username($req));
+            if (!$user) {
+                $res->status(404)->json(['error' => 'Account not found.']);
+                return;
+            }
+            $matchId = $req->q('match_id', null);
+            $entries = fantasy_my_entries((int) $user['id'], $matchId === null ? null : (int) $matchId);
+            $res->json([
+                'success' => true,
+                'count'   => count($entries),
+                'entries' => $entries,
+                'server_time_ms' => now_ms(),
+            ]);
+        } catch (Throwable $err) {
+            fail500($res, $err, 'fantasy_my_entries');
+        }
+    });
+
+    // ---------------------------------------------------------------------------------------------
+    // Operator
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * POST /api/admin/fantasy/contests — create a contest on a match.
+     *
+     * Under /api/admin deliberately: routes/admin.php registers useMw('/api/admin', 'require_admin'),
+     * so this path already carries the operator gate, and 'require_admin' is named here as well so
+     * the requirement is visible at the route rather than only implied by its prefix.
+     *
+     * Contest creation is an operator action, never automatic. A contest carries a real entry fee and
+     * a rake, so which ones exist on a fixture should not be something a scraper's cron invents.
+     *
+     * Example body:
+     *   {"match_id":1,"title":"Mega Contest","entry_fee":49,"total_spots":1000,"rake_pct":15,
+     *    "prize_rules":[{"from":1,"to":1,"pct":20},{"from":2,"to":2,"pct":10},
+     *                   {"from":3,"to":10,"pct":5},{"from":11,"to":60,"pct":0.6}]}
+     */
+    $app->post('/api/admin/fantasy/contests', 'require_admin', function (Req $req, Res $res) {
+        try {
+            $matchId = (int) $req->b('match_id', 0);
+            if ($matchId <= 0) {
+                $res->status(422)->json(['error' => 'match_id is required.']);
+                return;
+            }
+            $result = fantasy_create_contest($matchId, [
+                'title'       => $req->b('title', ''),
+                'entry_fee'   => $req->b('entry_fee', 0),
+                'total_spots' => $req->b('total_spots', 0),
+                'rake_pct'    => $req->b('rake_pct', 0),
+                'prize_pool'  => $req->b('prize_pool', 0),
+                'prize_rules' => $req->b('prize_rules', null),
+            ]);
+            if (!$result['ok']) {
+                $res->status((int) ($result['status'] ?? 422))->json(['error' => $result['error']]);
+                return;
+            }
+            $contest = one('SELECT * FROM "fantasy_contests" WHERE "id" = ?', [$result['contest_id']]);
+            $res->json(['success' => true, 'contest' => fantasy_contest_public($contest)]);
+        } catch (Throwable $err) {
+            fail500($res, $err, 'fantasy_contest_create');
         }
     });
 }
