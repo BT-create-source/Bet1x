@@ -68,6 +68,12 @@
     .y11-progress-track { background: var(--bg); border-radius: 6px; height: 6px; margin-top: 10px; overflow: hidden; }
     .y11-progress-fill { background: var(--green); height: 100%; }
     .y11-contest-card .btn { margin-top: 12px; width: 100%; }
+    /* How full a contest is. Filling up is the thing that makes a contest urgent, and a number
+       alone ("812 / 1000") does not read at a glance. */
+    .y11-spot-bar {
+      height: 4px; border-radius: 4px; background: var(--bg-soft); margin-top: 8px; overflow: hidden;
+    }
+    .y11-spot-bar span { display: block; height: 100%; background: var(--green); }
 
     /* Team builder */
     .y11-modal-overlay {
@@ -263,14 +269,13 @@
            the PHP backend. They are left in place rather than deleted so each phase only has to
            remove a `hidden` and wire the panel up. -->
       <div class="y11-tabs">
-        <button class="y11-tab active" data-tab="squad">Squad</button>
-        <button class="y11-tab" data-tab="contests" hidden>Contests</button>
-        <button class="y11-tab" data-tab="teams" hidden>My Teams</button>
+        <button class="y11-tab active" data-tab="contests">Contests</button>
+        <button class="y11-tab" data-tab="squad">Squad &amp; teams</button>
         <button class="y11-tab" data-tab="points" hidden>Points &amp; Scoreboard</button>
         <button class="y11-tab" data-tab="leaderboard" hidden>Leaderboard</button>
       </div>
 
-      <div class="y11-panel active" id="panelSquad">
+      <div class="y11-panel" id="panelSquad">
         <div class="y11-squad-rules" id="squadRules"></div>
         <div style="display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
           <button class="btn btn-primary" id="createTeamBtn" type="button">Create team</button>
@@ -281,7 +286,7 @@
         <div id="squadList"></div>
       </div>
 
-      <div class="y11-panel" id="panelContests">
+      <div class="y11-panel active" id="panelContests">
         <div class="y11-chip-row" id="contestChips"></div>
         <div style="display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
           <button class="btn btn-ghost" id="createPrivateBtn" type="button">Create private contest</button>
@@ -309,6 +314,18 @@
   </div>
 
   <!-- Team builder modal -->
+  <!-- Which of your teams enters this contest. Only shown when there is more than one, so a player
+       with a single team never sees a pointless extra step. -->
+  <div class="y11-modal-overlay" id="pickTeamModal">
+    <div class="y11-modal-card" style="max-width:420px;">
+      <button class="y11-modal-close" id="pickTeamClose">&times;</button>
+      <h3 style="margin-top:0; font-family:var(--font-display);">Choose a team</h3>
+      <div class="y11-fixture-meta" id="pickTeamContest" style="margin-bottom:12px;"></div>
+      <div id="pickTeamList"></div>
+      <div class="y11-error" id="pickTeamError"></div>
+    </div>
+  </div>
+
   <div class="y11-modal-overlay" id="builderModal">
     <div class="y11-modal-card">
       <button class="y11-modal-close" id="builderClose">&times;</button>
@@ -650,9 +667,11 @@
         renderRoleTabs();
         renderSquadList();
         updateCreateButton();
-        // Signed-in players see their existing XIs for this match; a signed-out visitor just gets
-        // the squad, and loadMyTeams() swallows the 401 rather than showing them an error.
-        loadMyTeams();
+        showTab('contests');
+        // Teams must be loaded before contests are usable, because the Join button's behaviour
+        // depends on how many teams the player has — so contests are loaded after, not in parallel.
+        // Signed-out visitors get a 401 here, which loadMyTeams() swallows.
+        loadMyTeams().then(loadContests);
       }).catch(function (err) {
         $('matchHeader').innerHTML = '<div class="y11-empty">Could not load this match. '
           + esc(err && err.message ? err.message : '') + '</div>';
@@ -695,8 +714,16 @@
     function loadMyTeams() {
       if (!squadCache) return Promise.resolve();
       return apiGet('api/fantasy/my-teams?match_id=' + encodeURIComponent(squadCache.match.id))
-        .then(function (data) { renderMyTeams(data.teams || []); })
-        .catch(function () { /* not signed in, or a transient failure: the list simply stays empty */ });
+        .then(function (data) {
+          myTeamsCache = data.teams || [];
+          renderMyTeams(myTeamsCache);
+        })
+        .catch(function () {
+          // Not signed in, or a transient failure. The list stays empty rather than showing an
+          // error, because a visitor browsing contests has done nothing wrong.
+          myTeamsCache = [];
+          renderMyTeams([]);
+        });
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -984,6 +1011,163 @@
     }
 
     // ---------------------------------------------------------------------------------------------
+    // Contests
+    // ---------------------------------------------------------------------------------------------
+
+    var contestsCache = [];
+    var myTeamsCache = [];
+    var pendingContestId = 0;
+
+    function money(n) {
+      return '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+    }
+
+    function contestCard(c) {
+      var pct = c.total_spots > 0 ? Math.min(100, (c.filled_spots / c.total_spots) * 100) : 0;
+      // Two pool figures: what is on the table now, and what it becomes if the contest fills. The
+      // headline is the full-house number because that is what the prize table is quoted against,
+      // with the live figure underneath so it is never mistaken for money already collected.
+      var joinLabel = c.has_entered ? 'Joined'
+                    : (c.is_full ? 'Full'
+                    : (c.entry_fee > 0 ? 'Join ' + money(c.entry_fee) : 'Join free'));
+      var disabled = c.has_entered || c.is_full || c.status !== 'OPEN';
+
+      return '<div class="y11-contest-card">'
+        + '<div class="y11-contest-fmt">' + esc(c.title) + '</div>'
+        + '<div class="y11-contest-pool">' + money(c.max_prize_pool) + '</div>'
+        + '<div class="y11-contest-row"><span>In the pool now</span><span>' + money(c.prize_pool) + '</span></div>'
+        + '<div class="y11-contest-row"><span>1st prize</span><span>'
+            + (c.first_prize > 0 ? money(c.first_prize) : '—') + '</span></div>'
+        + '<div class="y11-contest-row"><span>Entry</span><span>'
+            + (c.entry_fee > 0 ? money(c.entry_fee) : 'Free') + '</span></div>'
+        + '<div class="y11-contest-row"><span>Spots</span><span>'
+            + c.filled_spots + ' / ' + c.total_spots + '</span></div>'
+        + '<div class="y11-spot-bar"><span style="width:' + pct.toFixed(1) + '%;"></span></div>'
+        + '<button class="btn ' + (disabled ? 'btn-ghost' : 'btn-primary') + ' btn-block" type="button"'
+        +   ' data-join-contest="' + c.id + '"' + (disabled ? ' disabled' : '') + '>'
+        +   esc(joinLabel) + '</button>'
+        + '</div>';
+    }
+
+    function renderContests() {
+      var grid = $('contestGrid');
+      var empty = $('contestEmpty');
+      if (!contestsCache.length) {
+        grid.innerHTML = '';
+        empty.style.display = '';
+        return;
+      }
+      empty.style.display = 'none';
+      grid.innerHTML = contestsCache.map(contestCard).join('');
+    }
+
+    function loadContests() {
+      if (!squadCache) return Promise.resolve();
+      return apiGet('api/fantasy/matches/' + encodeURIComponent(squadCache.match.id) + '/contests')
+        .then(function (data) {
+          contestsCache = data.contests || [];
+          renderContests();
+        })
+        .catch(function (err) {
+          $('contestGrid').innerHTML = '<div class="y11-empty">Could not load contests. '
+            + esc(err && err.message ? err.message : '') + '</div>';
+          $('contestEmpty').style.display = 'none';
+        });
+    }
+
+    // --- joining ---------------------------------------------------------------------------------
+
+    function postJoin(contestId, teamId) {
+      return fetch('api/fantasy/contests/' + encodeURIComponent(contestId) + '/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify({ team_id: teamId })
+      }).then(function (res) {
+        return res.json().catch(function () { return null; }).then(function (data) {
+          if (!res.ok || !data || data.success !== true) {
+            throw new Error((data && data.error) || ('HTTP ' + res.status));
+          }
+          return data;
+        });
+      }).then(function (data) {
+        // The endpoint returns the resulting balance, so the header updates immediately rather than
+        // waiting for whatever refresh happens next.
+        if (data.new_balance !== null && data.new_balance !== undefined && window.bet1xSetWallet) {
+          bet1xSetWallet(data.new_balance);
+        }
+        if (window.showToast) {
+          showToast(data.entry_fee > 0 ? ('Joined — ' + money(data.entry_fee) + ' paid.') : 'Joined.', 'success');
+        }
+        closePickTeam();
+        return Promise.all([loadContests(), loadMyTeams()]);
+      });
+    }
+
+    function closePickTeam() { $('pickTeamModal').classList.remove('active'); }
+
+    function openPickTeam(contestId) {
+      var c = null;
+      for (var i = 0; i < contestsCache.length; i++) if (contestsCache[i].id === contestId) c = contestsCache[i];
+      pendingContestId = contestId;
+      $('pickTeamError').textContent = '';
+      $('pickTeamError').style.display = 'none';
+      $('pickTeamContest').textContent = c
+        ? (c.title + ' · entry ' + (c.entry_fee > 0 ? money(c.entry_fee) : 'free'))
+        : '';
+      $('pickTeamList').innerHTML = myTeamsCache.map(function (t) {
+        return '<div class="y11-player-row" style="cursor:pointer;" data-pick-team="' + t.id + '">'
+          + '<div class="y11-player-main">'
+          +   '<div class="y11-player-name">' + esc(t.team_name) + '</div>'
+          +   '<div class="y11-player-meta">' + Number(t.total_credits).toFixed(1) + ' credits</div>'
+          + '</div>'
+          + '<span class="y11-player-credits">Select</span>'
+          + '</div>';
+      }).join('');
+      $('pickTeamModal').classList.add('active');
+    }
+
+    /**
+     * Joining needs a team, so the three states a player can be in are handled separately rather
+     * than failing at the server: no team at all opens the builder, exactly one team joins straight
+     * away, and several teams ask which.
+     */
+    function startJoin(contestId) {
+      if (typeof getCurrentUser === 'function' && !getCurrentUser()) {
+        if (window.openAuthModal) openAuthModal('login');
+        return;
+      }
+      if (!myTeamsCache.length) {
+        if (window.showToast) showToast('Create a team first.', 'info');
+        openBuilder(null);
+        return;
+      }
+      if (myTeamsCache.length === 1) {
+        postJoin(contestId, myTeamsCache[0].id).catch(function (err) {
+          if (window.showToast) showToast(err && err.message ? err.message : 'Could not join.', 'error');
+        });
+        return;
+      }
+      openPickTeam(contestId);
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Tabs
+    // ---------------------------------------------------------------------------------------------
+
+    function showTab(name) {
+      var tabs = document.querySelectorAll('.y11-tabs .y11-tab');
+      for (var i = 0; i < tabs.length; i++) {
+        tabs[i].classList.toggle('active', tabs[i].getAttribute('data-tab') === name);
+      }
+      var map = { contests: 'panelContests', squad: 'panelSquad' };
+      for (var key in map) {
+        var el = $(map[key]);
+        if (el) el.classList.toggle('active', key === name);
+      }
+    }
+
+    // ---------------------------------------------------------------------------------------------
     // Routing and wiring
     // ---------------------------------------------------------------------------------------------
 
@@ -1077,6 +1261,37 @@
       });
 
       $('builderSubmit').addEventListener('click', submitTeam);
+
+      // --- tabs and contests -----------------------------------------------------------------
+      var tabBar = document.querySelector('.y11-tabs');
+      if (tabBar) {
+        tabBar.addEventListener('click', function (e) {
+          var btn = e.target.closest ? e.target.closest('.y11-tab') : null;
+          if (!btn || btn.hidden) return;
+          showTab(btn.getAttribute('data-tab'));
+        });
+      }
+
+      $('contestGrid').addEventListener('click', function (e) {
+        var btn = e.target.closest ? e.target.closest('[data-join-contest]') : null;
+        if (!btn || btn.disabled) return;
+        startJoin(parseInt(btn.getAttribute('data-join-contest'), 10));
+      });
+
+      $('pickTeamClose').addEventListener('click', closePickTeam);
+      $('pickTeamModal').addEventListener('click', function (e) {
+        if (e.target === $('pickTeamModal')) closePickTeam();
+      });
+      $('pickTeamList').addEventListener('click', function (e) {
+        var row = e.target.closest ? e.target.closest('[data-pick-team]') : null;
+        if (!row || !pendingContestId) return;
+        var teamId = parseInt(row.getAttribute('data-pick-team'), 10);
+        postJoin(pendingContestId, teamId).catch(function (err) {
+          var el = $('pickTeamError');
+          el.textContent = err && err.message ? err.message : 'Could not join.';
+          el.style.display = '';
+        });
+      });
 
       window.addEventListener('hashchange', route);
 

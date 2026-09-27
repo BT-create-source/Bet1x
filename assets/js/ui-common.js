@@ -315,6 +315,19 @@ function setWallet(amount) {
   renderWalletChips();
 }
 
+/**
+ * Let a page push a server-authoritative balance into the header chips.
+ *
+ * Exposed because an endpoint that moves money already returns the resulting balance, and the
+ * alternative is each page reimplementing the chip's number formatting and the storage key. Purely
+ * additive: setWallet() and every existing caller are unchanged.
+ */
+window.bet1xSetWallet = function (amount) {
+  var n = parseFloat(amount);
+  if (!isFinite(n)) return;
+  setWallet(n);
+};
+
 function adjustWallet(delta, reason = 'Color Room Wager/Payout') {
   const current = getWallet();
   const newBal = current + delta;
