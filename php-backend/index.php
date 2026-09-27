@@ -141,6 +141,15 @@ try {
         register_mines_routes($app);
         // 11. The PHP-shaped legacy endpoints
         register_legacy_routes($app);
+        // 11b. "Your Eleven" fantasy cricket. An additive module that is mounted only when it is
+        //      switched on: with FANTASY_ENABLED false the route file is not even loaded, so no
+        //      fantasy code runs on any request and /api/fantasy/* 404s like any unknown path —
+        //      inert rather than merely hidden. Registered before the fallback so it is reachable,
+        //      and after everything else so it cannot shadow an existing route.
+        if (env_bool('FANTASY_ENABLED', false)) {
+            require_once __DIR__ . '/routes/fantasy.php';
+            register_fantasy_routes($app);
+        }
         // 12. Terminal /api 404 — must stay last
         register_fallback_routes($app);
 
