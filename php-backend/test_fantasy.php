@@ -305,6 +305,32 @@ ok($pastPub['is_locked'] === true,          'a passed lock time is locked');
 ok($pastPub['seconds_to_lock'] < 0,         'seconds_to_lock goes negative rather than clamping');
 
 // -------------------------------------------------------------------------------------------------
+section('API contract the lobby page depends on');
+// -------------------------------------------------------------------------------------------------
+// youreleven.html reads exactly these fields. Asserting them here means a rename in
+// fantasy_public_match() fails this suite instead of silently emptying a card on the live page.
+$needed = ['id', 'series_name', 'team_a', 'team_b', 'team_a_short', 'team_b_short',
+           'team_a_logo', 'team_b_logo', 'format', 'venue', 'start_time', 'lock_time',
+           'status', 'squads_ready', 'seconds_to_start', 'seconds_to_lock', 'is_locked'];
+foreach ($needed as $k) {
+    ok(array_key_exists($k, $pub), "lobby field '$k' is present");
+}
+ok(is_int($pub['seconds_to_lock']), 'seconds_to_lock is a number the countdown can do maths on');
+ok(is_bool($pub['is_locked']),      'is_locked is a boolean');
+
+// The squad payload the Squad tab renders.
+$GLOBALS['TEST_PLAYERS'] = [[
+    'id' => 3, 'name' => 'A Player', 'full_name' => 'A Player Full', 'team_name' => 'India',
+    'role' => 'WK', 'credits' => 9.5, 'is_playing' => null,
+]];
+$g2 = fantasy_players_grouped(1);
+foreach (['id', 'name', 'full_name', 'team_name', 'role', 'credits', 'is_playing'] as $k) {
+    ok(array_key_exists($k, $g2['WK'][0]), "squad field '$k' is present");
+}
+ok($g2['WK'][0]['is_playing'] === null, 'is_playing stays null when no XI is announced (not false)');
+ok(is_float($g2['WK'][0]['credits']), 'credits is a float, so toFixed(1) renders correctly');
+
+// -------------------------------------------------------------------------------------------------
 section('Optional: the parsers against real saved pages');
 // -------------------------------------------------------------------------------------------------
 $argsList = array_slice($argv, 1);

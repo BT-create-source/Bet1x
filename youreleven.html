@@ -135,6 +135,84 @@
       color: var(--text); padding: 10px 12px; font-size: 14px;
     }
     .y11-invite-code { font-family: var(--font-mono); font-size: 22px; letter-spacing: .1em; color: var(--gold-deep); text-align: center; padding: 12px; background: var(--bg-soft); border-radius: var(--radius-sm); }
+
+    /* ---- Lobby: fixtures grouped by tournament, with a live countdown ---- */
+    .y11-series-head {
+      display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+      margin: 22px 0 10px; padding-bottom: 7px; border-bottom: 1px solid var(--border);
+    }
+    .y11-series-name { font-size: 14px; font-weight: 700; color: var(--text); }
+    .y11-series-count { font-size: 11px; color: var(--text-dim); }
+
+    .y11-crest-row { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
+    .y11-crest {
+      width: 26px; height: 26px; border-radius: 50%; object-fit: cover;
+      background: var(--bg-soft); flex: 0 0 auto;
+    }
+    /* Stand-in when the source gave no crest, or the image 404s: the team's short code. */
+    .y11-crest-fallback {
+      width: 26px; height: 26px; border-radius: 50%; flex: 0 0 auto;
+      background: var(--bg-soft); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9.5px; font-weight: 700; color: var(--text-dim);
+    }
+    .y11-vs { font-size: 11px; color: var(--text-dim); font-weight: 700; }
+
+    .y11-countdown {
+      display: inline-block; margin-top: 9px; padding: 4px 11px; border-radius: 20px;
+      font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+      background: var(--green-soft); color: var(--green); white-space: nowrap;
+    }
+    /* Under half an hour to the deadline, so it reads as a deadline rather than a detail. */
+    .y11-countdown.is-soon { background: var(--red-soft); color: var(--red); }
+    .y11-countdown.is-locked { background: var(--bg-soft); color: var(--text-dim); }
+
+    /* ---- Squad view ---- */
+    .y11-squad-rules {
+      display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 14px;
+    }
+    .y11-rule-pill {
+      font-size: 11px; padding: 4px 10px; border-radius: 20px;
+      background: var(--bg-soft); border: 1px solid var(--border); color: var(--text-dim);
+    }
+    .y11-role-tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+    .y11-role-tab {
+      background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+      border-radius: 20px; padding: 5px 14px; font-size: 12px; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+    }
+    .y11-role-tab.active { background: var(--gold-soft); border-color: var(--gold); color: var(--gold-deep); }
+
+    .y11-player-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 11px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+      margin-bottom: 7px; background: var(--surface);
+    }
+    .y11-player-main { min-width: 0; flex: 1 1 auto; }
+    .y11-player-name {
+      font-size: 13px; font-weight: 600; color: var(--text);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .y11-player-meta { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+    .y11-player-credits {
+      font-family: var(--font-mono); font-size: 13px; font-weight: 700;
+      color: var(--gold-deep); flex: 0 0 auto;
+    }
+    .y11-xi-badge {
+      font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 20px;
+      background: var(--green-soft); color: var(--green); flex: 0 0 auto;
+    }
+
+    @media (max-width: 480px) {
+      .y11-wrap { padding: 12px; }
+      .y11-series-head { margin: 16px 0 8px; }
+      .y11-series-name { font-size: 13px; }
+      .y11-countdown { font-size: 11px; padding: 3px 9px; }
+      .y11-player-row { padding: 8px 9px; gap: 8px; }
+      .y11-player-name { font-size: 12.5px; }
+      .y11-role-tab { padding: 4px 11px; font-size: 11.5px; }
+      .y11-rule-pill { font-size: 10.5px; padding: 3px 8px; }
+    }
   </style>
 </head>
 
@@ -162,7 +240,8 @@
   <div class="y11-wrap">
     <div id="disabledNote" class="y11-disabled-note" style="display:none;">
       Your 11 isn't switched on for this deployment yet. An operator needs to set
-      <code>CRICKET_ENABLED=true</code> for the backend.
+      <code>FANTASY_ENABLED=true</code> in <code>php-backend/.env</code>, after applying
+      <code>php-backend/sql/migration-006-fantasy-postgres.sql</code>.
     </div>
 
     <!-- Fixtures view -->
@@ -172,7 +251,7 @@
         <button class="btn btn-ghost" id="joinByCodeBtnTop" type="button">Join with invite code</button>
       </div>
       <div class="y11-fixture-grid" id="fixtureGrid"></div>
-      <div class="y11-empty" id="fixtureEmpty" style="display:none;">No matches are covered right now. Ask an operator to sync fixtures or create one for testing.</div>
+      <div class="y11-empty" id="fixtureEmpty" style="display:none;">No upcoming matches right now. An operator needs to run <code>php-backend/cron/fantasy-sync-matches.php</code> to pull the schedule.</div>
     </div>
 
     <!-- Match view -->
@@ -180,14 +259,24 @@
       <a href="#fixtures" class="y11-back-link">&larr; All matches</a>
       <div class="y11-match-header" id="matchHeader"></div>
 
+      <!-- Contests / My Teams / Points / Leaderboard are hidden until their phases are ported to
+           the PHP backend. They are left in place rather than deleted so each phase only has to
+           remove a `hidden` and wire the panel up. -->
       <div class="y11-tabs">
-        <button class="y11-tab active" data-tab="contests">Contests</button>
-        <button class="y11-tab" data-tab="teams">My Teams</button>
-        <button class="y11-tab" data-tab="points">Points &amp; Scoreboard</button>
-        <button class="y11-tab" data-tab="leaderboard">Leaderboard</button>
+        <button class="y11-tab active" data-tab="squad">Squad</button>
+        <button class="y11-tab" data-tab="contests" hidden>Contests</button>
+        <button class="y11-tab" data-tab="teams" hidden>My Teams</button>
+        <button class="y11-tab" data-tab="points" hidden>Points &amp; Scoreboard</button>
+        <button class="y11-tab" data-tab="leaderboard" hidden>Leaderboard</button>
       </div>
 
-      <div class="y11-panel active" id="panelContests">
+      <div class="y11-panel active" id="panelSquad">
+        <div class="y11-squad-rules" id="squadRules"></div>
+        <div class="y11-role-tabs" id="roleTabs"></div>
+        <div id="squadList"></div>
+      </div>
+
+      <div class="y11-panel" id="panelContests">
         <div class="y11-chip-row" id="contestChips"></div>
         <div style="display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
           <button class="btn btn-ghost" id="createPrivateBtn" type="button">Create private contest</button>
@@ -277,523 +366,345 @@
   </div>
 
   <script>
-    const AVATAR_PALETTE = ['#2ed47a', '#ff4b6e', '#a56bff', '#ffc53d', '#38b6ff', '#ff7b00', '#00f5d4'];
-    function avatarColor(key) {
-      let hash = 0;
-      for (let i = 0; i < key.length; i++) hash = key.charCodeAt(i) + ((hash << 5) - hash);
-      return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length];
-    }
-    function initials(name) {
-      return String(name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
-    }
-    function fmtMoney(n) { return '₹' + (Number(n) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-    function fmtOvers(legalBalls) {
-      const b = Number(legalBalls) || 0;
-      return Math.floor(b / 6) + '.' + (b % 6);
-    }
-    const FORMAT_LABELS = {
-      h2h: 'Head to Head', winner_takes_all: 'Winner Takes All', practice: 'Practice',
-      small: 'Small League', mega: 'Mega Contest', private: 'Private'
-    };
+  /* ===============================================================================================
+     Your 11 — lobby and squad view.  Phase 1 of the PHP port.
+     -----------------------------------------------------------------------------------------------
+     Talks to the two read-only endpoints in php-backend/routes/fantasy.php:
 
-    let fixturesCache = [];
-    let currentFixtureKey = null;
-    let currentFixture = null;
-    let squadCache = [];
-    let squadByKey = new Map();
-    let creditsCache = {};
-    let configCache = null;
-    let contestsCache = [];
-    let contestFilter = 'all';
-    let myEntriesCache = [];
-    let liveStateCache = null;
-    let es = null;
-    let lbThrottleAt = 0;
+         GET api/fantasy/matches?status=UPCOMING     fixtures, already grouped by tournament
+         GET api/fantasy/matches/:id/players         one squad, grouped WK / BAT / ALL / BOWL
 
-    let builderContest = null;
-    let builderSelected = new Set();
-    let builderCaptain = null;
-    let builderVc = null;
-    let builderRoleFilter = 'ALL';
+     Both go through the fetch interceptor in assets/js/ui-common.js, which rewrites an "api/" URL
+     onto window.BET1X_API_BASE (the page's own origin by default) and attaches the auth token, so
+     there is no base-URL handling here.
 
-    async function apiGet(path) {
-      const res = await fetch(path);
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data.ok === false) throw new Error(data.error || ('Request failed (' + res.status + ')'));
-      return data;
+     Contests, team building, points and the leaderboard are later phases. Their markup is still in
+     the page but their tabs are hidden, so this file deliberately wires up only what the backend can
+     actually answer today — a screen that offers something the server cannot do yet is worse than
+     one that offers less.
+     =============================================================================================== */
+  (function () {
+    'use strict';
+
+    var POLL_MS = 60000;      // re-read the fixture list; cheap, and picks up locks and new matches
+    var SOON_MS = 30 * 60000; // under half an hour to lock, the countdown turns urgent
+
+    var flatMatches = [];     // every card on screen, for the one-second ticker
+    var clockSkewMs = 0;      // (server now - device now); keeps countdowns honest on a wrong clock
+    var squadCache = null;    // the currently open match's squad payload
+    var activeRole = 'WK';
+    var pollTimer = null;
+    var tickTimer = null;
+
+    function $(id) { return document.getElementById(id); }
+
+    function esc(s) {
+      return String(s === null || s === undefined ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
-    async function apiPost(path, body) {
-      const res = await fetch(path, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {})
+
+    /** Our best estimate of the server's clock. */
+    function serverNow() { return Date.now() + clockSkewMs; }
+
+    function apiGet(path) {
+      return fetch(path, { cache: 'no-store' }).then(function (res) {
+        return res.json().catch(function () { return null; }).then(function (data) {
+          if (!res.ok || !data || data.success !== true) {
+            var err = new Error((data && data.error) || ('HTTP ' + res.status));
+            err.status = res.status;
+            throw err;
+          }
+          return data;
+        });
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data.ok === false) throw new Error(data.error || ('Request failed (' + res.status + ')'));
-      return data;
     }
 
-    function show(el) { el.style.display = ''; }
-    function hide(el) { el.style.display = 'none'; }
+    // ---------------------------------------------------------------------------------------------
+    // Countdown
+    // ---------------------------------------------------------------------------------------------
 
-    // ---------------------------------------------------------------------------------------- fixtures
-    async function loadFixtures() {
-      try {
-        const data = await apiGet('api/cricket/fixtures');
-        fixturesCache = data.fixtures || [];
-      } catch (e) {
-        document.getElementById('disabledNote').style.display = 'block';
-        fixturesCache = [];
-      }
-      renderFixtures();
+    /**
+     * "2d 04h", "03h 24m", "12m 30s" — the unit pair always narrows as the deadline approaches, so
+     * the number on screen stays meaningful instead of showing seconds two days out.
+     */
+    function formatCountdown(ms) {
+      if (ms <= 0) return 'Locked';
+      var s = Math.floor(ms / 1000);
+      var d = Math.floor(s / 86400);
+      var h = Math.floor((s % 86400) / 3600);
+      var m = Math.floor((s % 3600) / 60);
+      var sec = s % 60;
+      function pad(n) { return (n < 10 ? '0' : '') + n; }
+      if (d > 0) return d + 'd ' + pad(h) + 'h';
+      if (h > 0) return pad(h) + 'h ' + pad(m) + 'm';
+      if (m > 0) return pad(m) + 'm ' + pad(sec) + 's';
+      return sec + 's';
     }
 
-    function renderFixtures() {
-      const grid = document.getElementById('fixtureGrid');
-      const empty = document.getElementById('fixtureEmpty');
-      grid.innerHTML = '';
-      if (!fixturesCache.length) { show(empty); return; }
-      hide(empty);
-      for (const fx of fixturesCache) {
-        const card = document.createElement('div');
-        card.className = 'y11-fixture-card';
-        const lockChip = fx.lineups_confirmed_at
-          ? '<span class="badge lost">Lineups out</span>'
-          : '<span class="badge pending">Lineups pending</span>';
-        card.innerHTML = `
-          <div class="y11-fixture-teams">${fx.team_a_name} vs ${fx.team_b_name}</div>
-          <div class="y11-fixture-meta">${fx.format || ''} &middot; ${fx.venue || 'Venue TBC'}</div>
-          <div class="y11-fixture-meta">${new Date(fx.start_time).toLocaleString('en-IN')}</div>
-          <div class="y11-status-row">
-            <span class="badge ${fx.status === 'live' ? 'won' : 'pending'}">${(fx.status || 'scheduled').toUpperCase()}</span>
-            ${lockChip}
-          </div>`;
-        card.onclick = () => { location.hash = '#match/' + encodeURIComponent(fx.key) + '/contests'; };
-        grid.appendChild(card);
+    /**
+     * Repaint every countdown on the page once a second.
+     *
+     * Times are compared against serverNow() rather than Date.now(): a device with a wrong clock
+     * would otherwise show a locked match as still open, or hide one that is genuinely joinable.
+     */
+    function tick() {
+      var now = serverNow();
+      var nodes = document.querySelectorAll('[data-lock-at]');
+      for (var i = 0; i < nodes.length; i++) {
+        var el = nodes[i];
+        var left = parseInt(el.getAttribute('data-lock-at'), 10) - now;
+        el.textContent = left > 0 ? ('Starts in ' + formatCountdown(left)) : 'Entries closed';
+        el.classList.toggle('is-soon', left > 0 && left <= SOON_MS);
+        el.classList.toggle('is-locked', left <= 0);
+        // Once the deadline passes the card stops being a way in. The next poll removes it.
+        var card = el.closest('.y11-fixture-card');
+        if (card && left <= 0) {
+          card.style.opacity = '0.55';
+          card.style.pointerEvents = 'none';
+        }
       }
     }
 
-    // ---------------------------------------------------------------------------------------- match view
-    async function openMatch(key, tab) {
-      currentFixtureKey = key;
-      currentFixture = fixturesCache.find(f => f.key === key) || null;
-      hide(document.getElementById('viewFixtures'));
-      show(document.getElementById('viewMatch'));
+    // ---------------------------------------------------------------------------------------------
+    // Lobby
+    // ---------------------------------------------------------------------------------------------
 
-      renderMatchHeader();
-      try {
-        const [squadRes, creditsRes, configRes, contestsRes] = await Promise.all([
-          apiGet('api/cricket/fixtures/' + encodeURIComponent(key) + '/squad'),
-          apiGet('api/cricket/fixtures/' + encodeURIComponent(key) + '/credits'),
-          apiGet('api/cricket/config'),
-          apiGet('api/cricket/fixtures/' + encodeURIComponent(key) + '/contests')
-        ]);
-        squadCache = squadRes.squad || [];
-        squadByKey = new Map(squadCache.map(p => [String(p.player_key), p]));
-        creditsCache = creditsRes.credits || {};
-        configCache = { contest: configRes.contest, boundary: configRes.boundary };
-        contestsCache = contestsRes.contests || [];
-      } catch (e) {
-        window.showToast && window.showToast(e.message, 'error');
+    function crest(logo, short) {
+      if (logo) {
+        return '<img class="y11-crest" src="' + esc(logo) + '" alt="" data-short="' + esc(short) + '">';
+      }
+      return '<div class="y11-crest-fallback">' + esc(short || '?') + '</div>';
+    }
+
+    function fixtureCard(m) {
+      var lockAt = serverNow() + (Number(m.seconds_to_lock) * 1000);
+      var start = m.start_time ? new Date(String(m.start_time).replace(' ', 'T') + 'Z') : null;
+      var when = start && !isNaN(start.getTime())
+        ? start.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+        : '';
+
+      return '<div class="y11-fixture-card" data-match-id="' + esc(m.id) + '" role="button" tabindex="0">'
+        + '<div class="y11-crest-row">'
+        +   crest(m.team_a_logo, m.team_a_short)
+        +   '<span class="y11-vs">vs</span>'
+        +   crest(m.team_b_logo, m.team_b_short)
+        + '</div>'
+        + '<div class="y11-fixture-teams">' + esc(m.team_a_short || m.team_a) + ' vs ' + esc(m.team_b_short || m.team_b) + '</div>'
+        + '<div class="y11-fixture-meta">' + esc(m.format || '') + (m.venue ? ' &middot; ' + esc(m.venue) : '') + '</div>'
+        + (when ? '<div class="y11-fixture-meta">' + esc(when) + '</div>' : '')
+        + '<div class="y11-countdown" data-lock-at="' + lockAt + '">&nbsp;</div>'
+        + '</div>';
+    }
+
+    function renderFixtures(groups) {
+      var grid = $('fixtureGrid');
+      var empty = $('fixtureEmpty');
+      flatMatches = [];
+
+      var total = 0;
+      for (var g = 0; g < groups.length; g++) total += groups[g].matches.length;
+
+      if (!total) {
+        grid.innerHTML = '';
+        empty.style.display = '';
+        return;
+      }
+      empty.style.display = 'none';
+
+      // One block per tournament. The API already orders groups by their soonest match, so whatever
+      // starts next is at the top rather than the alphabetically-first series.
+      var html = '';
+      for (var i = 0; i < groups.length; i++) {
+        var grp = groups[i];
+        html += '<div class="y11-series-head">'
+             +    '<span class="y11-series-name">' + esc(grp.series_name) + '</span>'
+             +    '<span class="y11-series-count">' + grp.matches.length
+             +      (grp.matches.length === 1 ? ' match' : ' matches') + '</span>'
+             +  '</div>'
+             +  '<div class="y11-fixture-grid">';
+        for (var j = 0; j < grp.matches.length; j++) {
+          html += fixtureCard(grp.matches[j]);
+          flatMatches.push(grp.matches[j]);
+        }
+        html += '</div>';
+      }
+      grid.innerHTML = html;
+
+      // A crest URL is built from an image id the source gave us, so it can 404. Swap in the team's
+      // short code rather than leaving a broken-image icon.
+      var imgs = grid.querySelectorAll('img.y11-crest');
+      for (var k = 0; k < imgs.length; k++) {
+        imgs[k].addEventListener('error', function () {
+          var fb = document.createElement('div');
+          fb.className = 'y11-crest-fallback';
+          fb.textContent = this.getAttribute('data-short') || '?';
+          if (this.parentNode) this.parentNode.replaceChild(fb, this);
+        });
       }
 
-      await loadMyEntries();
-      renderContests();
-      renderMyTeams();
-      openStream(key);
-      setTab(tab || 'contests');
+      tick();
+    }
+
+    function loadFixtures() {
+      return apiGet('api/fantasy/matches?status=UPCOMING').then(function (data) {
+        if (typeof data.server_time_ms === 'number') {
+          clockSkewMs = data.server_time_ms - Date.now();
+        }
+        $('disabledNote').style.display = 'none';
+        renderFixtures(data.groups || []);
+      }).catch(function (err) {
+        // With FANTASY_ENABLED off the route is not mounted at all, so the module is genuinely
+        // absent rather than erroring — say so plainly instead of showing a generic failure.
+        if (err && err.status === 404) {
+          $('disabledNote').style.display = '';
+          $('fixtureGrid').innerHTML = '';
+          $('fixtureEmpty').style.display = 'none';
+          return;
+        }
+        $('fixtureGrid').innerHTML =
+          '<div class="y11-empty">Could not load matches. ' + esc(err && err.message ? err.message : '') + '</div>';
+        $('fixtureEmpty').style.display = 'none';
+      });
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Squad view
+    // ---------------------------------------------------------------------------------------------
+
+    function renderSquadRules(rules, match) {
+      var limits = rules.role_limits || {};
+      var parts = [
+        (rules.squad_size || 11) + ' players',
+        (rules.credit_cap || 100) + ' credits',
+        'max ' + (rules.max_per_real_team || 7) + ' from one team'
+      ];
+      ['WK', 'BAT', 'ALL', 'BOWL'].forEach(function (r) {
+        if (limits[r]) parts.push(r + ' ' + limits[r].min + '-' + limits[r].max);
+      });
+      $('squadRules').innerHTML = parts.map(function (p) {
+        return '<span class="y11-rule-pill">' + esc(p) + '</span>';
+      }).join('');
+    }
+
+    function renderRoleTabs() {
+      var players = squadCache.players || {};
+      $('roleTabs').innerHTML = ['WK', 'BAT', 'ALL', 'BOWL'].map(function (r) {
+        var n = (players[r] || []).length;
+        return '<button type="button" class="y11-role-tab' + (r === activeRole ? ' active' : '')
+             + '" data-role="' + r + '">' + r + ' <span>' + n + '</span></button>';
+      }).join('');
+    }
+
+    function renderSquadList() {
+      var list = (squadCache.players || {})[activeRole] || [];
+      if (!list.length) {
+        $('squadList').innerHTML = '<div class="y11-empty">No ' + esc(activeRole) + ' in this squad.</div>';
+        return;
+      }
+      $('squadList').innerHTML = list.map(function (p) {
+        // is_playing is null until a confirmed XI is published, which is different from "benched" —
+        // so the badge only appears when we actually know.
+        var badge = p.is_playing === true ? '<span class="y11-xi-badge">Playing XI</span>' : '';
+        return '<div class="y11-player-row">'
+          + '<div class="y11-player-main">'
+          +   '<div class="y11-player-name">' + esc(p.name) + '</div>'
+          +   '<div class="y11-player-meta">' + esc(p.team_name) + ' &middot; ' + esc(p.role) + '</div>'
+          + '</div>'
+          + badge
+          + '<div class="y11-player-credits">' + Number(p.credits).toFixed(1) + '</div>'
+          + '</div>';
+      }).join('');
     }
 
     function renderMatchHeader() {
-      const box = document.getElementById('matchHeader');
-      if (!currentFixture) { box.innerHTML = '<div class="y11-empty">Match not found.</div>'; return; }
-      const fx = currentFixture;
-      box.innerHTML = `
-        <div class="y11-fixture-teams" style="font-size:20px;">${fx.team_a_name} vs ${fx.team_b_name}</div>
-        <div class="y11-fixture-meta">${fx.format || ''} &middot; ${fx.venue || 'Venue TBC'} &middot; ${new Date(fx.start_time).toLocaleString('en-IN')}</div>
-        <div class="y11-status-row">
-          <span class="badge ${fx.status === 'live' ? 'won' : 'pending'}">${(fx.status || 'scheduled').toUpperCase()}</span>
-          ${fx.lineups_confirmed_at ? '<span class="badge lost">Teams locked</span>' : '<span class="badge pending">Teams open</span>'}
-        </div>`;
+      var m = squadCache.match;
+      var lockAt = serverNow() + (Number(m.seconds_to_lock) * 1000);
+      $('matchHeader').innerHTML =
+          '<div class="y11-fixture-teams" style="font-size:19px;">' + esc(m.team_a) + ' vs ' + esc(m.team_b) + '</div>'
+        + '<div class="y11-fixture-meta">' + esc(m.series_name) + '</div>'
+        + '<div class="y11-fixture-meta">' + esc(m.format || '') + (m.venue ? ' &middot; ' + esc(m.venue) : '') + '</div>'
+        + '<div class="y11-countdown" data-lock-at="' + lockAt + '">&nbsp;</div>';
+      tick();
     }
 
-    function setTab(tab) {
-      document.querySelectorAll('.y11-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-      document.querySelectorAll('.y11-panel').forEach(p => p.classList.remove('active'));
-      const map = { contests: 'panelContests', teams: 'panelTeams', points: 'panelPoints', leaderboard: 'panelLeaderboard' };
-      const panel = document.getElementById(map[tab] || 'panelContests');
-      panel.classList.add('active');
-      if (tab === 'points') renderScoreboard();
-      if (tab === 'leaderboard') renderLeaderboardTab();
-      const parts = ['match', currentFixtureKey, tab];
-      history.replaceState(null, '', '#' + parts.map(encodeURIComponent).join('/'));
-    }
+    function openMatch(id) {
+      $('viewFixtures').style.display = 'none';
+      $('viewMatch').style.display = '';
+      $('matchHeader').innerHTML = '<div class="y11-empty">Loading…</div>';
+      $('squadRules').innerHTML = '';
+      $('roleTabs').innerHTML = '';
+      $('squadList').innerHTML = '';
 
-    document.querySelectorAll('.y11-tab').forEach(btn => {
-      btn.addEventListener('click', () => setTab(btn.dataset.tab));
-    });
-
-    // ---------------------------------------------------------------------------------------- contests
-    function renderContests() {
-      const chipRow = document.getElementById('contestChips');
-      const formats = ['all', ...new Set(contestsCache.map(c => c.format))];
-      chipRow.innerHTML = formats.map(f =>
-        `<button class="y11-chip ${f === contestFilter ? 'active' : ''}" data-fmt="${f}">${f === 'all' ? 'All' : (FORMAT_LABELS[f] || f)}</button>`
-      ).join('');
-      chipRow.querySelectorAll('.y11-chip').forEach(chip => {
-        chip.onclick = () => { contestFilter = chip.dataset.fmt; renderContests(); };
-      });
-
-      const grid = document.getElementById('contestGrid');
-      const empty = document.getElementById('contestEmpty');
-      const list = contestsCache.filter(c => contestFilter === 'all' || c.format === contestFilter);
-      grid.innerHTML = '';
-      if (!list.length) { show(empty); return; }
-      hide(empty);
-
-      for (const c of list) {
-        const rake = Number(c.rake_pct) || 0;
-        const pool = c.guaranteed ? c.guaranteed_pool : round2(c.entry_fee * c.entrants * (1 - rake / 100));
-        const first = (c.prize_breakup || []).find(r => r.from === 1);
-        const firstPrize = first ? round2(pool * first.pct / 100) : 0;
-        const fillPct = c.max_entrants ? Math.min(100, (c.entrants / c.max_entrants) * 100) : 0;
-        const myCount = myEntriesCache.filter(e => e.contest_id === c.id).length;
-
-        const card = document.createElement('div');
-        card.className = 'y11-contest-card';
-        card.innerHTML = `
-          <div class="y11-contest-fmt">${FORMAT_LABELS[c.format] || c.format}${c.guaranteed ? ' &middot; Guaranteed' : ''}</div>
-          <div class="y11-contest-pool">${c.entry_fee > 0 ? fmtMoney(pool) : 'Free'}</div>
-          <div class="y11-contest-row"><span>Entry</span><span>${c.entry_fee > 0 ? fmtMoney(c.entry_fee) : 'Free'}</span></div>
-          <div class="y11-contest-row"><span>1st prize</span><span>${firstPrize > 0 ? fmtMoney(firstPrize) : '—'}</span></div>
-          <div class="y11-contest-row"><span>Spots</span><span>${c.entrants}/${c.max_entrants}</span></div>
-          <div class="y11-progress-track"><div class="y11-progress-fill" style="width:${fillPct}%;"></div></div>
-          <button class="btn btn-primary" data-id="${c.id}">${myCount > 0 ? 'Join again' : 'Join'}</button>`;
-        card.querySelector('button').onclick = () => openBuilder(c);
-        grid.appendChild(card);
-      }
-    }
-
-    // ---------------------------------------------------------------------------------------- team builder
-    function round2(n) { return Math.round((Number(n) || 0) * 100) / 100; }
-
-    function openBuilder(contest) {
-      if (!getCurrentUser()) { window.openAuthModal && window.openAuthModal('login'); return; }
-      builderContest = contest;
-      builderSelected = new Set();
-      builderCaptain = null;
-      builderVc = null;
-      builderRoleFilter = 'ALL';
-      document.getElementById('builderTitle').textContent = 'Build your XI — ' + contest.name;
-      document.getElementById('builderCreditsBudget').textContent = (configCache.contest.credit_budget || 100);
-      document.getElementById('builderTeamName').value = '';
-      document.getElementById('builderError').textContent = '';
-      document.getElementById('builderCvcSection').style.display = 'none';
-      renderBuilderRoleFilter();
-      renderBuilderList();
-      renderBuilderSummary();
-      document.getElementById('builderModal').classList.add('active');
-    }
-    function closeBuilder() { document.getElementById('builderModal').classList.remove('active'); }
-    document.getElementById('builderClose').onclick = closeBuilder;
-
-    function renderBuilderRoleFilter() {
-      const roles = ['ALL', 'WK', 'BAT', 'AR', 'BOWL'];
-      const row = document.getElementById('builderRoleFilter');
-      row.innerHTML = roles.map(r => `<button class="y11-chip ${r === builderRoleFilter ? 'active' : ''}" data-role="${r}">${r}</button>`).join('');
-      row.querySelectorAll('.y11-chip').forEach(chip => {
-        chip.onclick = () => { builderRoleFilter = chip.dataset.role; renderBuilderRoleFilter(); renderBuilderList(); };
+      return apiGet('api/fantasy/matches/' + encodeURIComponent(id) + '/players').then(function (data) {
+        if (typeof data.server_time_ms === 'number') clockSkewMs = data.server_time_ms - Date.now();
+        squadCache = data;
+        activeRole = 'WK';
+        renderMatchHeader();
+        renderSquadRules(data.rules || {}, data.match);
+        renderRoleTabs();
+        renderSquadList();
+      }).catch(function (err) {
+        $('matchHeader').innerHTML = '<div class="y11-empty">Could not load this match. '
+          + esc(err && err.message ? err.message : '') + '</div>';
       });
     }
 
-    function renderBuilderList() {
-      const list = document.getElementById('builderPlayerList');
-      const players = squadCache.filter(p => builderRoleFilter === 'ALL' || p.role === builderRoleFilter);
-      list.innerHTML = '';
-      for (const p of players) {
-        const key = String(p.player_key);
-        const row = document.createElement('div');
-        row.className = 'y11-player-row' + (builderSelected.has(key) ? ' selected' : '');
-        const credits = creditsCache[key] != null ? creditsCache[key] : (configCache.credits_default || 8);
-        row.innerHTML = `
-          <div class="y11-avatar" style="background:${avatarColor(key)};">${initials(p.name)}</div>
-          <div><div class="y11-player-name">${p.name}</div><div class="y11-player-sub">${p.team_key} &middot; ${p.role}</div></div>
-          <div style="flex:1;"></div>
-          <div class="y11-player-credits">${Number(credits).toFixed(1)}</div>`;
-        row.onclick = () => toggleBuilderPlayer(key);
-        list.appendChild(row);
-      }
+    function showFixtures() {
+      $('viewMatch').style.display = 'none';
+      $('viewFixtures').style.display = '';
+      squadCache = null;
     }
 
-    function toggleBuilderPlayer(key) {
-      if (builderSelected.has(key)) {
-        builderSelected.delete(key);
-        if (builderCaptain === key) builderCaptain = null;
-        if (builderVc === key) builderVc = null;
-      } else {
-        if (builderSelected.size >= (configCache.contest.squad_size || 11)) {
-          document.getElementById('builderError').textContent = 'You already have 11 players.';
-          return;
-        }
-        builderSelected.add(key);
-        document.getElementById('builderError').textContent = '';
-      }
-      renderBuilderList();
-      renderBuilderSummary();
-    }
+    // ---------------------------------------------------------------------------------------------
+    // Routing and wiring
+    // ---------------------------------------------------------------------------------------------
 
-    function renderBuilderSummary() {
-      const rules = configCache.contest;
-      let creditsUsed = 0;
-      const roleCounts = {};
-      for (const key of builderSelected) {
-        const p = squadByKey.get(key);
-        const c = creditsCache[key] != null ? creditsCache[key] : 8;
-        creditsUsed += Number(c);
-        if (p) roleCounts[p.role] = (roleCounts[p.role] || 0) + 1;
-      }
-      document.getElementById('builderCreditsUsed').textContent = round2(creditsUsed).toFixed(1);
-      document.getElementById('builderCount').textContent = builderSelected.size;
-
-      const roleBox = document.getElementById('builderRoleCounts');
-      roleBox.innerHTML = Object.entries(rules.role_limits || {}).map(([role, limit]) => {
-        const count = roleCounts[role] || 0;
-        const ok = count >= limit.min && count <= limit.max;
-        return `<span class="${ok ? 'ok' : 'bad'}">${role} ${count} (min ${limit.min}, max ${limit.max})</span>`;
-      }).join('');
-
-      const cvcSection = document.getElementById('builderCvcSection');
-      const cvcGrid = document.getElementById('builderCvcGrid');
-      if (builderSelected.size === (rules.squad_size || 11)) {
-        cvcSection.style.display = 'block';
-        cvcGrid.innerHTML = '';
-        for (const key of builderSelected) {
-          const p = squadByKey.get(key);
-          const chip = document.createElement('div');
-          const isC = builderCaptain === key, isVc = builderVc === key;
-          chip.className = 'y11-cvc-chip' + (isC ? ' captain' : '') + (isVc ? ' vc' : '');
-          chip.innerHTML = `<div class="y11-avatar" style="background:${avatarColor(key)};">${initials(p ? p.name : key)}</div><span class="y11-tag">${isC ? 'C' : isVc ? 'VC' : ''}</span>`;
-          chip.onclick = () => {
-            if (builderCaptain === key) { builderCaptain = null; }
-            else if (builderVc === key) { builderVc = null; }
-            else if (!builderCaptain) { builderCaptain = key; }
-            else if (!builderVc && builderVc !== builderCaptain) { builderVc = key; }
-            renderBuilderSummary();
-          };
-          cvcGrid.appendChild(chip);
-        }
-      } else {
-        cvcSection.style.display = 'none';
-      }
-    }
-
-    document.getElementById('builderSubmit').onclick = async () => {
-      const errEl = document.getElementById('builderError');
-      const rules = configCache.contest;
-      if (builderSelected.size !== (rules.squad_size || 11)) { errEl.textContent = 'Pick exactly 11 players.'; return; }
-      if (!builderCaptain || !builderVc) { errEl.textContent = 'Pick a captain and a vice-captain.'; return; }
-      const teamName = document.getElementById('builderTeamName').value.trim() || (getCurrentUser().username + "'s XI");
-      try {
-        await apiPost('api/cricket/contests/' + builderContest.id + '/join', {
-          players: Array.from(builderSelected), captain: builderCaptain, vice_captain: builderVc, team_name: teamName
-        });
-        SoundFX.play('betPlace');
-        window.showToast && window.showToast('Team submitted!', 'success');
-        closeBuilder();
-        const contestsRes = await apiGet('api/cricket/fixtures/' + encodeURIComponent(currentFixtureKey) + '/contests');
-        contestsCache = contestsRes.contests || [];
-        await loadMyEntries();
-        renderContests();
-        renderMyTeams();
-      } catch (e) {
-        errEl.textContent = e.message;
-      }
-    };
-
-    // ---------------------------------------------------------------------------------------- my teams
-    async function loadMyEntries() {
-      if (!getCurrentUser()) { myEntriesCache = []; return; }
-      try {
-        const data = await apiGet('api/cricket/my-entries');
-        myEntriesCache = (data.entries || []).filter(e => e.contest && e.contest.fixture_key === currentFixtureKey);
-      } catch (e) { myEntriesCache = []; }
-    }
-
-    function renderMyTeams() {
-      const box = document.getElementById('myTeamsList');
-      if (!getCurrentUser()) { box.innerHTML = '<div class="y11-empty">Log in to see your teams.</div>'; return; }
-      if (!myEntriesCache.length) { box.innerHTML = '<div class="y11-empty">You haven\'t entered any contest on this match yet.</div>'; return; }
-      box.innerHTML = myEntriesCache.map(e => `
-        <div class="y11-contest-card" style="margin-bottom:10px;">
-          <div style="display:flex; justify-content:space-between;">
-            <strong>${e.team_name}</strong>
-            <span class="badge ${e.contest && e.contest.status === 'settled' ? 'won' : 'pending'}">${e.contest ? (FORMAT_LABELS[e.contest.format] || e.contest.format) : ''}</span>
-          </div>
-          <div class="y11-contest-row"><span>Credits used</span><span>${Number(e.credits_used).toFixed(1)}</span></div>
-          <div class="y11-contest-row"><span>Points</span><span>${Number(e.points || 0).toFixed(1)}</span></div>
-          ${e.rank ? `<div class="y11-contest-row"><span>Rank</span><span>#${e.rank}</span></div>` : ''}
-          ${e.prize > 0 ? `<div class="y11-contest-row"><span>Prize</span><span>${fmtMoney(e.prize)}</span></div>` : ''}
-        </div>`).join('');
-    }
-
-    // ---------------------------------------------------------------------------------------- points / scoreboard
-    function renderScoreboard() {
-      const box = document.getElementById('scoreboardBox');
-      const st = liveStateCache;
-      if (!st) { box.innerHTML = '<div class="y11-empty">No live data yet for this match.</div>'; return; }
-      let html = '';
-      for (const inn of (st.innings || []).filter(i => !i.super_over)) {
-        html += `<div class="y11-score-line">Innings ${inn.number}: ${inn.runs}/${inn.wickets} (${fmtOvers(inn.legal_balls)} ov)</div>`;
-      }
-      if (!html) html = '<div class="y11-empty">Match hasn\'t started yet.</div>';
-
-      const rows = Object.values(st.match_players || {}).filter(p => squadByKey.has(p.player_key));
-      if (rows.length) {
-        html += `<table class="y11-figures-table"><thead><tr>
-          <th>Player</th><th>Runs</th><th>Balls</th><th>4s/6s</th><th>Wkts</th><th>Overs</th><th>Econ</th>
-        </tr></thead><tbody>`;
-        for (const p of rows) {
-          const name = squadByKey.get(p.player_key) ? squadByKey.get(p.player_key).name : p.player_key;
-          const overs = fmtOvers(p.bowling.balls_bowled);
-          const econ = p.bowling.balls_bowled > 0 ? (p.bowling.runs_conceded / (p.bowling.balls_bowled / 6)).toFixed(2) : '—';
-          html += `<tr><td>${name}</td><td>${p.batting.runs}</td><td>${p.batting.balls_faced}</td>
-            <td>${p.batting.fours}/${p.batting.sixes}</td><td>${p.bowling.wickets}</td><td>${overs}</td><td>${econ}</td></tr>`;
-        }
-        html += '</tbody></table>';
-      }
-      box.innerHTML = html;
-    }
-
-    // ---------------------------------------------------------------------------------------- leaderboard
-    function renderLeaderboardTab() {
-      const sel = document.getElementById('lbContestSelect');
-      const ids = [...new Set(myEntriesCache.map(e => e.contest_id))];
-      if (!ids.length) {
-        sel.innerHTML = '';
-        document.getElementById('leaderboardBox').innerHTML = '<div class="y11-empty">Join a contest to see its leaderboard.</div>';
-        return;
-      }
-      sel.innerHTML = ids.map(id => {
-        const e = myEntriesCache.find(x => x.contest_id === id);
-        return `<option value="${id}">${e && e.contest ? e.contest.name : id}</option>`;
-      }).join('');
-      sel.onchange = () => loadLeaderboard(sel.value);
-      loadLeaderboard(ids[0]);
-    }
-
-    async function loadLeaderboard(contestId) {
-      const box = document.getElementById('leaderboardBox');
-      try {
-        const data = await apiGet('api/cricket/contests/' + contestId + '/leaderboard');
-        const entries = data.entries || data.leaderboard || [];
-        const me = getCurrentUser();
-        const mine = entries.find(e => e.username === (me && me.username));
-        box.innerHTML = (mine ? `<div class="y11-my-rank"><span>Your rank: #${mine.rank || '—'}</span><span>${Number(mine.points || 0).toFixed(1)} pts ${mine.prize > 0 ? '&middot; ' + fmtMoney(mine.prize) : ''}</span></div>` : '') +
-          `<table class="y11-lb-table"><thead><tr><th>Rank</th><th>Team</th><th>Points</th><th>Prize</th></tr></thead><tbody>` +
-          entries.map(e => `<tr class="${me && e.username === me.username ? 'mine' : ''}">
-            <td class="${e.rank <= 3 ? 'y11-top3' : ''}">#${e.rank || '—'}</td>
-            <td>${e.display_name || e.team_name}</td>
-            <td>${Number(e.points || 0).toFixed(1)}</td>
-            <td>${e.prize > 0 ? fmtMoney(e.prize) : '—'}</td>
-          </tr>`).join('') + '</tbody></table>';
-      } catch (e) {
-        box.innerHTML = '<div class="y11-empty">' + e.message + '</div>';
-      }
-    }
-
-    // ---------------------------------------------------------------------------------------- SSE
-    function openStream(fixtureKey) {
-      if (es) { es.close(); es = null; }
-      const url = window.BET1X_API_BASE + '/api/cricket/stream/' + encodeURIComponent(fixtureKey);
-      es = new EventSource(url);
-      es.addEventListener('state', ev => {
-        try { liveStateCache = JSON.parse(ev.data); } catch (e) { return; }
-        if (document.getElementById('panelPoints').classList.contains('active')) renderScoreboard();
-        const now = Date.now();
-        if (now - lbThrottleAt > 5000 && document.getElementById('panelLeaderboard').classList.contains('active')) {
-          lbThrottleAt = now;
-          renderLeaderboardTab();
-        }
-      });
-    }
-
-    // ---------------------------------------------------------------------------------------- private contest / join by code
-    function openPrivateModal() {
-      if (!getCurrentUser()) { window.openAuthModal && window.openAuthModal('login'); return; }
-      document.getElementById('privateForm').style.display = 'block';
-      document.getElementById('privateResult').style.display = 'none';
-      document.getElementById('privateError').textContent = '';
-      document.getElementById('privateModal').classList.add('active');
-    }
-    document.getElementById('createPrivateBtn').onclick = openPrivateModal;
-    document.getElementById('privateClose').onclick = () => document.getElementById('privateModal').classList.remove('active');
-    document.getElementById('privateResultClose').onclick = () => document.getElementById('privateModal').classList.remove('active');
-
-    document.getElementById('privateSubmit').onclick = async () => {
-      const errEl = document.getElementById('privateError');
-      try {
-        const data = await apiPost('api/cricket/contests/private', {
-          fixture_key: currentFixtureKey,
-          name: document.getElementById('pcName').value.trim() || undefined,
-          entry_fee: Number(document.getElementById('pcFee').value),
-          max_entrants: Number(document.getElementById('pcMax').value),
-          max_entries_per_user: Number(document.getElementById('pcEntries').value)
-        });
-        document.getElementById('privateCodeOut').textContent = data.contest.invite_code;
-        document.getElementById('privateForm').style.display = 'none';
-        document.getElementById('privateResult').style.display = 'block';
-        const contestsRes = await apiGet('api/cricket/fixtures/' + encodeURIComponent(currentFixtureKey) + '/contests');
-        contestsCache = contestsRes.contests || [];
-      } catch (e) {
-        errEl.textContent = e.message;
-      }
-    };
-
-    function openCodeModal() {
-      if (!getCurrentUser()) { window.openAuthModal && window.openAuthModal('login'); return; }
-      document.getElementById('codeInput').value = '';
-      document.getElementById('codeError').textContent = '';
-      document.getElementById('codeModal').classList.add('active');
-    }
-    document.getElementById('joinByCodeBtn').onclick = openCodeModal;
-    document.getElementById('joinByCodeBtnTop').onclick = openCodeModal;
-    document.getElementById('codeClose').onclick = () => document.getElementById('codeModal').classList.remove('active');
-
-    document.getElementById('codeSubmit').onclick = async () => {
-      const errEl = document.getElementById('codeError');
-      const code = document.getElementById('codeInput').value.trim();
-      if (!code) { errEl.textContent = 'Enter a code.'; return; }
-      try {
-        const data = await apiGet('api/cricket/contests/private/' + encodeURIComponent(code));
-        document.getElementById('codeModal').classList.remove('active');
-        if (data.contest.fixture_key !== currentFixtureKey) {
-          location.hash = '#match/' + encodeURIComponent(data.contest.fixture_key) + '/contests';
-          setTimeout(() => openBuilder(data.contest), 400);
-        } else {
-          openBuilder(data.contest);
-        }
-      } catch (e) {
-        errEl.textContent = e.message;
-      }
-    };
-
-    // ---------------------------------------------------------------------------------------- router
     function route() {
-      const hash = location.hash.replace(/^#/, '');
-      if (hash.startsWith('match/')) {
-        const [, key, tab] = hash.split('/').map(decodeURIComponent);
-        openMatch(key, tab);
-      } else {
-        if (es) { es.close(); es = null; }
-        hide(document.getElementById('viewMatch'));
-        show(document.getElementById('viewFixtures'));
-      }
+      var hash = String(window.location.hash || '');
+      var m = hash.match(/^#match\/(\d+)$/);
+      if (m) { openMatch(m[1]); return; }
+      showFixtures();
     }
-    window.addEventListener('hashchange', route);
 
-    document.addEventListener('DOMContentLoaded', async () => {
-      updateAuthHeaderUI();
-      await loadFixtures();
-      route();
+    document.addEventListener('DOMContentLoaded', function () {
+      // These belong to the private-contest phase; hidden rather than left as dead buttons.
+      ['joinByCodeBtnTop', 'joinByCodeBtn', 'createPrivateBtn'].forEach(function (id) {
+        var el = $(id);
+        if (el) el.hidden = true;
+      });
+
+      // Card taps (and keyboard activation, since the cards are focusable).
+      $('fixtureGrid').addEventListener('click', function (e) {
+        var card = e.target.closest ? e.target.closest('.y11-fixture-card') : null;
+        if (card) window.location.hash = '#match/' + card.getAttribute('data-match-id');
+      });
+      $('fixtureGrid').addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        var card = e.target.closest ? e.target.closest('.y11-fixture-card') : null;
+        if (card) { e.preventDefault(); window.location.hash = '#match/' + card.getAttribute('data-match-id'); }
+      });
+
+      $('roleTabs').addEventListener('click', function (e) {
+        var btn = e.target.closest ? e.target.closest('.y11-role-tab') : null;
+        if (!btn || !squadCache) return;
+        activeRole = btn.getAttribute('data-role');
+        renderRoleTabs();
+        renderSquadList();
+      });
+
+      window.addEventListener('hashchange', route);
+
+      loadFixtures().then(route);
+
+      tickTimer = setInterval(tick, 1000);
+      pollTimer = setInterval(function () {
+        // Only the lobby needs re-reading; the squad of an open match does not change minute to
+        // minute, and re-fetching it would fight with the role tab the player is looking at.
+        if (!document.hidden && $('viewFixtures').style.display !== 'none') loadFixtures();
+      }, POLL_MS);
     });
+  })();
   </script>
 </body>
 
