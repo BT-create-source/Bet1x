@@ -24,6 +24,7 @@ require_once __DIR__ . '/../lib/fantasy-teams.php';
 require_once __DIR__ . '/../lib/fantasy-contests.php';
 require_once __DIR__ . '/../lib/fantasy-scoring.php';
 require_once __DIR__ . '/../lib/fantasy-live.php';
+require_once __DIR__ . '/../lib/fantasy-settle.php';
 
 function register_fantasy_routes(Router $app) {
 
@@ -490,4 +491,96 @@ function register_fantasy_routes(Router $app) {
                 fail500($res, $err, 'fantasy_override_stats');
             }
         });
+
+    // ---------------------------------------------------------------------------------------------
+    // Leaderboard and settlement
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * GET /api/fantasy/contests/:id/leaderboard
+     *
+     * Public. Before settlement the standings are provisional and computed live from each entry's
+     * points; afterwards the stored rank and prize are returned as they were paid, so the leaderboard
+     * can never disagree with the money. The response says which of the two it is via `provisional`,
+     * because showing a live projection as if it were final is how disputes start.
+     */
+    $app->get('/api/fantasy/contests/:id/leaderboard', function (Req $req, Res $res) {
+        try {
+            $board = fantasy_contest_leaderboard($req->p('id'), $req->q('limit', 100));
+            if (!$board) {
+                $res->status(404)->json(['error' => 'Contest not found.']);
+                return;
+            }
+            $board['success'] = true;
+            $board['server_time_ms'] = now_ms();
+            $res->json($board);
+        } catch (Throwable $err) {
+            fail500($res, $err, 'fantasy_leaderboard');
+        }
+    });
+
+    /**
+     * POST /api/admin/fantasy/contests/:id/settle — rank, allocate and pay out one contest.
+     *
+     * Refuses unless the source has reported the match finished, which is evidence rather than a
+     * clock. {"force":1} overrides that, and a forced settle is recorded in the ledger detail so it
+     * can be told apart from a normal one afterwards.
+     *
+     * Safe to call twice: a contest already settled reports already_settled and pays nothing.
+     */
+    $app->post('/api/admin/fantasy/contests/:id/settle', 'require_admin', function (Req $req, Res $res) {
+        try {
+            $force = (bool) $req->b('force', false);
+            $result = fantasy_settle_contest((int) $req->p('id'), $force);
+            if (!$result['ok']) {
+                $res->status((int) ($result['status'] ?? 409))->json(['error' => $result['error']]);
+                return;
+            }
+            $result['success'] = true;
+            $res->json($result);
+        } catch (Throwable $err) {
+            fail500($res, $err, 'fantasy_settle_contest');
+        }
+    });
+
+    /**
+     * POST /api/admin/fantasy/matches/:id/settle — settle every open contest on a fixture.
+     *
+     * The fixture is only marked SETTLED when every one of its contests is settled or cancelled, so a
+     * failure leaves it open for a retry instead of being papered over.
+     */
+    $app->post('/api/admin/fantasy/matches/:id/settle', 'require_admin', function (Req $req, Res $res) {
+        try {
+            $result = fantasy_settle_match((int) $req->p('id'), (bool) $req->b('force', false));
+            if (!$result['ok']) {
+                $res->status((int) ($result['status'] ?? 409))->json(['error' => $result['error']]);
+                return;
+            }
+            $result['success'] = true;
+            $res->json($result);
+        } catch (Throwable $err) {
+            fail500($res, $err, 'fantasy_settle_match');
+        }
+    });
+
+    /**
+     * POST /api/admin/fantasy/contests/:id/void — refund every entry and cancel the contest.
+     *
+     * The right answer for a contest that never filled, or a match that was abandoned: give the money
+     * back rather than pay a prize table quoted against a full house. Refuses on an already-settled
+     * contest, because prizes cannot be unpaid.
+     */
+    $app->post('/api/admin/fantasy/contests/:id/void', 'require_admin', function (Req $req, Res $res) {
+        try {
+            $result = fantasy_void_contest((int) $req->p('id'), (string) $req->b('reason', ''));
+            if (!$result['ok']) {
+                $res->status((int) ($result['status'] ?? 409))->json(['error' => $result['error']]);
+                return;
+            }
+            $result['success'] = true;
+            $res->json($result);
+        } catch (Throwable $err) {
+            fail500($res, $err, 'fantasy_void_contest');
+        }
+    });
 }
