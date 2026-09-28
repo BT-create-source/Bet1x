@@ -183,10 +183,31 @@ function fantasy_create_contest($matchId, array $spec) {
     $prize = fantasy_validate_prize_breakup($spec['prize_rules'] ?? null, $totalSpots);
     if (!$prize['ok']) return ['ok' => false, 'error' => $prize['error'], 'status' => 422];
 
+    // How many entries this contest needs before it may pay out. Below it, settlement refunds
+    // everyone instead (see fantasy_settle_contest).
+    //
+    // Left unset, it defaults to the deepest rank the prize table pays — the exact number of entries
+    // at which every advertised prize can actually be awarded. Quoting prizes down to rank 60 and then
+    // paying out on eight entries means the other ranks' share is never awarded and quietly stays
+    // with the house, which is what this default prevents. An operator can pass any other number,
+    // including 0 to let a contest pay out however few enter.
+    $deepestPaidRank = 0;
+    foreach ($prize['breakup'] as $row) {
+        if ((int) $row['to'] > $deepestPaidRank) $deepestPaidRank = (int) $row['to'];
+    }
+    $minEntries = array_key_exists('min_entries', $spec) && $spec['min_entries'] !== null
+        ? (int) $spec['min_entries']
+        : $deepestPaidRank;
+    if ($minEntries < 0 || $minEntries > $totalSpots) {
+        return ['ok' => false, 'status' => 422,
+                'error' => 'min_entries must be between 0 and total_spots (' . $totalSpots . ').'];
+    }
+
     q('INSERT INTO "fantasy_contests" ("match_id","title","entry_fee","total_spots","filled_spots",'
-      . '"prize_pool","prize_rules","rake_pct","status","created_at") VALUES (?,?,?,?,?,?,?,?,?,?)',
+      . '"prize_pool","prize_rules","rake_pct","status","min_entries","created_at") '
+      . 'VALUES (?,?,?,?,?,?,?,?,?,?,?)',
       [(int) $matchId, $title, $entryFee, $totalSpots, 0, $guaranteed,
-       json_encode($prize['breakup']), $rakePct, 'OPEN', ms_to_sql(now_ms())]);
+       json_encode($prize['breakup']), $rakePct, 'OPEN', $minEntries, ms_to_sql(now_ms())]);
 
     $id = (int) db_or_throw()->lastInsertId();
     return ['ok' => true, 'contest_id' => $id];
@@ -232,6 +253,10 @@ function fantasy_contest_public(array $row, $entered = false) {
         'total_spots'    => $totalSpots,
         'filled_spots'   => $filled,
         'spots_left'     => max(0, $totalSpots - $filled),
+        // Below this many entries the contest refunds instead of paying out, so the lobby can say so
+        // before someone joins rather than after.
+        'min_entries'    => (int) ($row['min_entries'] ?? 0),
+        'meets_minimum'  => $filled >= (int) ($row['min_entries'] ?? 0),
         'rake_pct'       => round($rakePct, 2),
         'guaranteed_pool' => round($guaranteed, 2),
         'prize_pool'     => round($current, 2),

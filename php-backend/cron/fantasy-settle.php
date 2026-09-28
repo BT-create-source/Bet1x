@@ -72,7 +72,8 @@ if (!db_ready()) {
 
 $startedAt = microtime(true);
 $summary = ['matches' => 0, 'contests' => 0, 'paid' => 0.0, 'winners' => 0,
-            'undistributed' => 0.0, 'dry_run' => $dryRun, 'errors' => []];
+            'undistributed' => 0.0, 'voided' => 0, 'refunded' => 0.0,
+            'dry_run' => $dryRun, 'errors' => []];
 $ran = false;
 
 try {
@@ -151,10 +152,16 @@ try {
                 $summary['paid'] += (float) $res['paid'];
                 $summary['winners'] += (int) $res['winners'];
                 $summary['undistributed'] += (float) $res['undistributed'];
+                $summary['voided'] += (int) ($res['voided'] ?? 0);
+                $summary['refunded'] += (float) ($res['refunded'] ?? 0);
                 foreach ($res['errors'] as $e) $summary['errors'][] = "match $matchId: $e";
 
                 printf("      settled %d contest(s), paid %.2f to %d winner(s)\n",
                        (int) $res['contests'], (float) $res['paid'], (int) $res['winners']);
+                if (!empty($res['voided'])) {
+                    printf("      refunded %d under-filled contest(s), %.2f returned\n",
+                           (int) $res['voided'], (float) $res['refunded']);
+                }
 
             } catch (Throwable $e) {
                 $summary['errors'][] = "match $matchId: " . $e->getMessage();
@@ -172,6 +179,7 @@ if (!$ran) {
 }
 
 $summary['paid'] = round($summary['paid'], 2);
+$summary['refunded'] = round($summary['refunded'], 2);
 $summary['undistributed'] = round($summary['undistributed'], 2);
 $elapsed = round(microtime(true) - $startedAt, 2);
 $status = empty($summary['errors']) ? 'ok' : 'partial';
@@ -182,6 +190,9 @@ echo "  fixtures   : {$summary['matches']}\n";
 echo "  contests   : {$summary['contests']}\n";
 echo "  paid out   : {$summary['paid']}\n";
 echo "  winners    : {$summary['winners']}\n";
+// Contests that did not reach their minimum entry count were refunded in full instead of paying out a
+// prize table that could not be honoured — the operator policy, see migration 009.
+echo "  refunded   : {$summary['voided']} contest(s), {$summary['refunded']}\n";
 // Money the prize table did not reach because the contest never filled far enough for every paid rank
 // to exist. Shown every run, because it is the difference between what players put in and got back.
 echo "  undistributed: {$summary['undistributed']}\n";

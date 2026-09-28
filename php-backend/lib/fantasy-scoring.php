@@ -48,9 +48,11 @@ function fantasy_scoring_rules() {
         'runs_100_bonus'        => 16.0,
         'milestones_cumulative' => false,
         'duck'                  => -2.0,
-        // Roles that do NOT incur the duck penalty. Empty follows the specification literally;
-        // ['BOWL'] would match the established apps.
-        'duck_exempt_roles'     => [],
+        // Roles that do NOT incur the duck penalty. Signed off by the operator as ['BOWL'], matching
+        // the standard fantasy-app rule: a specialist bowler is not picked for their batting, so
+        // penalising them for a nought would tax the role rather than the performance. An empty list
+        // would follow the original specification literally and penalise everyone.
+        'duck_exempt_roles'     => ['BOWL'],
 
         // Bowling
         'wicket'                => 25.0,

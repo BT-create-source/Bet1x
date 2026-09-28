@@ -1,0 +1,31 @@
+-- =================================================================================================
+-- Migration 009 — "Your Eleven": minimum participation before a contest may pay out (PostgreSQL)
+--
+-- Additive. One column on "fantasy_contests", a table introduced by migration 006. No existing
+-- platform table is touched, no data changes, and re-running it is harmless.
+--
+-- WHY IT EXISTS
+-- -------------
+-- A prize table is quoted against a full house. If a contest paying down to rank 60 only ever gets
+-- eight entries, ranks 9 to 60 never exist, their share of the pool is never awarded, and that money
+-- simply stays with the house. Settlement reports it as "undistributed", but reporting it is not the
+-- same as it being right.
+--
+-- The operator's decision is to refund instead: below this many entries, settlement voids the contest
+-- and returns every entry fee in full rather than paying a prize table that cannot be honoured.
+--
+-- DEFAULT: 0, meaning "no minimum", so any contest created before this migration keeps behaving
+-- exactly as it did. New contests get a minimum derived at creation from their own prize table — the
+-- deepest rank it pays — because that is precisely the number of entries at which every advertised
+-- prize can actually be awarded. An operator can pass min_entries explicitly to set a different bar,
+-- including 0 to allow a contest to pay out however few enter.
+--
+-- Apply with:
+--     psql -U DBUSER -d DBNAME -f php-backend/sql/migration-009-fantasy-min-entries-postgres.sql
+-- or paste it into phpPgAdmin's SQL tab.
+-- =================================================================================================
+
+ALTER TABLE "fantasy_contests" ADD COLUMN IF NOT EXISTS "min_entries" INTEGER NOT NULL DEFAULT 0;
+
+-- Verification.
+-- SELECT "id","title","total_spots","min_entries" FROM "fantasy_contests" ORDER BY "id";

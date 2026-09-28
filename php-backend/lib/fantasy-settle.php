@@ -297,6 +297,27 @@ function fantasy_settle_contest($contestId, $force = false) {
         return ['ok' => true, 'paid' => 0.0, 'winners' => 0, 'undistributed' => 0.0, 'entries' => 0];
     }
 
+    // ---------------------------------------------------------------------------------------------
+    // Minimum participation. Below it the prize table cannot be honoured — the deeper ranks never
+    // existed, so their share of the pool would never be awarded and would quietly stay with the
+    // house. The operator's policy is to give the money back instead.
+    //
+    // Delegated to fantasy_void_contest() rather than reimplemented, so every refund in this module
+    // goes through exactly one code path and the conditional status claim keeps it idempotent.
+    // ---------------------------------------------------------------------------------------------
+    $minEntries = (int) ($contest['min_entries'] ?? 0);
+    if ($minEntries > 0 && count($rows) < $minEntries) {
+        $void = fantasy_void_contest($contestId,
+            'only ' . count($rows) . ' of the ' . $minEntries . ' entries needed');
+        if (!$void['ok']) return $void;
+        return [
+            'ok' => true, 'voided' => true,
+            'entries' => count($rows), 'refunded' => $void['refunded'],
+            'paid' => 0.0, 'winners' => 0, 'undistributed' => 0.0,
+            'reason' => 'refunded: ' . count($rows) . ' entries, minimum is ' . $minEntries,
+        ];
+    }
+
     $entries = [];
     foreach ($rows as $r) {
         $entries[] = ['id' => (int) $r['id'], 'user_id' => (int) $r['user_id'],
@@ -462,7 +483,7 @@ function fantasy_settle_match($matchId, $force = false) {
                     [$matchId, 'SETTLED', 'CANCELLED']);
 
     $out = ['ok' => true, 'contests' => 0, 'paid' => 0.0, 'winners' => 0,
-            'undistributed' => 0.0, 'errors' => []];
+            'undistributed' => 0.0, 'voided' => 0, 'refunded' => 0.0, 'errors' => []];
 
     foreach ($contests as $c) {
         $r = fantasy_settle_contest((int) $c['id'], $force);
@@ -474,9 +495,16 @@ function fantasy_settle_match($matchId, $force = false) {
         $out['paid'] += (float) ($r['paid'] ?? 0);
         $out['winners'] += (int) ($r['winners'] ?? 0);
         $out['undistributed'] += (float) ($r['undistributed'] ?? 0);
+        // A contest below its minimum was refunded rather than paid; counted separately so the two
+        // outcomes are never conflated in a worker's summary.
+        if (!empty($r['voided'])) {
+            $out['voided']++;
+            $out['refunded'] += (float) ($r['refunded'] ?? 0);
+        }
     }
 
     $out['paid'] = round($out['paid'], 2);
+    $out['refunded'] = round($out['refunded'], 2);
     $out['undistributed'] = round($out['undistributed'], 2);
 
     if (!$out['errors']) {

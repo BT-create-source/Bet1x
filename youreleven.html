@@ -209,8 +209,69 @@
       background: var(--green-soft); color: var(--green); flex: 0 0 auto;
     }
 
+    /* ---- Points and Leaderboard ---- */
+    .y11-sub-head {
+      margin: 16px 0 8px; font-size: 12px; color: var(--text-dim);
+      text-transform: uppercase; letter-spacing: .04em;
+    }
+    /* These panels reuse .y11-player-row, whose base rule carries cursor:pointer for the builder's
+       selectable list. Only the rows that actually do something should look clickable. */
+    #panelPoints .y11-player-row,
+    #panelLeaderboard .y11-player-row { cursor: default; gap: 10px; }
+    #panelPoints .y11-player-row[data-team-points] { cursor: pointer; }
+
+    .y11-points-big {
+      font-family: var(--font-mono); font-size: 15px; font-weight: 700;
+      color: var(--gold-deep); flex: 0 0 auto; min-width: 46px; text-align: right;
+    }
+
+    .y11-breakdown {
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      margin: -2px 0 10px; padding: 6px 10px; background: var(--bg-soft);
+    }
+    .y11-bd-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 0; font-size: 12px; border-bottom: 1px solid var(--border);
+    }
+    .y11-bd-row:last-child { border-bottom: none; }
+    .y11-bd-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .y11-bd-maths { color: var(--text-dim); font-family: var(--font-mono); font-size: 11px; white-space: nowrap; }
+    .y11-bd-pts { font-family: var(--font-mono); font-weight: 700; min-width: 42px; text-align: right; }
+    .y11-bd-total { font-weight: 700; color: var(--gold-deep); }
+
+    .y11-arm {
+      display: inline-block; margin-left: 6px; padding: 1px 5px; border-radius: 4px;
+      font-size: 9px; font-weight: 700;
+    }
+    .y11-arm.c  { background: var(--gold-soft); color: var(--gold-deep); }
+    .y11-arm.vc { background: var(--violet-soft, var(--bg-soft)); color: var(--violet); }
+
+    .y11-lb-banner {
+      padding: 8px 11px; border-radius: var(--radius-sm); margin-bottom: 10px;
+      font-size: 11.5px; background: var(--gold-soft); color: var(--gold-deep);
+    }
+    .y11-lb-banner.settled { background: var(--green-soft); color: var(--green); }
+
+    .y11-lb-rank {
+      font-family: var(--font-mono); font-size: 12.5px; font-weight: 700;
+      color: var(--text-dim); flex: 0 0 auto; min-width: 34px;
+    }
+    .y11-lb-prize {
+      font-family: var(--font-mono); font-size: 12.5px; color: var(--green);
+      flex: 0 0 auto; min-width: 58px; text-align: right;
+    }
+    /* The player's own row, so they can find themselves in a long list without reading every name. */
+    #panelLeaderboard .y11-me { background: var(--gold-soft); }
+    #panelLeaderboard .y11-me .y11-player-name { color: var(--gold-deep); }
+
     @media (max-width: 480px) {
       .y11-wrap { padding: 12px; }
+      .y11-points-big { font-size: 13.5px; min-width: 40px; }
+      .y11-lb-rank { min-width: 28px; font-size: 11.5px; }
+      .y11-lb-prize { min-width: 48px; font-size: 11.5px; }
+      .y11-sub-head { font-size: 11px; }
+      .y11-bd-row { font-size: 11.5px; }
+      .y11-bd-maths { display: none; }   /* the arithmetic is the first thing to drop on a phone */
       .y11-series-head { margin: 16px 0 8px; }
       .y11-series-name { font-size: 13px; }
       .y11-countdown { font-size: 11px; padding: 3px 9px; }
@@ -265,14 +326,11 @@
       <a href="#fixtures" class="y11-back-link">&larr; All matches</a>
       <div class="y11-match-header" id="matchHeader"></div>
 
-      <!-- Contests / My Teams / Points / Leaderboard are hidden until their phases are ported to
-           the PHP backend. They are left in place rather than deleted so each phase only has to
-           remove a `hidden` and wire the panel up. -->
       <div class="y11-tabs">
         <button class="y11-tab active" data-tab="contests">Contests</button>
         <button class="y11-tab" data-tab="squad">Squad &amp; teams</button>
-        <button class="y11-tab" data-tab="points" hidden>Points &amp; Scoreboard</button>
-        <button class="y11-tab" data-tab="leaderboard" hidden>Leaderboard</button>
+        <button class="y11-tab" data-tab="points">Points</button>
+        <button class="y11-tab" data-tab="leaderboard">Leaderboard</button>
       </div>
 
       <div class="y11-panel" id="panelSquad">
@@ -310,7 +368,10 @@
       </div>
     </div>
 
-    <div class="y11-attribution">Cricket data via Roanuz Sports (cricketapi.com)</div>
+    <!-- Corrected: this build reads the public Cricbuzz schedule, squad and scorecard pages, not the
+         Roanuz feed the (undeployed) Node build was written against. Saying otherwise would credit a
+         provider that supplies none of this data. -->
+    <div class="y11-attribution">Cricket data from public Cricbuzz match pages</div>
   </div>
 
   <!-- Team builder modal -->
@@ -653,6 +714,8 @@
     function openMatch(id) {
       $('viewFixtures').style.display = 'none';
       $('viewMatch').style.display = '';
+      // A different match needs its own contest picker, so the cached one is thrown away.
+      pickerFilled = false;
       $('matchHeader').innerHTML = '<div class="y11-empty">Loading…</div>';
       $('squadRules').innerHTML = '';
       $('roleTabs').innerHTML = '';
@@ -1152,18 +1215,257 @@
     }
 
     // ---------------------------------------------------------------------------------------------
+    // Points
+    // ---------------------------------------------------------------------------------------------
+
+    function fmtPts(n) {
+      var v = Number(n || 0);
+      // Points are halves at most (the 1.5x multiplier), so one decimal is exact and two would be
+      // noise. A trailing .0 is dropped so a whole number reads as a whole number.
+      return (Math.round(v * 10) / 10).toFixed(1).replace(/\.0$/, '');
+    }
+
+    /** The interesting figures for one player, as a short line. Omits anything they did not do. */
+    function statLine(s) {
+      if (!s) return '';
+      var bits = [];
+      if (s.did_bat || s.runs > 0 || s.balls > 0) {
+        bits.push(s.runs + (s.is_out ? '' : '*') + ' (' + s.balls + ')');
+        if (s.fours) bits.push(s.fours + '×4');
+        if (s.sixes) bits.push(s.sixes + '×6');
+      }
+      if (s.overs > 0 || s.wickets > 0) {
+        bits.push(s.wickets + '/' + s.runs_conceded + ' in ' + s.overs);
+        if (s.maidens) bits.push(s.maidens + ' md');
+      }
+      if (s.catches) bits.push(s.catches + ' ct');
+      if (s.stumpings) bits.push(s.stumpings + ' st');
+      if (s.runouts_direct || s.runouts_shared) bits.push((s.runouts_direct + s.runouts_shared) + ' ro');
+      return bits.join(' · ');
+    }
+
+    function renderScoreboard(data) {
+      var box = $('scoreboardBox');
+      var head = '';
+
+      // What the SOURCE says, kept visibly distinct from whether the contests have been settled —
+      // "the game is over" and "you have been paid" are different statements.
+      if (data.source_status) {
+        head += '<div class="y11-lb-banner">' + esc(data.source_status) + '</div>';
+      } else if (data.match.status === 'UPCOMING') {
+        head += '<div class="y11-lb-banner">This match has not started yet.</div>';
+      }
+      if (data.last_synced_at) {
+        // typeof, not a truthiness test: a bare undefined identifier throws a ReferenceError rather
+        // than being falsy, which would take the whole panel down if ui-common.js ever stopped
+        // exporting this.
+        head += '<div class="y11-fixture-meta" style="margin-bottom:10px;">Scores last updated '
+              + esc(typeof profileFmtDate === 'function'
+                    ? profileFmtDate(data.last_synced_at) : data.last_synced_at)
+              + '</div>';
+      }
+
+      // The player's own teams first — that is what they came to look at.
+      var mine = '';
+      if (myTeamsCache.length) {
+        mine = '<h4 class="y11-sub-head">Your teams</h4>'
+          + myTeamsCache.map(function (t) {
+              return '<div class="y11-player-row" style="cursor:pointer;" data-team-points="' + t.id + '">'
+                + '<div class="y11-player-main">'
+                +   '<div class="y11-player-name">' + esc(t.team_name) + '</div>'
+                +   '<div class="y11-player-meta">Tap for the player-by-player breakdown</div>'
+                + '</div>'
+                + '<div class="y11-points-big">' + fmtPts(t.total_points) + '</div>'
+                + '</div>'
+                + '<div class="y11-breakdown" id="breakdown-' + t.id + '" hidden></div>';
+            }).join('');
+      }
+
+      var players = data.players || [];
+      var board = '<h4 class="y11-sub-head">Every player in this match</h4>';
+      if (!players.length) {
+        board += '<div class="y11-empty">No scores yet. They appear once the match is under way.</div>';
+      } else {
+        board += players.map(function (p) {
+          return '<div class="y11-player-row">'
+            + '<div class="y11-player-main">'
+            +   '<div class="y11-player-name">' + esc(p.name) + '</div>'
+            +   '<div class="y11-player-meta">' + esc(p.team_name) + ' · ' + esc(p.role)
+            +     (statLine(p.stats) ? ' · ' + esc(statLine(p.stats)) : '') + '</div>'
+            + '</div>'
+            + '<div class="y11-points-big">' + fmtPts(p.points) + '</div>'
+            + '</div>';
+        }).join('');
+      }
+
+      box.innerHTML = head + mine + board;
+    }
+
+    function loadScoreboard() {
+      if (!squadCache) return Promise.resolve();
+      $('scoreboardBox').innerHTML = '<div class="y11-empty">Loading…</div>';
+      // Teams first so their totals are current, then the board.
+      return loadMyTeams()
+        .then(function () {
+          return apiGet('api/fantasy/matches/' + encodeURIComponent(squadCache.match.id) + '/scoreboard');
+        })
+        .then(renderScoreboard)
+        .catch(function (err) {
+          $('scoreboardBox').innerHTML = '<div class="y11-empty">Could not load scores. '
+            + esc(err && err.message ? err.message : '') + '</div>';
+        });
+    }
+
+    /**
+     * One team's breakdown, fetched only when asked for.
+     *
+     * Shows each player's base points, their multiplier and the result, because a total nobody can
+     * take apart is a total nobody can check — and the armband is exactly where a player will want to
+     * see the arithmetic.
+     */
+    function toggleTeamBreakdown(teamId) {
+      var box = $('breakdown-' + teamId);
+      if (!box) return;
+      if (!box.hidden) { box.hidden = true; return; }
+      box.hidden = false;
+      box.innerHTML = '<div class="y11-empty">Loading…</div>';
+
+      apiGet('api/fantasy/teams/' + encodeURIComponent(teamId) + '/points').then(function (data) {
+        box.innerHTML = data.players.map(function (p) {
+          var tag = p.is_captain ? '<span class="y11-arm c">C</span>'
+                  : (p.is_vice_captain ? '<span class="y11-arm vc">VC</span>' : '');
+          var maths = p.multiplier !== 1
+            ? fmtPts(p.base_points) + ' × ' + p.multiplier
+            : '';
+          return '<div class="y11-bd-row">'
+            + '<span class="y11-bd-name">' + esc(p.name) + tag + '</span>'
+            + '<span class="y11-bd-maths">' + maths + '</span>'
+            + '<span class="y11-bd-pts">' + fmtPts(p.points) + '</span>'
+            + '</div>';
+        }).join('')
+        + '<div class="y11-bd-row y11-bd-total"><span class="y11-bd-name">Total</span>'
+        + '<span class="y11-bd-maths"></span>'
+        + '<span class="y11-bd-pts">' + fmtPts(data.total) + '</span></div>';
+      }).catch(function (err) {
+        box.innerHTML = '<div class="y11-empty">Could not load the breakdown. '
+          + esc(err && err.message ? err.message : '') + '</div>';
+      });
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Leaderboard
+    // ---------------------------------------------------------------------------------------------
+
+    function renderLeaderboard(data) {
+      var box = $('leaderboardBox');
+      var me = (typeof getCurrentUser === 'function' && getCurrentUser())
+        ? String(getCurrentUser().username).toLowerCase() : '';
+
+      // Provisional standings must not be mistaken for the final result. Saying which it is, plainly,
+      // is the difference between a projection and a promise.
+      var banner = data.provisional
+        ? '<div class="y11-lb-banner">Provisional — these standings update while the match is on, and'
+          + ' prizes are only final once the contest is settled.</div>'
+        : '<div class="y11-lb-banner settled">Settled — these are the ranks and prizes that were'
+          + ' paid.</div>';
+
+      var pool = data.pool || {};
+      var meta = '<div class="y11-fixture-meta" style="margin-bottom:10px;">'
+        + esc(data.contest.title) + ' · prize pool ' + money(pool.prize_pool || 0)
+        + ' · ' + data.total_entries + ' of ' + data.contest.total_spots + ' spots'
+        + (data.contest.min_entries > 0 && !data.contest.meets_minimum
+            ? ' · <span style="color:var(--red);">needs ' + data.contest.min_entries
+              + ' entries or fees are refunded</span>'
+            : '')
+        + '</div>';
+
+      if (!data.entries.length) {
+        box.innerHTML = banner + meta + '<div class="y11-empty">Nobody has joined this contest yet.</div>';
+        return;
+      }
+
+      var rows = data.entries.map(function (e) {
+        var isMe = me !== '' && String(e.username).toLowerCase() === me;
+        return '<div class="y11-player-row' + (isMe ? ' y11-me' : '') + '">'
+          + '<span class="y11-lb-rank">' + (e.rank === null ? '—' : '#' + e.rank) + '</span>'
+          + '<div class="y11-player-main">'
+          +   '<div class="y11-player-name">' + esc(e.team_name) + (isMe ? ' (you)' : '') + '</div>'
+          +   '<div class="y11-player-meta">' + esc(e.username) + '</div>'
+          + '</div>'
+          + '<span class="y11-lb-prize">' + (e.prize > 0 ? money(e.prize) : '—') + '</span>'
+          + '<span class="y11-points-big">' + fmtPts(e.points) + '</span>'
+          + '</div>';
+      }).join('');
+
+      box.innerHTML = banner + meta + rows;
+    }
+
+    function loadLeaderboard(contestId) {
+      if (!contestId) {
+        $('leaderboardBox').innerHTML =
+          '<div class="y11-empty">Pick a contest to see its standings.</div>';
+        return Promise.resolve();
+      }
+      $('leaderboardBox').innerHTML = '<div class="y11-empty">Loading…</div>';
+      return apiGet('api/fantasy/contests/' + encodeURIComponent(contestId) + '/leaderboard?limit=200')
+        .then(renderLeaderboard)
+        .catch(function (err) {
+          $('leaderboardBox').innerHTML = '<div class="y11-empty">Could not load the leaderboard. '
+            + esc(err && err.message ? err.message : '') + '</div>';
+        });
+    }
+
+    /** Fill the contest picker, putting the ones the player is actually in at the top. */
+    function fillContestPicker() {
+      var sel = $('lbContestSelect');
+      if (!contestsCache.length) {
+        sel.innerHTML = '<option value="">No contests on this match</option>';
+        return '';
+      }
+      var mine = contestsCache.filter(function (c) { return c.has_entered; });
+      var rest = contestsCache.filter(function (c) { return !c.has_entered; });
+      var opt = function (c) {
+        return '<option value="' + c.id + '">' + esc(c.title)
+             + (c.has_entered ? ' — you are in this' : '')
+             + ' (' + c.filled_spots + '/' + c.total_spots + ')</option>';
+      };
+      sel.innerHTML = mine.map(opt).join('') + rest.map(opt).join('');
+      var first = (mine[0] || rest[0]);
+      return first ? String(first.id) : '';
+    }
+
+    // ---------------------------------------------------------------------------------------------
     // Tabs
     // ---------------------------------------------------------------------------------------------
+
+    var pickerFilled = false;
 
     function showTab(name) {
       var tabs = document.querySelectorAll('.y11-tabs .y11-tab');
       for (var i = 0; i < tabs.length; i++) {
         tabs[i].classList.toggle('active', tabs[i].getAttribute('data-tab') === name);
       }
-      var map = { contests: 'panelContests', squad: 'panelSquad' };
+      var map = {
+        contests: 'panelContests', squad: 'panelSquad',
+        points: 'panelPoints', leaderboard: 'panelLeaderboard'
+      };
       for (var key in map) {
         var el = $(map[key]);
         if (el) el.classList.toggle('active', key === name);
+      }
+
+      // The scoreboard and the leaderboard are extra requests, so they are made when someone actually
+      // opens the tab rather than on every match view. They DO reload on each visit, because both
+      // change while the match is on and a stale board is worse than a moment's wait.
+      if (name === 'points') loadScoreboard();
+      if (name === 'leaderboard') {
+        var sel = $('lbContestSelect');
+        if (!pickerFilled) {
+          var first = fillContestPicker();
+          if (first) sel.value = first;
+          pickerFilled = true;
+        }
+        loadLeaderboard(sel.value);
       }
     }
 
@@ -1261,6 +1563,15 @@
       });
 
       $('builderSubmit').addEventListener('click', submitTeam);
+
+      // --- points and leaderboard ------------------------------------------------------------
+      $('scoreboardBox').addEventListener('click', function (e) {
+        var row = e.target.closest ? e.target.closest('[data-team-points]') : null;
+        if (row) toggleTeamBreakdown(parseInt(row.getAttribute('data-team-points'), 10));
+      });
+      $('lbContestSelect').addEventListener('change', function () {
+        loadLeaderboard(this.value);
+      });
 
       // --- tabs and contests -----------------------------------------------------------------
       var tabBar = document.querySelector('.y11-tabs');

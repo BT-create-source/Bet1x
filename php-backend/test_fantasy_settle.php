@@ -216,6 +216,13 @@ function q($sql, $params = []) {
         }
         return null;
     }
+    if (strpos($sql, 'INSERT INTO "fantasy_contests"') !== false) {
+        // Captured so the min_entries default derived at creation can be asserted.
+        global $PDO;
+        $DB['last_contest_insert'] = $params;
+        $PDO->lastId = ++$DB['next_id'];
+        return null;
+    }
     if (strpos($sql, 'UPDATE "fantasy_contests"') !== false) { affected($sql, $params); return null; }
     if (strpos($sql, 'UPDATE "fantasy_matches"') !== false) {
         $DB['matches'][(int) end($params)]['status'] = (string) $params[0];
@@ -402,6 +409,95 @@ $GLOBALS['DB']['contests'][11] = array_merge($GLOBALS['DB']['contests'][10],
 $m2 = fantasy_settle_match(1);
 ok($m2['ok'] === true, 'a cancelled sibling contest does not block the match');
 ok(!empty($m2['match_settled']), 'and the fixture still settles, since nothing is left open');
+
+// -------------------------------------------------------------------------------------------------
+section('Minimum participation — an under-filled contest refunds instead of paying');
+// -------------------------------------------------------------------------------------------------
+// Operator policy (migration 009): below min_entries the prize table cannot be honoured, so every
+// entry fee goes back rather than part of the table being paid and the rest staying with the house.
+db_reset();
+$GLOBALS['DB']['contests'][10]['min_entries'] = 5;
+$r = fantasy_settle_contest(10);
+ok($r['ok'] === true && empty($r['voided']), 'exactly the minimum number of entries settles normally');
+ok($r['paid'] === 500.0, 'and pays the full pool');
+
+db_reset();
+$GLOBALS['DB']['contests'][10]['min_entries'] = 5;
+unset($GLOBALS['DB']['entries'][3], $GLOBALS['DB']['entries'][4], $GLOBALS['DB']['entries'][5]);
+$r = fantasy_settle_contest(10);
+ok($r['ok'] === true, 'an under-filled contest resolves without error');
+ok(!empty($r['voided']), 'it is VOIDED rather than settled');
+ok($r['paid'] === 0.0, 'no prize money is paid');
+ok($r['refunded'] === 200.0, 'both entry fees are returned in full (got ' . $r['refunded'] . ')');
+ok($r['undistributed'] === 0.0, 'so nothing is left undistributed — the whole point of the policy');
+ok(bal(1) === 100.0 && bal(2) === 100.0, 'each player has exactly their own fee back');
+ok(walletTotal() === 200.0, 'the wallets hold exactly what was collected');
+ok($GLOBALS['DB']['contests'][10]['status'] === 'CANCELLED', 'the contest is cancelled, not settled');
+ok(stripos($r['reason'], 'minimum is 5') !== false, 'the reason names the threshold: ' . $r['reason']);
+$sawRefund = false;
+foreach ($GLOBALS['DB']['txns'] as $x) if (strpos($x['details'], 'Your Eleven Refund') === 0) $sawRefund = true;
+ok($sawRefund, 'the ledger rows are refunds, not prizes');
+
+// Re-resolving an already-refunded contest must not pay anything. It reports a clear refusal rather
+// than a silent no-op: both workers filter CANCELLED out of their queries, so this path is only ever
+// reached by an operator explicitly trying to settle a contest that was already given back, and
+// "this contest was cancelled" is the useful answer to that.
+$again = fantasy_settle_contest(10);
+ok($again['ok'] === false && stripos($again['error'], 'cancelled') !== false,
+   'settling a refunded contest is refused with a clear reason: ' . $again['error']);
+ok(walletTotal() === 200.0, 'and refunds nothing a second time');
+ok(count($GLOBALS['DB']['txns']) === 2, 'no extra ledger row either');
+
+// A zero minimum keeps the old behaviour, so an operator can opt out per contest.
+db_reset();
+$GLOBALS['DB']['contests'][10]['min_entries'] = 0;
+unset($GLOBALS['DB']['entries'][3], $GLOBALS['DB']['entries'][4], $GLOBALS['DB']['entries'][5]);
+$r = fantasy_settle_contest(10);
+ok(empty($r['voided']) && $r['paid'] === 160.0,
+   'min_entries 0 pays out however few entered, leaving 40 undistributed as before');
+ok($r['undistributed'] === 40.0, 'and still reports the undistributed remainder');
+
+// At match level the two outcomes are counted separately.
+db_reset();
+$GLOBALS['DB']['contests'][10]['min_entries'] = 5;
+unset($GLOBALS['DB']['entries'][4], $GLOBALS['DB']['entries'][5]);
+$m = fantasy_settle_match(1);
+ok($m['ok'] === true, 'the match resolves');
+ok($m['voided'] === 1 && $m['refunded'] === 300.0,
+   'a refunded contest is reported as voided/refunded, not as paid');
+ok($m['paid'] === 0.0, 'and not counted as a payout');
+
+// -------------------------------------------------------------------------------------------------
+section('The min_entries default derived at creation');
+// -------------------------------------------------------------------------------------------------
+db_reset();
+// A table paying down to rank 4 needs 4 entries before every advertised prize can be awarded.
+$c = fantasy_create_contest(1, [
+    'title' => 'Derived', 'entry_fee' => 50, 'total_spots' => 100, 'rake_pct' => 10,
+    'prize_rules' => [['from' => 1, 'to' => 1, 'pct' => 50], ['from' => 2, 'to' => 2, 'pct' => 30],
+                      ['from' => 3, 'to' => 4, 'pct' => 10]],
+]);
+ok($c['ok'] === true, 'the contest is created' . ($c['ok'] ? '' : ' — ' . $c['error']));
+$ins = $GLOBALS['DB']['last_contest_insert'];
+ok((int) $ins[9] === 4,
+   'min_entries defaults to the deepest paid rank, 4 (got ' . $ins[9] . ')');
+
+// An explicit value wins, including zero.
+$c = fantasy_create_contest(1, [
+    'title' => 'Explicit', 'entry_fee' => 50, 'total_spots' => 100, 'rake_pct' => 10,
+    'min_entries' => 0,
+    'prize_rules' => [['from' => 1, 'to' => 60, 'pct' => 100 / 60]],
+]);
+ok($c['ok'] === true, 'an explicit min_entries is accepted');
+ok((int) $GLOBALS['DB']['last_contest_insert'][9] === 0, 'and 0 is honoured, not replaced by the default');
+
+$bad = fantasy_create_contest(1, [
+    'title' => 'Impossible', 'entry_fee' => 50, 'total_spots' => 10, 'rake_pct' => 0,
+    'min_entries' => 50,
+    'prize_rules' => [['from' => 1, 'to' => 1, 'pct' => 100]],
+]);
+ok($bad['ok'] === false && stripos($bad['error'], 'min_entries') !== false,
+   'a minimum above total_spots is rejected — it could never be reached: ' . $bad['error']);
 
 // -------------------------------------------------------------------------------------------------
 section('Leaderboard: provisional before, authoritative after');

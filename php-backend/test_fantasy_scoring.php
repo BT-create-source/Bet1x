@@ -77,13 +77,23 @@ ok(pts(['runs' => 0, 'did_bat' => 0, 'is_out' => 0]) === 0.0,
    'never came in to bat is not a duck');
 ok(pts(['runs' => 0, 'did_bat' => 0, 'is_out' => 1]) === 0.0,
    'is_out without did_bat cannot be a duck either');
-// the configurable exemption
-$exempt = fantasy_scoring_rules();
-$exempt['duck_exempt_roles'] = ['BOWL'];
-ok(pts(['runs' => 0, 'did_bat' => 1, 'is_out' => 1, 'role' => 'BOWL'], $exempt) === 0.0,
-   'a bowler is exempt from the duck when configured that way');
-ok(pts(['runs' => 0, 'did_bat' => 1, 'is_out' => 1, 'role' => 'BAT'], $exempt) === -2.0,
-   'the exemption applies only to the listed roles');
+// The signed-off configuration exempts bowlers, so this is the DEFAULT behaviour, not an option.
+ok(fantasy_scoring_rules()['duck_exempt_roles'] === ['BOWL'],
+   'the configured exemption is BOWL, as signed off');
+ok(pts(['runs' => 0, 'did_bat' => 1, 'is_out' => 1, 'role' => 'BOWL']) === 0.0,
+   'a specialist bowler dismissed for nought is NOT penalised (default rule)');
+foreach (['BAT', 'WK', 'ALL'] as $role) {
+    ok(pts(['runs' => 0, 'did_bat' => 1, 'is_out' => 1, 'role' => $role]) === -2.0,
+       "a $role dismissed for nought still takes -2");
+}
+// And the exemption is still configuration, so an empty list restores the literal reading.
+$noExempt = fantasy_scoring_rules();
+$noExempt['duck_exempt_roles'] = [];
+ok(pts(['runs' => 0, 'did_bat' => 1, 'is_out' => 1, 'role' => 'BOWL'], $noExempt) === -2.0,
+   'clearing the exemption penalises bowlers again');
+// A bowler who actually made runs is unaffected either way.
+ok(pts(['runs' => 34, 'fours' => 3, 'sixes' => 1, 'did_bat' => 1, 'is_out' => 1, 'role' => 'BOWL']) === 43.0,
+   'the exemption only touches the duck, not a bowler who scored');
 
 // -------------------------------------------------------------------------------------------------
 section('Bowling');
