@@ -1,100 +1,46 @@
-vK84Lm2QxNc7Tz91Yp5Hs3Bd8FgJr
-qR37Yp9LmXc4Nc72Vr8Tz5Hs1BdK
-Zx61Lm7VrQp3Nc91Tz8Yp4Hs6BdJ
-nT48Nc5LmXq9Vr71Yp6Hs2Bd3FgK
-Kp93Lm4VrNc2Tz86Yp7Hs5Bd1FgJ
-mQ57Yp8LmXr3Nc91Vr6Hs4Bd2FgK
-Wv72Lm9NcQx5Vr41Tz8Yp6Hs3BdJ
-pN46Yp2LmVr7Nc83Tz9Hs5Bd1FgK
-Hq81Lm6XrNc4Vr72Tz5Yp9Hs3BdJ
-cT39Yp7LmQx8Nc51Vr6Hs2Bd4FgK
-Jx65Lm3VrNc9Tz82Yp5Hs7Bd1FgJ
-sV94Nc2LmXq6Vr71Tz8Yp4Hs3BdK
-Rz52Lm8VrQp4Nc91Tz6Yp7Hs2BdJ
-qL78Yp5LmNc3Vr62Tz9Hs1Bd4FgK
-Xn41Lm7NcQx9Vr83Tz5Yp6Hs2BdJ
-fT86Yp3LmVr2Nc71Tz8Hs4Bd5FgK
-Mz63Lm9XqNc5Vr42Tz7Yp1Hs8BdJ
-wR35Yp6LmQx8Nc91Vr7Hs3Bd4FgK
-Gv79Lm4NcXr2Vr61Tz8Yp5Hs3BdJ
-tX54Yp9LmNc7Qp82Vr6Hs1Bd3FgK
-Qz87Lm2VrNc5Tz91Yp6Hs4Bd8FgJ
-yP43Nc8LmXq7Vr52Tz9Yp5Hs1BdK
-Lr69Yp4LmQx3Nc81Vr7Hs6Bd2FgJ
-bQ82Lm5VrNc9Tz63Yp8Hs1Bd4FgK
-Wz37Yp7LmXr2Nc91Vr5Hs6Bd3FgJ
-pV64Lm8NcQp4Vr72Tz9Yp5Hs1BdK
-Hn91Yp3LmVr6Nc41Tz8Hs5Bd2FgJ
-cR58Lm7XqNc3Vr82Tz6Yp9Hs4BdK
-Jq26Yp8LmQx9Nc71Vr5Hs3Bd6FgJ
-sX73Lm4VrNc2Tz95Yp7Hs1Bd8FgK
-Kp49Nc6LmXq3Vr81Tz5Yp9Hs2BdJ
-nR85Lm7VrQp4Nc62Tz8Yp3Hs1BdK
-Rq31Yp6LmNc9Vr72Tz5Hs4Bd8FgJ
-qT68Lm2XrNc7Vr91Tz6Yp5Hs3BdK
-Xv93Yp4LmQx8Nc51Vr7Hs2Bd6FgJ
-fN47Lm9VrNc3Tz82Yp6Hs1Bd5FgK
-Mz71Yp8LmXq2Nc64Vr9Hs3Bd5FgJ
-wV56Lm4NcQp7Vr91Tz8Yp2Hs6BdK
-Gx83Yp5LmVr3Nc72Tz9Hs1Bd4FgJ
-tQ42Lm8XqNc5Vr61Tz7Yp9Hs3BdK
-Qp76Yp2LmNc9Vr83Tz5Hs4Bd1FgJ
-yN58Lm6VrQx3Nc71Tz8Yp5Hs2BdK
-Lx94Yp7LmNc4Vr62Tz9Hs3Bd5FgJ
-bV35Lm8XqNc2Vr91Tz6Yp4Hs7BdK
-Wq81Yp3LmVr5Nc72Tz9Hs6Bd1FgJ
-pX67Lm4NcQx8Vr51Tz7Yp9Hs2BdK
-Hq39Yp6LmXr7Nc82Vr5Hs1Bd4FgJ
-cV74Lm2VrNc9Tz61Yp8Hs3Bd5FgK
-Jv52Yp7LmQp4Nc91Vr6Hs2Bd8FgJ
-sR89Lm5XqNc3Vr72Tz9Yp4Hs1BdK
-Kx46Yp8LmNc7Vr91Tz5Hs3Bd6FgJ
-nZ73Lm2VrQx9Nc51Tz8Yp6Hs4BdK
-Rz58Yp3LmXr6Nc82Vr7Hs1Bd5FgJ
-qL91Lm7NcVr4Tz63Yp8Hs2BdK
-Xn37Yp5LmQp8Nc71Vr9Hs4Bd1FgJ
-fT62Lm9VrNc3Xq84Tz5Yp7Hs2BdK
-Mz48Yp6LmNc7Vr91Tz8Hs3Bd5FgJ
-wR75Lm2XqNc4Vr62Tz9Yp1Hs8BdK
-Gv53Yp8LmQx7Nc81Vr6Hs4Bd2FgJ
-tX96Lm3VrNc5Tz72Yp9Hs1Bd4FgK
-Qz41Yp7LmXq9Nc63Vr8Hs2Bd5FgJ
-yP84Lm5NcVr2Tz91Yp6Hs3Bd7FgK
-Lr36Yp9LmQx4Nc72Vr5Hs1Bd8FgJ
-bQ68Lm7VrNc3Tz81Yp4Hs9Bd2FgK
-Wz92Yp5LmXr8Nc41Vr7Hs3Bd6FgJ
-pN57Lm2VrQq9Nc73Tz6Yp8Hs1BdK
-Hj43Yp7LmNc5Vr91Tz8Hs4Bd2FgJ
-cV86Lm9XqNc3Vr62Tz5Yp7Hs1BdK
-Jq51Yp4LmQx8Nc71Vr9Hs3Bd6FgJ
-sX79Lm6VrNc2Tz83Yp5Hs4Bd1FgK
-Kp34Yp8LmXq5Nc91Vr7Hs2Bd6FgJ
-nR67Lm3VrQp9Nc52Tz8Yp4Hs1BdK
-Rq82Yp6LmNc4Vr71Tz9Hs3Bd5FgJ
-qT45Lm7XrNc8Vr62Tz5Yp9Hs1BdK
-Xv71Yp3LmQx2Nc91Vr8Hs5Bd4FgJ
-fN96Lm4VrNc7Tz52Yp6Hs3Bd8FgK
-Mz53Yp9LmXq6Nc81Vr7Hs2Bd4FgJ
-wV38Lm5NcQp9Vr72Tz8Yp1Hs6BdK
-Gx74Yp2LmVr3Nc91Tz6Hs5Bd8FgJ
-tQ61Lm8XqNc4Vr73Tz9Yp5Hs2BdK
-Qp95Yp6LmNc2Vr81Tz7Hs4Bd3FgJ
-yN42Lm7VrQx9Nc53Tz8Yp1Hs6BdK
-Lx87Yp4LmNc5Vr92Tz6Hs3Bd1FgJ
-bV59Lm8XqNc7Vr61Tz9Yp5Hs2BdK
-Wq26Yp3LmVr4Nc81Tz7Hs9Bd5FgJ
-pX83Lm6NcQx2Vr71Tz8Yp4Hs1BdK
-Hq47Yp9LmXr5Nc62Vr3Hs8Bd6FgJ
-cT91Lm2VrNc7Qp83Tz5Yp6Hs4BdK
-Jv65Yp8LmQx3Nc71Vr9Hs2Bd5FgJ
-sR32Lm7XqNc4Vr91Tz6Yp5Hs8BdK
-Kx78Yp2LmVr6Nc53Tz9Hs4Bd1FgJ
-nZ45Lm8NcQp7Vr81Tz5Yp3Hs6BdK
-Rz69Yp5LmXr2Nc74Vr8Hs1Bd3FgJ
-qL83Lm4VrNc9Tz61Yp7Hs5Bd2FgK
-Xn57Yp8LmQx3Nc92Vr6Hs4Bd1FgJ
-fT34Lm9VrNc5Xq71Tz8Yp6Hs2BdK
-Mz81Yp4LmQp7Nc62Vr9Hs3Bd5FgJ
-wR47Lm6NcVr2Tz93Yp8Hs1Bd5FgK
-Gv72Yp9LmXq4Nc51Vr6Hs3Bd8FgJ
-tX58Lm3VrNc7Tz82Yp5Hs1Bd4FgK
+/**
+ * Copy this file to bot_core/games/<yourgame>.bot.js when adding bot support for a new game.
+ *
+ * What belongs in here:
+ *   - Pure decision/calculation functions: "which outcome maximizes house profit", "should this
+ *     round/reveal/hand be rigged", "what should the crash point / target tile / winning seat be".
+ *   - Nothing here may write to the database, mutate wallets, deal cards, or run a game's tick loop.
+ *     Those stay in the game's own file (e.g. backend/server.js) — that file only *calls* this one
+ *     for a decision, then applies it using its own existing settlement/orchestration code.
+ *
+ * What you get for free from bot_core/engine (require them directly, same as every other game):
+ *   - shouldBotRigThisRound(gameKey, ledgerKey) — the shared bucketed rig-decision bag. Give your
+ *     game a `ledgerKey` (e.g. `<gameKey>:<roomOrTableId>`) if it runs several concurrent
+ *     instances/clocks, like Colour Prediction's four rooms — otherwise omit it.
+ *   - isBotTakeoverActive(gameKey) — reads the operator's enabled/profit_pct config for your game.
+ *     Register your game's default config in bot_core/engine/takeover-state.js's
+ *     `botTakeoverState` object (enabled:false, profit_pct:90) — an unregistered key is NEVER
+ *     active, which is the guarantee that a game with no rig path (like Boundary Baazi) stays that
+ *     way. Only add a key here if the game is genuinely meant to have a rig path.
+ *   - markUserActive / getLiveUsernames / isUserTargeted / refreshBotTargeting (engine/targeting.js)
+ *     — if your game's concurrency unit is "one board/session per player", register it in
+ *     LIVE_USERS and botTargetedUsers there and this gives you the same X%-of-live-players
+ *     targeting Mines uses, for free.
+ *   - markInstanceActive / getLiveInstances (engine/targeting.js) — if your game's concurrency unit
+ *     is a table/room instead (like Teen Patti), register it in LIVE_INSTANCES instead.
+ *   - randomFillerName() / nextRoomFillerUsername() (engine/filler-names.js) — realistic-looking
+ *     names for any simulated/filler participant your game needs.
+ *
+ * Anything your decision function needs that lives outside bot_core (a Prisma client, a core
+ * game-rule function like resolveColorNumber, a tunable config value) must be injected via
+ * bot_core/deps.js at boot — see color.bot.js's use of `deps.get().resolveColorNumber` and
+ * aviator.bot.js's use of `deps.get().config.AVIATOR_HIGH_STAKE_REF` for the pattern. Never
+ * `require()` anything from backend/ directly from inside bot_core/ — that is what keeps this
+ * folder extractable as an independent package or microservice later.
+ *
+ * Finally, add every new export to bot_core/index.js's require + module.exports list so the rest of
+ * the app can keep importing everything from one place: `const botCore = require('../bot_core')`.
+ */
+// const deps = require('../deps');
+// const { shouldBotRigThisRound } = require('../engine/decide');
+
+function calculateYourGameOptimalOutcome(/* bets, ...whatever your game needs */) {
+  throw new Error('TEMPLATE.bot.js is a boilerplate — implement this for your game and delete this line.');
+}
+
+module.exports = { calculateYourGameOptimalOutcome };

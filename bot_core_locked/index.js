@@ -1,105 +1,105 @@
-rK84Lm2XqNc7Tz91Yp5Hs3Bd8FgJv
-Qm57Yp9LxNc4Vr82Tz6Hs1Bd3FgK
-zT63Lm8VrQx5Nc71Yp4Hs9Bd2FgJ
-Np46Yp3LmXc9Vr62Tz8Hs5Bd1FgK
-Kx91Lm7NcQp4Vr83Yp6Hs2Bd5FgJ
-vR38Yp8LmNc6Tz72Xq5Hs1Bd9FgK
-Hq75Lm4VrNc2Yp91Tz7Hs3Bd6FgJ
-bN52Yp6XqNc8Vr41Tz9Hs4Bd3FgK
-Wz67Lm9VrQp3Nc82Yp5Hs1Bd4FgJ
-cT43Yp7LmNc5Vr91Xq8Hs2Bd6FgK
-Jv86Lm2XqNc4Tz73Yp9Hs5Bd1FgK
-sR59Yp8LmVr7Nc62Tz4Hs3Bd9FgJ
-Fp31Lm6NcQx9Vr72Yp5Hs8Bd2FgK
-Mz74Yp4LmNc3Tz81Vr6Hs2Bd9FgJ
-xN68Lm7VrQp5Nc92Yp3Hs1Bd4FgK
-Qz45Yp9LmXc6Vr71Tz8Hs2Bd5FgJ
-nV82Lm3NcQx4Vr96Yp7Hs1Bd5FgK
-Rt57Yp6LmNc8Vr31Tz9Hs4Bd2FgJ
-gX93Lm5VrNc2Tz76Yp8Hs1Bd4FgK
-Lp41Yp7LmQx9Nc83Vr5Hs6Bd2FgJ
-dR76Lm8NcVr4Tz91Yp3Hs5Bd7FgK
-Kq53Yp2LmXc7Vr82Tz6Hs9Bd1FgJ
-wN89Lm4VrNc6Qp71Yp5Hs3Bd8FgK
-Tx36Yp8LmNc5Vr94Tz7Hs2Bd1FgJ
-Bv61Lm9XqNc3Vr72Yp4Hs8Bd5FgK
-pQ48Yp5LmVr7Nc91Tz6Hs2Bd3FgJ
-Hn73Lm6NcQx4Vr82Yp9Hs1Bd5FgK
-cV95Yp3LmNc8Tz61Vr7Hs4Bd2FgJ
-Jx42Lm7VrQp5Nc93Yp6Hs1Bd8FgK
-sK67Yp9LmXq2Vr81Tz5Hs3Bd4FgJ
-Rm34Lm8NcVr6Tz72Yp1Hs9Bd5FgK
-qN81Yp4LmNc7Vr52Tz8Hs3Bd6FgJ
-Xv56Lm2VrQx9Nc71Yp5Hs4Bd8FgK
-fT79Yp6LmNc3Vr82Tz9Hs1Bd5FgJ
-Mz45Lm7XqNc8Vr61Yp3Hs6Bd2FgK
-wR92Yp8LmVr4Nc73Tz5Hs1Bd6FgJ
-Gv38Lm5NcQx7Vr91Yp6Hs2Bd4FgK
-tX64Yp3LmNc9Vr82Tz7Hs5Bd1FgJ
-Qp57Lm9VrNc2Xq71Yp4Hs8Bd3FgK
-yN83Yp5LmQx6Nc92Vr7Hs1Bd4FgJ
-Lr49Lm8VrNc3Tz76Yp2Hs5Bd9FgK
-bX71Yp6LmNc4Vr83Tz9Hs1Bd5FgJ
-Wq53Lm2XrNc7Vr91Yp8Hs4Bd6FgK
-pV86Yp9LmQx5Nc72Vr3Hs1Bd4FgJ
-Hj42Lm7NcVr8Tz63Yp5Hs9Bd2FgK
-dR68Yp4LmNc3Vr91Tz7Hs2Bd5FgJ
-Jq35Lm8XqNc6Vr72Yp9Hs1Bd4FgK
-sV79Yp3LmVr5Nc81Tz6Hs2Bd8FgJ
-Kx54Lm6NcQp9Vr73Yp1Hs5Bd8FgK
-nZ87Yp5LmNc2Vr91Tz4Hs6Bd3FgJ
-Rq61Lm9VrXq4Nc82Yp7Hs1Bd5FgK
-qT48Yp2LmNc7Vr63Tz9Hs5Bd1FgJ
-Xn75Lm4VrNc8Tz92Yp6Hs3Bd1FgK
-fM39Yp7LmQx5Nc71Vr8Hs2Bd6FgJ
-Vt82Lm3NcVr6Tz94Yp5Hs1Bd7FgK
-gR56Yp8LmNc4Vr72Tz9Hs3Bd1FgK
-Pq93Lm6XqNc2Vr81Yp4Hs7Bd5FgJ
-zN47Yp5LmVr9Nc62Tz8Hs1Bd3FgK
-Cw68Lm2NcQx7Vr91Yp6Hs4Bd5FgJ
-rV84Yp9LmNc3Tz72Vr5Hs1Bd6FgK
-Qx51Lm7VrNc8Yp93Tz4Hs2Bd6FgJ
-mT76Yp3LmXq5Nc81Vr9Hs4Bd2FgK
-Zp42Lm8NcVr7Tz63Yp5Hs1Bd9FgJ
-nR95Yp6LmQx4Vr72Tz8Hs3Bd1FgK
-Kp37Lm9VrNc2Tz81Yp5Hs6Bd4FgJ
-vX64Yp8LmNc7Vr53Tz9Hs1Bd2FgK
-Hq89Lm4XqNc5Vr71Yp6Hs3Bd8FgJ
-bT52Yp7LmVr3Nc92Tz5Hs1Bd6FgK
-Wn73Lm2NcQx8Vr61Yp9Hs4Bd5FgJ
-cR46Yp5LmNc7Vr83Tz6Hs2Bd1FgK
-Jm81Lm9VrQp4Nc72Yp3Hs5Bd6FgK
-sX57Yp4LmNc2Vr91Tz8Hs6Bd3FgJ
-Fv69Lm8XqNc5Vr73Yp1Hs4Bd2FgK
-Mz35Yp6LmNc9Tz82Vr7Hs3Bd5FgJ
-xQ94Lm2VrNc6Yp71Tz8Hs4Bd1FgK
-Np58Yp9LmQx3Vr62Tz5Hs7Bd4FgJ
-Rz72Lm5NcVr8Tz91Yp6Hs2Bd3FgK
-qL43Yp7LmNc4Vr83Tz9Hs1Bd5FgJ
-Xv86Lm3VrQx7Nc51Yp4Hs8Bd2FgK
-fN61Yp5LmNc9Vr72Tz8Hs3Bd4FgJ
-Gq48Lm7XqNc2Vr91Yp6Hs5Bd3FgK
-tR79Yp8LmVr5Nc63Tz4Hs1Bd9FgJ
-Qm36Lm4NcQx8Vr72Yp9Hs2Bd5FgK
-yP83Yp6LmNc3Vr91Tz7Hs4Bd1FgJ
-Lx57Lm9VrNc5Tz82Yp3Hs6Bd4FgK
-bV41Yp7LmXq6Nc73Vr9Hs2Bd5FgJ
-Wz68Lm2NcVr8Tz91Yp5Hs4Bd7FgK
-pN95Yp4LmQx3Vr72Tz6Hs1Bd8FgJ
-Hc53Lm7VrNc9Yp81Tz4Hs2Bd6FgK
-dX76Yp8LmNc2Vr93Tz5Hs1Bd4FgJ
-Jq49Lm3XqNc7Vr61Yp8Hs5Bd2FgK
-sR84Yp5LmVr6Nc72Tz9Hs1Bd3FgJ
-Kx32Lm8NcQp5Vr91Yp6Hs4Bd7FgK
-uN67Yp3LmXq9Vr82Tz5Hs1Bd4FgJ
-Rz58Lm6VrNc2Tz73Yp9Hs4Bd1FgK
-qP91Yp7LmNc5Vr62Tz8Hs3Bd4FgJ
-Xv45Lm9VrQx6Nc81Yp2Hs7Bd5FgK
-fT73Yp4LmNc8Vr92Tz6Hs1Bd5FgJ
-Mz68Lm5XqNc3Vr71Yp9Hs2Bd4FgK
-wR47Yp8LmVr9Nc62Tz5Hs1Bd6FgJ
-Gv85Lm2NcQx7Vr93Yp4Hs6Bd1FgK
-tX39Yp6LmNc5Vr81Tz7Hs2Bd4FgJ
-Qz74Lm8VrNc2Xq91Yp5Hs3Bd6FgK
-yN56Yp3LmQx9Nc72Vr8Hs1Bd4FgJ
-Lr82Lm7NcVr4Tz61Yp9Hs5Bd2FgK
+/**
+ * bot_core — the single import point for every bot/rig/house-edge mechanism in bet1x.
+ *
+ * Everything here was moved out of backend/server.js (see docs of that refactor for the full
+ * before/after audit). Game loops, physics, card-dealing orchestration, and every direct DB/wallet
+ * write stay in their original files (backend/server.js, backend/lib/cricket/*) — those files call
+ * into bot_core only for a decision (a boolean, a number, an outcome), then apply it themselves with
+ * their own existing settlement code. bot_core itself never touches a database or a wallet directly;
+ * the one exception (persisting the rig-decision bag / takeover config for restart-durability) goes
+ * through a Prisma client handed in via init(), never one bot_core creates itself.
+ *
+ * Usage (see backend/server.js):
+ *   const botCore = require('../bot_core');
+ *   botCore.init({ prisma, resolveColorNumber, config: { AVIATOR_HIGH_STAKE_REF } });
+ *   const { isBotTakeoverActive, shouldBotRigThisRound, ... } = botCore;
+ *
+ * `_houseEdgeInternals` in server.js re-exports a subset of these names for backend/test_rigging.js
+ * — every one of those names is exported here under the identical name, so that block needed no
+ * changes at all.
+ */
+const deps = require('./deps');
+
+const rigBag = require('./engine/rig-bag');
+const takeoverState = require('./engine/takeover-state');
+const targeting = require('./engine/targeting');
+const decide = require('./engine/decide');
+const fillerNames = require('./engine/filler-names');
+
+const aviatorBot = require('./games/aviator.bot');
+const colorBot = require('./games/color.bot');
+const minesBot = require('./games/mines.bot');
+const cricketBot = require('./games/cricket.bot');
+
+/**
+ * Wires in everything bot_core needs from the host app and resumes any in-progress rig-bag cycles
+ * from the database (fire-and-forget, matching the original code's startup behaviour — a couple of
+ * seconds of lag before the restored bags land is harmless, and nothing blocks on it).
+ *
+ * `loadTakeoverStateFromDb()` (the operator's enabled/profit_pct config) is intentionally NOT called
+ * here — server.js calls it explicitly itself, immediately followed by its own Teen Patti stale-seat
+ * cleanup that must run in the same sequence. See server.js's own `initBotTakeoverState`.
+ */
+function init({ prisma, resolveColorNumber, config } = {}) {
+  deps.init({ prisma, resolveColorNumber, config: config || {} });
+  rigBag.loadBotRigBags();
+}
+
+module.exports = {
+  init,
+  loadTakeoverStateFromDb: takeoverState.loadTakeoverStateFromDb,
+
+  // engine/takeover-state
+  botTakeoverState: takeoverState.botTakeoverState,
+  isBotTakeoverActive: takeoverState.isBotTakeoverActive,
+
+  // engine/rig-bag
+  botRigBags: rigBag.botRigBags,
+  ensureBotRigBag: rigBag.ensureBotRigBag,
+  buildBotRigBag: rigBag.buildBotRigBag,
+  persistBotRigBag: rigBag.persistBotRigBag,
+  loadBotRigBags: rigBag.loadBotRigBags,
+  BOT_RIG_BUCKETS: rigBag.BOT_RIG_BUCKETS,
+  BOT_RIG_BUCKET_SIZE: rigBag.BOT_RIG_BUCKET_SIZE,
+  COLOR_ROOMS: rigBag.COLOR_ROOMS,
+  TP_ROOM_IDS: rigBag.TP_ROOM_IDS,
+  BOT_RIG_LEDGER_KEYS: rigBag.BOT_RIG_LEDGER_KEYS,
+
+  // engine/targeting
+  LIVE_USERS: targeting.LIVE_USERS,
+  LIVE_USER_TTL_MS: targeting.LIVE_USER_TTL_MS,
+  markUserActive: targeting.markUserActive,
+  getLiveUsernames: targeting.getLiveUsernames,
+  botTargetedUsers: targeting.botTargetedUsers,
+  refreshBotTargeting: targeting.refreshBotTargeting,
+  isUserTargeted: targeting.isUserTargeted,
+  LIVE_INSTANCES: targeting.LIVE_INSTANCES,
+  LIVE_INSTANCE_TTL_MS: targeting.LIVE_INSTANCE_TTL_MS,
+  markInstanceActive: targeting.markInstanceActive,
+  getLiveInstances: targeting.getLiveInstances,
+
+  // engine/decide
+  shouldBotRigThisRound: decide.shouldBotRigThisRound,
+
+  // engine/filler-names
+  TP_SIMULATED_NAMES: fillerNames.TP_SIMULATED_NAMES,
+  randomFillerName: fillerNames.randomFillerName,
+  nextRoomFillerUsername: fillerNames.nextRoomFillerUsername,
+
+  // games/aviator.bot
+  AVIATOR_CRASH_AGGRESSIVE: aviatorBot.AVIATOR_CRASH_AGGRESSIVE,
+  AVIATOR_CRASH_RELAXED: aviatorBot.AVIATOR_CRASH_RELAXED,
+  AVIATOR_CRASH_FLOOR: aviatorBot.AVIATOR_CRASH_FLOOR,
+  pickAviatorCrashPoint: aviatorBot.pickAviatorCrashPoint,
+  calculateAviatorLiveProfit: aviatorBot.calculateAviatorLiveProfit,
+  aviatorShouldCrashNow: aviatorBot.aviatorShouldCrashNow,
+
+  // games/color.bot
+  calculateColorOptimalOutcome: colorBot.calculateColorOptimalOutcome,
+
+  // games/mines.bot
+  shouldRigMinesReveal: minesBot.shouldRigMinesReveal,
+
+  // games/cricket.bot
+  createCricketHouseEdgeAdapter: cricketBot.createCricketHouseEdgeAdapter
+};

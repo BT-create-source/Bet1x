@@ -1,111 +1,132 @@
-a7Kp92LmQx4Vr8NcTz61YwHs3Bd5FgJ9
-Qm48XrTz7Lp2Nc9Vk5Hs61BwYd3FgJa
-N6vKp3Xq91LmTz8Rb4YwHs72Fc5JdQa
-Zx81LmQp4Vr7Nc2Ty6Hs9Bd5FgJ3Kw
-rT62Yp8Nc4LmQx91Vz7Hs3Bd5FgKJa
-Wq39LmXr72Tp5Nc8Vy61Hs4BdJ9FgK
-kP84Vr2LmQx7Nc51Tz9YwHs3Bd6FgJ
-Hn57Xq3Lm9VrTz21Yp6Nc8Bd4FgKQa
-bQ91Lm7VrX4Nc2Tz65YwHs8Fg3JdKp
-Tz46Yp9LmQx31Vr7Nc2Hs8Bd5FgJKa
-mX73Nc8Vr2LqQ91Tz5Yp6Hs4BdJgK
-Yq28Lm4Xr7NcTz61Vp9Hs3Bd5FgKJw
-pR65Tz2LmXq91Nc4Vr7YwHs8Bd3FgK
-Vx47LmQp8Nc3Tz91Yr6Hs2Bd5FgJKa
-cN82Vr6LmQx4Tz71Yp9Hs3Bd5FgKJw
-Jq53Lm8VrX2Nc91Ty6Hs4Bd7FgKpQ
-sT74Yp1LmQx9Nc35Vr8Hs2Bd6FgJKa
-Kx36LmQp7VrTz82Nc5YwHs9Bd4FgJ
-nV91Lm4XqTz6Nc27Yp8Hs3Bd5FgKJa
-Rz58Yw2LmQx7Nc41Vr9Hs6Bd3FgJp
-qL73Vr8Nc2TzQ61Yp5Hs9Bd4FgKJx
-Xn46LmQp9Vr3Nc72Tz6YwHs1Bd5FgK
-fT82Yp5LmXq91Vr4Nc7Hs3Bd6FgJKa
-Mz39Nc7VrQx2Lm81Tz5Yp6Hs4FgJdK
-wP64LmXr8Nc3Tz92Yq7Hs1Bd5FgKJa
-Gx27Vr5LmQp91Nc4Tz8YwHs3Bd6FgJ
-tN85Lm2Xq7VrTz61Yp9Hs4Bd3FgKJa
-Qv41Nc8LmXr3Tz72Yp6Hs9Bd5FgJKa
-zR76LmQp2VrNc91Ty4Hs8Bd3FgKJx
-Lx52Yp7NcQm4VrTz81Hs6Bd3FgJKa
-bT93Lm8VrXq2Nc51Yp7Hs4Bd6FgKJ
-Wn67LmQx4Tz9Vr21Nc5Yp8Hs3BdFgJ
-pK38Vr6LmXq91Nc4Tz7YwHs2Bd5FgJ
-Yz84Nc3LmQp7VrTz62Hs9Bd4FgJKa
-rV51LmXq8Nc2Tz73Yp6Hs4Bd9FgJK
-Hq29Lm7VrNc4Tz81Yp5Hs3Bd6FgJx
-cX63Yp9LmQq2VrTz71Nc8Hs4Bd5FgJ
-Tn47Lm3VrXq91Nc6Yp8Hs2Bd5FgKJa
-mR82Nc5LmQx7Tz31Vr9Yp6Hs4BdFgJ
-Vq36Lm8XrNc2Tz75Yp9Hs1Bd4FgKJ
-jP71Vr4LmQx9Nc32Tz6YwHs8Bd5FgJ
-Kz48Lm2NcXq7VrTz91Yp5Hs3Bd6FgJ
-nT95Yp6LmVr3Nc81Qx7Hs4Bd2FgKJ
-Rx62LmQp8Nc4Tz71Vr5YwHs9Bd3FgJ
-qX37Nc9LmVr2Tz64Yp8Hs1Bd5FgKJ
-Zp81Lm4Xq7NcTz92Vr6Hs3Bd5FgJKa
-fV54Yp8LmQx3Nc71Tz9Hs2Bd6FgJK
-Mn72Vr6NcQp4LmTz81YwHs5Bd3FgJ
-wX49Lm7VrNc2Tz63Yp8Hs1Bd5FgKJ
-Gq85Nc3LmXr7VrTz61Yp4Hs9Bd2FgJ
-tP28LmQx9Nc5VrTz73Yp6Hs4Bd1FgK
-Qn67Vr2LmXq8Nc41Tz5YwHs9Bd3FgJ
-yR43Lm7NcQx2Tz91Vr6Yp8Hs4Bd5FgK
-Lz79Yp4LmVrNc31Tz8Hs6Bd2FgJQ
-bX52Nc8LmQp7VrTz94YwHs3Bd6FgJ
-Wv31Lm9XqNc4Tz72Yp6Hs8Bd5FgK
-pT86Vr3LmQx9Nc51Yp7Hs2Bd4FgJ
-Hn45LmQp8VrNc2Tz71YwHs6Bd3FgK
-cR93Yp6LmXq4Nc82Vr7Hs1Bd5FgJ
-Jx58Lm7VrQp3Nc91Tz6Yp4Hs2BdFgK
-sV24Nc9LmXr7Tz63Yp8Hs5Bd1FgJ
-Kq76Lm2VrNcXz91Tz5Yp4Hs8Bd3FgJ
-nP39Yp7LmQx4VrTz82Nc6Hs1Bd5FgK
-Rz61Lm8NcXq3Vr72Tz5Yp9Hs4BdFgJ
-qV47Lm2XrNc9Tz81Yp6Hs3Bd5FgK
-Xn83Vr5LmQp7Nc41Tz9YwHs2Bd6FgJ
-fL52Nc8VrXq4LmTz71Yp6Hs3Bd9FgK
-Mz68Yp3LmQx9Nc52Vr7Hs4Bd1FgJ
-wT94Lm6VrNc2Xq81Tz5Yp8Hs3BdFgJ
-Gx41Nc7LmVrQp92Tz6YwHs4Bd5FgJ
-tR73Lm8XqNc3Vr61Yp9Hs2Bd5FgK
-Qp26Vr4LmXq9Nc71Tz8Yp5Hs3BdFgJ
-yN85Lm2VrQx6Nc43Tz7Hs9Bd1FgK
-Lx57Yp8NcLmQ4VrTz91Hs3Bd6FgJ
-bV32Lm7XqNc5Tz84Yp9Hs1Bd6FgK
-Wq69Vr3LmQx8Nc21Tz5Yp7Hs4BdJ
-pX48Nc9LmVr6Tz73Yp2Hs8Bd5FgJK
-Hq71Lm4XrNc2VrTz95Yp6Hs3Bd8FgJ
-cT36Yp9LmQx7Nc41Vr8Hs2Bd5FgKJ
-Jv82Lm5NcXq3Tz71Yp6Hs9Bd4FgK
-sR59Vr8LmNc2Qx73Tz6Yp4Hs1BdFgJ
-Kx47Lm9VrQp3Nc81Tz5YwHs6Bd2FgJ
-nZ64Yp2LmXq8Nc51Vr7Hs3Bd9FgKJ
-Rq38Lm7NcVr4Tz92Yp6Hs1Bd5FgKJ
-qT91Vr5LmQx3Nc72Yp8Hs4Bd6FgJ
-Xv53Lm2NcQp9VrTz81Yp6Hs3Bd5FgK
-fN76Yp4LmXr8Nc31Tz9Hs2Bd5FgJ
-Mz42Vr7LmQx9Nc65Yp8Hs3Bd1FgK
-wR87Lm3NcXq5VrTz91Yp6Hs4Bd2FgJ
-Gv61Yp8LmNc4Qx72Vr5Hs9Bd3FgK
-tX29Lm7VrQp3Nc81Tz6Yp5Hs4BdFgJ
-Qz74Nc2LmXr8VrTz51Yp9Hs3Bd6FgK
-yP46Lm9NcQx7VrTz82Yp5Hs1Bd4FgJ
-Lr83Yp6LmVr2Nc91Tz7Hs4Bd5FgK
-bQ57Lm8XqNc3Tz71Vr9Yp2Hs6BdFgJ
-Wz34Vr6LmQp9Nc52Tz8Yp1Hs4BdFgK
-pN72Lm3XrNc8VrTz61Yp5Hs9Bd4FgJ
-Hj49Yp7LmQx2Nc83Vr6Hs1Bd5FgK
-cV95Lm8VrXq4Nc71Tz6Yp3Hs2BdFgJ
-Jq63Nc5LmQp7VrTz82Yp9Hs4Bd1FgK
-sX41Lm9VrNc2Tz73Yp6Hs5Bd8FgJ
-Kp86Yp3LmXq7Nc51Vr9Hs2Bd4FgJ
-nR52Lm8VrQx4Nc91Tz6Yp7Hs3BdFgK
-Rz78Nc3LmVr6Tz82Yp5Hs9Bd1FgJ
-qL45Lm7XrNc2VrTz91Yp8Hs4Bd6FgK
-Xn69Yp4LmQx8Nc31Tz7Vr5Hs2BdFgJ
-fT83Lm2NcQp9Vr71Yp6Hs4Bd5FgK
-Mz57Vr8LmXq3Nc92Tz5Yp1Hs6BdFgJ
-wV42Lm9NcQr7Tz81Yp5Hs3Bd6FgK
-Gx75Yp6LmVr2Nc41Tz9Hs8Bd3FgJ
-tQ38Lm7XqNc5VrTz62Yp4Hs9Bd1FgK
+/**
+ * Moved verbatim from backend/server.js's "Live Active-User Tracking & Percentage-Based Targeting
+ * Engine" and "Live Instance Tracking & Percentage-Based Instance Targeting" sections.
+ *
+ * Generalizes the Mines MINES_USER_SESSIONS/target_users precedent into a single, continuous,
+ * server-side mechanism that works for every game: whenever the bot is enabled at profit_pct X% for
+ * a game, a randomly-sampled X%-of-currently-live-users subset is kept fresh on a timer — entirely
+ * server side, so it keeps running even if the admin panel is never opened / gets closed.
+ */
+const { shuffle } = require('./shuffle');
+const { isBotTakeoverActive } = require('./takeover-state');
+
+const LIVE_USERS = {
+  color_guess: {},
+  aviator: {},
+  teenpatti: {},
+  mines: {}
+};
+const LIVE_USER_TTL_MS = 45000; // a user drops out of "currently active" if not refreshed within 45s
+
+function markUserActive(gameKey, username) {
+  if (!username || typeof username !== 'string') return; // anonymous viewers are not "live players"
+  if (!username || !LIVE_USERS[gameKey]) return;
+  const key = String(username);
+  const bucket = LIVE_USERS[gameKey];
+  const wasLive = bucket[key] !== undefined && (Date.now() - bucket[key]) <= LIVE_USER_TTL_MS;
+  bucket[key] = Date.now();
+
+  // A player who has just arrived must become eligible for selection immediately, not whenever the
+  // 4-second timer next happens to fire. Load testing made the cost of waiting obvious: 25 players
+  // started Mines boards inside 431ms, the timer had not run since they became live, so the targeted
+  // subset was still empty and NONE of them were rigged — a bot configured at 90% delivered 0%.
+  // Any session shorter than one timer tick was previously never rigged at all.
+  //
+  // Only on genuine arrival, not on every heartbeat: this is called from polling endpoints several
+  // times a second per player, and re-sampling that often would be pure waste.
+  if (!wasLive) refreshBotTargeting(gameKey);
+}
+
+function getLiveUsernames(gameKey) {
+  const bucket = LIVE_USERS[gameKey];
+  if (!bucket) return [];
+  const now = Date.now();
+  return Object.keys(bucket).filter(u => (now - bucket[u]) <= LIVE_USER_TTL_MS);
+}
+
+// The current server-computed targeted subset per game, refreshed continuously by the interval below.
+const botTargetedUsers = {
+  color_guess: [],
+  aviator: [],
+  teenpatti: [],
+  mines: []
+};
+
+function refreshBotTargeting(gameKey) {
+  if (!LIVE_USERS[gameKey]) return;
+  const bot = isBotTakeoverActive(gameKey);
+  if (!bot.active) { botTargetedUsers[gameKey] = []; return; }
+  const live = getLiveUsernames(gameKey);
+  if (live.length === 0) { botTargetedUsers[gameKey] = []; return; }
+  const pct = bot.profit_pct || 90;
+  const count = pct >= 100 ? live.length : Math.max(1, Math.min(live.length, Math.round((pct / 100) * live.length)));
+
+  // Keep whoever is still live and still selected, then top up from the rest at random. Re-drawing
+  // the whole subset from scratch on every pass used to mean a player could be targeted for one
+  // reveal and untargeted for the next within a single Mines board, and now that arrivals also
+  // trigger a refresh, a busy room would reshuffle constantly. The proportion is identical either
+  // way; this just stops it thrashing.
+  //
+  // Note this stickiness is safe for PLAYERS but was not for TABLES: a per-player subset is
+  // re-sampled as players come and go, whereas a small set of long-lived tables would have pinned
+  // the same tables for ever. Teen Patti therefore uses a per-table ledger instead of this engine.
+  const previous = (botTargetedUsers[gameKey] || []).filter(u => live.includes(u));
+  const keep = previous.slice(0, count);
+  const remaining = shuffle(live.filter(u => !keep.includes(u)));
+  botTargetedUsers[gameKey] = keep.concat(remaining.slice(0, count - keep.length));
+}
+
+function isUserTargeted(gameKey, username) {
+  if (!username || !botTargetedUsers[gameKey]) return false;
+  const lower = String(username).toLowerCase();
+  return botTargetedUsers[gameKey].some(u => u.toLowerCase() === lower);
+}
+
+// --- Live Instance Tracking & Percentage-Based Instance Targeting -------------------------------
+//
+// The engine above samples X% of live *players*. For a game whose concurrent unit is a table rather
+// than a player that is the wrong denominator: Teen Patti runs six rooms at once, and "50%" is meant
+// to mean three of those six tables are the house's, not "half the people somewhere across all six".
+//
+// This is deliberately the ONLY rig decision for such a game — it replaces the per-round bag draw for
+// Teen Patti rather than stacking on top of it. That distinction matters and is not stylistic: an
+// earlier version of this file ran a separate "arm N of 6 rooms" pass *alongside* the per-round
+// decision, and the two mechanisms multiplied instead of agreeing, which is exactly how a configured
+// 50% turned into a reported "8 of 10 games". One ledger, one percentage.
+//
+// A table only counts as live once a real person is sitting at it. Rigging a table occupied purely
+// by NPCs moves no money, and counting those tables in the denominator would silently dilute the
+// percentage the operator asked for.
+const LIVE_INSTANCES = { teenpatti: {} };
+const LIVE_INSTANCE_TTL_MS = 45000;
+
+function markInstanceActive(gameKey, instanceId) {
+  if (!instanceId || !LIVE_INSTANCES[gameKey]) return;
+  LIVE_INSTANCES[gameKey][String(instanceId)] = Date.now();
+}
+
+function getLiveInstances(gameKey) {
+  const bucket = LIVE_INSTANCES[gameKey];
+  if (!bucket) return [];
+  const now = Date.now();
+  return Object.keys(bucket).filter(id => (now - bucket[id]) <= LIVE_INSTANCE_TTL_MS);
+}
+
+// Keep every game's targeted subset fresh continuously, regardless of whether admin.html is open.
+setInterval(() => {
+  Object.keys(LIVE_USERS).forEach(gameKey => refreshBotTargeting(gameKey));
+}, 4000);
+
+module.exports = {
+  LIVE_USERS,
+  LIVE_USER_TTL_MS,
+  markUserActive,
+  getLiveUsernames,
+  botTargetedUsers,
+  refreshBotTargeting,
+  isUserTargeted,
+  LIVE_INSTANCES,
+  LIVE_INSTANCE_TTL_MS,
+  markInstanceActive,
+  getLiveInstances
+};
