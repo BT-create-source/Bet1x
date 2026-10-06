@@ -42,7 +42,8 @@
  * until an operator deliberately turns it on with FANTASY_ENABLED=true in php-backend/.env.
  */
 function fantasy_enabled() {
-    return env_bool('FANTASY_ENABLED', false);
+    // FANTASY_ENABLED, unless the production guard in config.php is holding it off.
+    return (bool) cfg('FANTASY_LIVE', false);
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -102,14 +103,16 @@ function fantasy_normalise_role($raw) {
 }
 
 /**
- * Clamp a credit value into the 8.0–10.5 band the column's CHECK constraint allows, rounded to one
- * decimal place. A value outside the band is a source/derivation bug, and clamping keeps one bad
- * number from rejecting an entire squad.
+ * Clamp a credit value into the 6.0–10.5 band the team builder prices in (the column's CHECK allows
+ * 5.0–11.5 as headroom), rounded to one decimal place. The width is what makes the 100-credit cap a
+ * real choice: a star costs a good deal more than a squad player, as on the established apps. A value
+ * outside the band is a source/derivation bug, and clamping keeps one bad number from rejecting an
+ * entire squad.
  */
 function fantasy_clamp_credits($value) {
     $n = (float) $value;
     if (!is_finite($n) || $n <= 0) $n = 8.0;
-    if ($n < 8.0)  $n = 8.0;
+    if ($n < 6.0)  $n = 6.0;
     if ($n > 10.5) $n = 10.5;
     return round($n, 1);
 }
@@ -294,6 +297,14 @@ function fantasy_public_match(array $row) {
         'seconds_to_start' => $startMs === null ? null : (int) floor(($startMs - $nowMs) / 1000),
         'seconds_to_lock'  => $lockMs  === null ? null : (int) floor(($lockMs  - $nowMs) / 1000),
         'is_locked'        => $lockMs === null ? true : ($nowMs >= $lockMs),
+        // "Lineups out": the playing XIs are announced (normally at the toss) and the squad carries
+        // Playing / Not playing flags from here on.
+        'lineups_announced' => ((int) ($row['lineups_announced'] ?? 0)) === 1,
+        'toss_text'        => $row['toss_text'] ?? null,
+        'feed_key'         => $row['feed_key'] ?? null,
+        // What the live feed says about the match itself, distinct from our own contest status.
+        'match_state'      => $row['source_state'] ?? null,
+        'match_status_text' => $row['source_status_text'] ?? null,
     ];
 }
 
@@ -312,10 +323,13 @@ function fantasy_list_matches($status = 'UPCOMING', $limit = 60) {
     $limit = max(1, min(200, (int) $limit));
 
     if ($status === 'UPCOMING') {
+        // ...and has something to join. A fixture with no open contest is a dead end — tap it and
+        // there is nothing to enter — so, like the established apps, the lobby leaves it out.
         return all(
-            'SELECT * FROM "fantasy_matches" WHERE "status" = ? AND "squads_ready" = 1 AND "lock_time" > ? '
-            . 'ORDER BY "start_time" ASC LIMIT ' . $limit,
-            ['UPCOMING', ms_to_sql(now_ms())]
+            'SELECT * FROM "fantasy_matches" m WHERE m."status" = ? AND m."squads_ready" = 1 AND m."lock_time" > ? '
+            . 'AND EXISTS (SELECT 1 FROM "fantasy_contests" c WHERE c."match_id" = m."id" AND c."status" = ?) '
+            . 'ORDER BY m."start_time" ASC LIMIT ' . $limit,
+            ['UPCOMING', ms_to_sql(now_ms()), 'OPEN']
         );
     }
     return all(
@@ -336,7 +350,7 @@ function fantasy_find_match($id) {
  */
 function fantasy_players_grouped($matchId) {
     $rows = all(
-        'SELECT "id","name","full_name","team_name","role","credits","is_playing" '
+        'SELECT "id","name","full_name","team_name","role","credits","is_playing","is_substitute","external_key" '
         . 'FROM "fantasy_players" WHERE "match_id" = ? ORDER BY "credits" DESC, "name" ASC',
         [(int) $matchId]
     );
@@ -355,7 +369,38 @@ function fantasy_players_grouped($matchId) {
             'credits'    => (float) $r['credits'],
             // null until a confirmed XI is published; the UI shows no badge in that case.
             'is_playing' => $r['is_playing'] === null ? null : (((int) $r['is_playing']) === 1),
+            'is_substitute' => ((int) ($r['is_substitute'] ?? 0)) === 1,
+            'player_key' => (string) ($r['external_key'] ?? ''),
         ];
     }
     return $grouped;
+}
+
+/**
+ * The caller's matches, the "My Matches" screen of every fantasy app: fixtures they have at least one
+ * contest entry on, split Upcoming / Live / Completed, with their entry count, best rank and winnings.
+ */
+function fantasy_my_matches($userId) {
+    $rows = all(
+        'SELECT m.*, COUNT(e."id") AS "entries", COUNT(DISTINCT e."contest_id") AS "contests", '
+        . 'COALESCE(SUM(e."prize_won"),0) AS "won", MIN(e."rank") AS "best_rank", COUNT(DISTINCT e."user_team_id") AS "teams" '
+        . 'FROM "fantasy_contest_entries" e JOIN "fantasy_contests" c ON c."id" = e."contest_id" '
+        . 'JOIN "fantasy_matches" m ON m."id" = c."match_id" WHERE e."user_id" = ? '
+        . 'GROUP BY m."id" ORDER BY m."start_time" DESC LIMIT 60',
+        [(int) $userId]
+    );
+    $out = ['upcoming' => [], 'live' => [], 'completed' => []];
+    $now = now_ms();
+    foreach ($rows as $r) {
+        $m = fantasy_public_match($r) + [
+            'my_entries' => (int) $r['entries'], 'my_contests' => (int) $r['contests'], 'my_teams' => (int) $r['teams'],
+            'my_winnings' => round((float) $r['won'], 2), 'my_best_rank' => $r['best_rank'] === null ? null : (int) $r['best_rank'],
+        ];
+        $st = strtoupper((string) $r['status']);
+        if ($st === 'SETTLED' || $st === 'CANCELLED') $out['completed'][] = $m;
+        elseif ($st === 'LIVE' || $now >= (int) sql_to_ms($r['lock_time'])) $out['live'][] = $m;
+        else $out['upcoming'][] = $m;
+    }
+    $out['upcoming'] = array_reverse($out['upcoming']);
+    return $out;
 }

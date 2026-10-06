@@ -303,6 +303,43 @@ if ($IS_PRODUCTION && $SIGNUP_BONUS > 0 && !$WITHDRAWAL_REQUIRE_DEPOSIT) {
 // switch that turns them on, alongside deleting the [data-feature="cricket"] rule in
 // assets/css/style.css. Setting it true today changes nothing, because there is nothing to mount.
 $CRICKET_ENABLED = env_bool('CRICKET_ENABLED', false);
+$FANTASY_ENABLED = env_bool('FANTASY_ENABLED', false);
+
+// --- Production guard: simulated cricket must never take real money ---
+// Without Roanuz keys the cricket feed falls back to a simulated league (CRICKET_SOURCE=mock), and
+// FANTASY_SOURCE=mock serves canned fixtures. Both are right for development and fatal for a real-money
+// site: players would stake on matches that never happened. In production a game whose data would be
+// simulated is held OFF — routes not mounted, cron idle — and the reason is logged and reported by
+// /api/health. Deliberately not a site-wide fail-fast: a missing cricket key must not take Aviator,
+// the cashier and everything else down with it.
+$CRICKET_SOURCE_RESOLVED = strtolower(trim((string) env_get('CRICKET_SOURCE', '')));
+if (!in_array($CRICKET_SOURCE_RESOLVED, ['mock', 'roanuz'], true)) {
+    $CRICKET_SOURCE_RESOLVED = (trim((string) env_get('ROANUZ_API_KEY', '')) !== '' && trim((string) env_get('ROANUZ_PROJECT_KEY', '')) !== '')
+        ? 'roanuz' : 'mock';
+}
+$CRICKET_BLOCKED = [];
+$FANTASY_BLOCKED = [];
+if ($IS_PRODUCTION) {
+    if ($CRICKET_ENABLED) {
+        if ($CRICKET_SOURCE_RESOLVED === 'mock') {
+            $CRICKET_BLOCKED[] = env_get('CRICKET_SOURCE', '') !== '' && strtolower((string) env_get('CRICKET_SOURCE')) === 'mock'
+                ? 'CRICKET_SOURCE=mock (simulated matches) is not allowed in production.'
+                : 'ROANUZ_API_KEY / ROANUZ_PROJECT_KEY are not set, so the feed would be simulated.';
+        }
+        if (trim((string) env_get('ROANUZ_WEBHOOK_SECRET', '')) === '') {
+            $CRICKET_BLOCKED[] = 'ROANUZ_WEBHOOK_SECRET is not set, so no live ball could ever arrive.';
+        }
+    }
+    if ($FANTASY_ENABLED) {
+        $fs = strtolower(trim((string) env_get('FANTASY_SOURCE', 'mock')));
+        if ($fs === 'mock' || $fs === '') $FANTASY_BLOCKED[] = 'FANTASY_SOURCE=mock (canned fixtures) is not allowed in production.';
+        elseif ($fs === 'feed' && $CRICKET_SOURCE_RESOLVED === 'mock') $FANTASY_BLOCKED[] = 'FANTASY_SOURCE=feed but the cricket feed would be simulated (no Roanuz keys).';
+    }
+    foreach ($CRICKET_BLOCKED as $why) error_log('[bet1x-backend] Cricket held OFF: ' . $why);
+    foreach ($FANTASY_BLOCKED as $why) error_log('[bet1x-backend] Your 11 held OFF: ' . $why);
+}
+$CRICKET_LIVE = $CRICKET_ENABLED && !$CRICKET_BLOCKED;
+$FANTASY_LIVE = $FANTASY_ENABLED && !$FANTASY_BLOCKED;
 
 $LOG_LEVEL = (string) env_get('LOG_LEVEL', 'info');
 
@@ -367,6 +404,10 @@ $CONFIG = [
     'WITHDRAWAL_DAILY_COUNT_MAX' => $WITHDRAWAL_DAILY_COUNT_MAX,
     'WITHDRAWAL_REQUIRE_DEPOSIT' => $WITHDRAWAL_REQUIRE_DEPOSIT,
     'CRICKET_ENABLED'          => $CRICKET_ENABLED,
+    'CRICKET_LIVE'             => $CRICKET_LIVE,      // enabled AND allowed (see the production guard)
+    'CRICKET_BLOCKED'          => $CRICKET_BLOCKED,
+    'FANTASY_LIVE'             => $FANTASY_LIVE,
+    'FANTASY_BLOCKED'          => $FANTASY_BLOCKED,
     'LOG_LEVEL'                => $LOG_LEVEL,
     'DATA_DIR'                 => dirname(__DIR__) . '/backend/data',
     'STATIC_ROOT'              => dirname(__DIR__),

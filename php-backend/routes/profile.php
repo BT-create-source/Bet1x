@@ -37,6 +37,17 @@ function profile_classify_txn($details) {
     if (stripos($details, 'Teen Patti Boot') === 0)     return ['game' => 'Teen Patti', 'kind' => 'bet'];
     if (stripos($details, 'Teen Patti Chaal') === 0)    return ['game' => 'Teen Patti', 'kind' => 'bet'];
     if (stripos($details, 'Teen Patti Won Pot') === 0)  return ['game' => 'Teen Patti', 'kind' => 'win'];
+    // Cricket. A refund is a return of stake, so it pairs with its bet the same way a win does.
+    if (stripos($details, 'Ball by Ball Bet') === 0)    return ['game' => 'Ball by Ball', 'kind' => 'bet'];
+    if (stripos($details, 'Ball by Ball Win') === 0)    return ['game' => 'Ball by Ball', 'kind' => 'win'];
+    if (stripos($details, 'Ball by Ball Refund') === 0) return ['game' => 'Ball by Ball', 'kind' => 'win'];
+    if (stripos($details, 'Your Eleven Entry') === 0)   return ['game' => 'Your 11', 'kind' => 'bet'];
+    if (stripos($details, 'Your Eleven Prize') === 0)   return ['game' => 'Your 11', 'kind' => 'win'];
+    if (stripos($details, 'Your Eleven Refund') === 0)  return ['game' => 'Your 11', 'kind' => 'win'];
+    if (stripos($details, 'Cricket Bet') === 0)         return ['game' => 'Cricket', 'kind' => 'bet'];
+    if (stripos($details, 'Cricket Win') === 0)         return ['game' => 'Cricket', 'kind' => 'win'];
+    if (stripos($details, 'Cricket Refund') === 0)      return ['game' => 'Cricket', 'kind' => 'win'];
+    if (stripos($details, 'Cricket Cash Out') === 0)    return ['game' => 'Cricket', 'kind' => 'win'];
     return null;
 }
 

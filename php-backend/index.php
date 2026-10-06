@@ -146,9 +146,15 @@ try {
         //      fantasy code runs on any request and /api/fantasy/* 404s like any unknown path —
         //      inert rather than merely hidden. Registered before the fallback so it is reachable,
         //      and after everything else so it cannot shadow an existing route.
-        if (env_bool('FANTASY_ENABLED', false)) {
+        if (cfg('FANTASY_LIVE')) {   // FANTASY_ENABLED and not held off by the production guard
             require_once __DIR__ . '/routes/fantasy.php';
             register_fantasy_routes($app);
+        }
+        // 11c. The shared cricket feed webhook and Ball by Ball. Same isolation contract as 11b:
+        //      with CRICKET_ENABLED false nothing here is loaded and every URL 404s.
+        if (cfg('CRICKET_LIVE')) {   // CRICKET_ENABLED and not held off by the production guard
+            require_once __DIR__ . '/routes/cricket.php';
+            register_cricket_routes($app);
         }
         // 12. Terminal /api 404 — must stay last
         register_fallback_routes($app);

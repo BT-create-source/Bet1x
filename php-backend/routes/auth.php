@@ -61,6 +61,10 @@ function register_auth_routes(Router $app) {
             'phone_verification' => (bool) cfg('PHONE_VERIFICATION_REQUIRED'),
             // Whether the signup form should gate on an email OTP (sent via SMTP).
             'email_verification' => (bool) cfg('EMAIL_VERIFICATION_REQUIRED'),
+            // Whether the cricket games are actually running, and if a switched-on game is being held
+            // off by the production guard, why (it names missing settings, never their values).
+            'cricket' => ['enabled' => (bool) cfg('CRICKET_LIVE'), 'held_off' => cfg('CRICKET_BLOCKED', [])],
+            'your11'  => ['enabled' => (bool) cfg('FANTASY_LIVE'), 'held_off' => cfg('FANTASY_BLOCKED', [])],
             'timestamp' => js_iso(),
         ]);
     });

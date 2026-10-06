@@ -41,101 +41,113 @@ function pts(array $stats, array $rules = null) {
 }
 
 // -------------------------------------------------------------------------------------------------
-section('Batting');
+// Every expected value below is worked by hand from Dream11's published T20 / ODI / Test tables.
 // -------------------------------------------------------------------------------------------------
+section('Batting (T20)');
+// -------------------------------------------------------------------------------------------------
+$T20 = fantasy_scoring_rules('T20'); $ODI = fantasy_scoring_rules('ODI'); $TEST = fantasy_scoring_rules('TEST');
 ok(pts([]) === 0.0, 'a player with no figures scores nothing');
-ok(pts(['runs' => 25, 'balls' => 20]) === 25.0, '25 runs = 25 (no milestone below 30)');
-ok(pts(['runs' => 25, 'fours' => 3]) === 28.0, '25 runs + 3 fours = 28');
-ok(pts(['runs' => 25, 'sixes' => 2]) === 29.0, '25 runs + 2 sixes at 2 each = 29');
+ok(pts(['runs' => 25, 'balls' => 20]) === 29.0, '25 off 20 = 25 + 25-run bonus 4 (SR 125 earns nothing) = 29');
+ok(pts(['runs' => 25, 'fours' => 3]) === 41.0, '25 with 3 fours = 25 + 3x4 boundary bonus + 4 = 41');
+ok(pts(['runs' => 25, 'sixes' => 2]) === 41.0, '25 with 2 sixes = 25 + 2x6 six bonus + 4 = 41');
+ok(pts(['runs' => 34, 'fours' => 3, 'sixes' => 1]) === 56.0, '34/3x4/1x6 = 34 + 12 + 6 + 4 = 56');
+ok(pts(['runs' => 57, 'fours' => 5, 'sixes' => 2]) === 101.0, '57/5x4/2x6 = 57 + 20 + 12 + 4 + 8 (25 and 50 stack) = 101');
+ok(pts(['runs' => 139, 'fours' => 10, 'sixes' => 9]) === 249.0, '139/10x4/9x6 = 139 + 40 + 54 + century 16 only = 249');
+ok(fantasy_milestone_bonus(24, $T20) === 0.0,  '24 reaches no milestone');
+ok(fantasy_milestone_bonus(25, $T20) === 4.0,  '25 pays the 25-run bonus');
+ok(fantasy_milestone_bonus(50, $T20) === 12.0, '50 pays 25 + 50 bonuses = 12 (they stack below a hundred)');
+ok(fantasy_milestone_bonus(80, $T20) === 24.0, '80 pays 4 + 8 + 12 = 24');
+ok(fantasy_milestone_bonus(99, $T20) === 24.0, '99 still pays 24, not the century');
+ok(fantasy_milestone_bonus(100, $T20) === 16.0, '100 pays ONLY the century bonus (Dream11: no lower milestones with a century)');
+ok(fantasy_milestone_bonus(150, $T20) === 16.0, 'T20 has no tier above the century');
+ok(fantasy_milestone_bonus(125, $ODI) === 20.0 && fantasy_milestone_bonus(150, $ODI) === 24.0, 'ODI pays only the highest century tier (125 -> 20, 150 -> 24)');
 
-// 30 bonus: 34 runs + 3 fours + 1 six + 4 = 34+3+2+4
-ok(pts(['runs' => 34, 'fours' => 3, 'sixes' => 1]) === 43.0, '34/3x4/1x6 with the 30 bonus = 43');
-// 50 bonus only, not 50+30
-ok(pts(['runs' => 57, 'fours' => 5, 'sixes' => 2]) === 74.0, '57/5x4/2x6 with the 50 bonus alone = 74');
-// the real-world case from the live source: Kohli 139 (10x4, 9x6) => 139+10+18+16
-ok(pts(['runs' => 139, 'fours' => 10, 'sixes' => 9]) === 183.0,
-   '139 off 88 with 10 fours and 9 sixes = 183 (matches the real scorecard)');
+section('Strike rate (T20: min 10 balls, never for bowlers)');
+ok(pts(['runs' => 30, 'balls' => 15]) === 30.0 + 4 + 6, '200 SR = +6');
+ok(pts(['runs' => 20, 'balls' => 12]) === 20.0 + 4, '166.7 SR = +4');
+ok(pts(['runs' => 13, 'balls' => 10]) === 13.0 + 2, '130 SR = +2');
+ok(pts(['runs' => 7, 'balls' => 10]) === 7.0 - 2, '70 SR = -2');
+ok(pts(['runs' => 5, 'balls' => 10]) === 5.0 - 4, '50 SR = -4');
+ok(pts(['runs' => 4, 'balls' => 10]) === 4.0 - 6, '40 SR = -6');
+ok(pts(['runs' => 9, 'balls' => 9]) === 9.0, 'fewer than 10 balls: no strike-rate points');
+ok(pts(['runs' => 4, 'balls' => 10, 'role' => 'BOWL']) === 4.0, 'a bowler never takes strike-rate points');
 
-// milestones cumulative is a config decision, so both readings are asserted
-$cum = fantasy_scoring_rules();
-$cum['milestones_cumulative'] = true;
-ok(pts(['runs' => 139, 'fours' => 10, 'sixes' => 9], $cum) === 195.0,
-   'the same innings pays 195 when milestones are cumulative (16+8+4 = 28)');
-ok(fantasy_milestone_bonus(29, fantasy_scoring_rules()) === 0.0, '29 runs reaches no milestone');
-ok(fantasy_milestone_bonus(30, fantasy_scoring_rules()) === 4.0, '30 exactly reaches the first');
-ok(fantasy_milestone_bonus(99, fantasy_scoring_rules()) === 8.0, '99 pays the fifty, not the hundred');
-ok(fantasy_milestone_bonus(100, fantasy_scoring_rules()) === 16.0, '100 pays the hundred');
+section('Ducks');
+ok(pts(['runs' => 0, 'balls' => 3, 'did_bat' => 1, 'is_out' => 1]) === -2.0, 'T20 duck = -2');
+ok(pts(['runs' => 0, 'balls' => 3, 'did_bat' => 1, 'is_out' => 1], $ODI) === -3.0, 'ODI duck = -3');
+ok(pts(['runs' => 0, 'balls' => 3, 'did_bat' => 1, 'is_out' => 1], $TEST) === -4.0, 'Test duck = -4');
+ok(pts(['runs' => 0, 'balls' => 3, 'did_bat' => 1, 'is_out' => 0]) === 0.0, '0 not out is not a duck');
+ok(pts(['runs' => 0, 'did_bat' => 0, 'is_out' => 0]) === 0.0, 'not batting is not a duck');
+ok(pts(['runs' => 0, 'did_bat' => 1, 'is_out' => 1, 'role' => 'BOWL']) === 0.0, 'bowlers are exempt from the duck (Dream11: batter, WK, all-rounder only)');
 
-// -------------------------------------------------------------------------------------------------
-section('Ducks — and the three states that are not a duck');
-// -------------------------------------------------------------------------------------------------
-ok(pts(['runs' => 0, 'balls' => 3, 'did_bat' => 1, 'is_out' => 1]) === -2.0,
-   'dismissed for nought = -2');
-ok(pts(['runs' => 0, 'balls' => 3, 'did_bat' => 1, 'is_out' => 0]) === 0.0,
-   'NOT OUT on nought is not a duck');
-ok(pts(['runs' => 0, 'did_bat' => 0, 'is_out' => 0]) === 0.0,
-   'never came in to bat is not a duck');
-ok(pts(['runs' => 0, 'did_bat' => 0, 'is_out' => 1]) === 0.0,
-   'is_out without did_bat cannot be a duck either');
-// The signed-off configuration exempts bowlers, so this is the DEFAULT behaviour, not an option.
-ok(fantasy_scoring_rules()['duck_exempt_roles'] === ['BOWL'],
-   'the configured exemption is BOWL, as signed off');
-ok(pts(['runs' => 0, 'did_bat' => 1, 'is_out' => 1, 'role' => 'BOWL']) === 0.0,
-   'a specialist bowler dismissed for nought is NOT penalised (default rule)');
-foreach (['BAT', 'WK', 'ALL'] as $role) {
-    ok(pts(['runs' => 0, 'did_bat' => 1, 'is_out' => 1, 'role' => $role]) === -2.0,
-       "a $role dismissed for nought still takes -2");
-}
-// And the exemption is still configuration, so an empty list restores the literal reading.
-$noExempt = fantasy_scoring_rules();
-$noExempt['duck_exempt_roles'] = [];
-ok(pts(['runs' => 0, 'did_bat' => 1, 'is_out' => 1, 'role' => 'BOWL'], $noExempt) === -2.0,
-   'clearing the exemption penalises bowlers again');
-// A bowler who actually made runs is unaffected either way.
-ok(pts(['runs' => 34, 'fours' => 3, 'sixes' => 1, 'did_bat' => 1, 'is_out' => 1, 'role' => 'BOWL']) === 43.0,
-   'the exemption only touches the duck, not a bowler who scored');
+section('Bowling (T20)');
+ok(pts(['wickets' => 1]) === 30.0, '1 wicket = 30');
+ok(pts(['wickets' => 2]) === 60.0, '2 wickets = 60, no haul bonus yet');
+ok(pts(['wickets' => 3]) === 94.0, '3 wickets = 90 + 3-wicket bonus 4');
+ok(pts(['wickets' => 4]) === 128.0, '4 wickets = 120 + 4-wicket bonus 8 (only the highest tier)');
+ok(pts(['wickets' => 5]) === 162.0, '5 wickets = 150 + 5-wicket bonus 12');
+ok(pts(['wickets' => 2, 'bowled_lbw' => 2]) === 76.0, 'LBW / bowled bonus +8 each');
+ok(pts(['maidens' => 1]) === 12.0, 'a T20 maiden = 12');
+ok(pts(['maidens' => 1], $ODI) === 4.0, 'an ODI maiden = 4');
+ok(pts(['dot_balls' => 9]) === 9.0, 'T20: +1 per dot ball');
+ok(pts(['dot_balls' => 9], $ODI) === 3.0 && pts(['dot_balls' => 8], $ODI) === 2.0, 'ODI: +1 per 3 dot balls');
+ok(pts(['dot_balls' => 9], $TEST) === 0.0 && pts(['wickets' => 1], $TEST) === 20.0, 'Test: no dot-ball points, a wicket is 20');
+ok(pts(['wickets' => 4], $ODI) === 124.0 && pts(['wickets' => 3], $ODI) === 90.0, 'ODI haul tiers start at 4 wickets');
 
-// -------------------------------------------------------------------------------------------------
-section('Bowling');
-// -------------------------------------------------------------------------------------------------
-ok(pts(['wickets' => 1]) === 25.0, '1 wicket = 25, below every haul tier');
-ok(pts(['wickets' => 2]) === 50.0, '2 wickets = 50, still no haul bonus');
-ok(pts(['wickets' => 3]) === 79.0, '3 wickets = 75 + the 3-wicket bonus 4 = 79');
-ok(pts(['wickets' => 4]) === 104.0, '4 wickets = 100 + 4 (the 3-wicket tier still applies) = 104');
-ok(pts(['wickets' => 5]) === 141.0, '5 wickets = 125 + the 5-wicket bonus 16 = 141');
-$haulCum = fantasy_scoring_rules();
-$haulCum['hauls_cumulative'] = true;
-ok(pts(['wickets' => 5], $haulCum) === 145.0, '5 wickets pays 145 when hauls are cumulative (16+4)');
-ok(pts(['wickets' => 5, 'bowled_lbw' => 2, 'maidens' => 1]) === 169.0,
-   '5 wickets + 2 bowled/LBW at 8 + 1 maiden at 12 = 141+16+12 = 169');
-ok(pts(['maidens' => 2]) === 24.0, '2 maidens = 24');
-ok(pts(['runs_conceded' => 60, 'overs' => 10]) === 0.0,
-   'runs conceded and overs alone score nothing — there is no economy rule in this table');
+section('Economy rate (T20: min 2 overs)');
+ok(pts(['balls_bowled' => 24, 'runs_conceded' => 18]) === 6.0, '4.5 an over = +6');
+ok(pts(['balls_bowled' => 24, 'runs_conceded' => 22]) === 4.0, '5.5 an over = +4');
+ok(pts(['balls_bowled' => 24, 'runs_conceded' => 28]) === 2.0, '7.0 an over = +2');
+ok(pts(['balls_bowled' => 24, 'runs_conceded' => 32]) === 0.0, '8.0 an over earns nothing');
+ok(pts(['balls_bowled' => 24, 'runs_conceded' => 42]) === -2.0, '10.5 an over = -2');
+ok(pts(['balls_bowled' => 24, 'runs_conceded' => 46]) === -4.0, '11.5 an over = -4');
+ok(pts(['balls_bowled' => 24, 'runs_conceded' => 50]) === -6.0, '12.5 an over = -6');
+ok(pts(['balls_bowled' => 11, 'runs_conceded' => 30]) === 0.0, 'under two overs: no economy points');
+ok(pts(['overs' => 4.0, 'runs_conceded' => 18]) === 6.0, 'decimal overs from older stat rows are read correctly');
 
-// -------------------------------------------------------------------------------------------------
 section('Fielding');
-// -------------------------------------------------------------------------------------------------
 ok(pts(['catches' => 1]) === 8.0, '1 catch = 8');
-ok(pts(['catches' => 3]) === 24.0, '3 catches = 24');
+ok(pts(['catches' => 3]) === 28.0, '3 catches = 24 + the 3-catch bonus 4');
+ok(pts(['catches' => 6]) === 52.0, '6 catches = 48 + the bonus once (not twice)');
 ok(pts(['stumpings' => 1]) === 12.0, '1 stumping = 12');
 ok(pts(['runouts_direct' => 1]) === 12.0, 'a direct run-out = 12');
-ok(pts(['runouts_shared' => 1]) === 6.0, 'a shared run-out = 6');
-ok(pts(['catches' => 2, 'stumpings' => 1, 'runouts_shared' => 1]) === 34.0,
-   '2 catches + 1 stumping + 1 shared run-out = 16+12+6 = 34');
+ok(pts(['runouts_shared' => 1]) === 6.0, 'a run-out assist = 6');
+ok(pts(['catches' => 3], $TEST) === 24.0, 'Test has no 3-catch bonus');
+
+section('Announced lineups and substitutes');
+ok(pts(['in_lineup' => 1]) === 4.0, 'being in the announced XI = +4 even before a ball is bowled');
+ok(pts(['in_lineup' => 0, 'is_substitute' => 1, 'runs' => 10, 'did_bat' => 1, 'batted_or_bowled' => 1]) === 14.0,
+   'a playing substitute (impact player) gets +4 and their contributions');
+ok(pts(['in_lineup' => 0, 'is_substitute' => 0, 'catches' => 1, 'fielded' => 1, 'batted_or_bowled' => 0]) === 0.0,
+   'an ordinary substitute fielder scores nothing, even for a catch');
+
+section('T10, The Hundred and the warm-up ("Other") tables');
+$T10 = fantasy_scoring_rules('T10'); $H = fantasy_scoring_rules('HUNDRED'); $OT = fantasy_scoring_rules('OTHER_T20');
+ok(pts(['runs' => 30, 'balls' => 12, 'fours' => 3, 'sixes' => 2], $T10) === 68.0, 'T10: 30 off 12 (3x4, 2x6) = 30 + 12 + 12 + 25-bonus 8 + SR 250 bonus 6 = 68');
+ok(pts(['runs' => 104, 'fours' => 0], $T10) === 104.0 + 8 + 12 + 16, 'T10 pays no century bonus, only the 25/50/75 bonuses');
+ok(pts(['wickets' => 2], $T10) === 64.0 && pts(['maidens' => 1], $T10) === 16.0, 'T10: a 2-wicket bonus (+4) and a 16-point maiden');
+ok(pts(['runs' => 30, 'fours' => 3, 'sixes' => 2], $H) === 42.0, 'The Hundred: boundary +1, six +2, 30-run bonus +5');
+ok(pts(['wickets' => 1, 'dot_balls' => 10, 'maidens' => 1], $H) === 25.0, 'The Hundred: wicket 25, and no dot-ball or maiden points');
+ok(pts(['in_lineup' => 1, 'runs' => 10], $OT) === 10.0, 'warm-up tables pay nothing for the announced lineup');
+ok(pts(['wickets' => 5], $OT) === 166.0 && pts(['runs' => 30, 'fours' => 1], $OT) === 35.0, 'warm-up T20: 5 wickets = 150 + 16, 30 runs = 30 + 1 + 4');
+
+section('The open rule details are switchable variants');
+ok(pts(['wickets' => 5], fantasy_scoring_rules('T20', ['hauls_cumulative' => true])) === 150.0 + 4 + 8 + 12,
+   'with hauls cumulative, a 5-wicket haul collects the 3/4/5 bonuses (24)');
+ok(pts(['runs' => 80], fantasy_scoring_rules('T20', ['milestones_cumulative' => false])) === 92.0,
+   'with milestones not cumulative, 80 runs pays only the 75 bonus (12)');
+ok(pts(['runs' => 80]) === 104.0, 'the default stacks them below a century (80 + 4 + 8 + 12)');
 
 // -------------------------------------------------------------------------------------------------
 section('Captain and vice-captain multipliers');
 // -------------------------------------------------------------------------------------------------
-$r = fantasy_scoring_rules();
+$r = $T20;
 ok(fantasy_apply_multiplier(50, false, false, $r) === 50.0, 'no armband leaves the score alone');
 ok(fantasy_apply_multiplier(50, true, false, $r) === 100.0, 'captain doubles 50 to 100');
 ok(fantasy_apply_multiplier(50, false, true, $r) === 75.0, 'vice-captain takes 50 to 75');
-ok(fantasy_apply_multiplier(50, true, true, $r) === 100.0,
-   'captain wins if both flags are somehow set');
-// The armband must not be a free bet.
+ok(fantasy_apply_multiplier(50, true, true, $r) === 100.0, 'if both flags are somehow set, captain wins');
 ok(fantasy_apply_multiplier(-2, true, false, $r) === -4.0, 'a captain duck loses double, not nothing');
 ok(fantasy_apply_multiplier(-2, false, true, $r) === -3.0, 'a vice-captain duck loses 1.5x');
-ok(fantasy_apply_multiplier(183, false, true, $r) === 274.5, '183 as vice-captain = 274.5');
 
 // -------------------------------------------------------------------------------------------------
 section('Scoring a whole XI');
@@ -146,25 +158,24 @@ for ($i = 1; $i <= 11; $i++) {
                   'is_captain' => $i === 1, 'is_vice_captain' => $i === 2];
 }
 $stats = [
-    1 => ['runs' => 50, 'did_bat' => 1, 'is_out' => 1],                  // 50 + 8 = 58, x2 = 116
-    2 => ['wickets' => 3],                                                // 79, x1.5 = 118.5
+    1 => ['runs' => 50, 'balls' => 40, 'did_bat' => 1, 'is_out' => 1],   // 50 + 4 + 8 = 62, x2 = 124
+    2 => ['wickets' => 3],                                                // 94, x1.5 = 141
     3 => ['runs' => 0, 'did_bat' => 1, 'is_out' => 1],                    // -2
     4 => ['catches' => 1],                                                // 8
-    // 5..11 absent: a player who did not take the field scores 0, which is not an error
 ];
 $team = fantasy_score_team($players, $stats, $r);
-ok($team['players'][0]['base_points'] === 58.0, 'captain base 50 + 8 milestone = 58');
-ok($team['players'][0]['points'] === 116.0,     'captain final = 116');
-ok($team['players'][1]['points'] === 118.5,     'vice-captain 79 x 1.5 = 118.5');
+ok($team['players'][0]['base_points'] === 62.0, 'captain base 50 + 25-bonus 4 + 50-bonus 8 = 62');
+ok($team['players'][0]['points'] === 124.0,     'captain final = 124');
+ok($team['players'][1]['points'] === 141.0,     'vice-captain 94 x 1.5 = 141');
 ok($team['players'][2]['points'] === -2.0,      'the duck stays -2 with no armband');
 ok($team['players'][3]['points'] === 8.0,       'the catch scores 8');
-ok($team['total'] === 240.5, 'XI total = 116 + 118.5 - 2 + 8 = 240.5 (got ' . $team['total'] . ')');
+ok($team['total'] === 271.0, 'XI total = 124 + 141 - 2 + 8 = 271 (got ' . $team['total'] . ')');
 $absent = array_slice($team['players'], 4);
 $allZero = true;
 foreach ($absent as $p) if ($p['points'] !== 0.0) $allZero = false;
 ok($allZero, 'players with no stats row score exactly 0');
 ok(count($team['players']) === 11, 'every player is reported, including the ones who scored nothing');
-ok(isset($team['players'][0]['breakdown']['milestone']),
+ok(isset($team['players'][0]['breakdown']['Milestone bonus']),
    'the breakdown itemises the milestone, so a total can be checked line by line');
 
 // -------------------------------------------------------------------------------------------------
@@ -219,7 +230,7 @@ ok($P['cb:101']['runs'] === 62 && $P['cb:101']['fours'] === 6 && $P['cb:101']['s
 ok($P['cb:101']['is_out'] === 1 && $P['cb:101']['did_bat'] === 1, 'a dismissed batsman is out');
 ok($P['cb:105']['is_out'] === 0 && $P['cb:105']['did_bat'] === 1,
    'an empty wicketCode is not out, not a duck');
-ok(pts($P['cb:105']) === 58.0 + 7.0 + 2.0 + 8.0, 'the not-out 58 scores 75, with no duck penalty');
+ok(pts($P['cb:105']) === 58.0 + 28.0 + 6.0 + 12.0 + 2.0, 'the not-out 58 (43b, 7x4, 1x6) scores 106: runs + boundaries + six + 25&50 bonuses + SR 135, no duck');
 ok(pts($P['cb:102']) === -2.0, 'the batsman dismissed for 0 takes -2');
 
 // bowling

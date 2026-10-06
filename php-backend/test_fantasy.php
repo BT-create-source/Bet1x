@@ -111,12 +111,13 @@ foreach ($roleCases as $in => $want) {
 }
 
 // -------------------------------------------------------------------------------------------------
-section('Credits stay inside the column CHECK constraint (8.0 - 10.5)');
+section('Credits stay inside the priced band (6.0 - 10.5; the column CHECK allows 5.0 - 11.5)');
 // -------------------------------------------------------------------------------------------------
-foreach ([-5, 0, 7.4, 8.0, 9.25, 10.5, 99] as $v) {
+foreach ([-5, 0, 5.2, 7.4, 8.0, 9.25, 10.5, 99] as $v) {
     $c = fantasy_clamp_credits($v);
-    ok($c >= 8.0 && $c <= 10.5, "clamp($v) = $c is within 8.0-10.5");
+    ok($c >= 6.0 && $c <= 10.5, "clamp($v) = $c is within 6.0-10.5");
 }
+ok(fantasy_clamp_credits(7.4) === 7.4, 'a genuine 7.4 is kept, so a squad player can cost less than a star');
 ok(fantasy_clamp_credits(9.24) === 9.2, 'clamp rounds to one decimal place (9.24 -> 9.2)');
 $capt = fantasy_provisional_credits(['role' => 'Batter', 'captain' => true]);
 $plain = fantasy_provisional_credits(['role' => 'Batter', 'captain' => false]);

@@ -25,6 +25,28 @@ require_once __DIR__ . '/../lib/fantasy-contests.php';
 require_once __DIR__ . '/../lib/fantasy-scoring.php';
 require_once __DIR__ . '/../lib/fantasy-live.php';
 require_once __DIR__ . '/../lib/fantasy-settle.php';
+require_once __DIR__ . '/../lib/fantasy-feed.php';
+
+/**
+ * Keep the feed-backed data fresh without depending on a cron being installed: in mock mode, advance
+ * the simulated matches; in either mode, re-pull the schedule at most every five minutes. Both are
+ * throttled through state keys, so a busy lobby costs a couple of indexed reads per request.
+ * Failures are logged, never surfaced: a lobby read must not fail because a refresh did.
+ */
+function fantasy_lazy_feed_refresh() {
+    if (!fantasy_uses_feed()) return;
+    try {
+        cricket_mock_pump();
+        $last = state_get('fantasy_fixture_sync_at');
+        $gap = cricket_source_mode() === 'mock' ? 120000 : 300000;
+        if (!is_array($last) || now_ms() - (int) ($last['ms'] ?? 0) > $gap) {
+            state_set('fantasy_fixture_sync_at', ['ms' => now_ms()]);
+            fantasy_feed_sync_fixtures();
+        }
+    } catch (Throwable $e) {
+        log_warn('fantasy: lazy feed refresh failed', ['message' => $e->getMessage()]);
+    }
+}
 
 function register_fantasy_routes(Router $app) {
 
@@ -37,6 +59,7 @@ function register_fantasy_routes(Router $app) {
      */
     $app->get('/api/fantasy/matches', function (Req $req, Res $res) {
         try {
+            fantasy_lazy_feed_refresh();
             $status = $req->q('status', 'UPCOMING');
             $rows = fantasy_list_matches($status);
 
@@ -84,16 +107,31 @@ function register_fantasy_routes(Router $app) {
             }
 
             $public = fantasy_public_match($match);
+            $grouped = fantasy_players_grouped($public['id']);
+            // "Sel by" / "C by" / "VC by": the share of all teams on this match picking each player.
+            $sel = fantasy_selection_stats($public['id']);
+            foreach ($grouped as $role => &$list) {
+                foreach ($list as &$pl) {
+                    $st = $sel['players'][$pl['id']] ?? [];
+                    $pl['selected_by'] = $st['sel'] ?? 0;
+                    $pl['captain_by'] = $st['c'] ?? 0;
+                    $pl['vice_captain_by'] = $st['vc'] ?? 0;
+                }
+                unset($pl);
+            }
+            unset($list);
             $res->json([
                 'success' => true,
                 'match'   => $public,
                 'rules'   => fantasy_rules(),
+                'scoring_rules' => fantasy_scoring_rules($public['format']),
+                'selection_teams' => $sel['teams'],
                 // The two real teams, for the "max 7 from one team" counter in the builder.
                 'teams'   => [
                     ['name' => $public['team_a'], 'short' => $public['team_a_short']],
                     ['name' => $public['team_b'], 'short' => $public['team_b_short']],
                 ],
-                'players' => fantasy_players_grouped($public['id']),
+                'players' => $grouped,
                 'server_time_ms' => now_ms(),
             ]);
         } catch (Throwable $err) {
@@ -356,6 +394,10 @@ function register_fantasy_routes(Router $app) {
                 'rake_pct'    => $req->b('rake_pct', 0),
                 'prize_pool'  => $req->b('prize_pool', 0),
                 'prize_rules' => $req->b('prize_rules', null),
+                'min_entries' => $req->b('min_entries', null),
+                'max_entries_per_user' => $req->b('max_entries_per_user', 1),
+                'contest_type' => $req->b('contest_type', 'custom'),
+                'is_guaranteed' => $req->b('is_guaranteed', false),
             ]);
             if (!$result['ok']) {
                 $res->status((int) ($result['status'] ?? 422))->json(['error' => $result['error']]);
@@ -397,7 +439,7 @@ function register_fantasy_routes(Router $app) {
                 'source_state'  => $match['source_state'] ?? null,
                 'source_status' => $match['source_status_text'] ?? null,
                 'last_synced_at' => $match['last_synced_at'] ?? null,
-                'scoring_rules' => fantasy_scoring_rules(),
+                'scoring_rules' => fantasy_scoring_rules($match['format']),
                 'players'       => fantasy_live_scoreboard((int) $match['id']),
                 'server_time_ms' => now_ms(),
             ]);
@@ -425,7 +467,7 @@ function register_fantasy_routes(Router $app) {
                 return;
             }
             $stats = fantasy_stored_stats($team['match_id']);
-            $scored = fantasy_score_team($team['players'], $stats, fantasy_scoring_rules());
+            $scored = fantasy_score_team($team['players'], $stats, fantasy_rules_for_match($team['match_id']));
             $res->json([
                 'success' => true,
                 'team_id' => $team['id'],
@@ -581,6 +623,121 @@ function register_fantasy_routes(Router $app) {
             $res->json($result);
         } catch (Throwable $err) {
             fail500($res, $err, 'fantasy_void_contest');
+        }
+    });
+
+    // ---------------------------------------------------------------------------------------------
+    // Parity endpoints: My Matches, switch team, rival teams after the deadline, credits
+    // ---------------------------------------------------------------------------------------------
+
+    /** GET /api/fantasy/my-matches — the caller's fixtures, Upcoming / Live / Completed. */
+    $app->get('/api/fantasy/my-matches', 'require_auth', function (Req $req, Res $res) {
+        try {
+            fantasy_lazy_feed_refresh();
+            $user = get_or_create_user(acting_username($req));
+            if (!$user) { $res->status(404)->json(['error' => 'Account not found.']); return; }
+            $res->json(['success' => true] + fantasy_my_matches((int) $user['id']) + ['server_time_ms' => now_ms()]);
+        } catch (Throwable $err) {
+            fail500($res, $err, 'fantasy_my_matches');
+        }
+    });
+
+    /** POST /api/fantasy/entries/:id/switch {team_id} — swap the team on an entry before the deadline. */
+    $app->post('/api/fantasy/entries/:id/switch', 'require_auth', function (Req $req, Res $res) {
+        try {
+            $user = get_or_create_user(acting_username($req));
+            if (!$user) { $res->status(404)->json(['error' => 'Account not found.']); return; }
+            $r = fantasy_switch_entry_team((int) $user['id'], (int) $req->p('id'), (int) $req->b('team_id', 0));
+            if (!$r['ok']) { $res->status((int) ($r['status'] ?? 409))->json(['error' => $r['error']]); return; }
+            $res->json(['success' => true, 'unchanged' => !empty($r['unchanged'])]);
+        } catch (Throwable $err) {
+            fail500($res, $err, 'fantasy_switch_team');
+        }
+    });
+
+    /** GET /api/fantasy/entries/:id/team — any entry's XI and points, once the match has started. */
+    $app->get('/api/fantasy/entries/:id/team', function (Req $req, Res $res) {
+        try {
+            $r = fantasy_entry_team_public((int) $req->p('id'));
+            if (!$r['ok']) { $res->status((int) $r['status'])->json(['error' => $r['error']]); return; }
+            unset($r['ok']);
+            $res->json(['success' => true] + $r);
+        } catch (Throwable $err) {
+            fail500($res, $err, 'fantasy_entry_team');
+        }
+    });
+
+    /**
+     * POST /api/admin/fantasy/matches/:id/credits {credits: {player_id: value, ...}}
+     *
+     * Operator pricing before the deadline. Refused once the match locks, because changing what a
+     * player costs after teams are fixed would make some saved XIs illegal retroactively.
+     */
+    $app->post('/api/admin/fantasy/matches/:id/credits', 'require_admin', function (Req $req, Res $res) {
+        try {
+            $match = fantasy_find_match($req->p('id'));
+            if (!$match) { $res->status(404)->json(['error' => 'Match not found.']); return; }
+            if (now_ms() >= (int) sql_to_ms($match['lock_time'])) {
+                $res->status(409)->json(['error' => 'Credits are fixed once the match deadline has passed.']); return;
+            }
+            $changed = 0;
+            foreach ((array) $req->b('credits', []) as $pid => $val) {
+                if (!is_numeric($val)) continue;
+                $changed += affected('UPDATE "fantasy_players" SET "credits" = ?, "credits_locked" = 1 WHERE "id" = ? AND "match_id" = ?',
+                                     [fantasy_clamp_credits($val), (int) $pid, (int) $match['id']]);
+            }
+            $res->json(['success' => true, 'updated' => $changed]);
+        } catch (Throwable $err) {
+            fail500($res, $err, 'fantasy_admin_credits');
+        }
+    });
+
+    /** POST /api/admin/fantasy/sync — pull fixtures and squads now, and lay out the contest set. */
+    $app->post('/api/admin/fantasy/sync', 'require_admin', function (Req $req, Res $res) {
+        try {
+            $res->json(['success' => true, 'summary' => fantasy_feed_sync_fixtures()]);
+        } catch (Throwable $err) {
+            fail500($res, $err, 'fantasy_admin_sync');
+        }
+    });
+
+    /**
+     * POST /api/admin/fantasy/matches/:id/calibrate {official: {player_id: points, ...}, apply: bool}
+     *
+     * Paste Dream11's official base points (no C/VC multiplier) for a few players of a finished match;
+     * the engine reports which variant of the two open rule details reproduces them exactly, and with
+     * apply=true adopts it and re-scores the match.
+     */
+    $app->post('/api/admin/fantasy/matches/:id/calibrate', 'require_admin', function (Req $req, Res $res) {
+        try {
+            $official = (array) $req->b('official', []);
+            if (!$official) { $res->status(422)->json(['error' => 'Send official: {player_id: points}.']); return; }
+            $r = fantasy_calibrate((int) $req->p('id'), $official, (bool) $req->b('apply', false));
+            if (!$r['ok']) { $res->status((int) $r['status'])->json(['error' => $r['error']]); return; }
+            $res->json(['success' => true] + $r);
+        } catch (Throwable $err) {
+            fail500($res, $err, 'fantasy_calibrate');
+        }
+    });
+
+    /**
+     * POST /api/admin/fantasy/matches/:id/points-system {format}
+     *
+     * Which Dream11 table scores this match: T20, ODI, TEST, T10, HUNDRED, or the warm-up tables
+     * OTHER_T20 / OTHER_ODI / OTHER_TEST (practice matches where more than 11 players may play).
+     */
+    $app->post('/api/admin/fantasy/matches/:id/points-system', 'require_admin', function (Req $req, Res $res) {
+        try {
+            $fmt = strtoupper(trim((string) $req->b('format', '')));
+            $allowed = ['T20', 'ODI', 'TEST', 'T10', 'HUNDRED', 'OTHER_T20', 'OTHER_ODI', 'OTHER_TEST'];
+            if (!in_array($fmt, $allowed, true)) { $res->status(422)->json(['error' => 'format must be one of ' . implode(', ', $allowed) . '.']); return; }
+            $match = fantasy_find_match($req->p('id'));
+            if (!$match) { $res->status(404)->json(['error' => 'Match not found.']); return; }
+            q('UPDATE "fantasy_matches" SET "format" = ?, "updated_at" = ? WHERE "id" = ?', [$fmt, ms_to_sql(now_ms()), (int) $match['id']]);
+            $GLOBALS['BET1X_RULES_EPOCH'] = ($GLOBALS['BET1X_RULES_EPOCH'] ?? 0) + 1;
+            $res->json(['success' => true, 'format' => $fmt, 'rescored' => fantasy_rescore_match((int) $match['id'])]);
+        } catch (Throwable $err) {
+            fail500($res, $err, 'fantasy_points_system');
         }
     });
 }

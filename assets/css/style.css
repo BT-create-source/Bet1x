@@ -3380,9 +3380,9 @@ body.exchange-theme .footer {
    Nothing else. `!important` is required here: index.html's category filter sets an inline
    display value on game cards, and this rule has to win over it.
    ============================================================================================== */
-[data-feature="cricket"] {
+/* [data-feature="cricket"] {
   display: none !important;
-}
+} */
 
 /* =================================================================================================
    Bottom "recent wins" ticker (assets/js/ui-common.js injects the markup)

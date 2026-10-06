@@ -153,7 +153,18 @@ function all($sql, $params = []) {
     }
     return [];
 }
-function scalar($sql, $params = [], $default = null) { return $default; }
+function scalar($sql, $params = [], $default = null) {
+    global $DB;
+    // The per-player entry count the multi-entry cap is checked against.
+    if (strpos($sql, 'COUNT(*) FROM "fantasy_contest_entries"') !== false) {
+        $n = 0;
+        foreach ($DB['entries'] as $e) {
+            if ((int) $e['contest_id'] === (int) $params[0] && (int) $e['user_id'] === (int) $params[1]) $n++;
+        }
+        return $n;
+    }
+    return $default;
+}
 
 function affected($sql, $params = []) {
     global $DB;
@@ -173,11 +184,11 @@ function q($sql, $params = []) {
     global $DB, $PDO;
     if (strpos($sql, 'INSERT INTO "fantasy_contest_entries"') !== false) {
         [$contestId, $teamId, $userId, $fee, $txnId] = $params;
-        // The two UNIQUE constraints: (contest_id, user_team_id) from 006 and (contest_id, user_id)
-        // from 007. Modelled because they are the actual double-entry guard.
+        // UNIQUE (contest_id, user_team_id) from 006: the same team can never be in a contest twice.
+        // (Migration 010 replaced 007's one-entry-per-account index with a per-contest entry cap,
+        // checked under a row lock inside the join.)
         foreach ($DB['entries'] as $e) {
-            if ((int) $e['contest_id'] === (int) $contestId
-                && ((int) $e['user_team_id'] === (int) $teamId || (int) $e['user_id'] === (int) $userId)) {
+            if ((int) $e['contest_id'] === (int) $contestId && (int) $e['user_team_id'] === (int) $teamId) {
                 throw new RuntimeException('duplicate key value violates unique constraint');
             }
         }
@@ -290,16 +301,33 @@ db_reset();
 fantasy_join_contest(1, 'alice', 10, 5);
 $b = bal(); $f = filled(); $e = entries(); $t = txns();
 $again = fantasy_join_contest(1, 'alice', 10, 5);
-ok($again['ok'] === false && stripos($again['error'], 'already joined') !== false,
+ok($again['ok'] === false && (stripos($again['error'], 'already joined') !== false || stripos($again['error'], 'already in this contest') !== false),
    'the same team cannot be entered twice: ' . $again['error']);
 assertUntouched('same team twice', $b, $f, $e, $t);
 
-// A DIFFERENT team from the same account is also refused — this is the case a PHP pre-check cannot
-// make race-safe, and why migration 007 puts a UNIQUE on (contest_id, user_id).
+// A DIFFERENT team from the same account is refused on a single-entry contest (the default): the cap
+// is counted inside the join transaction, under a row lock on the contest.
 $other = fantasy_join_contest(1, 'alice', 10, 6);
 ok($other['ok'] === false && stripos($other['error'], 'already joined') !== false,
-   'a second team from the same account is refused: ' . $other['error']);
+   'a second team from the same account is refused on a single-entry contest: ' . $other['error']);
 assertUntouched('second team, same account', $b, $f, $e, $t);
+
+// Multi-entry: with max_entries_per_user = 2 the second, different team gets in, and a third is refused.
+db_reset();
+$GLOBALS['DB']['contests'][10]['max_entries_per_user'] = 2;
+$GLOBALS['DB']['teams'][9] = ['id' => 9, 'user_id' => 1, 'match_id' => 1];
+$m1 = fantasy_join_contest(1, 'alice', 10, 5);
+$m2 = fantasy_join_contest(1, 'alice', 10, 6);
+ok($m1['ok'] && $m2['ok'], 'a multi-entry contest takes a second, different team from the same account');
+ok(count($GLOBALS['DB']['entries']) === 2 && $GLOBALS['DB']['users'][1]['wallet_balance'] === 402.0,
+   'two entries, two fees debited');
+$b = bal(); $f = filled(); $e = entries(); $t = txns();
+$m3 = fantasy_join_contest(1, 'alice', 10, 9);
+ok($m3['ok'] === false && stripos($m3['error'], 'maximum of 2') !== false, 'a third team is refused at the cap: ' . $m3['error']);
+assertUntouched('over the multi-entry cap', $b, $f, $e, $t);
+db_reset();
+fantasy_join_contest(1, 'alice', 10, 5);
+$b = bal(); $f = filled(); $e = entries(); $t = txns();
 
 // Another account is of course fine.
 $bobBalBefore = $GLOBALS['DB']['users'][2]['wallet_balance'];

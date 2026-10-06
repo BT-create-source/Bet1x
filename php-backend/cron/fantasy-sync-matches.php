@@ -57,6 +57,16 @@ require_once __DIR__ . '/../lib/fantasy-source.php';
 
 $force = in_array('--force', array_slice($argv, 1), true);
 
+// With the shared feed as the source (the default), cron/cricket-tick.php does this job — fixtures,
+// squads, live scoring and settlement — so this legacy worker stands down rather than compete with it.
+// It still runs for FANTASY_SOURCE=cricbuzz.
+require_once __DIR__ . '/../lib/fantasy-feed.php';
+if (fantasy_uses_feed()) {
+    echo "FANTASY_SOURCE uses the shared cricket feed: cron/cricket-tick.php handles this. Nothing to do here.
+";
+    exit(0);
+}
+
 if (!fantasy_enabled() && !$force) {
     echo "FANTASY_ENABLED is false — nothing ingested. Re-run with --force to populate anyway.\n";
     exit(0);

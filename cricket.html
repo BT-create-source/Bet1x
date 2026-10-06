@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cricket — Match Odds, Bookmaker & Fancy — bet1x</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/cricket.css">
+  <script src="assets/js/ui-common.js"></script>
+  <script src="assets/js/sound-fx.js"></script>
+  <style>body { padding-bottom: 60px; }</style>
+</head>
+
+<body class="exchange-theme">
+  <nav class="navbar exchange-header">
+    <div style="display:flex; align-items:center; gap:12px;"><div class="exchange-logo-box">Bet1x</div></div>
+    <div id="headerAuthArea"></div>
+  </nav>
+  <div class="sub-navbar">
+    <ul class="sub-navbar-links">
+      <li class="sub-navbar-item"><a href="index.html" class="sub-navbar-link">Home</a></li>
+      <li class="sub-navbar-item"><a href="cricket.html" class="sub-navbar-link active">Cricket</a></li>
+      <li class="sub-navbar-item"><a href="aviator.html" class="sub-navbar-link">Vimaan</a></li>
+      <li class="sub-navbar-item"><a href="win.html" class="sub-navbar-link">Sapre</a></li>
+      <li class="sub-navbar-item"><a href="teenpatti.html" class="sub-navbar-link">Teen Patti</a></li>
+      <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
+      <li class="sub-navbar-item"><a href="youreleven.html" class="sub-navbar-link">Your 11</a></li>
+      <li class="sub-navbar-item"><a href="boundarybaazi.html" class="sub-navbar-link">Ball by Ball</a></li>
+    </ul>
+  </div>
+
+  <div class="ck-shell">
+    <!-- left: sports -->
+    <aside class="ck-side" id="side">
+      <div class="ck-side-h"><span>⋮</span><span>Sports</span></div>
+      <a href="cricket.html" class="active">Cricket <span class="chev">›</span></a>
+      <div class="sub" id="sideMatches"></div>
+      <a href="youreleven.html">Your 11 (Fantasy) <span class="chev">›</span></a>
+      <a href="boundarybaazi.html">Ball by Ball <span class="chev">›</span></a>
+      <a href="aviator.html">Vimaan <span class="chev">›</span></a>
+      <a href="win.html">Colour Prediction <span class="chev">›</span></a>
+      <a href="teenpatti.html">Teen Patti <span class="chev">›</span></a>
+      <a href="mining.html">Mines <span class="chev">›</span></a>
+    </aside>
+
+    <!-- centre -->
+    <main class="ck-main" id="main">
+      <div id="mockNote" class="ck-note" style="display:none;"><b>Demo feed:</b> matches are simulated until live data is connected; teams and players are fictional. Prices come from the bet1x pricing engine.</div>
+      <div id="viewLobby"></div>
+      <div id="viewMatch" style="display:none;">
+        <div class="ck-banner" id="banner"></div>
+        <div class="ck-recent" id="recent"></div>
+        <div id="marketsBox"></div>
+        <a class="ck-promo" id="bbbPromo" href="boundarybaazi.html">
+          <div><b>BALL BY BALL</b><span>Win on every ball — bet on runs, wickets &amp; extras</span></div>
+          <span class="go">Play now ›</span>
+        </a>
+      </div>
+    </main>
+
+    <!-- right: slip + open bets -->
+    <aside class="ck-right">
+      <div class="ck-panel" id="slipPanel">
+        <div class="ck-panel-h"><span>Bet Slip</span></div>
+        <div class="ck-panel-b" id="slip"><div class="ck-empty">Click a price to place a bet.</div></div>
+      </div>
+      <div class="ck-panel">
+        <div class="ck-panel-h"><span>Open Bets</span><span id="openCount"></span></div>
+        <div class="ck-panel-b" id="openBets"><div class="ck-empty">No open bets.</div></div>
+      </div>
+      <div class="ck-panel">
+        <div class="ck-panel-h"><span>Settled</span></div>
+        <div class="ck-panel-b" id="settledBets"><div class="ck-empty">Nothing settled yet.</div></div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="ck-modal" id="bookModal">
+    <div class="ck-modal-c">
+      <div class="ck-panel-h"><span id="bookTitle">Book</span><button class="ck-btn cancel" id="bookClose" style="padding:3px 10px;">×</button></div>
+      <div id="bookBody"></div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    var POLL_MS = 1500;
+    var page = null, key = null, timer = null, lobbyTimer = null, skew = 0;
+    var slip = null, busy = false, lastPx = {}, fancyTab = 'ALL', cashArm = null;
+
+    function $(id) { return document.getElementById(id); }
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+    function money(n) { return '₹' + (Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 }); }
+    function kfmt(n) { n = Number(n) || 0; return n >= 100000 ? (n / 100000).toFixed(n % 100000 ? 1 : 0) + 'L' : n >= 1000 ? (n / 1000).toFixed(n % 1000 ? 1 : 0) + 'K' : String(n); }
+    function now() { return Date.now() + skew; }
+    function api(path, opts) {
+      return fetch(path, Object.assign({ cache: 'no-store' }, opts || {})).then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (d) {
+          if (!r.ok || d.success === false) { var e = new Error(d.error || ('Request failed (' + r.status + ')')); e.status = r.status; throw e; }
+          if (d.server_time_ms) skew = d.server_time_ms - Date.now();
+          return d;
+        });
+      });
+    }
+    function loggedIn() { return typeof getCurrentUser === 'function' && !!getCurrentUser(); }
+    function ballCls(t) { return t === 'W' ? 'bW' : /Wd|Nb/.test(t) ? 'bX' : t === '4' ? 'b4' : t === '6' ? 'b6' : ''; }
+
+    // ------------------------------------------------------------------ lobby
+    function lobbyRow(m, live) {
+      var o = m.odds, a = o && o.runners[0], b = o && o.runners[1];
+      var cell = function (v, cls) { return v ? '<div class="ck-lob-px ' + cls + '">' + v + '</div>' : '<div class="ck-lob-px s">–</div>'; };
+      var cells = (o && o.open) ? cell(a.back, 'b') + cell(a.lay, 'l x') + cell(b.back, 'b') + cell(b.lay, 'l x')
+        : '<div class="ck-lob-px s" style="grid-column: span 4;">' + esc(o ? (o.reason || 'Suspended') : 'Not offered') + '</div>';
+      var when = live ? '<span class="inplay">● In-Play</span> ' + esc((m.score || []).map(function (s) { return s.team_short + ' ' + s.runs + '/' + s.wickets + ' (' + s.overs + ')'; }).join(' · '))
+        : (m.start_time_ms ? new Date(m.start_time_ms).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
+      return '<div class="ck-lob-cols ck-lob-row" data-key="' + esc(m.match_key) + '"><div class="nm">' + esc(m.team_a) + ' v ' + esc(m.team_b)
+        + '<small>' + when + (m.fancy_count ? ' · <b style="color:var(--gold-deep)">F</b>' : '') + '</small></div>' + cells + '</div>';
+    }
+    function loadLobby() {
+      return api('api/cricket/exchange-lobby').then(function (d) {
+        $('mockNote').style.display = d.source === 'mock' ? '' : 'none';
+        var head = '<div class="ck-lob-cols"><div class="h"></div><div class="h">1</div><div class="h x"></div><div class="h">2</div><div class="h x"></div></div>';
+        var html = '<div class="ck-market"><div class="ck-lob-h"><span>● In-Play</span><span>' + d.live.length + '</span></div>' + head
+          + (d.live.length ? d.live.map(function (m) { return lobbyRow(m, true); }).join('') : '<div class="ck-empty">No match in play right now.</div>') + '</div>';
+        html += '<div class="ck-market"><div class="ck-lob-h"><span>Upcoming</span><span>' + d.upcoming.length + '</span></div>' + head
+          + (d.upcoming.length ? d.upcoming.map(function (m) { return lobbyRow(m, false); }).join('') : '<div class="ck-empty">No upcoming matches.</div>') + '</div>';
+        $('viewLobby').innerHTML = html;
+        $('sideMatches').innerHTML = d.live.concat(d.upcoming).slice(0, 10).map(function (m) {
+          return '<a href="#match/' + encodeURIComponent(m.match_key) + '">' + esc(m.team_a_short) + ' v ' + esc(m.team_b_short)
+            + (d.live.indexOf(m) >= 0 ? ' <span class="live">LIVE</span>' : '') + '</a>';
+        }).join('');
+      }).catch(function (e) { $('viewLobby').innerHTML = '<div class="ck-empty">' + esc(e.message) + '</div>'; });
+    }
+
+    // ------------------------------------------------------------------ match
+    function renderBanner() {
+      var m = page.match, sb = page.scoreboard, g = page.gate;
+      var sc = {}; (m.score || []).forEach(function (s) { sc[s.team_short] = s; });
+      function team(short, name, right) {
+        var s = sc[short];
+        return '<div class="ck-team' + (right ? ' r' : '') + '">' + esc(name) + (s ? '<small>' + s.runs + '/' + s.wickets + '<i>(' + s.overs + ')</i></small>' : '<small style="color:#c9d0f2;font-size:13px;">Yet to bat</small>') + '</div>';
+      }
+      var info = [];
+      if (sb.current) info.push('CRR <b>' + sb.current.run_rate + '</b>');
+      if (sb.chase) info.push('Need <b>' + sb.chase.need + '</b> off <b>' + sb.chase.balls_left + '</b>' + (sb.chase.rrr !== null ? ' · RRR <b>' + sb.chase.rrr + '</b>' : ''));
+      if (m.toss_text) info.push(esc(m.toss_text));
+      if (m.result_text) info.push('<b>' + esc(m.result_text) + '</b>');
+      var open = g.open;
+      $('banner').innerHTML = '<div class="ck-banner-top"><span class="state ' + (open ? 'open' : 'susp') + '">' + (open ? 'OPEN' : esc((g.reason || 'Suspended').toUpperCase())) + '</span>'
+        + '<span>' + (m.start_time_ms ? 'Game time ' + new Date(m.start_time_ms).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '') + '</span></div>'
+        + '<div class="ck-banner-mid">' + team(m.team_a_short, m.team_a, false) + '<div class="ck-vs">' + esc(m.format) + '<br>VS</div>' + team(m.team_b_short, m.team_b, true) + '</div>'
+        + '<div class="ck-banner-bot"><span>' + info.join(' &nbsp;·&nbsp; ') + '</span>'
+        + (page.pricing.fav_price ? '<span style="opacity:.75">Pre-match: ' + esc(page.pricing.fav_side === 'a' ? m.team_a_short : m.team_b_short) + ' fav @' + page.pricing.fav_price + '</span>' : '') + '</div>';
+      $('recent').innerHTML = '<b>Recent Result</b>' + ((sb.last_balls || []).length ? sb.last_balls.map(function (x) { return '<span class="ck-ball ' + ballCls(x.token) + '">' + esc(x.token) + '</span>'; }).join('') : '<span style="color:#8f98c4;font-size:12px;">No balls yet</span>');
+      $('bbbPromo').href = 'boundarybaazi.html#match/' + encodeURIComponent(key);
+    }
+
+    function pxCell(cls, mk, side, sel, price, size, label) {
+      var id = mk + ':' + side + ':' + sel + ':' + cls;
+      var flash = lastPx[id] !== undefined && lastPx[id] !== price ? ' flash' : '';
+      lastPx[id] = price;
+      if (price === null || price === undefined) return '<div class="ck-px ' + cls + ' dim"><b>–</b><span>&nbsp;</span></div>';
+      return '<div class="ck-px ' + cls + flash + '" data-mk="' + mk + '" data-side="' + side + '" data-sel="' + sel + '" data-price="' + price + '" data-label="' + esc(label) + '"><b>' + price + '</b><span>' + kfmt(size) + '</span></div>';
+    }
+
+    function teamMarket(m) {
+      var isMo = m.type === 'MATCH_ODDS';
+      var co = m.cashout;
+      var coBtn = '<button class="ck-cashout" data-cashout="' + m.key + '"' + (co && co.open ? '' : ' disabled') + '><span class="dot"></span>Cash Out'
+        + (co ? ' <span class="val">' + (cashArm === m.key ? 'Confirm ' : '') + money(co.value) + '</span>' : '') + '</button>';
+      var h = '<div class="ck-market"><div class="ck-mhead"><div style="display:flex;align-items:center;"><div class="ck-mtab">' + esc(m.name) + ' <i>i</i></div>' + coBtn + '</div>'
+        + '<div class="ck-minmax">Min/Max ' + kfmt(m.min) + '–' + kfmt(m.max) + '</div></div>';
+      h += '<div class="ck-grid ck-hrow"><div></div><div class="x"></div><div class="x"></div><div class="hb">Back</div><div class="hl">Lay</div><div class="x"></div><div class="x"></div></div>';
+      m.runners.forEach(function (r) {
+        var pos = m.position ? m.position[r.side] : null;
+        var posHtml = pos === null || pos === undefined ? '' : '<small class="' + (pos >= 0 ? 'pos' : 'neg') + '">' + (pos >= 0 ? '+' : '') + money(pos) + '</small>';
+        var cells;
+        if (isMo) {
+          var b = r.back || [null, null, null], l = r.lay || [null, null, null];
+          cells = pxCell('b3', m.key, 'BACK', r.side, b[2], m.max, r.name) + pxCell('b2', m.key, 'BACK', r.side, b[1], m.max, r.name) + pxCell('b1', m.key, 'BACK', r.side, b[0], m.max, r.name)
+            + pxCell('l1', m.key, 'LAY', r.side, l[0], m.max, r.name) + pxCell('l2', m.key, 'LAY', r.side, l[1], m.max, r.name) + pxCell('l3', m.key, 'LAY', r.side, l[2], m.max, r.name);
+        } else {
+          cells = '<div class="ck-px b3 dim"><b>&nbsp;</b><span>&nbsp;</span></div><div class="ck-px b2 dim"><b>&nbsp;</b><span>&nbsp;</span></div>'
+            + pxCell('b1', m.key, 'BACK', r.side, r.back, m.max, r.name) + pxCell('l1', m.key, 'LAY', r.side, r.lay, m.max, r.name)
+            + '<div class="ck-px l2 dim"><b>&nbsp;</b><span>&nbsp;</span></div><div class="ck-px l3 dim"><b>&nbsp;</b><span>&nbsp;</span></div>';
+        }
+        h += '<div class="ck-grid ck-row"><div class="nm">' + esc(r.name) + posHtml + '</div>' + cells
+          + (m.open ? '' : '<div class="ck-susp">' + esc(m.reason || 'Suspended') + '</div>') + '</div>';
+      });
+      return h + '</div>';
+    }
+
+    function fancyMarket(list) {
+      var tabs = ['ALL', 'Over Runs', 'Only Over'];
+      var rows = list.filter(function (f) { return fancyTab === 'ALL' || (fancyTab === 'Over Runs' ? f.kind === 'milestone' : f.kind === 'over'); });
+      var h = '<div class="ck-market"><div class="ck-mhead"><div class="ck-mtab">Fancy Bet <i>i</i></div><div class="ck-minmax">Session markets</div></div>'
+        + '<div class="ck-ftabs">' + tabs.map(function (t) { return '<button data-ftab="' + t + '" class="' + (t === fancyTab ? 'active' : '') + '">' + t + '</button>'; }).join('') + '</div>'
+        + '<div class="ck-fgrid ck-hrow"><div></div><div></div><div class="hn">No</div><div class="hy">Yes</div><div class="hm">Min/Max</div></div>';
+      if (!rows.length) return h + '<div class="ck-empty">No session lines open right now.</div></div>';
+      rows.forEach(function (f) {
+        h += '<div class="ck-fgrid ck-row"><div class="nm">' + esc(f.name) + '</div>'
+          + '<button class="ck-fbook" data-book="' + esc(f.key) + '">Book</button>'
+          + pxFancy('l1', f, 'NO', f.no_line, f.no_rate) + pxFancy('b1', f, 'YES', f.yes_line, f.yes_rate)
+          + '<div class="ck-fmm">' + kfmt(f.min) + ' – ' + kfmt(f.max) + '</div>'
+          + (f.open ? '' : '<div class="ck-fsusp">' + esc(f.reason || 'Suspended') + '</div>') + '</div>';
+      });
+      return h + '</div>';
+    }
+    function pxFancy(cls, f, side, line, rate) {
+      var id = f.key + ':' + side;
+      var flash = lastPx[id] !== undefined && lastPx[id] !== line ? ' flash' : '';
+      lastPx[id] = line;
+      return '<div class="ck-px ' + cls + flash + '" data-mk="' + esc(f.key) + '" data-side="' + side + '" data-line="' + line + '" data-rate="' + rate + '" data-label="' + esc(f.name) + '"><b>' + line + '</b><span>' + rate + '</span></div>';
+    }
+
+    function renderMarkets() {
+      var mo = null, bm = null, fancy = [];
+      page.markets.forEach(function (m) { if (m.key === 'MO') mo = m; else if (m.key === 'BM') bm = m; else if (m.type === 'FANCY') fancy.push(m); });
+      $('marketsBox').innerHTML = (mo ? teamMarket(mo) : '') + (bm ? teamMarket(bm) : '') + fancyMarket(fancy);
+      $('marketsBox').style.display = 'grid'; $('marketsBox').style.gap = '12px';
+    }
+
+    function renderBets() {
+      var ob = page.open_bets || [];
+      $('openCount').textContent = ob.length ? ob.length : '';
+      $('openBets').innerHTML = ob.length ? ob.map(betRow).join('') : '<div class="ck-empty">No open bets on this match.</div>';
+      var sb = page.settled_bets || [];
+      $('settledBets').innerHTML = sb.length ? sb.slice(0, 12).map(betRow).join('') : '<div class="ck-empty">Nothing settled yet.</div>';
+    }
+    function betRow(b) {
+      var px = b.type === 'FANCY' ? (b.line + ' @' + b.rate) : (b.type === 'BOOKMAKER' ? b.rate : b.odds);
+      var res = b.status === 'PENDING' ? 'risk ' + money(b.liability) : (b.status === 'WON' ? '+' + money(b.payout - b.liability) : b.status === 'LOST' ? '−' + money(b.liability) : money(b.payout));
+      return '<div class="ck-bet ' + b.side + '"><span class="m">' + esc(b.market) + '</span><span><b>' + b.side + '</b> ' + esc(b.type === 'FANCY' ? '' : b.selection) + ' @ ' + px
+        + '</span><span class="r">' + money(b.stake) + '</span><span><span class="ck-tag ' + b.status + '">' + b.status.replace('_', ' ') + '</span>'
+        + (b.void_reason ? ' <small style="color:var(--text-dim)">' + esc(b.void_reason) + '</small>' : '') + '</span><span class="r">' + res + '</span></div>';
+    }
+
+    // ------------------------------------------------------------------ bet slip
+    function openSlip(el) {
+      if (!loggedIn()) { window.openAuthModal && openAuthModal('login'); return; }
+      var d = el.dataset;
+      var m = page.markets.filter(function (x) { return x.key === d.mk; })[0];
+      if (!m || !m.open) return;
+      slip = { market_key: d.mk, type: m.type, name: m.name, side: d.side, selection: d.sel || null, price: d.price ? Number(d.price) : null,
+               line: d.line ? Number(d.line) : null, rate: d.rate ? Number(d.rate) : null, label: d.label, stake: slip && slip.stake ? slip.stake : m.min, min: m.min, max: m.max };
+      renderSlip();
+    }
+    function slipTerms() {
+      var s = Number(slip.stake) || 0, liab, prof;
+      if (slip.type === 'FANCY') { if (slip.side === 'YES') { liab = s; prof = s * slip.rate / 100; } else { liab = s * slip.rate / 100; prof = s; } }
+      else { var o = slip.type === 'BOOKMAKER' ? 1 + slip.price / 100 : slip.price; if (slip.side === 'BACK') { liab = s; prof = s * (o - 1); } else { liab = s * (o - 1); prof = s; } }
+      return { liab: liab, prof: prof };
+    }
+    function renderSlip(err) {
+      $('slipPanel').classList.toggle('slip-on', !!slip);
+      if (!slip) { $('slip').innerHTML = '<div class="ck-empty">Click a price to place a bet.</div>'; return; }
+      var t = slipTerms();
+      var priceTxt = slip.type === 'FANCY' ? (slip.line + ' @ ' + slip.rate) : slip.price;
+      $('slip').innerHTML = '<div class="ck-slip ' + slip.side.toLowerCase() + '"><div class="ck-slip-t">' + slip.side + ' · ' + esc(slip.label) + '</div>'
+        + '<div class="ck-slip-s">' + esc(slip.name) + '</div>'
+        + '<div class="ck-slip-row"><div><label>' + (slip.type === 'FANCY' ? 'Line @ rate' : slip.type === 'BOOKMAKER' ? 'Rate' : 'Odds') + '</label><div class="v">' + priceTxt + '</div></div>'
+        + '<div><label>Stake</label><input type="number" id="slipStake" value="' + slip.stake + '" min="' + slip.min + '" max="' + slip.max + '"></div></div>'
+        + '<div class="ck-chips">' + [100, 500, 1000, 2000, 5000, 10000, 25000, 50000].map(function (v) { return '<button data-chip="' + v + '">' + kfmt(v) + '</button>'; }).join('') + '</div>'
+        + '<div class="ck-slip-calc"><span>Risk <b>' + money(t.liab) + '</b></span><span>Profit <b style="color:var(--green)">' + money(t.prof) + '</b></span></div>'
+        + '<div class="ck-slip-actions"><button class="ck-btn cancel" id="slipCancel">Cancel</button><button class="ck-btn place" id="slipPlace"' + (busy ? ' disabled' : '') + '>' + (busy ? 'Placing…' : 'Place Bet') + '</button></div>'
+        + '<div class="ck-err">' + esc(err || '') + '</div></div>';
+    }
+    function placeBet() {
+      if (!slip || busy) return;
+      busy = true; renderSlip();
+      var body = { market_key: slip.market_key, side: slip.side, stake: Number(slip.stake) };
+      if (slip.type === 'FANCY') { body.line = slip.line; body.rate = slip.rate; } else { body.selection = slip.selection; body.price = slip.price; }
+      api('api/cricket/exchange/' + encodeURIComponent(key) + '/bet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+        .then(function (d) {
+          busy = false;
+          if (typeof setWallet === 'function' && d.new_balance != null) setWallet(d.new_balance);
+          window.showToast && showToast('Bet placed: ' + slip.side + ' ' + slip.label + ' @ ' + (slip.type === 'FANCY' ? d.line + ' (' + d.rate + ')' : (slip.type === 'BOOKMAKER' ? d.rate : d.odds)), 'success');
+          window.SoundFX && SoundFX.play('betPlace');
+          slip = null; renderSlip(); poll();
+        })
+        .catch(function (e) { busy = false; renderSlip(e.message); poll(); });
+    }
+
+    function doCashout(mk) {
+      if (cashArm !== mk) { cashArm = mk; renderMarkets(); setTimeout(function () { if (cashArm === mk) { cashArm = null; if (page) renderMarkets(); } }, 4000); return; }
+      cashArm = null;
+      var m = page.markets.filter(function (x) { return x.key === mk; })[0];
+      api('api/cricket/exchange/' + encodeURIComponent(key) + '/cashout', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ market_key: mk, expected: m && m.cashout ? m.cashout.value : null }) })
+        .then(function (d) {
+          if (typeof setWallet === 'function' && d.new_balance != null) setWallet(d.new_balance);
+          window.showToast && showToast('Cashed out ' + money(d.value) + ' (' + (d.profit >= 0 ? '+' : '') + money(d.profit) + ')', 'success');
+          poll();
+        }).catch(function (e) { window.showToast && showToast(e.message, 'error'); poll(); });
+    }
+
+    function showBook(fk) {
+      var f = page.markets.filter(function (x) { return x.key === fk; })[0];
+      $('bookTitle').textContent = f ? f.name : 'Book';
+      var pos = f && f.position;
+      $('bookBody').innerHTML = pos ? '<table><tr><th>Runs</th><th style="text-align:right">Your P&amp;L</th></tr>' + pos.map(function (r, i) {
+        var next = pos[i + 1];
+        var label = i === 0 ? r.runs + ' or less' : (next ? r.runs + (next.runs - 1 > r.runs ? '–' + (next.runs - 1) : '') : r.runs + ' or more');
+        return '<tr><td>' + label + '</td><td style="text-align:right;font-family:var(--font-mono);color:' + (r.pnl >= 0 ? 'var(--green)' : 'var(--red)') + '">' + (r.pnl >= 0 ? '+' : '') + money(r.pnl) + '</td></tr>';
+      }).join('') + '</table>' : '<div class="ck-empty">You have no bets on this line yet.</div>';
+      $('bookModal').classList.add('on');
+    }
+
+    function poll() {
+      if (!key) return;
+      api('api/cricket/exchange/' + encodeURIComponent(key)).then(function (d) {
+        page = d; renderBanner(); renderMarkets(); renderBets();
+        if (slip) {
+          // keep the slip's price honest: follow the live price, and close it if the market closed
+          var m = page.markets.filter(function (x) { return x.key === slip.market_key; })[0];
+          if (!m) { slip = null; renderSlip(); }
+          else if (!busy) {
+            var before = JSON.stringify([slip.price, slip.line, slip.rate]);
+            if (m.type === 'FANCY') { slip.line = slip.side === 'YES' ? m.yes_line : m.no_line; slip.rate = slip.side === 'YES' ? m.yes_rate : m.no_rate; }
+            else {
+              var r = m.runners.filter(function (x) { return x.side === slip.selection; })[0];
+              if (r) slip.price = m.type === 'MATCH_ODDS' ? (slip.side === 'BACK' ? (r.back || [null])[0] : (r.lay || [null])[0]) : (slip.side === 'BACK' ? r.back : r.lay);
+            }
+            if (JSON.stringify([slip.price, slip.line, slip.rate]) !== before && document.activeElement && document.activeElement.id !== 'slipStake') renderSlip(m.open ? 'Price updated' : 'Market suspended');
+          }
+        }
+      }).catch(function (e) { if (e.status === 404) location.hash = ''; });
+    }
+
+    function route() {
+      var h = location.hash.replace(/^#/, '');
+      clearInterval(timer); clearInterval(lobbyTimer);
+      if (h.indexOf('match/') === 0) {
+        key = decodeURIComponent(h.slice(6)); page = null; lastPx = {}; slip = null; renderSlip();
+        $('viewLobby').style.display = 'none'; $('viewMatch').style.display = '';
+        poll(); timer = setInterval(poll, POLL_MS);
+      } else {
+        key = null; $('viewMatch').style.display = 'none'; $('viewLobby').style.display = '';
+        $('openBets').innerHTML = '<div class="ck-empty">Open a match to see its bets.</div>';
+      }
+      loadLobby(); lobbyTimer = setInterval(loadLobby, 15000);
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      if (typeof updateAuthHeaderUI === 'function') updateAuthHeaderUI();
+      document.addEventListener('click', function (e) {
+        var lob = e.target.closest('.ck-lob-row'); if (lob) { location.hash = 'match/' + encodeURIComponent(lob.dataset.key); return; }
+        var px = e.target.closest('.ck-px[data-mk]'); if (px) { openSlip(px); return; }
+        var chip = e.target.closest('[data-chip]'); if (chip && slip) { slip.stake = Number(chip.dataset.chip); renderSlip(); return; }
+        if (e.target.id === 'slipCancel') { slip = null; renderSlip(); return; }
+        if (e.target.id === 'slipPlace') { placeBet(); return; }
+        var co = e.target.closest('[data-cashout]'); if (co && !co.disabled) { doCashout(co.dataset.cashout); return; }
+        var ft = e.target.closest('[data-ftab]'); if (ft) { fancyTab = ft.dataset.ftab; renderMarkets(); return; }
+        var bk = e.target.closest('[data-book]'); if (bk) { showBook(bk.dataset.book); return; }
+        if (e.target.id === 'bookClose' || e.target.id === 'bookModal') $('bookModal').classList.remove('on');
+      });
+      document.addEventListener('input', function (e) { if (e.target.id === 'slipStake' && slip) { slip.stake = e.target.value; var t = slipTerms(); var c = document.querySelector('.ck-slip-calc'); if (c) c.innerHTML = '<span>Risk <b>' + money(t.liab) + '</b></span><span>Profit <b style="color:var(--green)">' + money(t.prof) + '</b></span>'; } });
+      window.addEventListener('hashchange', route);
+      route();
+    });
+  })();
+  </script>
+</body>
+
+</html>

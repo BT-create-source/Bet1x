@@ -180,8 +180,23 @@ function fantasy_create_contest($matchId, array $spec) {
         return ['ok' => false, 'error' => 'prize_pool (guaranteed) cannot be negative.', 'status' => 422];
     }
 
-    $prize = fantasy_validate_prize_breakup($spec['prize_rules'] ?? null, $totalSpots);
-    if (!$prize['ok']) return ['ok' => false, 'error' => $prize['error'], 'status' => 422];
+    $type = strtolower(trim((string) ($spec['contest_type'] ?? 'custom')));
+    if (!in_array($type, ['mega', 'h2h', 'small', 'winner_takes_all', 'practice', 'custom'], true)) $type = 'custom';
+    $maxEntries = (int) ($spec['max_entries_per_user'] ?? 1);
+    if ($maxEntries < 1 || $maxEntries > 20) {
+        return ['ok' => false, 'error' => 'max_entries_per_user must be between 1 and 20.', 'status' => 422];
+    }
+    $isGuaranteed = !empty($spec['is_guaranteed']) || $guaranteed > 0;
+
+    // A practice contest is free and pays nothing - the established apps offer one on every match so a
+    // newcomer can learn the game without risking money. It is the only contest allowed no prize table.
+    if ($type === 'practice') {
+        if ($entryFee > 0) return ['ok' => false, 'error' => 'A practice contest must be free.', 'status' => 422];
+        $prize = ['ok' => true, 'breakup' => []];
+    } else {
+        $prize = fantasy_validate_prize_breakup($spec['prize_rules'] ?? null, $totalSpots);
+        if (!$prize['ok']) return ['ok' => false, 'error' => $prize['error'], 'status' => 422];
+    }
 
     // How many entries this contest needs before it may pay out. Below it, settlement refunds
     // everyone instead (see fantasy_settle_contest).
@@ -203,11 +218,16 @@ function fantasy_create_contest($matchId, array $spec) {
                 'error' => 'min_entries must be between 0 and total_spots (' . $totalSpots . ').'];
     }
 
+    if ($type === 'practice') $minEntries = 0;
+    $templateKey = isset($spec['template_key']) && $spec['template_key'] !== '' ? (string) $spec['template_key'] : null;
+
     q('INSERT INTO "fantasy_contests" ("match_id","title","entry_fee","total_spots","filled_spots",'
-      . '"prize_pool","prize_rules","rake_pct","status","min_entries","created_at") '
-      . 'VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+      . '"prize_pool","prize_rules","rake_pct","status","min_entries","max_entries_per_user","contest_type",'
+      . '"is_guaranteed","template_key","created_at") '
+      . 'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
       [(int) $matchId, $title, $entryFee, $totalSpots, 0, $guaranteed,
-       json_encode($prize['breakup']), $rakePct, 'OPEN', $minEntries, ms_to_sql(now_ms())]);
+       json_encode($prize['breakup']), $rakePct, 'OPEN', $minEntries, $maxEntries, $type,
+       $isGuaranteed ? 1 : 0, $templateKey, ms_to_sql(now_ms())]);
 
     $id = (int) db_or_throw()->lastInsertId();
     return ['ok' => true, 'contest_id' => $id];
@@ -231,7 +251,7 @@ function fantasy_contest_breakup(array $row) {
  * `max_prize_pool` is what it becomes if the contest fills. Showing only the first makes an empty
  * contest look worthless; showing only the second advertises money that may never exist.
  */
-function fantasy_contest_public(array $row, $entered = false) {
+function fantasy_contest_public(array $row, $entered = false, $myEntries = null) {
     $entryFee   = (float) $row['entry_fee'];
     $filled     = (int) $row['filled_spots'];
     $totalSpots = (int) $row['total_spots'];
@@ -267,10 +287,25 @@ function fantasy_contest_public(array $row, $entered = false) {
         'status'         => (string) $row['status'],
         'is_full'        => $filled >= $totalSpots,
         'has_entered'    => (bool) $entered,
+        'my_entries'     => $myEntries === null ? ($entered ? 1 : 0) : (int) $myEntries,
+        'max_entries_per_user' => (int) ($row['max_entries_per_user'] ?? 1),
+        'contest_type'   => (string) ($row['contest_type'] ?? 'custom'),
+        // Guaranteed: runs and pays whatever the turnout. Flexible: refunded in full if fewer than
+        // min_entries join - the wording the established apps use on every contest card.
+        'is_guaranteed'  => ((int) ($row['is_guaranteed'] ?? 0)) === 1 || $guaranteed > 0,
+        'winners'        => fantasy_breakup_winners($breakup),
+        'is_practice'    => (string) ($row['contest_type'] ?? '') === 'practice',
     ];
 }
 
-/** Open contests on a match, cheapest first, flagged with whether the caller is already in. */
+/** How many ranks a prize table pays. */
+function fantasy_breakup_winners($breakup) {
+    $deepest = 0;
+    foreach ((array) $breakup as $row) if ((int) ($row['to'] ?? 0) > $deepest) $deepest = (int) $row['to'];
+    return $deepest;
+}
+
+/** Contests on a match, biggest prize first and practice last, flagged with the caller's entries. */
 function fantasy_list_contests($matchId, $userId = null) {
     $rows = all('SELECT * FROM "fantasy_contests" WHERE "match_id" = ? ORDER BY "entry_fee" ASC, "id" ASC',
                 [(int) $matchId]);
@@ -278,18 +313,23 @@ function fantasy_list_contests($matchId, $userId = null) {
     $mine = [];
     if ($userId) {
         $entered = all(
-            'SELECT e."contest_id" FROM "fantasy_contest_entries" e '
+            'SELECT e."contest_id", COUNT(*) AS "n" FROM "fantasy_contest_entries" e '
             . 'JOIN "fantasy_contests" c ON c."id" = e."contest_id" '
-            . 'WHERE e."user_id" = ? AND c."match_id" = ?',
+            . 'WHERE e."user_id" = ? AND c."match_id" = ? GROUP BY e."contest_id"',
             [(int) $userId, (int) $matchId]
         );
-        foreach ($entered as $e) $mine[(int) $e['contest_id']] = true;
+        foreach ($entered as $e) $mine[(int) $e['contest_id']] = (int) $e['n'];
     }
 
     $out = [];
     foreach ($rows as $r) {
-        $out[] = fantasy_contest_public($r, isset($mine[(int) $r['id']]));
+        $n = $mine[(int) $r['id']] ?? 0;
+        $out[] = fantasy_contest_public($r, $n > 0, $n);
     }
+    usort($out, function ($a, $b) {
+        if ($a['is_practice'] !== $b['is_practice']) return $a['is_practice'] ? 1 : -1;
+        return ($b['max_prize_pool'] <=> $a['max_prize_pool']) ?: ($a['id'] <=> $b['id']);
+    });
     return $out;
 }
 
@@ -394,7 +434,10 @@ function fantasy_join_contest($userId, $username, $contestId, $teamId) {
         $result = tx(function () use ($userId, $username, $contestId, $teamId, $fee, $title, $match) {
             // 1. Re-read under the transaction. Checking only before it leaves a window in which the
             //    deadline passes, the contest fills, or an operator closes it.
-            $c = one('SELECT * FROM "fantasy_contests" WHERE "id" = ?', [$contestId]);
+            // The contest row is LOCKED: that serialises every join on this contest, which is what
+            // makes the per-player entry cap below exact - two quick taps cannot both see "one entry
+            // left" and both get in.
+            $c = one('SELECT * FROM "fantasy_contests" WHERE "id" = ? FOR UPDATE', [$contestId]);
             if (!$c) throw new RuntimeException('Contest not found.');
             if (strtoupper((string) $c['status']) !== 'OPEN') throw new RuntimeException('This contest is closed.');
 
@@ -403,6 +446,16 @@ function fantasy_join_contest($userId, $username, $contestId, $teamId) {
             if (!$m) throw new RuntimeException('Match not found.');
             $reopen = fantasy_match_open_for_entry($m);
             if (!$reopen['ok']) throw new RuntimeException($reopen['error']);
+
+            // 1b. Multi-entry: a player may enter up to max_entries_per_user DIFFERENT teams. The same
+            //     team twice is stopped by UNIQUE (contest_id, user_team_id).
+            $maxPer = max(1, (int) ($c['max_entries_per_user'] ?? 1));
+            $already = (int) scalar('SELECT COUNT(*) FROM "fantasy_contest_entries" WHERE "contest_id" = ? AND "user_id" = ?',
+                                    [$contestId, $userId], 0);
+            if ($already >= $maxPer) {
+                throw new RuntimeException($maxPer === 1 ? 'You have already joined this contest.'
+                    : 'You have already joined this contest with the maximum of ' . $maxPer . ' teams.');
+            }
 
             // 2. Claim a spot. Conditional UPDATE, so two joins racing for the last spot are
             //    serialised by the row lock and the loser sees the contest full.
@@ -445,7 +498,7 @@ function fantasy_join_contest($userId, $username, $contestId, $teamId) {
         });
     } catch (Throwable $e) {
         if (fantasy_is_unique_violation($e)) {
-            return ['ok' => false, 'error' => 'You have already joined this contest.', 'status' => 409];
+            return ['ok' => false, 'error' => 'That team is already in this contest - pick a different team.', 'status' => 409];
         }
         $msg = $e->getMessage();
         $status = (stripos($msg, 'insufficient') !== false) ? 402 : 409;
@@ -458,4 +511,32 @@ function fantasy_join_contest($userId, $username, $contestId, $teamId) {
         'new_balance' => $result['new_balance'],
         'entry_fee'   => $fee,
     ];
+}
+
+/**
+ * Swap the team on one of the caller's entries, before the deadline - the "switch team" action the
+ * established apps offer. No money moves: the entry, its fee and its spot stay exactly as they were;
+ * only which of the caller's own XIs it points at changes.
+ */
+function fantasy_switch_entry_team($userId, $entryId, $teamId) {
+    $userId = (int) $userId; $entryId = (int) $entryId; $teamId = (int) $teamId;
+    $entry = one('SELECT e.*, c."match_id", c."status" AS "contest_status" FROM "fantasy_contest_entries" e '
+               . 'JOIN "fantasy_contests" c ON c."id" = e."contest_id" WHERE e."id" = ? AND e."user_id" = ?',
+               [$entryId, $userId]);
+    if (!$entry) return ['ok' => false, 'error' => 'Entry not found.', 'status' => 404];
+    $match = fantasy_find_match((int) $entry['match_id']);
+    $open = $match ? fantasy_match_open_for_entry($match) : ['ok' => false, 'error' => 'Match not found.'];
+    if (!$open['ok']) return ['ok' => false, 'error' => $open['error'], 'status' => 409];
+    if (strtoupper((string) $entry['contest_status']) !== 'OPEN') return ['ok' => false, 'error' => 'This contest is closed.', 'status' => 409];
+    $team = one('SELECT "id","match_id" FROM "fantasy_user_teams" WHERE "id" = ? AND "user_id" = ?', [$teamId, $userId]);
+    if (!$team) return ['ok' => false, 'error' => 'Team not found.', 'status' => 404];
+    if ((int) $team['match_id'] !== (int) $entry['match_id']) return ['ok' => false, 'error' => 'That team was built for a different match.', 'status' => 422];
+    if ((int) $entry['user_team_id'] === $teamId) return ['ok' => true, 'unchanged' => true];
+    try {
+        q('UPDATE "fantasy_contest_entries" SET "user_team_id" = ? WHERE "id" = ?', [$teamId, $entryId]);
+    } catch (Throwable $e) {
+        if (fantasy_is_unique_violation($e)) return ['ok' => false, 'error' => 'That team is already in this contest.', 'status' => 409];
+        throw $e;
+    }
+    return ['ok' => true];
 }

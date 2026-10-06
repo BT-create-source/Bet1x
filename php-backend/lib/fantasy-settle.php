@@ -106,7 +106,12 @@ function fantasy_allocate_prizes(array $entries, array $breakup, $prizePool) {
         $groups[$e['rank']][] = $e;
     }
 
+    // Every band is FLOORED to the paisa — never rounded up — and the few paise that leaves over go to
+    // the top-ranked winner at the end. Rounding each band to the nearest paisa looked harmless, but
+    // across a 50-rank prize table the half-paisa gains add up: the road test caught a ₹4,067.25 pool
+    // paying out ₹4,067.33. With flooring the total paid equals the pool exactly and can never exceed it.
     $out = [];
+    $exact = 0.0; $paid = 0.0;
     foreach ($groups as $rank => $group) {
         $size = count($group);
 
@@ -121,12 +126,21 @@ function fantasy_allocate_prizes(array $entries, array $breakup, $prizePool) {
             continue;
         }
 
-        $each = fantasy_floor2($slotTotal / $size);
-        $remainder = round($slotTotal - ($each * $size), 2);
+        $exact += $slotTotal;
+        $groupTotal = fantasy_floor2($slotTotal);
+        $each = fantasy_floor2($groupTotal / $size);
+        $remainder = round($groupTotal - ($each * $size), 2);
         foreach ($group as $i => $e) {
             $e['prize'] = round($i === 0 ? $each + $remainder : $each, 2);
+            $paid += $e['prize'];
             $out[] = $e;
         }
+    }
+    $leftover = round(fantasy_floor2($exact + 1e-7) - $paid, 2);
+    if ($leftover > 0 && $out) {
+        $best = null;
+        foreach ($out as $i => $e) if ($e['prize'] > 0 && ($best === null || $e['rank'] < $out[$best]['rank'])) $best = $i;
+        if ($best !== null) $out[$best]['prize'] = round($out[$best]['prize'] + $leftover, 2);
     }
 
     usort($out, function ($a, $b) {
@@ -279,6 +293,20 @@ function fantasy_settle_contest($contestId, $force = false) {
                 'error' => 'The match is not reported finished yet (source state: '
                          . (($match['source_state'] ?? '') === '' ? 'unknown' : $match['source_state'])
                          . '). Settle with force=1 to override.'];
+    }
+
+    // A match that ended without a result is never ranked: every contest on it is cancelled and every
+    // entry fee refunded in full. Checked before anything else, and regardless of $force, because no
+    // operator override can turn a washout into a result.
+    if (fantasy_state_is_abandoned($match['source_state'] ?? null)) {
+        $void = fantasy_void_contest($contestId, 'match abandoned / no result');
+        if (!$void['ok']) return $void;
+        return [
+            'ok' => true, 'voided' => true, 'abandoned' => true,
+            'entries' => (int) ($void['entries'] ?? 0), 'refunded' => (float) ($void['refunded'] ?? 0),
+            'paid' => 0.0, 'winners' => 0, 'undistributed' => 0.0,
+            'reason' => 'refunded: the match ended without a result',
+        ];
     }
 
     $pool = fantasy_contest_pool($contest);
@@ -513,9 +541,11 @@ function fantasy_settle_match($matchId, $force = false) {
             [$matchId, 'SETTLED', 'CANCELLED'], 0
         );
         if ($remaining === 0) {
+            $abandoned = fantasy_state_is_abandoned($match['source_state'] ?? null);
             q('UPDATE "fantasy_matches" SET "status" = ?, "updated_at" = ? WHERE "id" = ?',
-              ['SETTLED', ms_to_sql(now_ms()), $matchId]);
+              [$abandoned ? 'CANCELLED' : 'SETTLED', ms_to_sql(now_ms()), $matchId]);
             $out['match_settled'] = true;
+            if ($abandoned) $out['match_cancelled'] = true;
         }
     }
 

@@ -9,277 +9,1101 @@
   <script src="assets/js/ui-common.js"></script>
   <script src="assets/js/sound-fx.js"></script>
   <style>
-    body { padding-bottom: 60px; }
+    body {
+      padding-bottom: 60px;
+    }
 
-    .y11-wrap { max-width: var(--max-width); margin: 0 auto; padding: 16px; }
+    .y11-wrap {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 16px;
+    }
 
     .y11-disabled-note {
-      max-width: var(--max-width); margin: 40px auto; padding: 24px; text-align: center;
-      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      max-width: var(--max-width);
+      margin: 40px auto;
+      padding: 24px;
+      text-align: center;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
       color: var(--text-dim);
     }
 
     .y11-attribution {
-      text-align: center; font-size: 11px; color: var(--text-dim); padding: 16px 0 4px;
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-dim);
+      padding: 16px 0 4px;
     }
 
     /* Fixture list */
-    .y11-fixture-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-top: 14px; }
-    .y11-fixture-card {
-      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-      padding: 16px; cursor: pointer; transition: transform .15s, border-color .15s;
+    .y11-fixture-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 14px;
+      margin-top: 10px;
+      margin-bottom: 24px;
     }
-    .y11-fixture-card:hover { transform: translateY(-3px); border-color: var(--gold); }
-    .y11-fixture-teams { font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--text); }
-    .y11-fixture-meta { color: var(--text-dim); font-size: 12px; margin-top: 6px; }
-    .y11-status-row { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
+
+    .y11-fixture-card {
+      background: linear-gradient(145deg, #151829 0%, #0f1220 100%);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 12px;
+      padding: 13px 15px;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .y11-fixture-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(212, 175, 55, 0.5);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 12px rgba(212, 175, 55, 0.12);
+    }
+
+    .y11-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11.5px;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .y11-top-left {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+    }
+
+    .y11-format-badge {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.09);
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    .y11-venue-txt {
+      max-width: 140px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 11px;
+    }
+
+    .y11-date-txt {
+      font-size: 11.5px;
+      color: var(--text-dim);
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+
+    .y11-matchup-hero {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 2px 0 6px;
+    }
+
+    .y11-team-block {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .y11-team-block.team-b {
+      flex-direction: row-reverse;
+      text-align: right;
+    }
+
+    .y11-crest-wrap {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      overflow: hidden;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface-2);
+    }
+
+    .y11-crest {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .y11-crest-shield {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 11.5px;
+      letter-spacing: 0.03em;
+      border: 1.5px solid;
+      border-radius: 8px;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    }
+
+    .y11-team-info {
+      min-width: 0;
+    }
+
+    .y11-team-code {
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.2;
+    }
+
+    .y11-team-fullname {
+      font-size: 10.5px;
+      color: var(--text-dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100px;
+    }
+
+    .y11-match-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+      padding: 0 4px;
+    }
+
+    .y11-vs-badge {
+      font-size: 10px;
+      font-weight: 800;
+      color: rgba(255, 255, 255, 0.4);
+      letter-spacing: 0.06em;
+    }
+
+    .y11-countdown {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 14px;
+      background: rgba(34, 197, 94, 0.15);
+      color: #4ade80;
+      border: 1px solid rgba(34, 197, 94, 0.25);
+      white-space: nowrap;
+    }
+
+    .y11-countdown.is-soon {
+      background: rgba(239, 68, 68, 0.18);
+      color: #f87171;
+      border-color: rgba(239, 68, 68, 0.35);
+    }
+
+    .y11-countdown.is-locked {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-dim);
+      border-color: transparent;
+    }
+
+    .y11-card-footer {
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .y11-contest-badge-txt {
+      font-size: 11.5px;
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .y11-action-btn {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #fbbf24;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      background: rgba(251, 191, 36, 0.1);
+      padding: 3px 9px;
+      border-radius: 6px;
+      border: 1px solid rgba(251, 191, 36, 0.2);
+      transition: all 0.15s ease;
+    }
+
+    .y11-fixture-card:hover .y11-action-btn {
+      background: rgba(251, 191, 36, 0.22);
+      color: #fef08a;
+      border-color: rgba(251, 191, 36, 0.4);
+    }
 
     /* Match header */
     .y11-match-header {
-      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-      padding: 18px; margin-top: 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      margin-top: 14px;
     }
-    .y11-back-link { color: var(--text-dim); font-size: 13px; text-decoration: none; }
-    .y11-back-link:hover { color: var(--gold-deep); }
 
-    .y11-tabs { display: flex; gap: 4px; margin-top: 16px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+    .y11-back-link {
+      color: var(--text-dim);
+      font-size: 13px;
+      text-decoration: none;
+    }
+
+    .y11-back-link:hover {
+      color: var(--gold-deep);
+    }
+
+    .y11-tabs {
+      display: flex;
+      gap: 4px;
+      margin-top: 16px;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+    }
+
     .y11-tab {
-      background: none; border: none; color: var(--text-dim); font-family: var(--font-display);
-      font-weight: 600; font-size: 13.5px; padding: 10px 16px; cursor: pointer; white-space: nowrap;
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 13.5px;
+      padding: 10px 16px;
+      cursor: pointer;
+      white-space: nowrap;
       border-bottom: 2px solid transparent;
     }
-    .y11-tab.active { color: var(--text); border-bottom-color: var(--green); }
-    .y11-panel { display: none; padding-top: 16px; }
-    .y11-panel.active { display: block; }
+
+    .y11-tab.active {
+      color: var(--text);
+      border-bottom-color: var(--green);
+    }
+
+    .y11-panel {
+      display: none;
+      padding-top: 16px;
+    }
+
+    .y11-panel.active {
+      display: block;
+    }
 
     /* Contest chips + cards */
-    .y11-chip-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-    .y11-chip {
-      background: var(--surface-2); border: 1px solid var(--border); color: var(--text-dim);
-      padding: 6px 14px; border-radius: 20px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+    .y11-chip-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
     }
-    .y11-chip.active { background: var(--gold-soft); color: var(--gold-deep); border-color: var(--gold); }
 
-    .y11-contest-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
-    .y11-contest-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; }
-    .y11-contest-fmt { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--violet); }
-    .y11-contest-pool { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--gold-deep); margin: 4px 0; }
-    .y11-contest-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim); margin-top: 4px; }
-    .y11-progress-track { background: var(--bg); border-radius: 6px; height: 6px; margin-top: 10px; overflow: hidden; }
-    .y11-progress-fill { background: var(--green); height: 100%; }
-    .y11-contest-card .btn { margin-top: 12px; width: 100%; }
+    .y11-chip {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .y11-chip.active {
+      background: var(--gold-soft);
+      color: var(--gold-deep);
+      border-color: var(--gold);
+    }
+
+    .y11-contest-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+    }
+
+    .y11-contest-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+    }
+
+    .y11-contest-fmt {
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      color: var(--violet);
+    }
+
+    .y11-contest-pool {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--gold-deep);
+      margin: 4px 0;
+    }
+
+    .y11-contest-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 4px;
+    }
+
+    .y11-progress-track {
+      background: var(--bg);
+      border-radius: 6px;
+      height: 6px;
+      margin-top: 10px;
+      overflow: hidden;
+    }
+
+    .y11-progress-fill {
+      background: var(--green);
+      height: 100%;
+    }
+
+    .y11-contest-card .btn {
+      margin-top: 12px;
+      width: 100%;
+    }
+
     /* How full a contest is. Filling up is the thing that makes a contest urgent, and a number
        alone ("812 / 1000") does not read at a glance. */
     .y11-spot-bar {
-      height: 4px; border-radius: 4px; background: var(--bg-soft); margin-top: 8px; overflow: hidden;
+      height: 4px;
+      border-radius: 4px;
+      background: var(--bg-soft);
+      margin-top: 8px;
+      overflow: hidden;
     }
-    .y11-spot-bar span { display: block; height: 100%; background: var(--green); }
+
+    .y11-spot-bar span {
+      display: block;
+      height: 100%;
+      background: var(--green);
+    }
 
     /* Team builder */
     .y11-modal-overlay {
-      position: fixed; inset: 0; background: rgba(11,14,29,.85); backdrop-filter: blur(6px);
-      display: none; align-items: center; justify-content: center; z-index: 9999; padding: 16px;
+      position: fixed;
+      inset: 0;
+      background: rgba(11, 14, 29, .85);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 16px;
     }
-    .y11-modal-overlay.active { display: flex; }
+
+    .y11-modal-overlay.active {
+      display: flex;
+    }
+
     .y11-modal-card {
-      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-      width: 100%; max-width: 720px; max-height: 90vh; overflow-y: auto; padding: 20px; position: relative;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 720px;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 20px;
+      position: relative;
     }
-    .y11-modal-close { position: absolute; top: 14px; right: 16px; background: none; border: none; color: var(--text-dim); font-size: 24px; cursor: pointer; }
 
-    .y11-budget-bar { display: flex; justify-content: space-between; align-items: center; background: var(--bg-soft); border-radius: var(--radius-sm); padding: 10px 14px; margin: 12px 0; font-family: var(--font-mono); font-size: 13px; }
-    .y11-role-counts { display: flex; gap: 10px; flex-wrap: wrap; font-size: 11.5px; color: var(--text-dim); margin-bottom: 10px; }
-    .y11-role-counts span.ok { color: var(--green); }
-    .y11-role-counts span.bad { color: var(--red); }
-
-    .y11-player-list { max-height: 320px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); }
-    .y11-player-row {
-      display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--border);
+    .y11-modal-close {
+      position: absolute;
+      top: 14px;
+      right: 16px;
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 24px;
       cursor: pointer;
     }
-    .y11-player-row:last-child { border-bottom: none; }
-    .y11-player-row.selected { background: var(--green-soft); }
-    .y11-avatar {
-      width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-      font-weight: 700; font-size: 12px; color: #06210f; flex-shrink: 0;
+
+    .y11-budget-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--bg-soft);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      margin: 12px 0;
+      font-family: var(--font-mono);
+      font-size: 13px;
     }
-    .y11-player-name { flex: 1; font-size: 13px; }
-    .y11-player-sub { font-size: 10.5px; color: var(--text-dim); }
-    .y11-player-credits { font-family: var(--font-mono); font-size: 12.5px; color: var(--gold-deep); }
 
-    .y11-cvc-grid { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
-    .y11-cvc-chip { position: relative; text-align: center; cursor: pointer; width: 56px; }
-    .y11-cvc-chip .y11-avatar { width: 44px; height: 44px; margin: 0 auto; font-size: 14px; border: 3px solid transparent; }
-    .y11-cvc-chip.captain .y11-avatar { border-color: var(--gold); }
-    .y11-cvc-chip.vc .y11-avatar { border-color: var(--violet); }
-    .y11-cvc-chip .y11-tag { font-size: 9px; font-weight: 700; color: var(--text-dim); display: block; }
-    .y11-cvc-chip.captain .y11-tag { color: var(--gold-deep); }
-    .y11-cvc-chip.vc .y11-tag { color: var(--violet); }
+    .y11-role-counts {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-size: 11.5px;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+    }
 
-    .y11-error { color: var(--red); font-size: 12.5px; margin-top: 8px; min-height: 16px; }
+    .y11-role-counts span.ok {
+      color: var(--green);
+    }
+
+    .y11-role-counts span.bad {
+      color: var(--red);
+    }
+
+    .y11-player-list {
+      max-height: 320px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+    }
+
+    .y11-player-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+    }
+
+    .y11-player-row:last-child {
+      border-bottom: none;
+    }
+
+    .y11-player-row.selected {
+      background: var(--green-soft);
+    }
+
+    .y11-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 12px;
+      color: #06210f;
+      flex-shrink: 0;
+    }
+
+    .y11-player-name {
+      flex: 1;
+      font-size: 13px;
+    }
+
+    .y11-player-sub {
+      font-size: 10.5px;
+      color: var(--text-dim);
+    }
+
+    .y11-player-credits {
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      color: var(--gold-deep);
+    }
+
+    .y11-cvc-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 12px 0;
+    }
+
+    .y11-cvc-chip {
+      position: relative;
+      text-align: center;
+      cursor: pointer;
+      width: 56px;
+    }
+
+    .y11-cvc-chip .y11-avatar {
+      width: 44px;
+      height: 44px;
+      margin: 0 auto;
+      font-size: 14px;
+      border: 3px solid transparent;
+    }
+
+    .y11-cvc-chip.captain .y11-avatar {
+      border-color: var(--gold);
+    }
+
+    .y11-cvc-chip.vc .y11-avatar {
+      border-color: var(--violet);
+    }
+
+    .y11-cvc-chip .y11-tag {
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--text-dim);
+      display: block;
+    }
+
+    .y11-cvc-chip.captain .y11-tag {
+      color: var(--gold-deep);
+    }
+
+    .y11-cvc-chip.vc .y11-tag {
+      color: var(--violet);
+    }
+
+    .y11-error {
+      color: var(--red);
+      font-size: 12.5px;
+      margin-top: 8px;
+      min-height: 16px;
+    }
 
     /* Points / scoreboard */
-    .y11-score-line { font-family: var(--font-display); font-size: 22px; font-weight: 700; color: var(--text); }
-    .y11-figures-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 10px; }
-    .y11-figures-table th { text-align: left; color: var(--text-dim); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--border); }
-    .y11-figures-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); color: var(--text); }
+    .y11-score-line {
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .y11-figures-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+      margin-top: 10px;
+    }
+
+    .y11-figures-table th {
+      text-align: left;
+      color: var(--text-dim);
+      font-weight: 600;
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .y11-figures-table td {
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
 
     /* Leaderboard */
-    .y11-my-rank { background: var(--gold-soft); border: 1px solid var(--gold); border-radius: var(--radius-sm); padding: 10px 14px; display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 10px; }
-    .y11-lb-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .y11-lb-table th { text-align: left; color: var(--text-dim); padding: 8px; border-bottom: 1px solid var(--border); }
-    .y11-lb-table td { padding: 8px; border-bottom: 1px solid var(--border); }
-    .y11-lb-table tr.mine { background: var(--green-soft); }
-    .y11-top3 { font-weight: 700; }
-
-    .y11-empty { color: var(--text-dim); font-size: 13px; padding: 24px; text-align: center; }
-
-    .y11-form-group { margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px; }
-    .y11-form-group label { font-size: 11.5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; }
-    .y11-form-group input, .y11-form-group select {
-      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm);
-      color: var(--text); padding: 10px 12px; font-size: 14px;
+    .y11-my-rank {
+      background: var(--gold-soft);
+      border: 1px solid var(--gold);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      font-weight: 700;
+      margin-bottom: 10px;
     }
-    .y11-invite-code { font-family: var(--font-mono); font-size: 22px; letter-spacing: .1em; color: var(--gold-deep); text-align: center; padding: 12px; background: var(--bg-soft); border-radius: var(--radius-sm); }
+
+    .y11-lb-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .y11-lb-table th {
+      text-align: left;
+      color: var(--text-dim);
+      padding: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .y11-lb-table td {
+      padding: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .y11-lb-table tr.mine {
+      background: var(--green-soft);
+    }
+
+    .y11-top3 {
+      font-weight: 700;
+    }
+
+    .y11-empty {
+      color: var(--text-dim);
+      font-size: 13px;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .y11-form-group {
+      margin-bottom: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .y11-form-group label {
+      font-size: 11.5px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    .y11-form-group input,
+    .y11-form-group select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      padding: 10px 12px;
+      font-size: 14px;
+    }
+
+    .y11-invite-code {
+      font-family: var(--font-mono);
+      font-size: 22px;
+      letter-spacing: .1em;
+      color: var(--gold-deep);
+      text-align: center;
+      padding: 12px;
+      background: var(--bg-soft);
+      border-radius: var(--radius-sm);
+    }
 
     /* ---- Lobby: fixtures grouped by tournament, with a live countdown ---- */
     .y11-series-head {
-      display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
-      margin: 22px 0 10px; padding-bottom: 7px; border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 18px 0 10px;
+      padding: 7px 12px;
+      background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 0%, transparent 100%);
+      border-left: 3px solid var(--gold);
+      border-radius: var(--radius-sm);
     }
-    .y11-series-name { font-size: 14px; font-weight: 700; color: var(--text); }
-    .y11-series-count { font-size: 11px; color: var(--text-dim); }
 
-    .y11-crest-row { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
-    .y11-crest {
-      width: 26px; height: 26px; border-radius: 50%; object-fit: cover;
-      background: var(--bg-soft); flex: 0 0 auto;
+    .y11-series-name {
+      font-family: var(--font-display);
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--text);
     }
+
+    .y11-series-count {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--gold-deep);
+      background: var(--gold-soft);
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    .y11-crest {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: var(--bg-soft);
+      flex: 0 0 auto;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
     /* Stand-in when the source gave no crest, or the image 404s: the team's short code. */
     .y11-crest-fallback {
-      width: 26px; height: 26px; border-radius: 50%; flex: 0 0 auto;
-      background: var(--bg-soft); border: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 9.5px; font-weight: 700; color: var(--text-dim);
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      flex: 0 0 auto;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text);
     }
-    .y11-vs { font-size: 11px; color: var(--text-dim); font-weight: 700; }
+
+    .y11-vs {
+      font-size: 10.5px;
+      color: var(--text-dim);
+      font-weight: 700;
+    }
 
     .y11-countdown {
-      display: inline-block; margin-top: 9px; padding: 4px 11px; border-radius: 20px;
-      font-family: var(--font-mono); font-size: 12px; font-weight: 700;
-      background: var(--green-soft); color: var(--green); white-space: nowrap;
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      background: var(--green-soft);
+      color: var(--green);
+      white-space: nowrap;
     }
+
     /* Under half an hour to the deadline, so it reads as a deadline rather than a detail. */
-    .y11-countdown.is-soon { background: var(--red-soft); color: var(--red); }
-    .y11-countdown.is-locked { background: var(--bg-soft); color: var(--text-dim); }
+    .y11-countdown.is-soon {
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    .y11-countdown.is-locked {
+      background: var(--bg-soft);
+      color: var(--text-dim);
+    }
 
     /* ---- Squad view ---- */
     .y11-squad-rules {
-      display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-bottom: 14px;
     }
+
     .y11-rule-pill {
-      font-size: 11px; padding: 4px 10px; border-radius: 20px;
-      background: var(--bg-soft); border: 1px solid var(--border); color: var(--text-dim);
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
     }
-    .y11-role-tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+
+    .y11-role-tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
     .y11-role-tab {
-      background: transparent; border: 1px solid var(--border); color: var(--text-dim);
-      border-radius: 20px; padding: 5px 14px; font-size: 12px; font-weight: 600;
-      cursor: pointer; font-family: inherit;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
     }
-    .y11-role-tab.active { background: var(--gold-soft); border-color: var(--gold); color: var(--gold-deep); }
+
+    .y11-role-tab.active {
+      background: var(--gold-soft);
+      border-color: var(--gold);
+      color: var(--gold-deep);
+    }
 
     #panelSquad .y11-player-row {
-      display: flex; align-items: center; gap: 10px;
-      padding: 9px 11px; border: 1px solid var(--border); border-radius: var(--radius-sm);
-      margin-bottom: 7px; background: var(--surface); cursor: default;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 11px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      margin-bottom: 7px;
+      background: var(--surface);
+      cursor: default;
     }
-    #panelSquad .y11-player-main { min-width: 0; flex: 1 1 auto; }
+
+    #panelSquad .y11-player-main {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
     #panelSquad .y11-player-name {
-      font-size: 13px; font-weight: 600; color: var(--text);
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
-    #panelSquad .y11-player-meta { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+    #panelSquad .y11-player-meta {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+
     #panelSquad .y11-player-credits {
-      font-family: var(--font-mono); font-size: 13px; font-weight: 700;
-      color: var(--gold-deep); flex: 0 0 auto;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--gold-deep);
+      flex: 0 0 auto;
     }
+
     .y11-xi-badge {
-      font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 20px;
-      background: var(--green-soft); color: var(--green); flex: 0 0 auto;
+      font-size: 9.5px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 20px;
+      background: var(--green-soft);
+      color: var(--green);
+      flex: 0 0 auto;
     }
 
     /* ---- Points and Leaderboard ---- */
     .y11-sub-head {
-      margin: 16px 0 8px; font-size: 12px; color: var(--text-dim);
-      text-transform: uppercase; letter-spacing: .04em;
+      margin: 16px 0 8px;
+      font-size: 12px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: .04em;
     }
+
     /* These panels reuse .y11-player-row, whose base rule carries cursor:pointer for the builder's
        selectable list. Only the rows that actually do something should look clickable. */
     #panelPoints .y11-player-row,
-    #panelLeaderboard .y11-player-row { cursor: default; gap: 10px; }
-    #panelPoints .y11-player-row[data-team-points] { cursor: pointer; }
+    #panelLeaderboard .y11-player-row {
+      cursor: default;
+      gap: 10px;
+    }
+
+    #panelPoints .y11-player-row[data-team-points] {
+      cursor: pointer;
+    }
 
     .y11-points-big {
-      font-family: var(--font-mono); font-size: 15px; font-weight: 700;
-      color: var(--gold-deep); flex: 0 0 auto; min-width: 46px; text-align: right;
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--gold-deep);
+      flex: 0 0 auto;
+      min-width: 46px;
+      text-align: right;
     }
 
     .y11-breakdown {
-      border: 1px solid var(--border); border-radius: var(--radius-sm);
-      margin: -2px 0 10px; padding: 6px 10px; background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      margin: -2px 0 10px;
+      padding: 6px 10px;
+      background: var(--bg-soft);
     }
+
     .y11-bd-row {
-      display: flex; align-items: center; gap: 8px;
-      padding: 5px 0; font-size: 12px; border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 0;
+      font-size: 12px;
+      border-bottom: 1px solid var(--border);
     }
-    .y11-bd-row:last-child { border-bottom: none; }
-    .y11-bd-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .y11-bd-maths { color: var(--text-dim); font-family: var(--font-mono); font-size: 11px; white-space: nowrap; }
-    .y11-bd-pts { font-family: var(--font-mono); font-weight: 700; min-width: 42px; text-align: right; }
-    .y11-bd-total { font-weight: 700; color: var(--gold-deep); }
+
+    .y11-bd-row:last-child {
+      border-bottom: none;
+    }
+
+    .y11-bd-name {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .y11-bd-maths {
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .y11-bd-pts {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      min-width: 42px;
+      text-align: right;
+    }
+
+    .y11-bd-total {
+      font-weight: 700;
+      color: var(--gold-deep);
+    }
 
     .y11-arm {
-      display: inline-block; margin-left: 6px; padding: 1px 5px; border-radius: 4px;
-      font-size: 9px; font-weight: 700;
+      display: inline-block;
+      margin-left: 6px;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 9px;
+      font-weight: 700;
     }
-    .y11-arm.c  { background: var(--gold-soft); color: var(--gold-deep); }
-    .y11-arm.vc { background: var(--violet-soft, var(--bg-soft)); color: var(--violet); }
+
+    .y11-arm.c {
+      background: var(--gold-soft);
+      color: var(--gold-deep);
+    }
+
+    .y11-arm.vc {
+      background: var(--violet-soft, var(--bg-soft));
+      color: var(--violet);
+    }
 
     .y11-lb-banner {
-      padding: 8px 11px; border-radius: var(--radius-sm); margin-bottom: 10px;
-      font-size: 11.5px; background: var(--gold-soft); color: var(--gold-deep);
+      padding: 8px 11px;
+      border-radius: var(--radius-sm);
+      margin-bottom: 10px;
+      font-size: 11.5px;
+      background: var(--gold-soft);
+      color: var(--gold-deep);
     }
-    .y11-lb-banner.settled { background: var(--green-soft); color: var(--green); }
+
+    .y11-lb-banner.settled {
+      background: var(--green-soft);
+      color: var(--green);
+    }
 
     .y11-lb-rank {
-      font-family: var(--font-mono); font-size: 12.5px; font-weight: 700;
-      color: var(--text-dim); flex: 0 0 auto; min-width: 34px;
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--text-dim);
+      flex: 0 0 auto;
+      min-width: 34px;
     }
+
     .y11-lb-prize {
-      font-family: var(--font-mono); font-size: 12.5px; color: var(--green);
-      flex: 0 0 auto; min-width: 58px; text-align: right;
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      color: var(--green);
+      flex: 0 0 auto;
+      min-width: 58px;
+      text-align: right;
     }
+
     /* The player's own row, so they can find themselves in a long list without reading every name. */
-    #panelLeaderboard .y11-me { background: var(--gold-soft); }
-    #panelLeaderboard .y11-me .y11-player-name { color: var(--gold-deep); }
+    #panelLeaderboard .y11-me {
+      background: var(--gold-soft);
+    }
+
+    #panelLeaderboard .y11-me .y11-player-name {
+      color: var(--gold-deep);
+    }
 
     @media (max-width: 480px) {
-      .y11-wrap { padding: 12px; }
-      .y11-points-big { font-size: 13.5px; min-width: 40px; }
-      .y11-lb-rank { min-width: 28px; font-size: 11.5px; }
-      .y11-lb-prize { min-width: 48px; font-size: 11.5px; }
-      .y11-sub-head { font-size: 11px; }
-      .y11-bd-row { font-size: 11.5px; }
-      .y11-bd-maths { display: none; }   /* the arithmetic is the first thing to drop on a phone */
-      .y11-series-head { margin: 16px 0 8px; }
-      .y11-series-name { font-size: 13px; }
-      .y11-countdown { font-size: 11px; padding: 3px 9px; }
-      #panelSquad .y11-player-row { padding: 8px 9px; gap: 8px; }
-      #panelSquad .y11-player-name { font-size: 12.5px; }
-      .y11-role-tab { padding: 4px 11px; font-size: 11.5px; }
-      .y11-rule-pill { font-size: 10.5px; padding: 3px 8px; }
+      .y11-wrap {
+        padding: 12px;
+      }
+
+      .y11-points-big {
+        font-size: 13.5px;
+        min-width: 40px;
+      }
+
+      .y11-lb-rank {
+        min-width: 28px;
+        font-size: 11.5px;
+      }
+
+      .y11-lb-prize {
+        min-width: 48px;
+        font-size: 11.5px;
+      }
+
+      .y11-sub-head {
+        font-size: 11px;
+      }
+
+      .y11-bd-row {
+        font-size: 11.5px;
+      }
+
+      .y11-bd-maths {
+        display: none;
+      }
+
+      /* the arithmetic is the first thing to drop on a phone */
+      .y11-series-head {
+        margin: 16px 0 8px;
+      }
+
+      .y11-series-name {
+        font-size: 13px;
+      }
+
+      .y11-countdown {
+        font-size: 11px;
+        padding: 3px 9px;
+      }
+
+      #panelSquad .y11-player-row {
+        padding: 8px 9px;
+        gap: 8px;
+      }
+
+      #panelSquad .y11-player-name {
+        font-size: 12.5px;
+      }
+
+      .y11-role-tab {
+        padding: 4px 11px;
+        font-size: 11.5px;
+      }
+
+      .y11-rule-pill {
+        font-size: 10.5px;
+        padding: 3px 8px;
+      }
     }
+    /* ---- Dream11-parity additions: lineups, selection %, contest labels, My Matches, team view ---- */
+    .y11-tagp { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: var(--radius-pill);
+      margin-left: 6px; vertical-align: middle; letter-spacing: .02em; }
+    .y11-tagp.play { background: var(--green-soft); color: var(--green); }
+    .y11-tagp.noplay { background: var(--red-soft); color: var(--red); }
+    .y11-tagp.sub { background: var(--violet-soft); color: var(--violet); }
+    .y11-tagp.lineups { background: var(--green-soft); color: var(--green); margin-left: 0; }
+    .y11-sel { font-size: 11px; color: var(--text-dim); }
+    .y11-ctags { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 8px; }
+    .y11-ctag { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: var(--radius-pill); background: var(--bg); border: 1px solid var(--border); color: var(--text-dim); }
+    .y11-ctag.g { color: var(--green); border-color: var(--green); }
+    .y11-ctag.f { color: var(--gold-deep); border-color: var(--gold); }
+    .y11-ctag.m { color: var(--violet); border-color: var(--violet); }
+    .y11-joined-line { font-size: 12px; color: var(--text-dim); margin-top: 6px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .y11-linkbtn { background: none; border: none; color: var(--red); font-weight: 700; cursor: pointer; font-size: 12px; padding: 0; }
+    .y11-mm { margin-top: 14px; }
+    .y11-mm-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .y11-mm-tabs { display: flex; gap: 6px; }
+    .y11-mm-tabs button { border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); border-radius: var(--radius-pill);
+      padding: 5px 12px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+    .y11-mm-tabs button.active { background: var(--red); border-color: var(--red); color: #fff; }
+    .y11-mm-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; margin-top: 10px; }
+    .y11-mm-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; cursor: pointer; }
+    .y11-mm-card .t { font-family: var(--font-display); font-weight: 700; }
+    .y11-mm-card .s { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+    .y11-mm-card .w { font-size: 12.5px; margin-top: 6px; font-weight: 700; color: var(--green); }
+    .y11-pbd { font-size: 11.5px; color: var(--text-dim); margin-top: 3px; }
+    .y11-lb-click { cursor: pointer; }
+    .y11-tv-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+    .y11-tv-row:last-child { border-bottom: none; }
+    .y11-pick-done { opacity: .5; cursor: not-allowed !important; }
   </style>
 </head>
 
@@ -295,12 +1119,13 @@
   <div class="sub-navbar">
     <ul class="sub-navbar-links">
       <li class="sub-navbar-item"><a href="index.html" class="sub-navbar-link">Home</a></li>
+      <li class="sub-navbar-item"><a href="cricket.html" class="sub-navbar-link">Cricket</a></li>
       <li class="sub-navbar-item"><a href="aviator.html" class="sub-navbar-link">Vimaan</a></li>
       <li class="sub-navbar-item"><a href="win.html" class="sub-navbar-link">Sapre</a></li>
       <li class="sub-navbar-item"><a href="teenpatti.html" class="sub-navbar-link">Teen Patti</a></li>
       <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
       <li class="sub-navbar-item"><a href="youreleven.html" class="sub-navbar-link active">Your 11</a></li>
-      <li class="sub-navbar-item"><a href="boundarybaazi.html" class="sub-navbar-link">Boundary Baazi</a></li>
+      <li class="sub-navbar-item"><a href="boundarybaazi.html" class="sub-navbar-link">Ball by Ball</a></li>
     </ul>
   </div>
 
@@ -313,12 +1138,24 @@
 
     <!-- Fixtures view -->
     <div id="viewFixtures">
-      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-top:14px;">
+      <div class="y11-mm" id="myMatchesBox" style="display:none;">
+        <div class="y11-mm-head">
+          <h2 style="margin:0; color:var(--text);">My Matches</h2>
+          <div class="y11-mm-tabs" id="myMatchesTabs">
+            <button type="button" data-mm="upcoming" class="active">Upcoming</button>
+            <button type="button" data-mm="live">Live</button>
+            <button type="button" data-mm="completed">Completed</button>
+          </div>
+        </div>
+        <div class="y11-mm-list" id="myMatchesList"></div>
+      </div>
+      <div
+        style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-top:14px;">
         <h2 style="margin:0; color:var(--text);">Upcoming &amp; Live Matches</h2>
         <button class="btn btn-ghost" id="joinByCodeBtnTop" type="button">Join with invite code</button>
       </div>
-      <div class="y11-fixture-grid" id="fixtureGrid"></div>
-      <div class="y11-empty" id="fixtureEmpty" style="display:none;">No upcoming matches right now. An operator needs to run <code>php-backend/cron/fantasy-sync-matches.php</code> to pull the schedule.</div>
+      <div id="fixtureGrid"></div>
+      <div class="y11-empty" id="fixtureEmpty" style="display:none;">No upcoming matches right now. New fixtures appear here as soon as they are announced.</div>
     </div>
 
     <!-- Match view -->
@@ -339,7 +1176,9 @@
           <button class="btn btn-primary" id="createTeamBtn" type="button">Create team</button>
         </div>
         <div id="myTeamsBox"></div>
-        <h4 style="margin:18px 0 8px; font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.04em;">Squad</h4>
+        <h4
+          style="margin:18px 0 8px; font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.04em;">
+          Squad</h4>
         <div class="y11-role-tabs" id="roleTabs"></div>
         <div id="squadList"></div>
       </div>
@@ -368,15 +1207,38 @@
       </div>
     </div>
 
-    <!-- Corrected: this build reads the public Cricbuzz schedule, squad and scorecard pages, not the
-         Roanuz feed the (undeployed) Node build was written against. Saying otherwise would credit a
-         provider that supplies none of this data. -->
-    <div class="y11-attribution">Cricket data from public Cricbuzz match pages</div>
+    <!-- The data now comes from the Roanuz feed (lib/cricket-roanuz.php). The Standard licence requires
+         this visible credit; keep it unless the account moves to a licence that waives attribution. -->
+    <div class="y11-attribution">Live cricket data: Roanuz Sports (cricketapi.com)</div>
   </div>
 
   <!-- Team builder modal -->
   <!-- Which of your teams enters this contest. Only shown when there is more than one, so a player
        with a single team never sees a pointless extra step. -->
+  <div class="y11-modal-overlay" id="confirmJoinModal">
+    <div class="y11-modal-card" style="max-width:380px;">
+      <button class="y11-modal-close" id="confirmJoinClose">&times;</button>
+      <h3 style="margin-top:0; font-family:var(--font-display);">Contest Entry</h3>
+      <div class="y11-fixture-meta" id="cjContest" style="margin-bottom:12px;"></div>
+      <div class="y11-contest-row"><span>Team</span><span id="cjTeam"></span></div>
+      <div class="y11-contest-row"><span>Entry fee</span><span id="cjFee"></span></div>
+      <div class="y11-contest-row"><span>Your balance</span><span id="cjBal"></span></div>
+      <div class="y11-contest-row" style="font-weight:800;border-top:1px solid var(--border);padding-top:8px;margin-top:6px;"><span>Amount payable</span><span id="cjPay"></span></div>
+      <div class="y11-fixture-meta" id="cjNote" style="margin-top:8px;"></div>
+      <button class="btn btn-primary btn-block" type="button" id="cjJoin" style="margin-top:14px;">Join Contest</button>
+      <div class="y11-error" id="cjError" style="display:none;"></div>
+    </div>
+  </div>
+
+  <div class="y11-modal-overlay" id="teamViewModal">
+    <div class="y11-modal-card" style="max-width:460px;">
+      <button class="y11-modal-close" id="teamViewClose">&times;</button>
+      <h3 id="teamViewTitle" style="margin-top:0; font-family:var(--font-display);"></h3>
+      <div class="y11-fixture-meta" id="teamViewMeta" style="margin-bottom:10px;"></div>
+      <div id="teamViewBody"></div>
+    </div>
+  </div>
+
   <div class="y11-modal-overlay" id="pickTeamModal">
     <div class="y11-modal-card" style="max-width:420px;">
       <button class="y11-modal-close" id="pickTeamClose">&times;</button>
@@ -393,7 +1255,8 @@
       <h3 id="builderTitle" style="margin-top:0; font-family:var(--font-display);">Build your XI</h3>
 
       <div class="y11-budget-bar">
-        <span>Credits used: <strong id="builderCreditsUsed">0.0</strong> / <span id="builderCreditsBudget">100</span></span>
+        <span>Credits used: <strong id="builderCreditsUsed">0.0</strong> / <span
+            id="builderCreditsBudget">100</span></span>
         <span>Players: <strong id="builderCount">0</strong> / 11</span>
       </div>
       <div class="y11-role-counts" id="builderRoleCounts"></div>
@@ -402,7 +1265,8 @@
       <div class="y11-player-list" id="builderPlayerList"></div>
 
       <div id="builderCvcSection" style="display:none;">
-        <h4 style="margin-bottom:6px; font-size:13px; color:var(--text-dim);">Tap a player to set Captain, tap again for Vice-Captain</h4>
+        <h4 style="margin-bottom:6px; font-size:13px; color:var(--text-dim);">Tap a player to set Captain, tap again for
+          Vice-Captain</h4>
         <div class="y11-cvc-grid" id="builderCvcGrid"></div>
       </div>
 
@@ -423,16 +1287,20 @@
       <h3 style="margin-top:0; font-family:var(--font-display);">Create a private contest</h3>
       <div id="privateForm">
         <div class="y11-form-group"><label>Contest name</label><input type="text" id="pcName" maxlength="40"></div>
-        <div class="y11-form-group"><label>Entry fee (&#8377;)</label><input type="number" id="pcFee" min="0" step="1" value="50"></div>
-        <div class="y11-form-group"><label>Max entrants</label><input type="number" id="pcMax" min="2" max="1000" value="10"></div>
-        <div class="y11-form-group"><label>Entries allowed per user</label><input type="number" id="pcEntries" min="1" max="20" value="1"></div>
+        <div class="y11-form-group"><label>Entry fee (&#8377;)</label><input type="number" id="pcFee" min="0" step="1"
+            value="50"></div>
+        <div class="y11-form-group"><label>Max entrants</label><input type="number" id="pcMax" min="2" max="1000"
+            value="10"></div>
+        <div class="y11-form-group"><label>Entries allowed per user</label><input type="number" id="pcEntries" min="1"
+            max="20" value="1"></div>
         <div class="y11-error" id="privateError"></div>
         <button class="btn btn-primary btn-block" id="privateSubmit" type="button">Create</button>
       </div>
       <div id="privateResult" style="display:none;">
         <p style="color:var(--text-dim); font-size:13px;">Share this code with friends:</p>
         <div class="y11-invite-code" id="privateCodeOut"></div>
-        <button class="btn btn-ghost btn-block" style="margin-top:14px;" id="privateResultClose" type="button">Done</button>
+        <button class="btn btn-ghost btn-block" style="margin-top:14px;" id="privateResultClose"
+          type="button">Done</button>
       </div>
     </div>
   </div>
@@ -442,1180 +1310,1477 @@
     <div class="y11-modal-card" style="max-width:380px;">
       <button class="y11-modal-close" id="codeClose">&times;</button>
       <h3 style="margin-top:0; font-family:var(--font-display);">Join with invite code</h3>
-      <div class="y11-form-group"><label>Invite code</label><input type="text" id="codeInput" maxlength="16" style="text-transform:uppercase;"></div>
+      <div class="y11-form-group"><label>Invite code</label><input type="text" id="codeInput" maxlength="16"
+          style="text-transform:uppercase;"></div>
       <div class="y11-error" id="codeError"></div>
       <button class="btn btn-primary btn-block" id="codeSubmit" type="button">Find contest</button>
     </div>
   </div>
 
   <script>
-  /* ===============================================================================================
-     Your 11 — lobby and squad view.  Phase 1 of the PHP port.
-     -----------------------------------------------------------------------------------------------
-     Talks to the two read-only endpoints in php-backend/routes/fantasy.php:
+    /* ===============================================================================================
+       Your 11 — lobby and squad view.  Phase 1 of the PHP port.
+       -----------------------------------------------------------------------------------------------
+       Talks to the two read-only endpoints in php-backend/routes/fantasy.php:
+  
+           GET api/fantasy/matches?status=UPCOMING     fixtures, already grouped by tournament
+           GET api/fantasy/matches/:id/players         one squad, grouped WK / BAT / ALL / BOWL
+  
+       Both go through the fetch interceptor in assets/js/ui-common.js, which rewrites an "api/" URL
+       onto window.BET1X_API_BASE (the page's own origin by default) and attaches the auth token, so
+       there is no base-URL handling here.
+  
+       Contests, team building, points and the leaderboard are later phases. Their markup is still in
+       the page but their tabs are hidden, so this file deliberately wires up only what the backend can
+       actually answer today — a screen that offers something the server cannot do yet is worse than
+       one that offers less.
+       =============================================================================================== */
+    (function () {
+      'use strict';
 
-         GET api/fantasy/matches?status=UPCOMING     fixtures, already grouped by tournament
-         GET api/fantasy/matches/:id/players         one squad, grouped WK / BAT / ALL / BOWL
+      var POLL_MS = 60000;      // re-read the fixture list; cheap, and picks up locks and new matches
+      var SOON_MS = 30 * 60000; // under half an hour to lock, the countdown turns urgent
 
-     Both go through the fetch interceptor in assets/js/ui-common.js, which rewrites an "api/" URL
-     onto window.BET1X_API_BASE (the page's own origin by default) and attaches the auth token, so
-     there is no base-URL handling here.
+      var flatMatches = [];     // every card on screen, for the one-second ticker
+      var clockSkewMs = 0;      // (server now - device now); keeps countdowns honest on a wrong clock
+      var squadCache = null;    // the currently open match's squad payload
+      var activeRole = 'WK';
+      var pollTimer = null;
+      var tickTimer = null;
 
-     Contests, team building, points and the leaderboard are later phases. Their markup is still in
-     the page but their tabs are hidden, so this file deliberately wires up only what the backend can
-     actually answer today — a screen that offers something the server cannot do yet is worse than
-     one that offers less.
-     =============================================================================================== */
-  (function () {
-    'use strict';
+      function $(id) { return document.getElementById(id); }
 
-    var POLL_MS = 60000;      // re-read the fixture list; cheap, and picks up locks and new matches
-    var SOON_MS = 30 * 60000; // under half an hour to lock, the countdown turns urgent
+      function esc(s) {
+        return String(s === null || s === undefined ? '' : s)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      }
 
-    var flatMatches = [];     // every card on screen, for the one-second ticker
-    var clockSkewMs = 0;      // (server now - device now); keeps countdowns honest on a wrong clock
-    var squadCache = null;    // the currently open match's squad payload
-    var activeRole = 'WK';
-    var pollTimer = null;
-    var tickTimer = null;
+      /** Our best estimate of the server's clock. */
+      function serverNow() { return Date.now() + clockSkewMs; }
 
-    function $(id) { return document.getElementById(id); }
+      function apiGet(path) {
+        return fetch(path, { cache: 'no-store' }).then(function (res) {
+          return res.json().catch(function () { return null; }).then(function (data) {
+            if (!res.ok || !data || data.success !== true) {
+              var err = new Error((data && data.error) || ('HTTP ' + res.status));
+              err.status = res.status;
+              throw err;
+            }
+            return data;
+          });
+        });
+      }
 
-    function esc(s) {
-      return String(s === null || s === undefined ? '' : s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    }
+      // ---------------------------------------------------------------------------------------------
+      // Countdown
+      // ---------------------------------------------------------------------------------------------
 
-    /** Our best estimate of the server's clock. */
-    function serverNow() { return Date.now() + clockSkewMs; }
+      /**
+       * "2d 04h", "03h 24m", "12m 30s" — the unit pair always narrows as the deadline approaches, so
+       * the number on screen stays meaningful instead of showing seconds two days out.
+       */
+      function formatCountdown(ms) {
+        if (ms <= 0) return 'Locked';
+        var s = Math.floor(ms / 1000);
+        var d = Math.floor(s / 86400);
+        var h = Math.floor((s % 86400) / 3600);
+        var m = Math.floor((s % 3600) / 60);
+        var sec = s % 60;
+        function pad(n) { return (n < 10 ? '0' : '') + n; }
+        if (d > 0) return d + 'd ' + pad(h) + 'h';
+        if (h > 0) return pad(h) + 'h ' + pad(m) + 'm';
+        if (m > 0) return pad(m) + 'm ' + pad(sec) + 's';
+        return sec + 's';
+      }
 
-    function apiGet(path) {
-      return fetch(path, { cache: 'no-store' }).then(function (res) {
-        return res.json().catch(function () { return null; }).then(function (data) {
-          if (!res.ok || !data || data.success !== true) {
-            var err = new Error((data && data.error) || ('HTTP ' + res.status));
-            err.status = res.status;
-            throw err;
+      /**
+       * Repaint every countdown on the page once a second.
+       *
+       * Times are compared against serverNow() rather than Date.now(): a device with a wrong clock
+       * would otherwise show a locked match as still open, or hide one that is genuinely joinable.
+       */
+      function tick() {
+        var now = serverNow();
+        var nodes = document.querySelectorAll('[data-lock-at]');
+        for (var i = 0; i < nodes.length; i++) {
+          var el = nodes[i];
+          var left = parseInt(el.getAttribute('data-lock-at'), 10) - now;
+          el.textContent = left > 0 ? ('Starts in ' + formatCountdown(left)) : 'Entries closed';
+          el.classList.toggle('is-soon', left > 0 && left <= SOON_MS);
+          el.classList.toggle('is-locked', left <= 0);
+          // Once the deadline passes the card stops being a way in. The next poll removes it.
+          var card = el.closest('.y11-fixture-card');
+          if (card && left <= 0) {
+            card.style.opacity = '0.55';
+            card.style.pointerEvents = 'none';
           }
-          return data;
-        });
-      });
-    }
-
-    // ---------------------------------------------------------------------------------------------
-    // Countdown
-    // ---------------------------------------------------------------------------------------------
-
-    /**
-     * "2d 04h", "03h 24m", "12m 30s" — the unit pair always narrows as the deadline approaches, so
-     * the number on screen stays meaningful instead of showing seconds two days out.
-     */
-    function formatCountdown(ms) {
-      if (ms <= 0) return 'Locked';
-      var s = Math.floor(ms / 1000);
-      var d = Math.floor(s / 86400);
-      var h = Math.floor((s % 86400) / 3600);
-      var m = Math.floor((s % 3600) / 60);
-      var sec = s % 60;
-      function pad(n) { return (n < 10 ? '0' : '') + n; }
-      if (d > 0) return d + 'd ' + pad(h) + 'h';
-      if (h > 0) return pad(h) + 'h ' + pad(m) + 'm';
-      if (m > 0) return pad(m) + 'm ' + pad(sec) + 's';
-      return sec + 's';
-    }
-
-    /**
-     * Repaint every countdown on the page once a second.
-     *
-     * Times are compared against serverNow() rather than Date.now(): a device with a wrong clock
-     * would otherwise show a locked match as still open, or hide one that is genuinely joinable.
-     */
-    function tick() {
-      var now = serverNow();
-      var nodes = document.querySelectorAll('[data-lock-at]');
-      for (var i = 0; i < nodes.length; i++) {
-        var el = nodes[i];
-        var left = parseInt(el.getAttribute('data-lock-at'), 10) - now;
-        el.textContent = left > 0 ? ('Starts in ' + formatCountdown(left)) : 'Entries closed';
-        el.classList.toggle('is-soon', left > 0 && left <= SOON_MS);
-        el.classList.toggle('is-locked', left <= 0);
-        // Once the deadline passes the card stops being a way in. The next poll removes it.
-        var card = el.closest('.y11-fixture-card');
-        if (card && left <= 0) {
-          card.style.opacity = '0.55';
-          card.style.pointerEvents = 'none';
         }
       }
-    }
 
-    // ---------------------------------------------------------------------------------------------
-    // Lobby
-    // ---------------------------------------------------------------------------------------------
+      // ---------------------------------------------------------------------------------------------
+      // Lobby
+      // ---------------------------------------------------------------------------------------------
 
-    function crest(logo, short) {
-      if (logo) {
-        return '<img class="y11-crest" src="' + esc(logo) + '" alt="" data-short="' + esc(short) + '">';
+      var TEAM_THEMES = {
+        'IND': { bg: 'linear-gradient(135deg, #0078D7, #003366)', border: '#FF9933', text: '#FFF' },
+        'AUS': { bg: 'linear-gradient(135deg, #006633, #00331A)', border: '#FFCC00', text: '#FFCC00' },
+        'ENG': { bg: 'linear-gradient(135deg, #002B7F, #001A4E)', border: '#C8102E', text: '#FFF' },
+        'PAK': { bg: 'linear-gradient(135deg, #006629, #003314)', border: '#A6E22E', text: '#FFF' },
+        'NZ': { bg: 'linear-gradient(135deg, #2A2A2A, #0A0A0A)', border: '#D4D4D4', text: '#FFF' },
+        'SA': { bg: 'linear-gradient(135deg, #007749, #004D2E)', border: '#FFB81C', text: '#FFB81C' },
+        'WI': { bg: 'linear-gradient(135deg, #7B002C, #4A001A)', border: '#FFD100', text: '#FFD100' },
+        'BAN': { bg: 'linear-gradient(135deg, #006A4E, #003829)', border: '#F42A41', text: '#FFF' },
+        'AFG': { bg: 'linear-gradient(135deg, #005696, #002B4D)', border: '#D32027', text: '#FFF' },
+        'SL': { bg: 'linear-gradient(135deg, #002B7F, #001642)', border: '#FFB81C', text: '#FFB81C' },
+        'MI': { bg: 'linear-gradient(135deg, #004BA0, #00234D)', border: '#D4AF37', text: '#FFF' },
+        'CSK': { bg: 'linear-gradient(135deg, #F9A825, #E65100)', border: '#004BA0', text: '#FFF' },
+        'RCB': { bg: 'linear-gradient(135deg, #D32F2F, #7F0000)', border: '#FFD700', text: '#FFD700' },
+        'KKR': { bg: 'linear-gradient(135deg, #3A225D, #1C0F30)', border: '#FFD700', text: '#FFD700' },
+        'DC': { bg: 'linear-gradient(135deg, #004C97, #D71920)', border: '#FFF', text: '#FFF' },
+        'RR': { bg: 'linear-gradient(135deg, #EA1A85, #1E3A8A)', border: '#FFD700', text: '#FFF' },
+        'GT': { bg: 'linear-gradient(135deg, #1C2833, #0B1118)', border: '#D4AF37', text: '#FFF' },
+        'LSG': { bg: 'linear-gradient(135deg, #0098DA, #003B5C)', border: '#E45B2B', text: '#FFF' },
+        'SRH': { bg: 'linear-gradient(135deg, #FF6600, #993D00)', border: '#111', text: '#FFF' },
+        'PBKS': { bg: 'linear-gradient(135deg, #DD1F2D, #780B14)', border: '#D4AF37', text: '#FFF' }
+      };
+
+      function getTeamTheme(code) {
+        var c = (code || '').toUpperCase().trim();
+        if (TEAM_THEMES[c]) return TEAM_THEMES[c];
+        var hash = 0;
+        for (var i = 0; i < c.length; i++) hash = c.charCodeAt(i) + ((hash << 5) - hash);
+        var hue = Math.abs(hash % 360);
+        return {
+          bg: 'linear-gradient(135deg, hsl(' + hue + ', 65%, 32%), hsl(' + hue + ', 75%, 18%))',
+          border: 'hsl(' + hue + ', 80%, 65%)',
+          text: '#FFF'
+        };
       }
-      return '<div class="y11-crest-fallback">' + esc(short || '?') + '</div>';
-    }
 
-    function fixtureCard(m) {
-      var lockAt = serverNow() + (Number(m.seconds_to_lock) * 1000);
-      var start = m.start_time ? new Date(String(m.start_time).replace(' ', 'T') + 'Z') : null;
-      var when = start && !isNaN(start.getTime())
-        ? start.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
-        : '';
-
-      return '<div class="y11-fixture-card" data-match-id="' + esc(m.id) + '" role="button" tabindex="0">'
-        + '<div class="y11-crest-row">'
-        +   crest(m.team_a_logo, m.team_a_short)
-        +   '<span class="y11-vs">vs</span>'
-        +   crest(m.team_b_logo, m.team_b_short)
-        + '</div>'
-        + '<div class="y11-fixture-teams">' + esc(m.team_a_short || m.team_a) + ' vs ' + esc(m.team_b_short || m.team_b) + '</div>'
-        + '<div class="y11-fixture-meta">' + esc(m.format || '') + (m.venue ? ' &middot; ' + esc(m.venue) : '') + '</div>'
-        + (when ? '<div class="y11-fixture-meta">' + esc(when) + '</div>' : '')
-        + '<div class="y11-countdown" data-lock-at="' + lockAt + '">&nbsp;</div>'
-        + '</div>';
-    }
-
-    function renderFixtures(groups) {
-      var grid = $('fixtureGrid');
-      var empty = $('fixtureEmpty');
-      flatMatches = [];
-
-      var total = 0;
-      for (var g = 0; g < groups.length; g++) total += groups[g].matches.length;
-
-      if (!total) {
-        grid.innerHTML = '';
-        empty.style.display = '';
-        return;
-      }
-      empty.style.display = 'none';
-
-      // One block per tournament. The API already orders groups by their soonest match, so whatever
-      // starts next is at the top rather than the alphabetically-first series.
-      var html = '';
-      for (var i = 0; i < groups.length; i++) {
-        var grp = groups[i];
-        html += '<div class="y11-series-head">'
-             +    '<span class="y11-series-name">' + esc(grp.series_name) + '</span>'
-             +    '<span class="y11-series-count">' + grp.matches.length
-             +      (grp.matches.length === 1 ? ' match' : ' matches') + '</span>'
-             +  '</div>'
-             +  '<div class="y11-fixture-grid">';
-        for (var j = 0; j < grp.matches.length; j++) {
-          html += fixtureCard(grp.matches[j]);
-          flatMatches.push(grp.matches[j]);
+      function teamBadge(logo, short, full) {
+        var s = esc(short || '?');
+        var f = esc(full || short || '?');
+        var theme = getTeamTheme(short);
+        if (logo) {
+          return '<div class="y11-crest-wrap">'
+            + '<img class="y11-crest" src="' + esc(logo) + '" alt="' + f + '" data-short="' + s + '" '
+            + 'onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">'
+            + '<div class="y11-crest-shield" style="display:none; background:' + theme.bg + '; border-color:' + theme.border + '; color:' + theme.text + ';">'
+            + s.slice(0, 3) + '</div>'
+            + '</div>';
         }
-        html += '</div>';
-      }
-      grid.innerHTML = html;
-
-      // A crest URL is built from an image id the source gave us, so it can 404. Swap in the team's
-      // short code rather than leaving a broken-image icon.
-      var imgs = grid.querySelectorAll('img.y11-crest');
-      for (var k = 0; k < imgs.length; k++) {
-        imgs[k].addEventListener('error', function () {
-          var fb = document.createElement('div');
-          fb.className = 'y11-crest-fallback';
-          fb.textContent = this.getAttribute('data-short') || '?';
-          if (this.parentNode) this.parentNode.replaceChild(fb, this);
-        });
+        return '<div class="y11-crest-wrap">'
+          + '<div class="y11-crest-shield" style="background:' + theme.bg + '; border-color:' + theme.border + '; color:' + theme.text + ';">'
+          + s.slice(0, 3) + '</div>'
+          + '</div>';
       }
 
-      tick();
-    }
+      function fixtureCard(m) {
+        var lockAt = serverNow() + (Number(m.seconds_to_lock) * 1000);
+        var start = m.start_time ? new Date(String(m.start_time).replace(' ', 'T') + 'Z') : null;
+        var when = start && !isNaN(start.getTime())
+          ? start.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+          : '';
+        var venue = m.venue ? esc(m.venue) : '';
+        var format = m.format ? esc(m.format) : 'Match';
 
-    function loadFixtures() {
-      return apiGet('api/fantasy/matches?status=UPCOMING').then(function (data) {
-        if (typeof data.server_time_ms === 'number') {
-          clockSkewMs = data.server_time_ms - Date.now();
-        }
-        $('disabledNote').style.display = 'none';
-        renderFixtures(data.groups || []);
-      }).catch(function (err) {
-        // With FANTASY_ENABLED off the route is not mounted at all, so the module is genuinely
-        // absent rather than erroring — say so plainly instead of showing a generic failure.
-        if (err && err.status === 404) {
-          $('disabledNote').style.display = '';
-          $('fixtureGrid').innerHTML = '';
-          $('fixtureEmpty').style.display = 'none';
+        return '<div class="y11-fixture-card" data-match-id="' + esc(m.id) + '" role="button" tabindex="0">'
+          + '<div class="y11-card-top">'
+          + '<div class="y11-top-left">'
+          + '<span class="y11-format-badge">' + format + '</span>'
+          + (venue ? '<span class="y11-venue-txt" title="' + venue + '">📍 ' + venue + '</span>' : '')
+          + '</div>'
+          + (when ? '<span class="y11-date-txt">' + esc(when) + '</span>' : '')
+          + '</div>'
+          + '<div class="y11-matchup-hero">'
+          + '<div class="y11-team-block team-a">'
+          + teamBadge(m.team_a_logo, m.team_a_short, m.team_a)
+          + '<div class="y11-team-info">'
+          + '<div class="y11-team-code">' + esc(m.team_a_short || m.team_a) + '</div>'
+          + '<div class="y11-team-fullname" title="' + esc(m.team_a) + '">' + esc(m.team_a) + '</div>'
+          + '</div>'
+          + '</div>'
+          + '<div class="y11-match-center">'
+          + '<div class="y11-vs-badge">VS</div>'
+          + '<div class="y11-countdown" data-lock-at="' + lockAt + '">&nbsp;</div>'
+          + '</div>'
+          + '<div class="y11-team-block team-b">'
+          + '<div class="y11-team-info">'
+          + '<div class="y11-team-code">' + esc(m.team_b_short || m.team_b) + '</div>'
+          + '<div class="y11-team-fullname" title="' + esc(m.team_b) + '">' + esc(m.team_b) + '</div>'
+          + '</div>'
+          + teamBadge(m.team_b_logo, m.team_b_short, m.team_b)
+          + '</div>'
+          + '</div>'
+          + '<div class="y11-card-footer">'
+          + (m.lineups_announced
+              ? '<span class="y11-tagp lineups">✓ Lineups out</span>'
+              : '<span class="y11-contest-badge-txt">🏆 Mega · Head-to-Head · Practice</span>')
+          + '<span class="y11-action-btn">Create Team &rsaquo;</span>'
+          + '</div>'
+          + '</div>';
+      }
+
+      function renderFixtures(groups) {
+        var grid = $('fixtureGrid');
+        var empty = $('fixtureEmpty');
+        flatMatches = [];
+
+        var total = 0;
+        for (var g = 0; g < groups.length; g++) total += groups[g].matches.length;
+
+        if (!total) {
+          grid.innerHTML = '';
+          empty.style.display = '';
           return;
         }
-        $('fixtureGrid').innerHTML =
-          '<div class="y11-empty">Could not load matches. ' + esc(err && err.message ? err.message : '') + '</div>';
-        $('fixtureEmpty').style.display = 'none';
-      });
-    }
+        empty.style.display = 'none';
 
-    // ---------------------------------------------------------------------------------------------
-    // Squad view
-    // ---------------------------------------------------------------------------------------------
-
-    function renderSquadRules(rules, match) {
-      var limits = rules.role_limits || {};
-      var parts = [
-        (rules.squad_size || 11) + ' players',
-        (rules.credit_cap || 100) + ' credits',
-        'max ' + (rules.max_per_real_team || 7) + ' from one team'
-      ];
-      ['WK', 'BAT', 'ALL', 'BOWL'].forEach(function (r) {
-        if (limits[r]) parts.push(r + ' ' + limits[r].min + '-' + limits[r].max);
-      });
-      $('squadRules').innerHTML = parts.map(function (p) {
-        return '<span class="y11-rule-pill">' + esc(p) + '</span>';
-      }).join('');
-    }
-
-    function renderRoleTabs() {
-      var players = squadCache.players || {};
-      $('roleTabs').innerHTML = ['WK', 'BAT', 'ALL', 'BOWL'].map(function (r) {
-        var n = (players[r] || []).length;
-        return '<button type="button" class="y11-role-tab' + (r === activeRole ? ' active' : '')
-             + '" data-role="' + r + '">' + r + ' <span>' + n + '</span></button>';
-      }).join('');
-    }
-
-    function renderSquadList() {
-      var list = (squadCache.players || {})[activeRole] || [];
-      if (!list.length) {
-        $('squadList').innerHTML = '<div class="y11-empty">No ' + esc(activeRole) + ' in this squad.</div>';
-        return;
-      }
-      $('squadList').innerHTML = list.map(function (p) {
-        // is_playing is null until a confirmed XI is published, which is different from "benched" —
-        // so the badge only appears when we actually know.
-        var badge = p.is_playing === true ? '<span class="y11-xi-badge">Playing XI</span>' : '';
-        return '<div class="y11-player-row">'
-          + '<div class="y11-player-main">'
-          +   '<div class="y11-player-name">' + esc(p.name) + '</div>'
-          +   '<div class="y11-player-meta">' + esc(p.team_name) + ' &middot; ' + esc(p.role) + '</div>'
-          + '</div>'
-          + badge
-          + '<div class="y11-player-credits">' + Number(p.credits).toFixed(1) + '</div>'
-          + '</div>';
-      }).join('');
-    }
-
-    function renderMatchHeader() {
-      var m = squadCache.match;
-      var lockAt = serverNow() + (Number(m.seconds_to_lock) * 1000);
-      $('matchHeader').innerHTML =
-          '<div class="y11-fixture-teams" style="font-size:19px;">' + esc(m.team_a) + ' vs ' + esc(m.team_b) + '</div>'
-        + '<div class="y11-fixture-meta">' + esc(m.series_name) + '</div>'
-        + '<div class="y11-fixture-meta">' + esc(m.format || '') + (m.venue ? ' &middot; ' + esc(m.venue) : '') + '</div>'
-        + '<div class="y11-countdown" data-lock-at="' + lockAt + '">&nbsp;</div>';
-      tick();
-    }
-
-    function openMatch(id) {
-      $('viewFixtures').style.display = 'none';
-      $('viewMatch').style.display = '';
-      // A different match needs its own contest picker, so the cached one is thrown away.
-      pickerFilled = false;
-      $('matchHeader').innerHTML = '<div class="y11-empty">Loading…</div>';
-      $('squadRules').innerHTML = '';
-      $('roleTabs').innerHTML = '';
-      $('squadList').innerHTML = '';
-
-      return apiGet('api/fantasy/matches/' + encodeURIComponent(id) + '/players').then(function (data) {
-        if (typeof data.server_time_ms === 'number') clockSkewMs = data.server_time_ms - Date.now();
-        squadCache = data;
-        activeRole = 'WK';
-        renderMatchHeader();
-        renderSquadRules(data.rules || {}, data.match);
-        renderRoleTabs();
-        renderSquadList();
-        updateCreateButton();
-        showTab('contests');
-        // Teams must be loaded before contests are usable, because the Join button's behaviour
-        // depends on how many teams the player has — so contests are loaded after, not in parallel.
-        // Signed-out visitors get a 401 here, which loadMyTeams() swallows.
-        loadMyTeams().then(loadContests);
-      }).catch(function (err) {
-        $('matchHeader').innerHTML = '<div class="y11-empty">Could not load this match. '
-          + esc(err && err.message ? err.message : '') + '</div>';
-      });
-    }
-
-    function showFixtures() {
-      $('viewMatch').style.display = 'none';
-      $('viewFixtures').style.display = '';
-      squadCache = null;
-    }
-
-    // ---------------------------------------------------------------------------------------------
-    // My teams for the open match
-    // ---------------------------------------------------------------------------------------------
-
-    function renderMyTeams(teams) {
-      var box = $('myTeamsBox');
-      if (!teams.length) { box.innerHTML = ''; return; }
-      box.innerHTML = '<h4 style="margin:4px 0 8px; font-size:12px; color:var(--text-dim);'
-        + ' text-transform:uppercase; letter-spacing:.04em;">Your teams (' + teams.length + ')</h4>'
-        + teams.map(function (t) {
-          var c = '', vc = '';
-          for (var i = 0; i < t.players.length; i++) {
-            if (t.players[i].is_captain) c = t.players[i].name;
-            if (t.players[i].is_vice_captain) vc = t.players[i].name;
-          }
-          return '<div class="y11-player-row" style="cursor:default;">'
-            + '<div class="y11-player-main">'
-            +   '<div class="y11-player-name">' + esc(t.team_name) + '</div>'
-            +   '<div class="y11-player-meta">C: ' + esc(c) + ' &middot; VC: ' + esc(vc) + '</div>'
+        // One block per tournament. The API already orders groups by their soonest match, so whatever
+        // starts next is at the top rather than the alphabetically-first series.
+        var html = '';
+        for (var i = 0; i < groups.length; i++) {
+          var grp = groups[i];
+          html += '<div class="y11-series-head">'
+            + '<span class="y11-series-name">' + esc(grp.series_name) + '</span>'
+            + '<span class="y11-series-count">' + grp.matches.length
+            + (grp.matches.length === 1 ? ' match' : ' matches') + '</span>'
             + '</div>'
-            + '<div class="y11-player-credits">' + Number(t.total_credits).toFixed(1) + '</div>'
-            + '<button class="btn btn-ghost" type="button" data-edit-team="' + t.id + '"'
-            +   ' style="padding:4px 12px; font-size:11.5px;">Edit</button>'
+            + '<div class="y11-fixture-grid">';
+          for (var j = 0; j < grp.matches.length; j++) {
+            html += fixtureCard(grp.matches[j]);
+            flatMatches.push(grp.matches[j]);
+          }
+          html += '</div>';
+        }
+        grid.innerHTML = html;
+
+        // A crest URL is built from an image id the source gave us, so it can 404. Swap in the team's
+        // short code rather than leaving a broken-image icon.
+        var imgs = grid.querySelectorAll('img.y11-crest');
+        for (var k = 0; k < imgs.length; k++) {
+          imgs[k].addEventListener('error', function () {
+            var fb = document.createElement('div');
+            fb.className = 'y11-crest-fallback';
+            fb.textContent = this.getAttribute('data-short') || '?';
+            if (this.parentNode) this.parentNode.replaceChild(fb, this);
+          });
+        }
+
+        tick();
+      }
+
+      function loadFixtures() {
+        return apiGet('api/fantasy/matches?status=UPCOMING').then(function (data) {
+          if (typeof data.server_time_ms === 'number') {
+            clockSkewMs = data.server_time_ms - Date.now();
+          }
+          $('disabledNote').style.display = 'none';
+          renderFixtures(data.groups || []);
+        }).catch(function (err) {
+          // With FANTASY_ENABLED off the route is not mounted at all, so the module is genuinely
+          // absent rather than erroring — say so plainly instead of showing a generic failure.
+          if (err && err.status === 404) {
+            $('disabledNote').style.display = '';
+            $('fixtureGrid').innerHTML = '';
+            $('fixtureEmpty').style.display = 'none';
+            return;
+          }
+          $('fixtureGrid').innerHTML =
+            '<div class="y11-empty">Could not load matches. ' + esc(err && err.message ? err.message : '') + '</div>';
+          $('fixtureEmpty').style.display = 'none';
+        });
+      }
+
+      // ---------------------------------------------------------------------------------------------
+      // Squad view
+      // ---------------------------------------------------------------------------------------------
+
+      function renderSquadRules(rules, match) {
+        var limits = rules.role_limits || {};
+        var parts = [
+          (rules.squad_size || 11) + ' players',
+          (rules.credit_cap || 100) + ' credits',
+          'max ' + (rules.max_per_real_team || 7) + ' from one team'
+        ];
+        ['WK', 'BAT', 'ALL', 'BOWL'].forEach(function (r) {
+          if (limits[r]) parts.push(r + ' ' + limits[r].min + '-' + limits[r].max);
+        });
+        $('squadRules').innerHTML = parts.map(function (p) {
+          return '<span class="y11-rule-pill">' + esc(p) + '</span>';
+        }).join('');
+      }
+
+      function renderRoleTabs() {
+        var players = squadCache.players || {};
+        $('roleTabs').innerHTML = ['WK', 'BAT', 'ALL', 'BOWL'].map(function (r) {
+          var n = (players[r] || []).length;
+          return '<button type="button" class="y11-role-tab' + (r === activeRole ? ' active' : '')
+            + '" data-role="' + r + '">' + r + ' <span>' + n + '</span></button>';
+        }).join('');
+      }
+
+      function renderSquadList() {
+        var list = (squadCache.players || {})[activeRole] || [];
+        if (!list.length) {
+          $('squadList').innerHTML = '<div class="y11-empty">No ' + esc(activeRole) + ' in this squad.</div>';
+          return;
+        }
+        $('squadList').innerHTML = list.map(function (p) {
+          // is_playing is null until a confirmed XI is published, which is different from "benched" —
+          // so the badge only appears when we actually know.
+          var badge = playTag(p);
+          return '<div class="y11-player-row">'
+            + '<div class="y11-player-main">'
+            + '<div class="y11-player-name">' + esc(p.name) + '</div>'
+            + '<div class="y11-player-meta">' + esc(p.team_name) + ' &middot; ' + esc(p.role)
+            + (p.selected_by ? ' &middot; <span class="y11-sel">Sel by ' + p.selected_by + '%</span>' : '') + '</div>'
+            + '</div>'
+            + badge
+            + '<div class="y11-player-credits">' + Number(p.credits).toFixed(1) + '</div>'
             + '</div>';
         }).join('');
-    }
+      }
 
-    function loadMyTeams() {
-      if (!squadCache) return Promise.resolve();
-      return apiGet('api/fantasy/my-teams?match_id=' + encodeURIComponent(squadCache.match.id))
-        .then(function (data) {
-          myTeamsCache = data.teams || [];
-          renderMyTeams(myTeamsCache);
-        })
-        .catch(function () {
-          // Not signed in, or a transient failure. The list stays empty rather than showing an
-          // error, because a visitor browsing contests has done nothing wrong.
-          myTeamsCache = [];
-          renderMyTeams([]);
+      /** Dream11's lineup tags: only once the XIs are announced, so "unknown" never reads as "benched". */
+      function playTag(p) {
+        if (p.is_substitute) return '<span class="y11-tagp sub">Substitute</span>';
+        if (p.is_playing === true) return '<span class="y11-tagp play">Playing</span>';
+        if (p.is_playing === false) return '<span class="y11-tagp noplay">Not playing</span>';
+        return '';
+      }
+
+      function renderMatchHeader() {
+        var m = squadCache.match;
+        var lockAt = serverNow() + (Number(m.seconds_to_lock) * 1000);
+        $('matchHeader').innerHTML =
+          '<div class="y11-fixture-teams" style="font-size:19px;">' + esc(m.team_a) + ' vs ' + esc(m.team_b) + '</div>'
+          + '<div class="y11-fixture-meta">' + esc(m.series_name) + '</div>'
+          + '<div class="y11-fixture-meta">' + esc(m.format || '') + (m.venue ? ' &middot; ' + esc(m.venue) : '') + '</div>'
+          + (m.toss_text ? '<div class="y11-fixture-meta">🪙 ' + esc(m.toss_text) + '</div>' : '')
+          + (m.lineups_announced ? '<div style="margin-top:6px;"><span class="y11-tagp lineups">✓ Lineups out</span></div>' : '')
+          + (m.match_status_text && m.status !== 'UPCOMING' ? '<div class="y11-fixture-meta">' + esc(m.match_status_text) + '</div>' : '')
+          + '<div class="y11-countdown" data-lock-at="' + lockAt + '">&nbsp;</div>';
+        tick();
+      }
+
+      function openMatch(id) {
+        $('viewFixtures').style.display = 'none';
+        $('viewMatch').style.display = '';
+        // A different match needs its own contest picker, so the cached one is thrown away.
+        pickerFilled = false;
+        $('matchHeader').innerHTML = '<div class="y11-empty">Loading…</div>';
+        $('squadRules').innerHTML = '';
+        $('roleTabs').innerHTML = '';
+        $('squadList').innerHTML = '';
+
+        return apiGet('api/fantasy/matches/' + encodeURIComponent(id) + '/players').then(function (data) {
+          if (typeof data.server_time_ms === 'number') clockSkewMs = data.server_time_ms - Date.now();
+          squadCache = data;
+          activeRole = 'WK';
+          renderMatchHeader();
+          renderSquadRules(data.rules || {}, data.match);
+          renderRoleTabs();
+          renderSquadList();
+          updateCreateButton();
+          showTab('contests');
+          // Teams must be loaded before contests are usable, because the Join button's behaviour
+          // depends on how many teams the player has — so contests are loaded after, not in parallel.
+          // Signed-out visitors get a 401 here, which loadMyTeams() swallows.
+          loadMyTeams().then(loadContests);
+        }).catch(function (err) {
+          $('matchHeader').innerHTML = '<div class="y11-empty">Could not load this match. '
+            + esc(err && err.message ? err.message : '') + '</div>';
         });
-    }
-
-    // ---------------------------------------------------------------------------------------------
-    // Team builder
-    // ---------------------------------------------------------------------------------------------
-    // Enforces the same rules the server does, but only as a convenience: every one of them is
-    // re-checked in fantasy_validate_lineup() against the stored squad, so this code being edited in
-    // a browser cannot produce a team the server would accept.
-    //
-    // Hard maxima (squad size, per-role max, per-team max, budget) block a tap outright, with the
-    // reason shown. Minima cannot block a tap — you have to be allowed to build up to them — so they
-    // gate the submit button instead and show live in the role counter.
-
-    var ROLES = ['WK', 'BAT', 'ALL', 'BOWL'];
-    var bSquad = [];        // flat player list for the open match
-    var bSel = [];          // selected player ids, in pick order
-    var bCaptain = 0;
-    var bVice = 0;
-    var bRoleFilter = 'ALL_ROLES';
-    var bEditingId = null;
-
-    function bRules() { return (squadCache && squadCache.rules) || {}; }
-    function bLimits() { return bRules().role_limits || {}; }
-    function bSize() { return Number(bRules().squad_size || 11); }
-    function bCap() { return Number(bRules().credit_cap || 100); }
-    function bMaxTeam() { return Number(bRules().max_per_real_team || 7); }
-
-    function bPlayer(id) {
-      for (var i = 0; i < bSquad.length; i++) if (bSquad[i].id === id) return bSquad[i];
-      return null;
-    }
-    function bRoleCounts() {
-      var c = {};
-      for (var i = 0; i < bSel.length; i++) { var p = bPlayer(bSel[i]); if (p) c[p.role] = (c[p.role] || 0) + 1; }
-      return c;
-    }
-    function bTeamCounts() {
-      var c = {};
-      for (var i = 0; i < bSel.length; i++) { var p = bPlayer(bSel[i]); if (p) c[p.team_name] = (c[p.team_name] || 0) + 1; }
-      return c;
-    }
-    function bCredits() {
-      var t = 0;
-      for (var i = 0; i < bSel.length; i++) { var p = bPlayer(bSel[i]); if (p) t += Number(p.credits); }
-      return Math.round(t * 100) / 100;
-    }
-
-    /** null when this player can be picked, otherwise the reason they cannot. */
-    function bBlockReason(p) {
-      if (bSel.indexOf(p.id) !== -1) return null;             // deselecting is always allowed
-      if (bSel.length >= bSize()) return 'You already have ' + bSize() + ' players.';
-
-      var counts = bRoleCounts();
-      var lim = bLimits()[p.role];
-      if (lim && (counts[p.role] || 0) >= Number(lim.max)) return 'At most ' + lim.max + ' ' + p.role + '.';
-
-      var teams = bTeamCounts();
-      if ((teams[p.team_name] || 0) >= bMaxTeam()) return 'At most ' + bMaxTeam() + ' from ' + p.team_name + '.';
-
-      if (bCredits() + Number(p.credits) > bCap() + 0.001) return 'Not enough credits left.';
-
-      // Would this pick leave too few slots to still reach every role minimum? Without this check a
-      // player can fill up on batsmen and then find no legal XI is reachable, with nothing on screen
-      // explaining why — the maxima alone do not prevent it.
-      var after = {};
-      for (var r in counts) after[r] = counts[r];
-      after[p.role] = (after[p.role] || 0) + 1;
-      var need = 0;
-      for (var i = 0; i < ROLES.length; i++) {
-        var rl = bLimits()[ROLES[i]];
-        if (rl) need += Math.max(0, Number(rl.min) - (after[ROLES[i]] || 0));
       }
-      if (need > bSize() - (bSel.length + 1)) {
-        return 'That would leave too few slots for the required roles.';
-      }
-      return null;
-    }
 
-    function bMinimumsMet() {
-      var counts = bRoleCounts();
-      for (var i = 0; i < ROLES.length; i++) {
-        var rl = bLimits()[ROLES[i]];
-        if (rl && (counts[ROLES[i]] || 0) < Number(rl.min)) return false;
+      function showFixtures() {
+        $('viewMatch').style.display = 'none';
+        $('viewFixtures').style.display = '';
+        squadCache = null;
       }
-      return true;
-    }
 
-    function bIsComplete() {
-      return bSel.length === bSize() && bMinimumsMet()
+      // ---------------------------------------------------------------------------------------------
+      // My teams for the open match
+      // ---------------------------------------------------------------------------------------------
+
+      function renderMyTeams(teams) {
+        var box = $('myTeamsBox');
+        if (!teams.length) { box.innerHTML = ''; return; }
+        box.innerHTML = '<h4 style="margin:4px 0 8px; font-size:12px; color:var(--text-dim);'
+          + ' text-transform:uppercase; letter-spacing:.04em;">Your teams (' + teams.length + ')</h4>'
+          + teams.map(function (t) {
+            var c = '', vc = '';
+            for (var i = 0; i < t.players.length; i++) {
+              if (t.players[i].is_captain) c = t.players[i].name;
+              if (t.players[i].is_vice_captain) vc = t.players[i].name;
+            }
+            return '<div class="y11-player-row" style="cursor:default;">'
+              + '<div class="y11-player-main">'
+              + '<div class="y11-player-name">' + esc(t.team_name) + '</div>'
+              + '<div class="y11-player-meta">C: ' + esc(c) + ' &middot; VC: ' + esc(vc) + '</div>'
+              + '</div>'
+              + '<div class="y11-player-credits">' + Number(t.total_credits).toFixed(1) + '</div>'
+              + '<button class="btn btn-ghost" type="button" data-edit-team="' + t.id + '"'
+              + ' style="padding:4px 12px; font-size:11.5px;">Edit</button>'
+              + '</div>';
+          }).join('');
+      }
+
+      function loadMyTeams() {
+        if (!squadCache) return Promise.resolve();
+        return apiGet('api/fantasy/my-teams?match_id=' + encodeURIComponent(squadCache.match.id))
+          .then(function (data) {
+            myTeamsCache = data.teams || [];
+            renderMyTeams(myTeamsCache);
+          })
+          .catch(function () {
+            // Not signed in, or a transient failure. The list stays empty rather than showing an
+            // error, because a visitor browsing contests has done nothing wrong.
+            myTeamsCache = [];
+            renderMyTeams([]);
+          });
+      }
+
+      // ---------------------------------------------------------------------------------------------
+      // Team builder
+      // ---------------------------------------------------------------------------------------------
+      // Enforces the same rules the server does, but only as a convenience: every one of them is
+      // re-checked in fantasy_validate_lineup() against the stored squad, so this code being edited in
+      // a browser cannot produce a team the server would accept.
+      //
+      // Hard maxima (squad size, per-role max, per-team max, budget) block a tap outright, with the
+      // reason shown. Minima cannot block a tap — you have to be allowed to build up to them — so they
+      // gate the submit button instead and show live in the role counter.
+
+      var ROLES = ['WK', 'BAT', 'ALL', 'BOWL'];
+      var bSquad = [];        // flat player list for the open match
+      var bSel = [];          // selected player ids, in pick order
+      var bCaptain = 0;
+      var bVice = 0;
+      var bRoleFilter = 'ALL_ROLES';
+      var bEditingId = null;
+
+      function bRules() { return (squadCache && squadCache.rules) || {}; }
+      function bLimits() { return bRules().role_limits || {}; }
+      function bSize() { return Number(bRules().squad_size || 11); }
+      function bCap() { return Number(bRules().credit_cap || 100); }
+      function bMaxTeam() { return Number(bRules().max_per_real_team || 7); }
+
+      function bPlayer(id) {
+        for (var i = 0; i < bSquad.length; i++) if (bSquad[i].id === id) return bSquad[i];
+        return null;
+      }
+      function bRoleCounts() {
+        var c = {};
+        for (var i = 0; i < bSel.length; i++) { var p = bPlayer(bSel[i]); if (p) c[p.role] = (c[p.role] || 0) + 1; }
+        return c;
+      }
+      function bTeamCounts() {
+        var c = {};
+        for (var i = 0; i < bSel.length; i++) { var p = bPlayer(bSel[i]); if (p) c[p.team_name] = (c[p.team_name] || 0) + 1; }
+        return c;
+      }
+      function bCredits() {
+        var t = 0;
+        for (var i = 0; i < bSel.length; i++) { var p = bPlayer(bSel[i]); if (p) t += Number(p.credits); }
+        return Math.round(t * 100) / 100;
+      }
+
+      /** null when this player can be picked, otherwise the reason they cannot. */
+      function bBlockReason(p) {
+        if (bSel.indexOf(p.id) !== -1) return null;             // deselecting is always allowed
+        if (bSel.length >= bSize()) return 'You already have ' + bSize() + ' players.';
+
+        var counts = bRoleCounts();
+        var lim = bLimits()[p.role];
+        if (lim && (counts[p.role] || 0) >= Number(lim.max)) return 'At most ' + lim.max + ' ' + p.role + '.';
+
+        var teams = bTeamCounts();
+        if ((teams[p.team_name] || 0) >= bMaxTeam()) return 'At most ' + bMaxTeam() + ' from ' + p.team_name + '.';
+
+        if (bCredits() + Number(p.credits) > bCap() + 0.001) return 'Not enough credits left.';
+
+        // Would this pick leave too few slots to still reach every role minimum? Without this check a
+        // player can fill up on batsmen and then find no legal XI is reachable, with nothing on screen
+        // explaining why — the maxima alone do not prevent it.
+        var after = {};
+        for (var r in counts) after[r] = counts[r];
+        after[p.role] = (after[p.role] || 0) + 1;
+        var need = 0;
+        for (var i = 0; i < ROLES.length; i++) {
+          var rl = bLimits()[ROLES[i]];
+          if (rl) need += Math.max(0, Number(rl.min) - (after[ROLES[i]] || 0));
+        }
+        if (need > bSize() - (bSel.length + 1)) {
+          return 'That would leave too few slots for the required roles.';
+        }
+        return null;
+      }
+
+      function bMinimumsMet() {
+        var counts = bRoleCounts();
+        for (var i = 0; i < ROLES.length; i++) {
+          var rl = bLimits()[ROLES[i]];
+          if (rl && (counts[ROLES[i]] || 0) < Number(rl.min)) return false;
+        }
+        return true;
+      }
+
+      function bIsComplete() {
+        return bSel.length === bSize() && bMinimumsMet()
           && bCaptain > 0 && bVice > 0 && bCaptain !== bVice
           && bCredits() <= bCap() + 0.001;
-    }
+      }
 
-    function bInitials(name) {
-      var parts = String(name || '').trim().split(/\s+/);
-      if (!parts.length) return '?';
-      if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
-      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    }
-    function bAvatar(p) {
-      // Colour by real team so the two sides are distinguishable at a glance.
-      var teamA = squadCache && squadCache.teams && squadCache.teams[0] ? squadCache.teams[0].name : '';
-      var bg = p.team_name === teamA ? 'var(--gold)' : 'var(--green)';
-      return '<div class="y11-avatar" style="background:' + bg + ';">' + esc(bInitials(p.name)) + '</div>';
-    }
+      function bInitials(name) {
+        var parts = String(name || '').trim().split(/\s+/);
+        if (!parts.length) return '?';
+        if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+      }
+      function bAvatar(p) {
+        // Colour by real team so the two sides are distinguishable at a glance.
+        var teamA = squadCache && squadCache.teams && squadCache.teams[0] ? squadCache.teams[0].name : '';
+        var bg = p.team_name === teamA ? 'var(--gold)' : 'var(--green)';
+        return '<div class="y11-avatar" style="background:' + bg + ';">' + esc(bInitials(p.name)) + '</div>';
+      }
 
-    function bRender() {
-      var counts = bRoleCounts();
-      var credits = bCredits();
+      function bRender() {
+        var counts = bRoleCounts();
+        var credits = bCredits();
 
-      $('builderCreditsUsed').textContent = credits.toFixed(1);
-      $('builderCreditsBudget').textContent = String(bCap());
-      $('builderCount').textContent = String(bSel.length);
+        $('builderCreditsUsed').textContent = credits.toFixed(1);
+        $('builderCreditsBudget').textContent = String(bCap());
+        $('builderCount').textContent = String(bSel.length);
 
-      // Role counter: a minimum not yet met reads in red, so what is missing is visible without
-      // pressing submit to find out.
-      $('builderRoleCounts').innerHTML = ROLES.map(function (r) {
-        var rl = bLimits()[r] || { min: 0, max: bSize() };
-        var n = counts[r] || 0;
-        var short = n < Number(rl.min);
-        return '<span class="y11-chip" style="' + (short ? 'color:var(--red);border-color:var(--red);' : '') + '">'
-             + r + ' ' + n + '<span style="opacity:.6;"> / ' + rl.min + '-' + rl.max + '</span></span>';
-      }).join('');
-
-      // Role filter chips.
-      $('builderRoleFilter').innerHTML = ['ALL_ROLES'].concat(ROLES).map(function (r) {
-        var label = r === 'ALL_ROLES' ? 'All' : r;
-        var active = bRoleFilter === r;
-        return '<button type="button" class="y11-chip" data-brole="' + r + '" style="cursor:pointer;'
-             + (active ? 'background:var(--gold-soft);border-color:var(--gold);color:var(--gold-deep);' : '')
-             + '">' + label + '</button>';
-      }).join('');
-
-      // Player list.
-      var list = bSquad.filter(function (p) { return bRoleFilter === 'ALL_ROLES' || p.role === bRoleFilter; });
-      $('builderPlayerList').innerHTML = list.map(function (p) {
-        var picked = bSel.indexOf(p.id) !== -1;
-        var reason = bBlockReason(p);
-        var blocked = !picked && reason !== null;
-        return '<div class="y11-player-row' + (picked ? ' selected' : '') + '" data-bpick="' + p.id + '"'
-          + (blocked ? ' data-blocked="' + esc(reason) + '" style="opacity:.42;"' : '') + '>'
-          + bAvatar(p)
-          + '<div class="y11-player-name">' + esc(p.name)
-          +   '<div class="y11-player-sub">' + esc(p.team_name) + ' &middot; ' + esc(p.role) + '</div>'
-          + '</div>'
-          + '<div class="y11-player-credits">' + Number(p.credits).toFixed(1) + '</div>'
-          + '</div>';
-      }).join('') || '<div class="y11-empty">No players in this role.</div>';
-
-      // Captain / vice-captain, only once the XI is full — picking them earlier just gets undone.
-      var cvc = $('builderCvcSection');
-      if (bSel.length === bSize()) {
-        cvc.style.display = '';
-        $('builderCvcGrid').innerHTML = bSel.map(function (id) {
-          var p = bPlayer(id);
-          if (!p) return '';
-          var cls = id === bCaptain ? ' captain' : (id === bVice ? ' vc' : '');
-          var tag = id === bCaptain ? 'C' : (id === bVice ? 'VC' : '&nbsp;');
-          return '<div class="y11-cvc-chip' + cls + '" data-bcvc="' + id + '">'
-               + bAvatar(p)
-               + '<span class="y11-tag">' + tag + '</span>'
-               + '</div>';
+        // Role counter: a minimum not yet met reads in red, so what is missing is visible without
+        // pressing submit to find out.
+        $('builderRoleCounts').innerHTML = ROLES.map(function (r) {
+          var rl = bLimits()[r] || { min: 0, max: bSize() };
+          var n = counts[r] || 0;
+          var short = n < Number(rl.min);
+          return '<span class="y11-chip" style="' + (short ? 'color:var(--red);border-color:var(--red);' : '') + '">'
+            + r + ' ' + n + '<span style="opacity:.6;"> / ' + rl.min + '-' + rl.max + '</span></span>';
         }).join('');
-      } else {
-        cvc.style.display = 'none';
-        $('builderCvcGrid').innerHTML = '';
-      }
 
-      var btn = $('builderSubmit');
-      btn.disabled = !bIsComplete();
-      btn.textContent = bEditingId ? 'Save changes' : 'Submit team';
-      if (bSel.length !== bSize()) {
-        btn.textContent = 'Pick ' + (bSize() - bSel.length) + ' more';
-      } else if (!bMinimumsMet()) {
-        btn.textContent = 'Role minimums not met';
-      } else if (!bCaptain || !bVice) {
-        btn.textContent = 'Choose a captain and vice-captain';
-      }
-    }
+        // Role filter chips.
+        $('builderRoleFilter').innerHTML = ['ALL_ROLES'].concat(ROLES).map(function (r) {
+          var label = r === 'ALL_ROLES' ? 'All' : r;
+          var active = bRoleFilter === r;
+          return '<button type="button" class="y11-chip" data-brole="' + r + '" style="cursor:pointer;'
+            + (active ? 'background:var(--gold-soft);border-color:var(--gold);color:var(--gold-deep);' : '')
+            + '">' + label + '</button>';
+        }).join('');
 
-    function bSetError(msg) {
-      var el = $('builderError');
-      el.textContent = msg || '';
-      el.style.display = msg ? '' : 'none';
-    }
+        // Player list.
+        var list = bSquad.filter(function (p) { return bRoleFilter === 'ALL_ROLES' || p.role === bRoleFilter; });
+        $('builderPlayerList').innerHTML = list.map(function (p) {
+          var picked = bSel.indexOf(p.id) !== -1;
+          var reason = bBlockReason(p);
+          var blocked = !picked && reason !== null;
+          return '<div class="y11-player-row' + (picked ? ' selected' : '') + '" data-bpick="' + p.id + '"'
+            + (blocked ? ' data-blocked="' + esc(reason) + '" style="opacity:.42;"' : '') + '>'
+            + bAvatar(p)
+            + '<div class="y11-player-name">' + esc(p.name)
+            + '<div class="y11-player-sub">' + esc(p.team_name) + ' &middot; ' + esc(p.role)
+            + (p.selected_by ? ' &middot; Sel by ' + p.selected_by + '%' : '') + playTag(p) + '</div>'
+            + '</div>'
+            + '<div class="y11-player-credits">' + Number(p.credits).toFixed(1) + '</div>'
+            + '</div>';
+        }).join('') || '<div class="y11-empty">No players in this role.</div>';
 
-    /**
-     * "Create team" only offers what the server would actually accept.
-     *
-     * Past the deadline it says so instead of opening a builder whose save is guaranteed to be
-     * refused, and a signed-out visitor is sent to the login overlay rather than filling in eleven
-     * players and only then discovering they need an account.
-     */
-    function updateCreateButton() {
-      var btn = $('createTeamBtn');
-      if (!btn || !squadCache) return;
-      var locked = squadCache.match.is_locked === true
-        || (Number(squadCache.match.seconds_to_lock) <= 0);
-      btn.disabled = locked;
-      btn.textContent = locked ? 'Entries closed'
-        : (typeof getCurrentUser === 'function' && !getCurrentUser() ? 'Log in to create a team'
-                                                                    : 'Create team');
-    }
-
-    function openBuilder(teamId) {
-      if (!squadCache) return;
-      if (typeof getCurrentUser === 'function' && !getCurrentUser()) {
-        if (window.openAuthModal) openAuthModal('login');
-        return;
-      }
-
-      // Flatten the grouped squad once; the grouped shape is for the tabbed squad list.
-      bSquad = [];
-      ROLES.forEach(function (r) {
-        (squadCache.players[r] || []).forEach(function (p) { bSquad.push(p); });
-      });
-
-      bSel = [];
-      bCaptain = 0;
-      bVice = 0;
-      bRoleFilter = 'ALL_ROLES';
-      bEditingId = teamId || null;
-      bSetError('');
-      $('builderTeamName').value = '';
-      $('builderTitle').textContent = bEditingId ? 'Edit your XI' : 'Build your XI';
-      $('builderModal').classList.add('active');
-      bRender();
-
-      if (!bEditingId) return;
-
-      // Editing: preload the saved XI. Done after opening so the modal is never blank-then-filled
-      // from the player's point of view.
-      apiGet('api/fantasy/teams/' + encodeURIComponent(bEditingId)).then(function (data) {
-        var t = data.team;
-        bSel = t.players.map(function (p) { return p.id; });
-        bCaptain = t.captain_player_id;
-        bVice = t.vice_captain_player_id;
-        $('builderTeamName').value = t.team_name;
-        bRender();
-      }).catch(function (err) {
-        bSetError('Could not load that team: ' + (err && err.message ? err.message : ''));
-      });
-    }
-
-    function closeBuilder() {
-      $('builderModal').classList.remove('active');
-    }
-
-    function submitTeam() {
-      if (!bIsComplete() || !squadCache) return;
-      var btn = $('builderSubmit');
-      btn.disabled = true;
-      bSetError('');
-
-      var path = bEditingId ? ('api/fantasy/teams/' + encodeURIComponent(bEditingId)) : 'api/fantasy/teams';
-      // Only ids go up. Credits and roles are read from the stored squad server-side.
-      fetch(path, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        cache: 'no-store',
-        body: JSON.stringify({
-          match_id: squadCache.match.id,
-          players: bSel,
-          captain_player_id: bCaptain,
-          vice_captain_player_id: bVice,
-          team_name: $('builderTeamName').value
-        })
-      }).then(function (res) {
-        return res.json().catch(function () { return null; }).then(function (data) {
-          if (!res.ok || !data || data.success !== true) {
-            throw new Error((data && data.error) || ('HTTP ' + res.status));
-          }
-          return data;
-        });
-      }).then(function () {
-        closeBuilder();
-        if (window.showToast) showToast(bEditingId ? 'Team updated.' : 'Team saved.', 'success');
-        return loadMyTeams();
-      }).catch(function (err) {
-        // The server's message is already a player-facing sentence, including the lock-time refusal,
-        // so it is shown as-is rather than replaced with something vaguer.
-        bSetError(err && err.message ? err.message : 'Could not save your team.');
-        bRender();
-      });
-    }
-
-    // ---------------------------------------------------------------------------------------------
-    // Contests
-    // ---------------------------------------------------------------------------------------------
-
-    var contestsCache = [];
-    var myTeamsCache = [];
-    var pendingContestId = 0;
-
-    function money(n) {
-      return '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
-    }
-
-    function contestCard(c) {
-      var pct = c.total_spots > 0 ? Math.min(100, (c.filled_spots / c.total_spots) * 100) : 0;
-      // Two pool figures: what is on the table now, and what it becomes if the contest fills. The
-      // headline is the full-house number because that is what the prize table is quoted against,
-      // with the live figure underneath so it is never mistaken for money already collected.
-      var joinLabel = c.has_entered ? 'Joined'
-                    : (c.is_full ? 'Full'
-                    : (c.entry_fee > 0 ? 'Join ' + money(c.entry_fee) : 'Join free'));
-      var disabled = c.has_entered || c.is_full || c.status !== 'OPEN';
-
-      return '<div class="y11-contest-card">'
-        + '<div class="y11-contest-fmt">' + esc(c.title) + '</div>'
-        + '<div class="y11-contest-pool">' + money(c.max_prize_pool) + '</div>'
-        + '<div class="y11-contest-row"><span>In the pool now</span><span>' + money(c.prize_pool) + '</span></div>'
-        + '<div class="y11-contest-row"><span>1st prize</span><span>'
-            + (c.first_prize > 0 ? money(c.first_prize) : '—') + '</span></div>'
-        + '<div class="y11-contest-row"><span>Entry</span><span>'
-            + (c.entry_fee > 0 ? money(c.entry_fee) : 'Free') + '</span></div>'
-        + '<div class="y11-contest-row"><span>Spots</span><span>'
-            + c.filled_spots + ' / ' + c.total_spots + '</span></div>'
-        + '<div class="y11-spot-bar"><span style="width:' + pct.toFixed(1) + '%;"></span></div>'
-        + '<button class="btn ' + (disabled ? 'btn-ghost' : 'btn-primary') + ' btn-block" type="button"'
-        +   ' data-join-contest="' + c.id + '"' + (disabled ? ' disabled' : '') + '>'
-        +   esc(joinLabel) + '</button>'
-        + '</div>';
-    }
-
-    function renderContests() {
-      var grid = $('contestGrid');
-      var empty = $('contestEmpty');
-      if (!contestsCache.length) {
-        grid.innerHTML = '';
-        empty.style.display = '';
-        return;
-      }
-      empty.style.display = 'none';
-      grid.innerHTML = contestsCache.map(contestCard).join('');
-    }
-
-    function loadContests() {
-      if (!squadCache) return Promise.resolve();
-      return apiGet('api/fantasy/matches/' + encodeURIComponent(squadCache.match.id) + '/contests')
-        .then(function (data) {
-          contestsCache = data.contests || [];
-          renderContests();
-        })
-        .catch(function (err) {
-          $('contestGrid').innerHTML = '<div class="y11-empty">Could not load contests. '
-            + esc(err && err.message ? err.message : '') + '</div>';
-          $('contestEmpty').style.display = 'none';
-        });
-    }
-
-    // --- joining ---------------------------------------------------------------------------------
-
-    function postJoin(contestId, teamId) {
-      return fetch('api/fantasy/contests/' + encodeURIComponent(contestId) + '/join', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        cache: 'no-store',
-        body: JSON.stringify({ team_id: teamId })
-      }).then(function (res) {
-        return res.json().catch(function () { return null; }).then(function (data) {
-          if (!res.ok || !data || data.success !== true) {
-            throw new Error((data && data.error) || ('HTTP ' + res.status));
-          }
-          return data;
-        });
-      }).then(function (data) {
-        // The endpoint returns the resulting balance, so the header updates immediately rather than
-        // waiting for whatever refresh happens next.
-        if (data.new_balance !== null && data.new_balance !== undefined && window.bet1xSetWallet) {
-          bet1xSetWallet(data.new_balance);
-        }
-        if (window.showToast) {
-          showToast(data.entry_fee > 0 ? ('Joined — ' + money(data.entry_fee) + ' paid.') : 'Joined.', 'success');
-        }
-        closePickTeam();
-        return Promise.all([loadContests(), loadMyTeams()]);
-      });
-    }
-
-    function closePickTeam() { $('pickTeamModal').classList.remove('active'); }
-
-    function openPickTeam(contestId) {
-      var c = null;
-      for (var i = 0; i < contestsCache.length; i++) if (contestsCache[i].id === contestId) c = contestsCache[i];
-      pendingContestId = contestId;
-      $('pickTeamError').textContent = '';
-      $('pickTeamError').style.display = 'none';
-      $('pickTeamContest').textContent = c
-        ? (c.title + ' · entry ' + (c.entry_fee > 0 ? money(c.entry_fee) : 'free'))
-        : '';
-      $('pickTeamList').innerHTML = myTeamsCache.map(function (t) {
-        return '<div class="y11-player-row" style="cursor:pointer;" data-pick-team="' + t.id + '">'
-          + '<div class="y11-player-main">'
-          +   '<div class="y11-player-name">' + esc(t.team_name) + '</div>'
-          +   '<div class="y11-player-meta">' + Number(t.total_credits).toFixed(1) + ' credits</div>'
-          + '</div>'
-          + '<span class="y11-player-credits">Select</span>'
-          + '</div>';
-      }).join('');
-      $('pickTeamModal').classList.add('active');
-    }
-
-    /**
-     * Joining needs a team, so the three states a player can be in are handled separately rather
-     * than failing at the server: no team at all opens the builder, exactly one team joins straight
-     * away, and several teams ask which.
-     */
-    function startJoin(contestId) {
-      if (typeof getCurrentUser === 'function' && !getCurrentUser()) {
-        if (window.openAuthModal) openAuthModal('login');
-        return;
-      }
-      if (!myTeamsCache.length) {
-        if (window.showToast) showToast('Create a team first.', 'info');
-        openBuilder(null);
-        return;
-      }
-      if (myTeamsCache.length === 1) {
-        postJoin(contestId, myTeamsCache[0].id).catch(function (err) {
-          if (window.showToast) showToast(err && err.message ? err.message : 'Could not join.', 'error');
-        });
-        return;
-      }
-      openPickTeam(contestId);
-    }
-
-    // ---------------------------------------------------------------------------------------------
-    // Points
-    // ---------------------------------------------------------------------------------------------
-
-    function fmtPts(n) {
-      var v = Number(n || 0);
-      // Points are halves at most (the 1.5x multiplier), so one decimal is exact and two would be
-      // noise. A trailing .0 is dropped so a whole number reads as a whole number.
-      return (Math.round(v * 10) / 10).toFixed(1).replace(/\.0$/, '');
-    }
-
-    /** The interesting figures for one player, as a short line. Omits anything they did not do. */
-    function statLine(s) {
-      if (!s) return '';
-      var bits = [];
-      if (s.did_bat || s.runs > 0 || s.balls > 0) {
-        bits.push(s.runs + (s.is_out ? '' : '*') + ' (' + s.balls + ')');
-        if (s.fours) bits.push(s.fours + '×4');
-        if (s.sixes) bits.push(s.sixes + '×6');
-      }
-      if (s.overs > 0 || s.wickets > 0) {
-        bits.push(s.wickets + '/' + s.runs_conceded + ' in ' + s.overs);
-        if (s.maidens) bits.push(s.maidens + ' md');
-      }
-      if (s.catches) bits.push(s.catches + ' ct');
-      if (s.stumpings) bits.push(s.stumpings + ' st');
-      if (s.runouts_direct || s.runouts_shared) bits.push((s.runouts_direct + s.runouts_shared) + ' ro');
-      return bits.join(' · ');
-    }
-
-    function renderScoreboard(data) {
-      var box = $('scoreboardBox');
-      var head = '';
-
-      // What the SOURCE says, kept visibly distinct from whether the contests have been settled —
-      // "the game is over" and "you have been paid" are different statements.
-      if (data.source_status) {
-        head += '<div class="y11-lb-banner">' + esc(data.source_status) + '</div>';
-      } else if (data.match.status === 'UPCOMING') {
-        head += '<div class="y11-lb-banner">This match has not started yet.</div>';
-      }
-      if (data.last_synced_at) {
-        // typeof, not a truthiness test: a bare undefined identifier throws a ReferenceError rather
-        // than being falsy, which would take the whole panel down if ui-common.js ever stopped
-        // exporting this.
-        head += '<div class="y11-fixture-meta" style="margin-bottom:10px;">Scores last updated '
-              + esc(typeof profileFmtDate === 'function'
-                    ? profileFmtDate(data.last_synced_at) : data.last_synced_at)
+        // Captain / vice-captain, only once the XI is full — picking them earlier just gets undone.
+        var cvc = $('builderCvcSection');
+        if (bSel.length === bSize()) {
+          cvc.style.display = '';
+          $('builderCvcGrid').innerHTML = bSel.map(function (id) {
+            var p = bPlayer(id);
+            if (!p) return '';
+            var cls = id === bCaptain ? ' captain' : (id === bVice ? ' vc' : '');
+            var tag = id === bCaptain ? 'C' : (id === bVice ? 'VC' : '&nbsp;');
+            return '<div class="y11-cvc-chip' + cls + '" data-bcvc="' + id + '">'
+              + bAvatar(p)
+              + '<span class="y11-tag">' + tag + '</span>'
               + '</div>';
+          }).join('');
+        } else {
+          cvc.style.display = 'none';
+          $('builderCvcGrid').innerHTML = '';
+        }
+
+        var btn = $('builderSubmit');
+        btn.disabled = !bIsComplete();
+        btn.textContent = bEditingId ? 'Save changes' : 'Submit team';
+        if (bSel.length !== bSize()) {
+          btn.textContent = 'Pick ' + (bSize() - bSel.length) + ' more';
+        } else if (!bMinimumsMet()) {
+          btn.textContent = 'Role minimums not met';
+        } else if (!bCaptain || !bVice) {
+          btn.textContent = 'Choose a captain and vice-captain';
+        }
       }
 
-      // The player's own teams first — that is what they came to look at.
-      var mine = '';
-      if (myTeamsCache.length) {
-        mine = '<h4 class="y11-sub-head">Your teams</h4>'
-          + myTeamsCache.map(function (t) {
+      function bSetError(msg) {
+        var el = $('builderError');
+        el.textContent = msg || '';
+        el.style.display = msg ? '' : 'none';
+      }
+
+      /**
+       * "Create team" only offers what the server would actually accept.
+       *
+       * Past the deadline it says so instead of opening a builder whose save is guaranteed to be
+       * refused, and a signed-out visitor is sent to the login overlay rather than filling in eleven
+       * players and only then discovering they need an account.
+       */
+      function updateCreateButton() {
+        var btn = $('createTeamBtn');
+        if (!btn || !squadCache) return;
+        var locked = squadCache.match.is_locked === true
+          || (Number(squadCache.match.seconds_to_lock) <= 0);
+        btn.disabled = locked;
+        btn.textContent = locked ? 'Entries closed'
+          : (typeof getCurrentUser === 'function' && !getCurrentUser() ? 'Log in to create a team'
+            : 'Create team');
+      }
+
+      function openBuilder(teamId) {
+        if (!squadCache) return;
+        if (typeof getCurrentUser === 'function' && !getCurrentUser()) {
+          if (window.openAuthModal) openAuthModal('login');
+          return;
+        }
+
+        // Flatten the grouped squad once; the grouped shape is for the tabbed squad list.
+        bSquad = [];
+        ROLES.forEach(function (r) {
+          (squadCache.players[r] || []).forEach(function (p) { bSquad.push(p); });
+        });
+
+        bSel = [];
+        bCaptain = 0;
+        bVice = 0;
+        bRoleFilter = 'ALL_ROLES';
+        bEditingId = teamId || null;
+        bSetError('');
+        $('builderTeamName').value = '';
+        $('builderTitle').textContent = bEditingId ? 'Edit your XI' : 'Build your XI';
+        $('builderModal').classList.add('active');
+        bRender();
+
+        if (!bEditingId) return;
+
+        // Editing: preload the saved XI. Done after opening so the modal is never blank-then-filled
+        // from the player's point of view.
+        apiGet('api/fantasy/teams/' + encodeURIComponent(bEditingId)).then(function (data) {
+          var t = data.team;
+          bSel = t.players.map(function (p) { return p.id; });
+          bCaptain = t.captain_player_id;
+          bVice = t.vice_captain_player_id;
+          $('builderTeamName').value = t.team_name;
+          bRender();
+        }).catch(function (err) {
+          bSetError('Could not load that team: ' + (err && err.message ? err.message : ''));
+        });
+      }
+
+      function closeBuilder() {
+        $('builderModal').classList.remove('active');
+      }
+
+      function submitTeam() {
+        if (!bIsComplete() || !squadCache) return;
+        var btn = $('builderSubmit');
+        btn.disabled = true;
+        bSetError('');
+
+        var path = bEditingId ? ('api/fantasy/teams/' + encodeURIComponent(bEditingId)) : 'api/fantasy/teams';
+        // Only ids go up. Credits and roles are read from the stored squad server-side.
+        fetch(path, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
+          body: JSON.stringify({
+            match_id: squadCache.match.id,
+            players: bSel,
+            captain_player_id: bCaptain,
+            vice_captain_player_id: bVice,
+            team_name: $('builderTeamName').value
+          })
+        }).then(function (res) {
+          return res.json().catch(function () { return null; }).then(function (data) {
+            if (!res.ok || !data || data.success !== true) {
+              throw new Error((data && data.error) || ('HTTP ' + res.status));
+            }
+            return data;
+          });
+        }).then(function () {
+          closeBuilder();
+          if (window.showToast) showToast(bEditingId ? 'Team updated.' : 'Team saved.', 'success');
+          return loadMyTeams();
+        }).catch(function (err) {
+          // The server's message is already a player-facing sentence, including the lock-time refusal,
+          // so it is shown as-is rather than replaced with something vaguer.
+          bSetError(err && err.message ? err.message : 'Could not save your team.');
+          bRender();
+        });
+      }
+
+      // ---------------------------------------------------------------------------------------------
+      // Contests
+      // ---------------------------------------------------------------------------------------------
+
+      var contestsCache = [];
+      var myTeamsCache = [];
+      var pendingContestId = 0;
+
+      function money(n) {
+        return '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+      }
+
+      function contestCard(c) {
+        var pct = c.total_spots > 0 ? Math.min(100, (c.filled_spots / c.total_spots) * 100) : 0;
+        var locked = squadCache && squadCache.match && squadCache.match.is_locked;
+        var mine = Number(c.my_entries || 0);
+        var maxPer = Number(c.max_entries_per_user || 1);
+        var canJoinMore = !c.is_full && c.status === 'OPEN' && !locked && mine < maxPer;
+        var joinLabel = locked ? (mine ? 'Joined' : 'Closed')
+          : (c.is_full ? 'Full'
+            : (mine >= maxPer ? 'Joined'
+              : ((mine ? 'Join again ' : 'Join ') + (c.entry_fee > 0 ? money(c.entry_fee) : 'free'))));
+
+        // The labels every fantasy app puts on a contest card.
+        var tags = [];
+        if (c.is_practice) tags.push('<span class="y11-ctag">Practice · no prizes</span>');
+        else if (c.is_guaranteed) tags.push('<span class="y11-ctag g">Guaranteed</span>');
+        else tags.push('<span class="y11-ctag f" title="Refunded in full if fewer than ' + c.min_entries + ' teams join">Flexible · min ' + c.min_entries + '</span>');
+        if (c.winners) tags.push('<span class="y11-ctag">🏆 ' + c.winners + ' winner' + (c.winners === 1 ? '' : 's') + '</span>');
+        tags.push('<span class="y11-ctag m">' + (maxPer > 1 ? 'Up to ' + maxPer + ' teams' : 'Single entry') + '</span>');
+
+        return '<div class="y11-contest-card">'
+          + '<div class="y11-contest-fmt">' + esc(c.title) + '</div>'
+          + '<div class="y11-ctags">' + tags.join('') + '</div>'
+          + '<div class="y11-contest-pool">' + (c.is_practice ? 'Free' : money(c.max_prize_pool)) + '</div>'
+          + (c.is_practice ? '' : '<div class="y11-contest-row"><span>In the pool now</span><span>' + money(c.prize_pool) + '</span></div>'
+            + '<div class="y11-contest-row"><span>1st prize</span><span>' + (c.first_prize > 0 ? money(c.first_prize) : '—') + '</span></div>')
+          + '<div class="y11-contest-row"><span>Entry</span><span>' + (c.entry_fee > 0 ? money(c.entry_fee) : 'Free') + '</span></div>'
+          + '<div class="y11-contest-row"><span>Spots</span><span>' + (c.total_spots - c.filled_spots) + ' left of ' + c.total_spots + '</span></div>'
+          + '<div class="y11-spot-bar"><span style="width:' + pct.toFixed(1) + '%;"></span></div>'
+          + '<button class="btn ' + (canJoinMore ? 'btn-primary' : 'btn-ghost') + ' btn-block" type="button"'
+          + ' data-join-contest="' + c.id + '"' + (canJoinMore ? '' : ' disabled') + '>' + esc(joinLabel) + '</button>'
+          + (mine ? '<div class="y11-joined-line"><span>Joined with ' + mine + ' team' + (mine === 1 ? '' : 's') + '</span>'
+            + (!locked ? '<button class="y11-linkbtn" type="button" data-switch-contest="' + c.id + '">Switch team</button>' : '') + '</div>' : '')
+          + '</div>';
+      }
+
+      function renderContests() {
+        var grid = $('contestGrid');
+        var empty = $('contestEmpty');
+        if (!contestsCache.length) {
+          grid.innerHTML = '';
+          empty.style.display = '';
+          return;
+        }
+        empty.style.display = 'none';
+        grid.innerHTML = contestsCache.map(contestCard).join('');
+      }
+
+      function loadContests() {
+        if (!squadCache) return Promise.resolve();
+        return apiGet('api/fantasy/matches/' + encodeURIComponent(squadCache.match.id) + '/contests')
+          .then(function (data) {
+            contestsCache = data.contests || [];
+            renderContests();
+          })
+          .catch(function (err) {
+            $('contestGrid').innerHTML = '<div class="y11-empty">Could not load contests. '
+              + esc(err && err.message ? err.message : '') + '</div>';
+            $('contestEmpty').style.display = 'none';
+          });
+      }
+
+      // --- joining ---------------------------------------------------------------------------------
+
+      function postJoin(contestId, teamId) {
+        return fetch('api/fantasy/contests/' + encodeURIComponent(contestId) + '/join', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
+          body: JSON.stringify({ team_id: teamId })
+        }).then(function (res) {
+          return res.json().catch(function () { return null; }).then(function (data) {
+            if (!res.ok || !data || data.success !== true) {
+              throw new Error((data && data.error) || ('HTTP ' + res.status));
+            }
+            return data;
+          });
+        }).then(function (data) {
+          // The endpoint returns the resulting balance, so the header updates immediately rather than
+          // waiting for whatever refresh happens next.
+          if (data.new_balance !== null && data.new_balance !== undefined) {
+            if (window.bet1xSetWallet) bet1xSetWallet(data.new_balance);
+            else if (typeof setWallet === 'function') setWallet(data.new_balance);
+          }
+          if (window.showToast) {
+            showToast(data.entry_fee > 0 ? ('Joined — ' + money(data.entry_fee) + ' paid.') : 'Joined.', 'success');
+          }
+          closePickTeam();
+          return Promise.all([loadContests(), loadMyTeams()]);
+        });
+      }
+
+      function closePickTeam() { $('pickTeamModal').classList.remove('active'); }
+
+      /**
+       * The payment confirmation every fantasy app shows before money moves: entry fee, balance, and
+       * the amount payable. Building a team is free; this is the one screen where the player commits
+       * money, so it is always shown, whether they have one team or several.
+       */
+      var pendingConfirm = null;
+      function confirmJoin(contestId, teamId) {
+        var c = contestsCache.filter(function (x) { return x.id === contestId; })[0];
+        var t = myTeamsCache.filter(function (x) { return x.id === teamId; })[0];
+        var fee = c ? Number(c.entry_fee) : 0;
+        var bal = typeof getWallet === 'function' ? getWallet() : 0;
+        pendingConfirm = { contestId: contestId, teamId: teamId };
+        $('cjContest').textContent = c ? c.title + ' · prize pool up to ' + money(c.max_prize_pool) : '';
+        $('cjTeam').textContent = t ? t.team_name : 'Team';
+        $('cjFee').textContent = fee > 0 ? money(fee) : 'Free';
+        $('cjBal').textContent = money(bal);
+        $('cjPay').textContent = fee > 0 ? money(fee) : '₹0';
+        var short = fee > bal;
+        $('cjNote').textContent = short ? 'Your balance is not enough for this entry. Add money to join.'
+          : (c && !c.is_guaranteed && !c.is_practice ? 'Flexible contest: refunded in full if fewer than ' + c.min_entries + ' teams join.' : '');
+        $('cjJoin').textContent = short ? 'Add money' : (fee > 0 ? 'Join Contest — pay ' + money(fee) : 'Join Contest');
+        $('cjJoin').disabled = false;
+        $('cjJoin').setAttribute('data-short', short ? '1' : '');
+        $('cjError').style.display = 'none';
+        $('confirmJoinModal').classList.add('active');
+      }
+      function closeConfirmJoin() { $('confirmJoinModal').classList.remove('active'); pendingConfirm = null; }
+
+      var pickMode = 'join';      // 'join' | 'switch'
+      var switchEntryId = 0;
+
+      /** This caller's entries on the open match, keyed by contest: which of their teams are already in. */
+      function loadMatchEntries() {
+        return apiGet('api/fantasy/my-entries?match_id=' + encodeURIComponent(squadCache.match.id))
+          .then(function (d) { return d.entries || []; })
+          .catch(function () { return []; });
+      }
+
+      function teamRows(usedTeamIds) {
+        return myTeamsCache.map(function (t) {
+          var used = usedTeamIds.indexOf(t.id) !== -1;
+          return '<div class="y11-player-row' + (used ? ' y11-pick-done' : '') + '" style="cursor:pointer;" data-pick-team="' + t.id + '"' + (used ? ' data-used="1"' : '') + '>'
+            + '<div class="y11-player-main">'
+            + '<div class="y11-player-name">' + esc(t.team_name) + '</div>'
+            + '<div class="y11-player-meta">' + Number(t.total_credits).toFixed(1) + ' credits</div>'
+            + '</div>'
+            + '<span class="y11-player-credits">' + (used ? 'Joined' : 'Select') + '</span>'
+            + '</div>';
+        }).join('');
+      }
+
+      function openPickTeam(contestId, mode) {
+        var c = null;
+        for (var i = 0; i < contestsCache.length; i++) if (contestsCache[i].id === contestId) c = contestsCache[i];
+        pendingContestId = contestId;
+        pickMode = mode || 'join';
+        switchEntryId = 0;
+        $('pickTeamError').textContent = '';
+        $('pickTeamError').style.display = 'none';
+        $('pickTeamList').innerHTML = '<div class="y11-empty">Loading…</div>';
+        $('pickTeamModal').classList.add('active');
+        loadMatchEntries().then(function (entries) {
+          var inThis = entries.filter(function (e) { return e.contest_id === contestId; });
+          var used = inThis.map(function (e) { return e.user_team_id; });
+          if (pickMode === 'switch') {
+            // One entry: switch it. Several: ask which entry first, the way the apps do.
+            if (inThis.length === 1) switchEntryId = inThis[0].id;
+            if (!switchEntryId) {
+              $('pickTeamContest').textContent = (c ? c.title : '') + ' · which entry do you want to change?';
+              $('pickTeamList').innerHTML = inThis.map(function (e) {
+                var t = myTeamsCache.filter(function (x) { return x.id === e.user_team_id; })[0];
+                return '<div class="y11-player-row" style="cursor:pointer;" data-switch-entry="' + e.id + '">'
+                  + '<div class="y11-player-main"><div class="y11-player-name">' + esc(t ? t.team_name : 'Team') + '</div>'
+                  + '<div class="y11-player-meta">Entry #' + e.id + '</div></div><span class="y11-player-credits">Change</span></div>';
+              }).join('');
+              return;
+            }
+            $('pickTeamContest').textContent = (c ? c.title : '') + ' · pick the team to use instead';
+          } else {
+            $('pickTeamContest').textContent = c ? (c.title + ' · entry ' + (c.entry_fee > 0 ? money(c.entry_fee) : 'free')
+              + (c.max_entries_per_user > 1 ? ' · up to ' + c.max_entries_per_user + ' teams' : '')) : '';
+          }
+          $('pickTeamList').innerHTML = teamRows(used)
+            + '<div style="margin-top:10px;"><button class="btn btn-ghost btn-block" type="button" data-pick-new="1">+ Create a new team</button></div>';
+        });
+      }
+
+      function postSwitch(entryId, teamId) {
+        return fetch('api/fantasy/entries/' + encodeURIComponent(entryId) + '/switch', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: 'no-store',
+          body: JSON.stringify({ team_id: teamId })
+        }).then(function (res) {
+          return res.json().catch(function () { return null; }).then(function (data) {
+            if (!res.ok || !data || data.success !== true) throw new Error((data && data.error) || ('HTTP ' + res.status));
+            if (window.showToast) showToast(data.unchanged ? 'That team is already in this entry.' : 'Team switched.', 'success');
+            closePickTeam();
+            return loadContests();
+          });
+        });
+      }
+
+      /**
+       * Joining needs a team, so the three states a player can be in are handled separately rather
+       * than failing at the server: no team at all opens the builder, exactly one team joins straight
+       * away, and several teams ask which.
+       */
+      function startJoin(contestId) {
+        if (typeof getCurrentUser === 'function' && !getCurrentUser()) {
+          if (window.openAuthModal) openAuthModal('login');
+          return;
+        }
+        if (!myTeamsCache.length) {
+          if (window.showToast) showToast('Create a team first.', 'info');
+          openBuilder(null);
+          return;
+        }
+        var cc = contestsCache.filter(function (x) { return x.id === contestId; })[0];
+        if (myTeamsCache.length === 1 && !(cc && cc.my_entries)) {
+          confirmJoin(contestId, myTeamsCache[0].id);
+          return;
+        }
+        openPickTeam(contestId);
+      }
+
+      // ---------------------------------------------------------------------------------------------
+      // Points
+      // ---------------------------------------------------------------------------------------------
+
+      function fmtPts(n) {
+        var v = Number(n || 0);
+        // Points are halves at most (the 1.5x multiplier), so one decimal is exact and two would be
+        // noise. A trailing .0 is dropped so a whole number reads as a whole number.
+        return (Math.round(v * 10) / 10).toFixed(1).replace(/\.0$/, '');
+      }
+
+      /** The interesting figures for one player, as a short line. Omits anything they did not do. */
+      function statLine(s) {
+        if (!s) return '';
+        var bits = [];
+        if (s.did_bat || s.runs > 0 || s.balls > 0) {
+          bits.push(s.runs + (s.is_out ? '' : '*') + ' (' + s.balls + ')');
+          if (s.fours) bits.push(s.fours + '×4');
+          if (s.sixes) bits.push(s.sixes + '×6');
+        }
+        if (s.overs > 0 || s.wickets > 0) {
+          bits.push(s.wickets + '/' + s.runs_conceded + ' in ' + s.overs);
+          if (s.maidens) bits.push(s.maidens + ' md');
+          if (s.dot_balls) bits.push(s.dot_balls + ' dots');
+        }
+        if (s.catches) bits.push(s.catches + ' ct');
+        if (s.stumpings) bits.push(s.stumpings + ' st');
+        if (s.runouts_direct || s.runouts_shared) bits.push((s.runouts_direct + s.runouts_shared) + ' ro');
+        return bits.join(' · ');
+      }
+
+      /** "Runs 41 · Boundary bonus 20 · …" — exactly how a total was made up, per the scoring table. */
+      function breakdownLine(bd) {
+        if (!bd) return '';
+        var parts = [];
+        for (var k in bd) if (Object.prototype.hasOwnProperty.call(bd, k)) parts.push(esc(k) + ' ' + (bd[k] > 0 ? '+' : '') + fmtPts(bd[k]));
+        return parts.length ? '<div class="y11-pbd">' + parts.join(' · ') + '</div>' : '';
+      }
+
+      function renderScoreboard(data) {
+        var box = $('scoreboardBox');
+        var head = '';
+
+        // What the SOURCE says, kept visibly distinct from whether the contests have been settled —
+        // "the game is over" and "you have been paid" are different statements.
+        if (data.source_status) {
+          head += '<div class="y11-lb-banner">' + esc(data.source_status) + '</div>';
+        } else if (data.match.status === 'UPCOMING') {
+          head += '<div class="y11-lb-banner">This match has not started yet.</div>';
+        }
+        if (data.last_synced_at) {
+          // typeof, not a truthiness test: a bare undefined identifier throws a ReferenceError rather
+          // than being falsy, which would take the whole panel down if ui-common.js ever stopped
+          // exporting this.
+          head += '<div class="y11-fixture-meta" style="margin-bottom:10px;">Scores last updated '
+            + esc(typeof profileFmtDate === 'function'
+              ? profileFmtDate(data.last_synced_at) : data.last_synced_at)
+            + '</div>';
+        }
+
+        // The player's own teams first — that is what they came to look at.
+        var mine = '';
+        if (myTeamsCache.length) {
+          mine = '<h4 class="y11-sub-head">Your teams</h4>'
+            + myTeamsCache.map(function (t) {
               return '<div class="y11-player-row" style="cursor:pointer;" data-team-points="' + t.id + '">'
                 + '<div class="y11-player-main">'
-                +   '<div class="y11-player-name">' + esc(t.team_name) + '</div>'
-                +   '<div class="y11-player-meta">Tap for the player-by-player breakdown</div>'
+                + '<div class="y11-player-name">' + esc(t.team_name) + '</div>'
+                + '<div class="y11-player-meta">Tap for the player-by-player breakdown</div>'
                 + '</div>'
                 + '<div class="y11-points-big">' + fmtPts(t.total_points) + '</div>'
                 + '</div>'
                 + '<div class="y11-breakdown" id="breakdown-' + t.id + '" hidden></div>';
             }).join('');
+        }
+
+        var players = data.players || [];
+        var board = '<h4 class="y11-sub-head">Every player in this match</h4>';
+        if (!players.length) {
+          board += '<div class="y11-empty">No scores yet. They appear once the match is under way.</div>';
+        } else {
+          board += players.map(function (p) {
+            return '<div class="y11-player-row">'
+              + '<div class="y11-player-main">'
+              + '<div class="y11-player-name">' + esc(p.name) + '</div>'
+              + '<div class="y11-player-meta">' + esc(p.team_name) + ' · ' + esc(p.role)
+              + (statLine(p.stats) ? ' · ' + esc(statLine(p.stats)) : '') + '</div>'
+              + breakdownLine(p.breakdown)
+              + '</div>'
+              + '<div class="y11-points-big">' + fmtPts(p.points) + '</div>'
+              + '</div>';
+          }).join('');
+        }
+
+        box.innerHTML = head + mine + board;
       }
 
-      var players = data.players || [];
-      var board = '<h4 class="y11-sub-head">Every player in this match</h4>';
-      if (!players.length) {
-        board += '<div class="y11-empty">No scores yet. They appear once the match is under way.</div>';
-      } else {
-        board += players.map(function (p) {
-          return '<div class="y11-player-row">'
-            + '<div class="y11-player-main">'
-            +   '<div class="y11-player-name">' + esc(p.name) + '</div>'
-            +   '<div class="y11-player-meta">' + esc(p.team_name) + ' · ' + esc(p.role)
-            +     (statLine(p.stats) ? ' · ' + esc(statLine(p.stats)) : '') + '</div>'
-            + '</div>'
-            + '<div class="y11-points-big">' + fmtPts(p.points) + '</div>'
-            + '</div>';
-        }).join('');
+      function loadScoreboard() {
+        if (!squadCache) return Promise.resolve();
+        $('scoreboardBox').innerHTML = '<div class="y11-empty">Loading…</div>';
+        // Teams first so their totals are current, then the board.
+        return loadMyTeams()
+          .then(function () {
+            return apiGet('api/fantasy/matches/' + encodeURIComponent(squadCache.match.id) + '/scoreboard');
+          })
+          .then(renderScoreboard)
+          .catch(function (err) {
+            $('scoreboardBox').innerHTML = '<div class="y11-empty">Could not load scores. '
+              + esc(err && err.message ? err.message : '') + '</div>';
+          });
       }
 
-      box.innerHTML = head + mine + board;
-    }
+      /**
+       * One team's breakdown, fetched only when asked for.
+       *
+       * Shows each player's base points, their multiplier and the result, because a total nobody can
+       * take apart is a total nobody can check — and the armband is exactly where a player will want to
+       * see the arithmetic.
+       */
+      function toggleTeamBreakdown(teamId) {
+        var box = $('breakdown-' + teamId);
+        if (!box) return;
+        if (!box.hidden) { box.hidden = true; return; }
+        box.hidden = false;
+        box.innerHTML = '<div class="y11-empty">Loading…</div>';
 
-    function loadScoreboard() {
-      if (!squadCache) return Promise.resolve();
-      $('scoreboardBox').innerHTML = '<div class="y11-empty">Loading…</div>';
-      // Teams first so their totals are current, then the board.
-      return loadMyTeams()
-        .then(function () {
-          return apiGet('api/fantasy/matches/' + encodeURIComponent(squadCache.match.id) + '/scoreboard');
-        })
-        .then(renderScoreboard)
-        .catch(function (err) {
-          $('scoreboardBox').innerHTML = '<div class="y11-empty">Could not load scores. '
+        apiGet('api/fantasy/teams/' + encodeURIComponent(teamId) + '/points').then(function (data) {
+          box.innerHTML = data.players.map(function (p) {
+            var tag = p.is_captain ? '<span class="y11-arm c">C</span>'
+              : (p.is_vice_captain ? '<span class="y11-arm vc">VC</span>' : '');
+            var maths = p.multiplier !== 1
+              ? fmtPts(p.base_points) + ' × ' + p.multiplier
+              : '';
+            return '<div class="y11-bd-row">'
+              + '<span class="y11-bd-name">' + esc(p.name) + tag + '</span>'
+              + '<span class="y11-bd-maths">' + maths + '</span>'
+              + '<span class="y11-bd-pts">' + fmtPts(p.points) + '</span>'
+              + '</div>';
+          }).join('')
+            + '<div class="y11-bd-row y11-bd-total"><span class="y11-bd-name">Total</span>'
+            + '<span class="y11-bd-maths"></span>'
+            + '<span class="y11-bd-pts">' + fmtPts(data.total) + '</span></div>';
+        }).catch(function (err) {
+          box.innerHTML = '<div class="y11-empty">Could not load the breakdown. '
             + esc(err && err.message ? err.message : '') + '</div>';
         });
-    }
+      }
 
-    /**
-     * One team's breakdown, fetched only when asked for.
-     *
-     * Shows each player's base points, their multiplier and the result, because a total nobody can
-     * take apart is a total nobody can check — and the armband is exactly where a player will want to
-     * see the arithmetic.
-     */
-    function toggleTeamBreakdown(teamId) {
-      var box = $('breakdown-' + teamId);
-      if (!box) return;
-      if (!box.hidden) { box.hidden = true; return; }
-      box.hidden = false;
-      box.innerHTML = '<div class="y11-empty">Loading…</div>';
+      // ---------------------------------------------------------------------------------------------
+      // Leaderboard
+      // ---------------------------------------------------------------------------------------------
 
-      apiGet('api/fantasy/teams/' + encodeURIComponent(teamId) + '/points').then(function (data) {
-        box.innerHTML = data.players.map(function (p) {
-          var tag = p.is_captain ? '<span class="y11-arm c">C</span>'
-                  : (p.is_vice_captain ? '<span class="y11-arm vc">VC</span>' : '');
-          var maths = p.multiplier !== 1
-            ? fmtPts(p.base_points) + ' × ' + p.multiplier
-            : '';
-          return '<div class="y11-bd-row">'
-            + '<span class="y11-bd-name">' + esc(p.name) + tag + '</span>'
-            + '<span class="y11-bd-maths">' + maths + '</span>'
-            + '<span class="y11-bd-pts">' + fmtPts(p.points) + '</span>'
-            + '</div>';
-        }).join('')
-        + '<div class="y11-bd-row y11-bd-total"><span class="y11-bd-name">Total</span>'
-        + '<span class="y11-bd-maths"></span>'
-        + '<span class="y11-bd-pts">' + fmtPts(data.total) + '</span></div>';
-      }).catch(function (err) {
-        box.innerHTML = '<div class="y11-empty">Could not load the breakdown. '
-          + esc(err && err.message ? err.message : '') + '</div>';
-      });
-    }
+      function renderLeaderboard(data) {
+        var box = $('leaderboardBox');
+        var me = (typeof getCurrentUser === 'function' && getCurrentUser())
+          ? String(getCurrentUser().username).toLowerCase() : '';
 
-    // ---------------------------------------------------------------------------------------------
-    // Leaderboard
-    // ---------------------------------------------------------------------------------------------
-
-    function renderLeaderboard(data) {
-      var box = $('leaderboardBox');
-      var me = (typeof getCurrentUser === 'function' && getCurrentUser())
-        ? String(getCurrentUser().username).toLowerCase() : '';
-
-      // Provisional standings must not be mistaken for the final result. Saying which it is, plainly,
-      // is the difference between a projection and a promise.
-      var banner = data.provisional
-        ? '<div class="y11-lb-banner">Provisional — these standings update while the match is on, and'
+        // Provisional standings must not be mistaken for the final result. Saying which it is, plainly,
+        // is the difference between a projection and a promise.
+        var banner = data.provisional
+          ? '<div class="y11-lb-banner">Provisional — these standings update while the match is on, and'
           + ' prizes are only final once the contest is settled.</div>'
-        : '<div class="y11-lb-banner settled">Settled — these are the ranks and prizes that were'
+          : '<div class="y11-lb-banner settled">Settled — these are the ranks and prizes that were'
           + ' paid.</div>';
 
-      var pool = data.pool || {};
-      var meta = '<div class="y11-fixture-meta" style="margin-bottom:10px;">'
-        + esc(data.contest.title) + ' · prize pool ' + money(pool.prize_pool || 0)
-        + ' · ' + data.total_entries + ' of ' + data.contest.total_spots + ' spots'
-        + (data.contest.min_entries > 0 && !data.contest.meets_minimum
+        var pool = data.pool || {};
+        var meta = '<div class="y11-fixture-meta" style="margin-bottom:10px;">'
+          + esc(data.contest.title) + ' · prize pool ' + money(pool.prize_pool || 0)
+          + ' · ' + data.total_entries + ' of ' + data.contest.total_spots + ' spots'
+          + (data.contest.min_entries > 0 && !data.contest.meets_minimum
             ? ' · <span style="color:var(--red);">needs ' + data.contest.min_entries
-              + ' entries or fees are refunded</span>'
+            + ' entries or fees are refunded</span>'
             : '')
-        + '</div>';
-
-      if (!data.entries.length) {
-        box.innerHTML = banner + meta + '<div class="y11-empty">Nobody has joined this contest yet.</div>';
-        return;
-      }
-
-      var rows = data.entries.map(function (e) {
-        var isMe = me !== '' && String(e.username).toLowerCase() === me;
-        return '<div class="y11-player-row' + (isMe ? ' y11-me' : '') + '">'
-          + '<span class="y11-lb-rank">' + (e.rank === null ? '—' : '#' + e.rank) + '</span>'
-          + '<div class="y11-player-main">'
-          +   '<div class="y11-player-name">' + esc(e.team_name) + (isMe ? ' (you)' : '') + '</div>'
-          +   '<div class="y11-player-meta">' + esc(e.username) + '</div>'
-          + '</div>'
-          + '<span class="y11-lb-prize">' + (e.prize > 0 ? money(e.prize) : '—') + '</span>'
-          + '<span class="y11-points-big">' + fmtPts(e.points) + '</span>'
           + '</div>';
-      }).join('');
 
-      box.innerHTML = banner + meta + rows;
-    }
+        if (!data.entries.length) {
+          box.innerHTML = banner + meta + '<div class="y11-empty">Nobody has joined this contest yet.</div>';
+          return;
+        }
 
-    function loadLeaderboard(contestId) {
-      if (!contestId) {
-        $('leaderboardBox').innerHTML =
-          '<div class="y11-empty">Pick a contest to see its standings.</div>';
-        return Promise.resolve();
+        var rows = data.entries.map(function (e) {
+          var isMe = me !== '' && String(e.username).toLowerCase() === me;
+          return '<div class="y11-player-row y11-lb-click' + (isMe ? ' y11-me' : '') + '" data-entry-team="' + e.id + '" title="View this team">'
+            + '<span class="y11-lb-rank">' + (e.rank === null ? '—' : '#' + e.rank) + '</span>'
+            + '<div class="y11-player-main">'
+            + '<div class="y11-player-name">' + esc(e.team_name) + (isMe ? ' (you)' : '') + '</div>'
+            + '<div class="y11-player-meta">' + esc(e.username) + '</div>'
+            + '</div>'
+            + '<span class="y11-lb-prize">' + (e.prize > 0 ? money(e.prize) : '—') + '</span>'
+            + '<span class="y11-points-big">' + fmtPts(e.points) + '</span>'
+            + '</div>';
+        }).join('');
+
+        box.innerHTML = banner + meta + rows;
       }
-      $('leaderboardBox').innerHTML = '<div class="y11-empty">Loading…</div>';
-      return apiGet('api/fantasy/contests/' + encodeURIComponent(contestId) + '/leaderboard?limit=200')
-        .then(renderLeaderboard)
-        .catch(function (err) {
-          $('leaderboardBox').innerHTML = '<div class="y11-empty">Could not load the leaderboard. '
-            + esc(err && err.message ? err.message : '') + '</div>';
+
+      function openTeamView(entryId) {
+        $('teamViewTitle').textContent = 'Team';
+        $('teamViewMeta').textContent = '';
+        $('teamViewBody').innerHTML = '<div class="y11-empty">Loading…</div>';
+        $('teamViewModal').classList.add('active');
+        apiGet('api/fantasy/entries/' + encodeURIComponent(entryId) + '/team').then(function (d) {
+          $('teamViewTitle').textContent = d.team_name + ' · ' + d.username;
+          $('teamViewMeta').textContent = (d.rank ? 'Rank #' + d.rank + ' · ' : '') + fmtPts(d.total) + ' points';
+          var order = { WK: 0, BAT: 1, ALL: 2, BOWL: 3 };
+          var ps = d.players.slice().sort(function (a, b) { return (order[a.role] - order[b.role]) || (b.points - a.points); });
+          $('teamViewBody').innerHTML = ps.map(function (p) {
+            var tag = p.is_captain ? '<span class="y11-arm c">C</span>' : (p.is_vice_captain ? '<span class="y11-arm vc">VC</span>' : '');
+            return '<div class="y11-tv-row"><span>' + esc(p.name) + tag + ' <span class="y11-sel">' + esc(p.role) + '</span></span><b>' + fmtPts(p.points) + '</b></div>';
+          }).join('');
+        }).catch(function (err) {
+          $('teamViewBody').innerHTML = '<div class="y11-empty">' + esc(err && err.message ? err.message : 'Not available yet.') + '</div>';
         });
-    }
-
-    /** Fill the contest picker, putting the ones the player is actually in at the top. */
-    function fillContestPicker() {
-      var sel = $('lbContestSelect');
-      if (!contestsCache.length) {
-        sel.innerHTML = '<option value="">No contests on this match</option>';
-        return '';
-      }
-      var mine = contestsCache.filter(function (c) { return c.has_entered; });
-      var rest = contestsCache.filter(function (c) { return !c.has_entered; });
-      var opt = function (c) {
-        return '<option value="' + c.id + '">' + esc(c.title)
-             + (c.has_entered ? ' — you are in this' : '')
-             + ' (' + c.filled_spots + '/' + c.total_spots + ')</option>';
-      };
-      sel.innerHTML = mine.map(opt).join('') + rest.map(opt).join('');
-      var first = (mine[0] || rest[0]);
-      return first ? String(first.id) : '';
-    }
-
-    // ---------------------------------------------------------------------------------------------
-    // Tabs
-    // ---------------------------------------------------------------------------------------------
-
-    var pickerFilled = false;
-
-    function showTab(name) {
-      var tabs = document.querySelectorAll('.y11-tabs .y11-tab');
-      for (var i = 0; i < tabs.length; i++) {
-        tabs[i].classList.toggle('active', tabs[i].getAttribute('data-tab') === name);
-      }
-      var map = {
-        contests: 'panelContests', squad: 'panelSquad',
-        points: 'panelPoints', leaderboard: 'panelLeaderboard'
-      };
-      for (var key in map) {
-        var el = $(map[key]);
-        if (el) el.classList.toggle('active', key === name);
       }
 
-      // The scoreboard and the leaderboard are extra requests, so they are made when someone actually
-      // opens the tab rather than on every match view. They DO reload on each visit, because both
-      // change while the match is on and a stale board is worse than a moment's wait.
-      if (name === 'points') loadScoreboard();
-      if (name === 'leaderboard') {
+      // ---------------------------------------------------------------------------------------------
+      // My Matches
+      // ---------------------------------------------------------------------------------------------
+      var myMatchesCache = null, myMatchesTab = 'upcoming';
+
+      function renderMyMatches() {
+        if (!myMatchesCache) return;
+        var total = myMatchesCache.upcoming.length + myMatchesCache.live.length + myMatchesCache.completed.length;
+        $('myMatchesBox').style.display = total ? '' : 'none';
+        if (!total) return;
+        var list = myMatchesCache[myMatchesTab] || [];
+        $('myMatchesList').innerHTML = list.length ? list.map(function (m) {
+          var line = myMatchesTab === 'completed'
+            ? (m.status === 'CANCELLED' ? 'Cancelled — entry fees refunded' : (m.my_winnings > 0 ? 'You won ' + money(m.my_winnings) : 'No winnings'))
+            : (m.my_teams + ' team' + (m.my_teams === 1 ? '' : 's') + ' · ' + m.my_contests + ' contest' + (m.my_contests === 1 ? '' : 's'));
+          return '<div class="y11-mm-card" data-mm-match="' + m.id + '">'
+            + '<div class="t">' + esc(m.team_a_short || m.team_a) + ' vs ' + esc(m.team_b_short || m.team_b) + '</div>'
+            + '<div class="s">' + esc(m.match_status_text || m.series_name || '') + '</div>'
+            + '<div class="' + (myMatchesTab === 'completed' && m.my_winnings > 0 ? 'w' : 's') + '">' + esc(line) + '</div></div>';
+        }).join('') : '<div class="y11-empty">Nothing here.</div>';
+      }
+
+      function loadMyMatches() {
+        if (typeof getCurrentUser === 'function' && !getCurrentUser()) return Promise.resolve();
+        return apiGet('api/fantasy/my-matches').then(function (d) {
+          myMatchesCache = d;
+          if (!d[myMatchesTab].length) {
+            myMatchesTab = d.live.length ? 'live' : (d.upcoming.length ? 'upcoming' : 'completed');
+            var bs = document.querySelectorAll('#myMatchesTabs button');
+            for (var i = 0; i < bs.length; i++) bs[i].classList.toggle('active', bs[i].getAttribute('data-mm') === myMatchesTab);
+          }
+          renderMyMatches();
+        }).catch(function () {});
+      }
+
+      function loadLeaderboard(contestId) {
+        if (!contestId) {
+          $('leaderboardBox').innerHTML =
+            '<div class="y11-empty">Pick a contest to see its standings.</div>';
+          return Promise.resolve();
+        }
+        $('leaderboardBox').innerHTML = '<div class="y11-empty">Loading…</div>';
+        return apiGet('api/fantasy/contests/' + encodeURIComponent(contestId) + '/leaderboard?limit=200')
+          .then(renderLeaderboard)
+          .catch(function (err) {
+            $('leaderboardBox').innerHTML = '<div class="y11-empty">Could not load the leaderboard. '
+              + esc(err && err.message ? err.message : '') + '</div>';
+          });
+      }
+
+      /** Fill the contest picker, putting the ones the player is actually in at the top. */
+      function fillContestPicker() {
         var sel = $('lbContestSelect');
-        if (!pickerFilled) {
-          var first = fillContestPicker();
-          if (first) sel.value = first;
-          pickerFilled = true;
+        if (!contestsCache.length) {
+          sel.innerHTML = '<option value="">No contests on this match</option>';
+          return '';
         }
-        loadLeaderboard(sel.value);
-      }
-    }
-
-    // ---------------------------------------------------------------------------------------------
-    // Routing and wiring
-    // ---------------------------------------------------------------------------------------------
-
-    function route() {
-      var hash = String(window.location.hash || '');
-      var m = hash.match(/^#match\/(\d+)$/);
-      if (m) { openMatch(m[1]); return; }
-      showFixtures();
-    }
-
-    document.addEventListener('DOMContentLoaded', function () {
-      // These belong to the private-contest phase; hidden rather than left as dead buttons.
-      ['joinByCodeBtnTop', 'joinByCodeBtn', 'createPrivateBtn'].forEach(function (id) {
-        var el = $(id);
-        if (el) el.hidden = true;
-      });
-
-      // Card taps (and keyboard activation, since the cards are focusable).
-      $('fixtureGrid').addEventListener('click', function (e) {
-        var card = e.target.closest ? e.target.closest('.y11-fixture-card') : null;
-        if (card) window.location.hash = '#match/' + card.getAttribute('data-match-id');
-      });
-      $('fixtureGrid').addEventListener('keydown', function (e) {
-        if (e.key !== 'Enter' && e.key !== ' ') return;
-        var card = e.target.closest ? e.target.closest('.y11-fixture-card') : null;
-        if (card) { e.preventDefault(); window.location.hash = '#match/' + card.getAttribute('data-match-id'); }
-      });
-
-      $('roleTabs').addEventListener('click', function (e) {
-        var btn = e.target.closest ? e.target.closest('.y11-role-tab') : null;
-        if (!btn || !squadCache) return;
-        activeRole = btn.getAttribute('data-role');
-        renderRoleTabs();
-        renderSquadList();
-      });
-
-      // --- builder ---------------------------------------------------------------------------
-      $('createTeamBtn').addEventListener('click', function () { openBuilder(null); });
-
-      $('myTeamsBox').addEventListener('click', function (e) {
-        var btn = e.target.closest ? e.target.closest('[data-edit-team]') : null;
-        if (btn) openBuilder(parseInt(btn.getAttribute('data-edit-team'), 10));
-      });
-
-      $('builderClose').addEventListener('click', closeBuilder);
-      // Clicking the backdrop closes; clicking inside the card must not.
-      $('builderModal').addEventListener('click', function (e) {
-        if (e.target === $('builderModal')) closeBuilder();
-      });
-
-      $('builderRoleFilter').addEventListener('click', function (e) {
-        var btn = e.target.closest ? e.target.closest('[data-brole]') : null;
-        if (!btn) return;
-        bRoleFilter = btn.getAttribute('data-brole');
-        bRender();
-      });
-
-      $('builderPlayerList').addEventListener('click', function (e) {
-        var row = e.target.closest ? e.target.closest('[data-bpick]') : null;
-        if (!row) return;
-        var id = parseInt(row.getAttribute('data-bpick'), 10);
-        var p = bPlayer(id);
-        if (!p) return;
-        var idx = bSel.indexOf(id);
-        if (idx !== -1) {
-          bSel.splice(idx, 1);
-          // A dropped player cannot stay captain or vice-captain.
-          if (bCaptain === id) bCaptain = 0;
-          if (bVice === id) bVice = 0;
-          bSetError('');
-        } else {
-          var reason = bBlockReason(p);
-          if (reason) { bSetError(reason); return; }
-          bSel.push(id);
-          bSetError('');
-        }
-        bRender();
-      });
-
-      $('builderCvcGrid').addEventListener('click', function (e) {
-        var chip = e.target.closest ? e.target.closest('[data-bcvc]') : null;
-        if (!chip) return;
-        var id = parseInt(chip.getAttribute('data-bcvc'), 10);
-        if (bSel.indexOf(id) === -1) return;
-        // Tap once for captain, again on the same player for vice-captain, again to clear.
-        if (bCaptain === id)   { bCaptain = 0; bVice = id; }
-        else if (bVice === id) { bVice = 0; }
-        else                   { bCaptain = id; }
-        if (bCaptain !== 0 && bCaptain === bVice) bVice = 0;
-        bRender();
-      });
-
-      $('builderSubmit').addEventListener('click', submitTeam);
-
-      // --- points and leaderboard ------------------------------------------------------------
-      $('scoreboardBox').addEventListener('click', function (e) {
-        var row = e.target.closest ? e.target.closest('[data-team-points]') : null;
-        if (row) toggleTeamBreakdown(parseInt(row.getAttribute('data-team-points'), 10));
-      });
-      $('lbContestSelect').addEventListener('change', function () {
-        loadLeaderboard(this.value);
-      });
-
-      // --- tabs and contests -----------------------------------------------------------------
-      var tabBar = document.querySelector('.y11-tabs');
-      if (tabBar) {
-        tabBar.addEventListener('click', function (e) {
-          var btn = e.target.closest ? e.target.closest('.y11-tab') : null;
-          if (!btn || btn.hidden) return;
-          showTab(btn.getAttribute('data-tab'));
-        });
+        var mine = contestsCache.filter(function (c) { return c.has_entered; });
+        var rest = contestsCache.filter(function (c) { return !c.has_entered; });
+        var opt = function (c) {
+          return '<option value="' + c.id + '">' + esc(c.title)
+            + (c.has_entered ? ' — you are in this' : '')
+            + ' (' + c.filled_spots + '/' + c.total_spots + ')</option>';
+        };
+        sel.innerHTML = mine.map(opt).join('') + rest.map(opt).join('');
+        var first = (mine[0] || rest[0]);
+        return first ? String(first.id) : '';
       }
 
-      $('contestGrid').addEventListener('click', function (e) {
-        var btn = e.target.closest ? e.target.closest('[data-join-contest]') : null;
-        if (!btn || btn.disabled) return;
-        startJoin(parseInt(btn.getAttribute('data-join-contest'), 10));
-      });
+      // ---------------------------------------------------------------------------------------------
+      // Tabs
+      // ---------------------------------------------------------------------------------------------
 
-      $('pickTeamClose').addEventListener('click', closePickTeam);
-      $('pickTeamModal').addEventListener('click', function (e) {
-        if (e.target === $('pickTeamModal')) closePickTeam();
-      });
-      $('pickTeamList').addEventListener('click', function (e) {
-        var row = e.target.closest ? e.target.closest('[data-pick-team]') : null;
-        if (!row || !pendingContestId) return;
-        var teamId = parseInt(row.getAttribute('data-pick-team'), 10);
-        postJoin(pendingContestId, teamId).catch(function (err) {
-          var el = $('pickTeamError');
-          el.textContent = err && err.message ? err.message : 'Could not join.';
-          el.style.display = '';
+      var pickerFilled = false;
+
+      function showTab(name) {
+        var tabs = document.querySelectorAll('.y11-tabs .y11-tab');
+        for (var i = 0; i < tabs.length; i++) {
+          tabs[i].classList.toggle('active', tabs[i].getAttribute('data-tab') === name);
+        }
+        var map = {
+          contests: 'panelContests', squad: 'panelSquad',
+          points: 'panelPoints', leaderboard: 'panelLeaderboard'
+        };
+        for (var key in map) {
+          var el = $(map[key]);
+          if (el) el.classList.toggle('active', key === name);
+        }
+
+        // The scoreboard and the leaderboard are extra requests, so they are made when someone actually
+        // opens the tab rather than on every match view. They DO reload on each visit, because both
+        // change while the match is on and a stale board is worse than a moment's wait.
+        if (name === 'points') loadScoreboard();
+        if (name === 'leaderboard') {
+          var sel = $('lbContestSelect');
+          if (!pickerFilled) {
+            var first = fillContestPicker();
+            if (first) sel.value = first;
+            pickerFilled = true;
+          }
+          loadLeaderboard(sel.value);
+        }
+      }
+
+      // ---------------------------------------------------------------------------------------------
+      // Routing and wiring
+      // ---------------------------------------------------------------------------------------------
+
+      function route() {
+        var hash = String(window.location.hash || '');
+        var m = hash.match(/^#match\/(\d+)$/);
+        if (m) { openMatch(m[1]); return; }
+        showFixtures();
+      }
+
+      document.addEventListener('DOMContentLoaded', function () {
+        // These belong to the private-contest phase; hidden rather than left as dead buttons.
+        ['joinByCodeBtnTop', 'joinByCodeBtn', 'createPrivateBtn'].forEach(function (id) {
+          var el = $(id);
+          // display:none rather than [hidden]: the .btn rule's display wins over the hidden attribute.
+          if (el) { el.hidden = true; el.style.display = 'none'; }
         });
+
+        // Card taps (and keyboard activation, since the cards are focusable).
+        $('fixtureGrid').addEventListener('click', function (e) {
+          var card = e.target.closest ? e.target.closest('.y11-fixture-card') : null;
+          if (card) window.location.hash = '#match/' + card.getAttribute('data-match-id');
+        });
+        $('fixtureGrid').addEventListener('keydown', function (e) {
+          if (e.key !== 'Enter' && e.key !== ' ') return;
+          var card = e.target.closest ? e.target.closest('.y11-fixture-card') : null;
+          if (card) { e.preventDefault(); window.location.hash = '#match/' + card.getAttribute('data-match-id'); }
+        });
+
+        $('roleTabs').addEventListener('click', function (e) {
+          var btn = e.target.closest ? e.target.closest('.y11-role-tab') : null;
+          if (!btn || !squadCache) return;
+          activeRole = btn.getAttribute('data-role');
+          renderRoleTabs();
+          renderSquadList();
+        });
+
+        // --- builder ---------------------------------------------------------------------------
+        $('createTeamBtn').addEventListener('click', function () { openBuilder(null); });
+
+        $('myTeamsBox').addEventListener('click', function (e) {
+          var btn = e.target.closest ? e.target.closest('[data-edit-team]') : null;
+          if (btn) openBuilder(parseInt(btn.getAttribute('data-edit-team'), 10));
+        });
+
+        $('builderClose').addEventListener('click', closeBuilder);
+        // Clicking the backdrop closes; clicking inside the card must not.
+        $('builderModal').addEventListener('click', function (e) {
+          if (e.target === $('builderModal')) closeBuilder();
+        });
+
+        $('builderRoleFilter').addEventListener('click', function (e) {
+          var btn = e.target.closest ? e.target.closest('[data-brole]') : null;
+          if (!btn) return;
+          bRoleFilter = btn.getAttribute('data-brole');
+          bRender();
+        });
+
+        $('builderPlayerList').addEventListener('click', function (e) {
+          var row = e.target.closest ? e.target.closest('[data-bpick]') : null;
+          if (!row) return;
+          var id = parseInt(row.getAttribute('data-bpick'), 10);
+          var p = bPlayer(id);
+          if (!p) return;
+          var idx = bSel.indexOf(id);
+          if (idx !== -1) {
+            bSel.splice(idx, 1);
+            // A dropped player cannot stay captain or vice-captain.
+            if (bCaptain === id) bCaptain = 0;
+            if (bVice === id) bVice = 0;
+            bSetError('');
+          } else {
+            var reason = bBlockReason(p);
+            if (reason) { bSetError(reason); return; }
+            bSel.push(id);
+            bSetError('');
+          }
+          bRender();
+        });
+
+        $('builderCvcGrid').addEventListener('click', function (e) {
+          var chip = e.target.closest ? e.target.closest('[data-bcvc]') : null;
+          if (!chip) return;
+          var id = parseInt(chip.getAttribute('data-bcvc'), 10);
+          if (bSel.indexOf(id) === -1) return;
+          // Tap once for captain, again on the same player for vice-captain, again to clear.
+          if (bCaptain === id) { bCaptain = 0; bVice = id; }
+          else if (bVice === id) { bVice = 0; }
+          else { bCaptain = id; }
+          if (bCaptain !== 0 && bCaptain === bVice) bVice = 0;
+          bRender();
+        });
+
+        $('builderSubmit').addEventListener('click', submitTeam);
+
+        // --- points and leaderboard ------------------------------------------------------------
+        $('scoreboardBox').addEventListener('click', function (e) {
+          var row = e.target.closest ? e.target.closest('[data-team-points]') : null;
+          if (row) toggleTeamBreakdown(parseInt(row.getAttribute('data-team-points'), 10));
+        });
+        $('leaderboardBox').addEventListener('click', function (e) {
+          var row = e.target.closest ? e.target.closest('[data-entry-team]') : null;
+          if (row) openTeamView(parseInt(row.getAttribute('data-entry-team'), 10));
+        });
+        $('teamViewClose').addEventListener('click', function () { $('teamViewModal').classList.remove('active'); });
+        $('teamViewModal').addEventListener('click', function (e) { if (e.target === $('teamViewModal')) $('teamViewModal').classList.remove('active'); });
+        $('myMatchesTabs').addEventListener('click', function (e) {
+          var b = e.target.closest ? e.target.closest('[data-mm]') : null;
+          if (!b) return;
+          myMatchesTab = b.getAttribute('data-mm');
+          var bs = document.querySelectorAll('#myMatchesTabs button');
+          for (var i = 0; i < bs.length; i++) bs[i].classList.toggle('active', bs[i] === b);
+          renderMyMatches();
+        });
+        $('myMatchesList').addEventListener('click', function (e) {
+          var c = e.target.closest ? e.target.closest('[data-mm-match]') : null;
+          if (c) window.location.hash = '#match/' + c.getAttribute('data-mm-match');
+        });
+        $('lbContestSelect').addEventListener('change', function () {
+          loadLeaderboard(this.value);
+        });
+
+        // --- tabs and contests -----------------------------------------------------------------
+        var tabBar = document.querySelector('.y11-tabs');
+        if (tabBar) {
+          tabBar.addEventListener('click', function (e) {
+            var btn = e.target.closest ? e.target.closest('.y11-tab') : null;
+            if (!btn || btn.hidden) return;
+            showTab(btn.getAttribute('data-tab'));
+          });
+        }
+
+        $('contestGrid').addEventListener('click', function (e) {
+          var sw = e.target.closest ? e.target.closest('[data-switch-contest]') : null;
+          if (sw) { openPickTeam(parseInt(sw.getAttribute('data-switch-contest'), 10), 'switch'); return; }
+          var btn = e.target.closest ? e.target.closest('[data-join-contest]') : null;
+          if (!btn || btn.disabled) return;
+          startJoin(parseInt(btn.getAttribute('data-join-contest'), 10));
+        });
+
+        $('pickTeamClose').addEventListener('click', closePickTeam);
+        $('pickTeamModal').addEventListener('click', function (e) {
+          if (e.target === $('pickTeamModal')) closePickTeam();
+        });
+        $('pickTeamList').addEventListener('click', function (e) {
+          if (e.target.closest && e.target.closest('[data-pick-new]')) { closePickTeam(); openBuilder(null); return; }
+          var entryRow = e.target.closest ? e.target.closest('[data-switch-entry]') : null;
+          if (entryRow) {
+            switchEntryId = parseInt(entryRow.getAttribute('data-switch-entry'), 10);
+            loadMatchEntries().then(function (entries) {
+              var used = entries.filter(function (x) { return x.contest_id === pendingContestId; }).map(function (x) { return x.user_team_id; });
+              $('pickTeamContest').textContent = 'Pick the team to use instead';
+              $('pickTeamList').innerHTML = teamRows(used);
+            });
+            return;
+          }
+          var row = e.target.closest ? e.target.closest('[data-pick-team]') : null;
+          if (!row || !pendingContestId) return;
+          if (row.getAttribute('data-used')) return;
+          var teamId = parseInt(row.getAttribute('data-pick-team'), 10);
+          if (pickMode !== 'switch') { closePickTeam(); confirmJoin(pendingContestId, teamId); return; }
+          var action = postSwitch(switchEntryId, teamId);
+          action.catch(function (err) {
+            var el = $('pickTeamError');
+            el.textContent = err && err.message ? err.message : 'Could not join.';
+            el.style.display = '';
+          });
+        });
+
+        $('confirmJoinClose').addEventListener('click', closeConfirmJoin);
+        $('confirmJoinModal').addEventListener('click', function (e) { if (e.target === $('confirmJoinModal')) closeConfirmJoin(); });
+        $('cjJoin').addEventListener('click', function () {
+          if (!pendingConfirm) return;
+          if (this.getAttribute('data-short')) { window.location.href = 'cashier.html'; return; }
+          var btn = this; btn.disabled = true; btn.textContent = 'Joining…';
+          var pc = pendingConfirm;
+          postJoin(pc.contestId, pc.teamId).then(function () { closeConfirmJoin(); }).catch(function (err) {
+            btn.disabled = false; btn.textContent = 'Join Contest';
+            $('cjError').textContent = err && err.message ? err.message : 'Could not join.';
+            $('cjError').style.display = '';
+          });
+        });
+
+        window.addEventListener('hashchange', route);
+
+        loadFixtures().then(route);
+        loadMyMatches();
+
+        tickTimer = setInterval(tick, 1000);
+        pollTimer = setInterval(function () {
+          // Only the lobby needs re-reading; the squad of an open match does not change minute to
+          // minute, and re-fetching it would fight with the role tab the player is looking at.
+          if (!document.hidden && $('viewFixtures').style.display !== 'none') { loadFixtures(); loadMyMatches(); }
+        }, POLL_MS);
+        // While a match is live, the Points and Leaderboard tabs refresh themselves, like the apps do.
+        setInterval(function () {
+          if (document.hidden || $('viewMatch').style.display === 'none' || !squadCache || !squadCache.match.is_locked) return;
+          var active = document.querySelector('.y11-tabs .y11-tab.active');
+          var tab = active ? active.getAttribute('data-tab') : '';
+          if (tab === 'points') loadScoreboard();
+          if (tab === 'leaderboard') loadLeaderboard($('lbContestSelect').value);
+        }, 20000);
       });
-
-      window.addEventListener('hashchange', route);
-
-      loadFixtures().then(route);
-
-      tickTimer = setInterval(tick, 1000);
-      pollTimer = setInterval(function () {
-        // Only the lobby needs re-reading; the squad of an open match does not change minute to
-        // minute, and re-fetching it would fight with the role tab the player is looking at.
-        if (!document.hidden && $('viewFixtures').style.display !== 'none') loadFixtures();
-      }, POLL_MS);
-    });
-  })();
+    })();
   </script>
 </body>
 

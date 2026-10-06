@@ -426,3 +426,163 @@ Four, all documented in full where they occur in the code:
 Everything else — routes, JSON shapes, status codes, error strings, game rules, payout maths, the
 house-edge engine, the admin and superadmin surfaces — is reproduced as-is, including the handful of
 latent bugs listed in the migration dossier.
+
+---
+
+## 9. The cricket games (Your 11 + Ball by Ball)
+
+Both games run on this PHP backend, from **one** shared live feed (Roanuz Match Via Push). Until a
+Roanuz key exists they run on a built-in simulated feed, so the whole product can be used and tested
+with no data cost at all.
+
+### Switch on
+
+1. Apply the schema once: `php php-backend/tools/run-fantasy-migrations.php` (idempotent; it runs
+   006–010 in order — 010 adds the feed, Ball by Ball, and the Your 11 parity columns).
+2. `.env`:
+
+   ```ini
+   CRICKET_ENABLED=true          # Ball by Ball + the feed webhook
+   FANTASY_ENABLED=true          # Your 11
+   FANTASY_SOURCE=feed           # Your 11 reads the shared feed (cricbuzz = the old scraper)
+   # Leave CRICKET_SOURCE unset: it becomes "roanuz" the moment both keys below are present,
+   # and "mock" (simulated matches) until then. Set it explicitly only to force one or the other.
+   ROANUZ_API_KEY=
+   ROANUZ_PROJECT_KEY=
+   ROANUZ_WEBHOOK_SECRET=<long random string>   # required in production, or every push is refused
+   ROANUZ_TOURNAMENTS=                          # optional, comma-separated; empty = Roanuz's featured list
+   ```
+
+3. One cron line, every minute (it replaces the two fantasy-sync crons, which now stand down):
+
+   ```
+   * * * * * /usr/local/bin/php /home/<account>/public_html/php-backend/cron/cricket-tick.php >/dev/null 2>&1
+   ```
+
+   Keep `cron/fantasy-settle.php` if it is already installed — settlement is idempotent, so the two
+   can never pay twice — or drop it; cricket-tick settles too.
+
+### Going live with Roanuz (the only paid piece)
+
+1. Sign up at console.roanuz.com and **check the licence step offers the free Standard licence**
+   (₹0/month, pay per match, "Powered by Roanuz" credit — already shown on both pages). Buy only
+   **Match Via Push (₹200/match)**. Fixtures and squads come from the free tournament endpoints;
+   fantasy points and credits are computed here, so do not buy those.
+2. In the Roanuz console, register the webhook URL:
+   `https://<your-domain>/api/cricket/feed/webhook?secret=<ROANUZ_WEBHOOK_SECRET>`
+3. Put the two keys in `.env`. The next cron run pulls fixtures, subscribes each match to push, and
+   lays out the standard contest set (Mega, Head-to-Head, Small League, Winner Takes All, Practice).
+4. **Before taking real money on the first match**, open `cricket_feed_raw` for that match and check
+   the payload against the field aliases in `lib/cricket-feed.php` (`cricket_parse_snapshot` /
+   `cricket_parse_ball`). They follow Roanuz's v5 docs but no real payload had been seen when this was
+   built. If an alias is wrong, fix it and run `POST /api/admin/cricket/matches/<key>/replay` — every
+   push is archived, so nothing is lost. Compare the first few matches' points with the official
+   scorecard before trusting settlement unattended.
+
+### Operator endpoints
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/admin/cricket/health` | feed mode, webhook secret set?, last push per match, stalled flag |
+| `POST /api/admin/cricket/bbb/config` | Ball by Ball rake %, stake limits, betting window, latency guard, stall timeout |
+| `POST /api/admin/cricket/bbb/rounds/:id/void` | refund one Ball by Ball market by hand |
+| `POST /api/admin/cricket/matches/:key/resync` | re-pull one match by REST (₹100 tier) |
+| `POST /api/admin/cricket/matches/:key/replay` | rebuild a match from its archived pushes |
+| `POST /api/admin/fantasy/sync` | pull fixtures + squads now |
+| `POST /api/admin/fantasy/matches/:id/credits` | set player credits before the deadline |
+| `POST /api/admin/fantasy/contests` | add a contest (incl. `max_entries_per_user`, `contest_type`, `is_guaranteed`) |
+
+### Rules the code enforces (so support can answer questions)
+
+* **Your 11** scores by Dream11's published T20 / ODI / Test tables (`lib/fantasy-scoring.php`).
+  Deadline = scheduled start. Lineups flag Playing / Not playing and pay +4. A match that ends with
+  **no result / abandoned cancels every contest and refunds every fee in full** — never ranked.
+  Flexible contests below their minimum are refunded. Rival teams are visible only after the deadline.
+* **Ball by Ball** is a shared pool per delivery (0/1/2/3/4/6/Wicket/Extra), rake 10% by default,
+  no house position. Betting closes a fixed window after the previous ball; a market whose ball
+  arrived inside the window plus the latency guard is **voided and refunded**, as is everything open
+  when the feed stalls (90 s), the match is abandoned, or the ball is unlisted (5 runs, super over).
+
+### Tests
+
+```
+php -d extension=pdo_pgsql php-backend/test_bbb.php          # Ball by Ball: rules, pool maths, full simulated match, voids
+php -d extension=pdo_pgsql php-backend/test_your11_feed.php  # Your 11: full lifecycle, settlement, abandoned refunds
+php php-backend/test_fantasy_scoring.php                     # Dream11 points tables, hand-worked
+```
+
+The first two write to the database `.env` points at — run them against a development database.
+
+---
+
+## 10. Cricket match betting (Match Odds, Bookmaker, Fancy, Cash Out) — `cricket.html`
+
+**The house is the counterparty on every one of these bets.** Prices come from bet1x's own engine
+(`lib/odds-engine.php`); there is no odds API. Read this section before switching it on.
+
+### Switch on
+Same flags as §9 (`CRICKET_ENABLED=true`), plus migration 011 — `run-fantasy-migrations.php` applies it.
+The same `cricket-tick.php` cron settles these markets.
+
+### The engine and its model
+`php-backend/data/cricket-model.json` is built from Cricsheet's free ball-by-ball archive by
+`python php-backend/tools/build_cricket_model.py` (needs Python + numpy, run on any machine, commit the
+JSON). It held 5,806 T20s and 2,183 ODIs at the last build; on matches it never saw, its stated win
+chances came true within 3 points in every band. Re-run it every few months.
+
+The engine cannot know which team is stronger. **Set the favourite's pre-match price for every match**
+(`POST /api/admin/cricket/exchange/<match_key>/settings` with `{"fav_side":"a","fav_price":1.60}` —
+copy it from any public odds site before the toss). Without it, Match Odds and Bookmaker stay closed
+until the first ball, and in-play prices start from evenly matched.
+
+### Risk controls (all in `POST /api/admin/cricket/exchange/config`)
+| Setting | Default | What it does |
+|---|---|---|
+| `mo_margin` / `bm_margin` | 0.02 / 0.05 | spread around fair value on Match Odds / Bookmaker |
+| `tail_temper` | 0.5 | prices near-certain results like real markets do (1 = off) |
+| `min_stake`, `max_stake_mo/bm/fancy` | 100, 25k/50k/25k | per-bet limits |
+| `user_max_liability_market` | 100,000 | most one player can have at risk on one market |
+| `house_max_loss_market` | 200,000 | bets that would push the house's worst case past this are refused |
+| `window_seconds` | 20 | betting stays open this long after each ball, then BALL RUNNING |
+| `ball_guard_seconds` | 4 | bets struck this close before a ball (or before we heard of it) are voided |
+| `wicket_suspend_seconds` | 25 | extra suspension after a wicket |
+
+Manual suspend for a match: settings endpoint with `{"suspended": true}`.
+
+### Settlement rules
+* Match Odds / Bookmaker: on the winner the feed reports. Tie or no result / abandoned → all void.
+* Fancy "N Over Runs": total runs when over N ends; if the innings ends first, the innings total.
+* Fancy "Only Nth Over Runs": runs in that over; an over the innings never completes → void.
+* No result / abandoned → every pending match bet void and refunded.
+
+### Test
+`php -d extension=pdo_pgsql php-backend/test_exchange.php` — engine shape and calibration, bet
+arithmetic, cash-out equalisation, limits, late-bet voiding, and a full simulated match with every
+wallet reconciled (writes to the development database it points at).
+
+**Adding an odds API later (optional).** Set `CRICKET_ODDS_SOURCE=roanuz` (and optionally
+`CRICKET_ODDS_BLEND=0.7`) once Roanuz Live Match Odds is bought: the provider's match-winner price is
+blended into the engine's, cached 5 s, and any failure falls back to the engine. Check the response
+field names in `mx_provider_prob()` (lib/exchange.php) against a real response first.
+
+---
+
+## 11. Your 11 points: matching Dream11 exactly
+
+Player points are not estimated — they are Dream11's published rules applied to the ball-by-ball feed,
+so with correct data they come out identical. `lib/fantasy-scoring.php` carries Dream11's tables for
+**T20, ODI, Test, T10, The Hundred** and the warm-up **Other T20 / Other ODI / Other Test** tables.
+
+* The format is taken from the feed. For a warm-up / practice match (more than 11 players may play),
+  switch it: `POST /api/admin/fantasy/matches/<id>/points-system {"format":"OTHER_T20"}` — the match is
+  re-scored at once.
+* Two details Dream11's page leaves open are switchable: whether 25/50/75 bonuses stack below a
+  century (default yes) and whether wicket-haul bonuses stack (default no). **Settle them on your first
+  real matches**: after a match, copy Dream11's official points for 5–10 players (base points, before
+  C/VC) and send
+  `POST /api/admin/fantasy/matches/<id>/calibrate {"official": {"<player_id>": 87, ...}, "apply": true}`.
+  The response lists, for every rule variant, how many players match exactly; with `apply` the best
+  variant is adopted for all matches and the match is re-scored. Include at least one bowler with 4+
+  wickets and one batter with 50–99 so both details are actually tested.
+* Any remaining difference then comes from the data (a scorer's correction, a run-out credited to a
+  different fielder), not the rules — fix the facts with the override-stats endpoint.

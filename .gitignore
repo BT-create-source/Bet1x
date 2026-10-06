@@ -1,9 +1,15 @@
 # ---------------------------------------------------------------------------
 # Secrets — never commit these.
-# NOTE: backend/.env is already in this repository's history. Adding it here
-# stops future commits but does NOT remove the value that is already committed.
-# Rotate the database password and any API keys, then untrack the file:
-#     git rm --cached backend/.env
+# Covers backend/.env, php-backend/.env, php-backend/.env.production (written by
+# tools/make-production-env.php) and any other .env.*; only .env.example files
+# are tracked. backend/.env and football-live-app/.env were committed in early
+# history and later untracked, so the values in those old commits are public to
+# anyone with the repo: never reuse them in production.
+# Production secrets (APP_SECRET, DB password, operator password hashes,
+# ROANUZ_API_KEY / ROANUZ_PROJECT_KEY / ROANUZ_WEBHOOK_SECRET, SMTP/SMS keys)
+# live ONLY in the server's php-backend/.env.
+# ---------------------------------------------------------------------------
+.env
 # See DEPLOYMENT.md ("Secrets that are already in git history").
 # ---------------------------------------------------------------------------
 .env
@@ -13,6 +19,8 @@
 *.key
 *.p12
 *.pfx
+secrets/
+*.secret
 
 # Dependencies
 node_modules/
@@ -24,6 +32,7 @@ backend/data/*.json
 !backend/data/.gitkeep
 *.log
 logs/
+php-backend/tests/reports/
 pids/
 *.pid
 *.seed

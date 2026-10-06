@@ -157,6 +157,9 @@ function js_iso($value = null) {
  * throughout rather than time().
  */
 function now_ms() {
+    // Test-only clock override, honoured on the command line and nowhere else, so a test can walk a
+    // whole simulated match through time. A web request can never set it.
+    if (PHP_SAPI === 'cli' && isset($GLOBALS['BET1X_TEST_NOW_MS'])) return (int) $GLOBALS['BET1X_TEST_NOW_MS'];
     return (int) round(microtime(true) * 1000);
 }
 

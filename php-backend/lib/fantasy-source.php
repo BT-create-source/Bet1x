@@ -85,6 +85,8 @@ function fantasy_http_get($url, $timeoutSec = 25) {
         CURLOPT_USERAGENT      => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 '
                                 . '(KHTML, like Gecko) Chrome/120.0 Safari/537.36',
         CURLOPT_HTTPHEADER     => ['Accept: text/html,application/xhtml+xml', 'Accept-Language: en-US,en;q=0.9'],
+        CURLOPT_SSL_VERIFYPEER => !env_bool('DISABLE_SSL_VERIFY', false),
+        CURLOPT_SSL_VERIFYHOST => env_bool('DISABLE_SSL_VERIFY', false) ? 0 : 2,
     ]);
     $body   = curl_exec($ch);
     $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -308,7 +310,24 @@ function fantasy_source_id_from_key($key) {
 function fantasy_state_is_final($state) {
     $s = strtolower(trim((string) $state));
     if ($s === '') return false;
-    foreach (['complete', 'abandon', 'cancel', 'no result', 'washed out'] as $needle) {
+    foreach (['complete', 'abandon', 'cancel', 'no result', 'no_result', 'washed out'] as $needle) {
+        if (strpos($s, $needle) !== false) return true;
+    }
+    return false;
+}
+
+/**
+ * Did the match end WITHOUT a result?
+ *
+ * Final, but not a finish anyone can be ranked on: a washout, a no result, a cancelled game. The
+ * established apps cancel every contest on such a match and refund the entry fees in full — paying a
+ * prize table on a few overs of play (or on nobody having scored at all) would hand the pool to
+ * whoever happened to be ahead when the rain came. Settlement checks this BEFORE ranking anything.
+ */
+function fantasy_state_is_abandoned($state) {
+    $s = strtolower(trim((string) $state));
+    if ($s === '') return false;
+    foreach (['abandon', 'cancel', 'no result', 'no_result', 'washed out'] as $needle) {
         if (strpos($s, $needle) !== false) return true;
     }
     return false;

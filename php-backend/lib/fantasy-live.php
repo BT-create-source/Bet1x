@@ -207,7 +207,30 @@ function fantasy_map_stats($matchId, array $sourcePlayers) {
 function fantasy_live_stat_fields() {
     return ['runs', 'balls', 'fours', 'sixes', 'wickets', 'overs', 'maidens', 'runs_conceded',
             'bowled_lbw', 'catches', 'stumpings', 'runouts_direct', 'runouts_shared',
-            'is_out', 'did_bat'];
+            'is_out', 'did_bat', 'dot_balls', 'balls_bowled', 'in_lineup', 'is_substitute'];
+}
+
+/** The scoring rules for a stored match, by its format. */
+function fantasy_rules_for_match($matchId) {
+    static $cache = [], $epoch = -1;
+    $matchId = (int) $matchId;
+    if ($epoch !== ($GLOBALS['BET1X_RULES_EPOCH'] ?? 0)) { $cache = []; $epoch = $GLOBALS['BET1X_RULES_EPOCH'] ?? 0; }
+    if (!isset($cache[$matchId])) {
+        $fmt = scalar('SELECT "format" FROM "fantasy_matches" WHERE "id" = ?', [$matchId], 'T20');
+        $cache[$matchId] = fantasy_scoring_rules($fmt);
+    }
+    return $cache[$matchId];
+}
+
+/**
+ * The two participation facts the scoring engine needs that are not stored columns, derived from the
+ * ones that are: did this player bat or bowl at all, and did they take part in a dismissal.
+ */
+function fantasy_participation(array $s) {
+    $s['batted_or_bowled'] = (!empty($s['did_bat']) || (int) ($s['balls_bowled'] ?? 0) > 0 || (float) ($s['overs'] ?? 0) > 0) ? 1 : 0;
+    $s['fielded'] = ((int) ($s['catches'] ?? 0) + (int) ($s['stumpings'] ?? 0) + (int) ($s['runouts_direct'] ?? 0)
+                     + (int) ($s['runouts_shared'] ?? 0)) > 0 ? 1 : 0;
+    return $s;
 }
 
 /**
@@ -224,8 +247,9 @@ function fantasy_store_player_stats($matchId, $playerId, array $stats) {
         $vals[$f] = ($f === 'overs') ? round((float) $v, 1) : (int) $v;
     }
 
-    $scored = fantasy_score_player($stats, fantasy_scoring_rules());
+    $scored = fantasy_score_player(fantasy_participation($stats + $vals), fantasy_rules_for_match($matchId));
     $points = $scored['points'];
+    $breakdown = json_encode($scored['breakdown'] ?: new stdClass());
 
     $existing = one('SELECT "id" FROM "fantasy_player_live_stats" WHERE "match_id" = ? AND "player_id" = ?',
                     [(int) $matchId, (int) $playerId]);
@@ -235,6 +259,7 @@ function fantasy_store_player_stats($matchId, $playerId, array $stats) {
         $args = [];
         foreach ($vals as $col => $v) { $sets[] = '"' . $col . '" = ?'; $args[] = $v; }
         $sets[] = '"calculated_fantasy_points" = ?'; $args[] = $points;
+        $sets[] = '"breakdown" = ?';                 $args[] = $breakdown;
         $sets[] = '"updated_at" = ?';                $args[] = ms_to_sql(now_ms());
         $args[] = (int) $existing['id'];
         q('UPDATE "fantasy_player_live_stats" SET ' . implode(', ', $sets) . ' WHERE "id" = ?', $args);
@@ -244,6 +269,7 @@ function fantasy_store_player_stats($matchId, $playerId, array $stats) {
         $cols[] = 'match_id';                  $args[] = (int) $matchId;
         $cols[] = 'player_id';                 $args[] = (int) $playerId;
         $cols[] = 'calculated_fantasy_points'; $args[] = $points;
+        $cols[] = 'breakdown';                 $args[] = $breakdown;
         $cols[] = 'updated_at';                $args[] = ms_to_sql(now_ms());
         q('INSERT INTO "fantasy_player_live_stats" ("' . implode('","', $cols) . '") VALUES ('
           . implode(',', array_fill(0, count($cols), '?')) . ')', $args);
@@ -262,7 +288,7 @@ function fantasy_stored_stats($matchId) {
             $s[$f] = ($f === 'overs') ? (float) $r[$f] : (int) $r[$f];
         }
         $s['points'] = (float) $r['calculated_fantasy_points'];
-        $out[(int) $r['player_id']] = $s;
+        $out[(int) $r['player_id']] = fantasy_participation($s);
     }
     return $out;
 }
@@ -277,7 +303,7 @@ function fantasy_stored_stats($matchId) {
  */
 function fantasy_recompute_team_points($matchId) {
     $matchId = (int) $matchId;
-    $rules = fantasy_scoring_rules();
+    $rules = fantasy_rules_for_match($matchId);
     $stats = fantasy_stored_stats($matchId);
 
     $rows = all(
@@ -437,9 +463,69 @@ function fantasy_live_scoreboard($matchId) {
             'team_name' => (string) $r['team_name'],
             'role'      => fantasy_normalise_role($r['role']),
             'points'    => (float) $r['calculated_fantasy_points'],
+            'breakdown' => json_decode((string) ($r['breakdown'] ?? '{}'), true) ?: new stdClass(),
             'stats'     => $stats,
             'updated_at' => $r['updated_at'],
         ];
     }
     return $out;
+}
+
+// -------------------------------------------------------------------------------------------------
+// Calibration against the official platform
+// -------------------------------------------------------------------------------------------------
+
+/**
+ * Compare the engine with Dream11's official points for real players and find the rule variant that
+ * reproduces them.
+ *
+ * $official: [player_id => official base points (without the C/VC multiplier)] for one match.
+ * Tries every combination of the open rule details on the stored figures, and reports for each how many
+ * players match EXACTLY and the total difference. With $apply, the best variant is stored and every
+ * team on the match is re-scored with it.
+ */
+function fantasy_calibrate($matchId, array $official, $apply = false) {
+    $matchId = (int) $matchId;
+    $match = fantasy_find_match($matchId);
+    if (!$match) return ['ok' => false, 'status' => 404, 'error' => 'Match not found.'];
+    $stats = fantasy_stored_stats($matchId);
+    $roles = [];
+    foreach (all('SELECT "id","role","name" FROM "fantasy_players" WHERE "match_id" = ?', [$matchId]) as $r) $roles[(int) $r['id']] = $r;
+
+    $results = [];
+    foreach ([true, false] as $mc) foreach ([false, true] as $hc) {
+        $variant = ['milestones_cumulative' => $mc, 'hauls_cumulative' => $hc];
+        $rules = fantasy_scoring_rules($match['format'], $variant);
+        $exact = 0; $diff = 0.0; $rows = [];
+        foreach ($official as $pid => $pts) {
+            $pid = (int) $pid;
+            if (!isset($roles[$pid])) continue;
+            $s = $stats[$pid] ?? ['in_lineup' => 1];
+            $s['role'] = $roles[$pid]['role'];
+            $mine = fantasy_score_player($s, $rules)['points'];
+            $d = round($mine - (float) $pts, 2);
+            if (abs($d) < 0.01) $exact++;
+            $diff += abs($d);
+            $rows[] = ['player_id' => $pid, 'name' => $roles[$pid]['name'], 'official' => (float) $pts, 'engine' => $mine, 'difference' => $d];
+        }
+        $results[] = ['variant' => $variant, 'exact' => $exact, 'compared' => count($rows), 'total_abs_difference' => round($diff, 2), 'players' => $rows];
+    }
+    usort($results, function ($a, $b) { return [$b['exact'], $a['total_abs_difference']] <=> [$a['exact'], $b['total_abs_difference']]; });
+    $best = $results[0];
+    if ($apply && $best['compared'] > 0) {
+        state_set('fantasy_rule_variants', $best['variant']);
+        $GLOBALS['BET1X_RULES_EPOCH'] = ($GLOBALS['BET1X_RULES_EPOCH'] ?? 0) + 1;
+        fantasy_rescore_match($matchId);
+    }
+    return ['ok' => true, 'best' => $best, 'all' => array_map(function ($r) { unset($r['players']); return $r; }, $results), 'applied' => (bool) $apply];
+}
+
+/** Re-score every stored player figure and every team on a match with the current rules. */
+function fantasy_rescore_match($matchId) {
+    foreach (fantasy_stored_stats((int) $matchId) as $pid => $s) {
+        $role = scalar('SELECT "role" FROM "fantasy_players" WHERE "id" = ?', [(int) $pid], 'BAT');
+        $s['role'] = $role;
+        fantasy_store_player_stats((int) $matchId, (int) $pid, $s);
+    }
+    return fantasy_recompute_team_points((int) $matchId);
 }
