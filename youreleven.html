@@ -1188,7 +1188,7 @@
         <div id="myTeamsBox"></div>
         <h4
           style="margin:18px 0 8px; font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.04em;">
-          Squad</h4>
+          Squad<span id="squadMatchLabel" style="text-transform:none; letter-spacing:0;"></span></h4>
         <div class="y11-role-tabs" id="roleTabs"></div>
         <div id="squadList"></div>
       </div>
@@ -1262,7 +1262,9 @@
   <div class="y11-modal-overlay" id="builderModal">
     <div class="y11-modal-card">
       <button class="y11-modal-close" id="builderClose">&times;</button>
-      <h3 id="builderTitle" style="margin-top:0; font-family:var(--font-display);">Build your XI</h3>
+      <h3 id="builderTitle" style="margin-top:0; margin-bottom:2px; font-family:var(--font-display);">Build your XI</h3>
+      <!-- Which match this XI is for, always in view while picking (as Dream11 keeps it at the top). -->
+      <div id="builderMatch" class="y11-fixture-meta" style="margin-bottom:10px;"></div>
 
       <div class="y11-budget-bar">
         <span>Credits used: <strong id="builderCreditsUsed">0.0</strong> / <span
@@ -1664,8 +1666,20 @@
         return '';
       }
 
+      /** "Delhi Dragons vs Mumbai Mariners · Starts 6:50 pm, 6 Oct" — the match the squad and builder belong to. */
+      var squadLoadedAt = null;
+      function matchLabel() {
+        var m = squadCache && squadCache.match;
+        if (!m) return '';
+        // seconds_to_start is relative to the server clock at load time; the shown time is in the viewer's zone.
+        var start = (typeof m.seconds_to_start === 'number') ? (squadLoadedAt || serverNow()) + m.seconds_to_start * 1000 : null;
+        var when = start ? new Date(start).toLocaleString('en-IN', { hour: 'numeric', minute: '2-digit', day: 'numeric', month: 'short' }) : '';
+        return m.team_a + ' vs ' + m.team_b + (when ? ' · Starts ' + when : '');
+      }
+
       function renderMatchHeader() {
         var m = squadCache.match;
+        var sl = $('squadMatchLabel'); if (sl) sl.textContent = ' — ' + m.team_a + ' vs ' + m.team_b;
         var lockAt = serverNow() + (Number(m.seconds_to_lock) * 1000);
         $('matchHeader').innerHTML =
           '<div class="y11-fixture-teams" style="font-size:19px;">' + esc(m.team_a) + ' vs ' + esc(m.team_b) + '</div>'
@@ -1691,6 +1705,7 @@
         return apiGet('api/fantasy/matches/' + encodeURIComponent(id) + '/players').then(function (data) {
           if (typeof data.server_time_ms === 'number') clockSkewMs = data.server_time_ms - Date.now();
           squadCache = data;
+          squadLoadedAt = serverNow();
           activeRole = 'WK';
           renderMatchHeader();
           renderSquadRules(data.rules || {}, data.match);
@@ -1980,6 +1995,7 @@
         bSetError('');
         $('builderTeamName').value = '';
         $('builderTitle').textContent = bEditingId ? 'Edit your XI' : 'Build your XI';
+        $('builderMatch').textContent = matchLabel();
         $('builderModal').classList.add('active');
         bRender();
 
