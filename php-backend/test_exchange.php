@@ -24,7 +24,16 @@ function at($ms) { $GLOBALS['BET1X_TEST_NOW_MS'] = (int) $ms; }
 echo "\n== 1. Engine behaves like cricket ==\n";
 $m = odds_model('T20');
 check($m && $m['matches'] > 1000, 'the T20 model is loaded (' . ($m['matches'] ?? 0) . ' matches)');
-check(odds_model('ODI') !== null && odds_model('TEST') === null && odds_model('T10') === null, 'T20 and ODI are priced; Tests and T10 are not offered');
+// This suite runs on the simulated league, so the VIRTUAL model is the one loaded: T20 only, learned from
+// the simulator itself. The real-cricket model (T20 + ODI, from Cricsheet) is checked straight from disk.
+$real = json_decode((string) file_get_contents(__DIR__ . '/data/cricket-model.json'), true);
+$virt = json_decode((string) file_get_contents(__DIR__ . '/data/cricket-model-virtual.json'), true);
+check(isset($real['formats']['T20'], $real['formats']['ODI']) && odds_model('TEST') === null && odds_model('T10') === null, 'real cricket: T20 and ODI are priced; Tests and T10 are not offered');
+check(abs($m['E'][120][0] - $virt['formats']['T20']['E'][120][0]) < 1e-9 && odds_model('ODI') === null,
+      "virtual cricket is priced from the simulator's own model (T20 only), never from real-cricket numbers");
+$sims = []; for ($s0 = 3100000; $s0 < 3100300; $s0++) { $sim = cricket_mock_simulate($s0); $r0 = 0; foreach ($sim['balls'] as $b0) if ($b0['innings'] === $sim['innings_order'][0]) $r0 += (int) $b0['team_score']['runs']; $sims[] = $r0; }
+$avg = array_sum($sims) / count($sims);
+check(abs($avg - $m['E'][120][0]) < 6, sprintf('the virtual model matches the simulator it prices: first innings %.1f simulated vs %.1f expected', $avg, $m['E'][120][0]));
 $mono = true;
 for ($need = 10; $need <= 150; $need += 10) if (odds_p_chase($m, $need, 60, 3) < odds_p_chase($m, $need + 10, 60, 3)) $mono = false;
 check($mono, 'needing more runs never makes a chase likelier');

@@ -82,6 +82,8 @@ function register_fantasy_routes(Router $app) {
                 'status'  => strtoupper((string) $status),
                 'count'   => count($rows),
                 'groups'  => $groups,
+                // Simulated league (no Roanuz keys yet): the page labels it Virtual Cricket.
+                'virtual' => function_exists('cricket_source_mode') && fantasy_uses_feed() && cricket_source_mode() === 'mock',
                 // The client counts down from its own clock but corrects against this, so a device
                 // with a wrong time does not show a locked match as still joinable.
                 'server_time_ms' => now_ms(),

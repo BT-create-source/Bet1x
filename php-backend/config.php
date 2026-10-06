@@ -317,23 +317,31 @@ if (!in_array($CRICKET_SOURCE_RESOLVED, ['mock', 'roanuz'], true)) {
     $CRICKET_SOURCE_RESOLVED = (trim((string) env_get('ROANUZ_API_KEY', '')) !== '' && trim((string) env_get('ROANUZ_PROJECT_KEY', '')) !== '')
         ? 'roanuz' : 'mock';
 }
+// CRICKET_VIRTUAL=true is the operator's explicit opt-in to running the simulated league in production
+// as real-money "Virtual Cricket": fictional teams, matches generated server-side from a secret key
+// (lib/cricket-mock.php CricketSecureRng) and priced from the simulator's own model. Without it, the
+// simulator stays a development tool and is refused in production as before.
+$CRICKET_VIRTUAL = env_bool('CRICKET_VIRTUAL', false);
 $CRICKET_BLOCKED = [];
 $FANTASY_BLOCKED = [];
 if ($IS_PRODUCTION) {
     if ($CRICKET_ENABLED) {
-        if ($CRICKET_SOURCE_RESOLVED === 'mock') {
+        if ($CRICKET_SOURCE_RESOLVED === 'mock' && !$CRICKET_VIRTUAL) {
             $CRICKET_BLOCKED[] = env_get('CRICKET_SOURCE', '') !== '' && strtolower((string) env_get('CRICKET_SOURCE')) === 'mock'
-                ? 'CRICKET_SOURCE=mock (simulated matches) is not allowed in production.'
-                : 'ROANUZ_API_KEY / ROANUZ_PROJECT_KEY are not set, so the feed would be simulated.';
+                ? 'CRICKET_SOURCE=mock (simulated matches) needs CRICKET_VIRTUAL=true to run in production.'
+                : 'ROANUZ_API_KEY / ROANUZ_PROJECT_KEY are not set, so the feed would be simulated (set CRICKET_VIRTUAL=true to run Virtual Cricket).';
         }
-        if (trim((string) env_get('ROANUZ_WEBHOOK_SECRET', '')) === '') {
+        if ($CRICKET_SOURCE_RESOLVED === 'mock' && $CRICKET_VIRTUAL && strlen((string) env_get('CRICKET_VIRTUAL_SECRET', '')) < 32 && strlen($APP_SECRET) < 32) {
+            $CRICKET_BLOCKED[] = 'Virtual Cricket needs a secret of at least 32 characters (CRICKET_VIRTUAL_SECRET or APP_SECRET), or its matches could be predicted.';
+        }
+        if ($CRICKET_SOURCE_RESOLVED === 'roanuz' && trim((string) env_get('ROANUZ_WEBHOOK_SECRET', '')) === '') {
             $CRICKET_BLOCKED[] = 'ROANUZ_WEBHOOK_SECRET is not set, so no live ball could ever arrive.';
         }
     }
     if ($FANTASY_ENABLED) {
         $fs = strtolower(trim((string) env_get('FANTASY_SOURCE', 'mock')));
-        if ($fs === 'mock' || $fs === '') $FANTASY_BLOCKED[] = 'FANTASY_SOURCE=mock (canned fixtures) is not allowed in production.';
-        elseif ($fs === 'feed' && $CRICKET_SOURCE_RESOLVED === 'mock') $FANTASY_BLOCKED[] = 'FANTASY_SOURCE=feed but the cricket feed would be simulated (no Roanuz keys).';
+        if ($fs === 'mock' || $fs === '') $FANTASY_BLOCKED[] = 'FANTASY_SOURCE=mock (canned fixtures) is not allowed in production; use FANTASY_SOURCE=feed.';
+        elseif ($fs === 'feed' && $CRICKET_SOURCE_RESOLVED === 'mock' && !$CRICKET_VIRTUAL) $FANTASY_BLOCKED[] = 'FANTASY_SOURCE=feed but the cricket feed would be simulated (no Roanuz keys; set CRICKET_VIRTUAL=true for Virtual Cricket).';
     }
     foreach ($CRICKET_BLOCKED as $why) error_log('[bet1x-backend] Cricket held OFF: ' . $why);
     foreach ($FANTASY_BLOCKED as $why) error_log('[bet1x-backend] Your 11 held OFF: ' . $why);
@@ -404,7 +412,8 @@ $CONFIG = [
     'WITHDRAWAL_DAILY_COUNT_MAX' => $WITHDRAWAL_DAILY_COUNT_MAX,
     'WITHDRAWAL_REQUIRE_DEPOSIT' => $WITHDRAWAL_REQUIRE_DEPOSIT,
     'CRICKET_ENABLED'          => $CRICKET_ENABLED,
-    'CRICKET_LIVE'             => $CRICKET_LIVE,      // enabled AND allowed (see the production guard)
+    'CRICKET_LIVE'             => $CRICKET_LIVE,
+    'CRICKET_VIRTUAL'          => $CRICKET_VIRTUAL,      // enabled AND allowed (see the production guard)
     'CRICKET_BLOCKED'          => $CRICKET_BLOCKED,
     'FANTASY_LIVE'             => $FANTASY_LIVE,
     'FANTASY_BLOCKED'          => $FANTASY_BLOCKED,

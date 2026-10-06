@@ -30,6 +30,16 @@
       color: var(--text-dim);
     }
 
+    .y11-virtual-note {
+      margin: 12px 0 4px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border, rgba(255,255,255,0.12));
+      background: rgba(255, 196, 0, 0.08);
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--text, inherit);
+    }
     .y11-attribution {
       text-align: center;
       font-size: 11px;
@@ -1134,6 +1144,8 @@
       Your 11 isn't available right now. Please check back soon.
     </div>
 
+    <div id="virtualNote" class="y11-virtual-note" style="display:none;"><b>Virtual Cricket:</b> computer-simulated matches between fictional teams and players, played out ball by ball in real time. Every result is generated on our server and cannot be known in advance.</div>
+
     <!-- Fixtures view -->
     <div id="viewFixtures">
       <div class="y11-mm" id="myMatchesBox" style="display:none;">
@@ -1207,7 +1219,7 @@
 
     <!-- The data now comes from the Roanuz feed (lib/cricket-roanuz.php). The Standard licence requires
          this visible credit; keep it unless the account moves to a licence that waives attribution. -->
-    <div class="y11-attribution">Live cricket data: Roanuz Sports (cricketapi.com)</div>
+    <div class="y11-attribution" id="attribution">Live cricket data: Roanuz Sports (cricketapi.com)</div>
   </div>
 
   <!-- Team builder modal -->
@@ -1571,6 +1583,9 @@
 
       function loadFixtures() {
         return apiGet('api/fantasy/matches?status=UPCOMING').then(function (data) {
+          var vn = document.getElementById('virtualNote'), at = document.getElementById('attribution');
+          if (vn) vn.style.display = data.virtual ? '' : 'none';
+          if (at) at.style.display = data.virtual ? 'none' : '';   // the Roanuz credit only for real data
           if (typeof data.server_time_ms === 'number') {
             clockSkewMs = data.server_time_ms - Date.now();
           }

@@ -33,7 +33,11 @@
 function odds_model($format) {
     static $model = null;
     if ($model === null) {
-        $path = __DIR__ . '/../data/cricket-model.json';
+        // Virtual Cricket (the simulated league) is priced from the simulator's own behaviour — it scores
+        // higher and far more consistently than real T20, so real-cricket prices would be beatable.
+        // Built by tools/export_virtual_matches.php + tools/build_cricket_model.py --virtual.
+        $virtual = function_exists('cricket_source_mode') && cricket_source_mode() === 'mock';
+        $path = __DIR__ . '/../data/' . ($virtual ? 'cricket-model-virtual.json' : 'cricket-model.json');
         $model = is_file($path) ? json_decode((string) file_get_contents($path), true) : null;
     }
     $key = odds_format_key($format);

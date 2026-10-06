@@ -95,6 +95,7 @@ function register_cricket_routes(Router $app) {
             if (function_exists('fantasy_lazy_feed_refresh')) fantasy_lazy_feed_refresh();
             $res->json(['success' => true] + bbb_list_matches() + [
                 'source' => cricket_source_mode(),
+                'virtual' => cricket_source_mode() === 'mock',   // simulated league: pages label it Virtual Cricket
                 'server_time_ms' => now_ms(),
             ]);
         } catch (Throwable $err) {
@@ -308,7 +309,7 @@ function register_cricket_routes(Router $app) {
                 } catch (Throwable $e) { /* a match that cannot be priced still lists */ }
                 return $m;
             };
-            $res->json(['success' => true, 'source' => cricket_source_mode(),
+            $res->json(['success' => true, 'source' => cricket_source_mode(), 'virtual' => cricket_source_mode() === 'mock',
                         'live' => array_map($withOdds, $lists['live']), 'upcoming' => array_map($withOdds, $lists['upcoming']),
                         'completed' => $lists['completed'], 'server_time_ms' => now_ms()]);
         } catch (Throwable $err) {

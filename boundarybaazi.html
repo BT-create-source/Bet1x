@@ -227,7 +227,7 @@
     </aside>
   <div class="bb-wrap ck-main" style="max-width:none;padding:0;">
     <div id="disabledNote" class="bb-disabled" style="display:none;">Ball by Ball isn't available right now. Please check back soon.</div>
-    <div id="mockNote" class="bb-note" style="display:none;"><b>Demo feed:</b> these matches are simulated so the game can be tried before live data is connected. Teams and players are fictional.</div>
+    <div id="mockNote" class="bb-note" style="display:none;"><b>Virtual Cricket:</b> computer-simulated matches between fictional teams and players, played out ball by ball in real time. Every result is generated on our server and cannot be known in advance.</div>
 
     <!-- ===================== LOBBY ===================== -->
     <div id="viewLobby">
@@ -302,7 +302,7 @@
       <div class="bb-panel" id="panel-rules"></div>
     </div>
 
-    <div class="bb-attribution">Live cricket data: Roanuz Sports (cricketapi.com)</div>
+    <div class="bb-attribution" id="attribution">Live cricket data: Roanuz Sports (cricketapi.com)</div>
   </div>
     <aside class="ck-right">
       <div class="ck-panel" id="slipPanel">
@@ -365,7 +365,9 @@
     }
     function loadLobby() {
       return api('api/cricket/bbb/matches').then(function (d) {
-        $('mockNote').style.display = d.source === 'mock' ? '' : 'none';
+        var virtual = d.virtual || d.source === 'mock';
+        $('mockNote').style.display = virtual ? '' : 'none';
+        $('attribution').style.display = virtual ? 'none' : '';   // the Roanuz credit only for real data
         $('liveGrid').innerHTML = d.live.length ? d.live.map(function (m) { return card(m, 'live'); }).join('') : '<div class="bb-empty">No match is live right now. Markets open as soon as play starts.</div>';
         $('upGrid').innerHTML = d.upcoming.length ? d.upcoming.map(function (m) { return card(m, 'up'); }).join('') : '<div class="bb-empty">No upcoming matches scheduled.</div>';
         $('doneGrid').innerHTML = d.completed.length ? d.completed.map(function (m) { return card(m, 'done'); }).join('') : '<div class="bb-empty">Nothing finished recently.</div>';

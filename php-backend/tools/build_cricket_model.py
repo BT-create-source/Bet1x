@@ -45,7 +45,8 @@ def fetch(name, cache):
 def matches(fmt, cache):
     """Yield (match_id, innings_list, winner, team_order) for clean, full-length, decided matches."""
     for name in SOURCES[fmt]:
-        with zipfile.ZipFile(fetch(name, cache)) as z:
+        path = name if os.path.isabs(name) else fetch(name, cache)
+        with zipfile.ZipFile(path) as z:
             for fn in z.namelist():
                 if not fn.endswith('.json'):
                     continue
@@ -275,14 +276,25 @@ def build(fmt, cache):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--cache', default=os.path.join(os.path.expanduser('~'), '.cricsheet-cache'))
+    # Virtual league: price simulated matches from the simulator's OWN behaviour, never real cricket's.
+    #   php php-backend/tools/export_virtual_matches.php 6000 virtual.zip
+    #   python php-backend/tools/build_cricket_model.py --virtual virtual.zip
+    ap.add_argument('--virtual', help='zip of simulated T20 matches in Cricsheet format; writes cricket-model-virtual.json')
     args = ap.parse_args()
-    model = {'source': 'Cricsheet (cricsheet.org), ODC-BY', 'formats': {}}
-    for fmt in ('T20', 'ODI'):
-        model['formats'][fmt] = build(fmt, args.cache)
-    os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    with open(OUT, 'w') as f:
+    out = OUT
+    if args.virtual:
+        SOURCES['T20'] = [os.path.abspath(args.virtual)]
+        model = {'source': 'bet1x virtual league simulator (tools/export_virtual_matches.php)', 'formats': {}}
+        model['formats']['T20'] = build('T20', args.cache)
+        out = os.path.join(os.path.dirname(OUT), 'cricket-model-virtual.json')
+    else:
+        model = {'source': 'Cricsheet (cricsheet.org), ODC-BY', 'formats': {}}
+        for fmt in ('T20', 'ODI'):
+            model['formats'][fmt] = build(fmt, args.cache)
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    with open(out, 'w') as f:
         json.dump(model, f, separators=(',', ':'))
-    print('wrote', os.path.abspath(OUT), os.path.getsize(OUT), 'bytes', file=sys.stderr)
+    print('wrote', os.path.abspath(out), os.path.getsize(out), 'bytes', file=sys.stderr)
 
 
 if __name__ == '__main__':

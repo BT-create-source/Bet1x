@@ -46,7 +46,7 @@
 
     <!-- centre -->
     <main class="ck-main" id="main">
-      <div id="mockNote" class="ck-note" style="display:none;"><b>Demo feed:</b> matches are simulated until live data is connected; teams and players are fictional. Prices come from the bet1x pricing engine.</div>
+      <div id="mockNote" class="ck-note" style="display:none;"><b>Virtual Cricket:</b> computer-simulated matches between fictional teams and players, played out ball by ball in real time. Every result is generated on our server and cannot be known in advance. Prices come from the bet1x pricing engine.</div>
       <div id="viewLobby"></div>
       <div id="viewMatch" style="display:none;">
         <div class="ck-banner" id="banner"></div>
@@ -119,7 +119,7 @@
     }
     function loadLobby() {
       return api('api/cricket/exchange-lobby').then(function (d) {
-        $('mockNote').style.display = d.source === 'mock' ? '' : 'none';
+        $('mockNote').style.display = (d.virtual || d.source === 'mock') ? '' : 'none';
         var head = '<div class="ck-lob-cols"><div class="h"></div><div class="h">1</div><div class="h x"></div><div class="h">2</div><div class="h x"></div></div>';
         var html = '<div class="ck-market"><div class="ck-lob-h"><span>● In-Play</span><span>' + d.live.length + '</span></div>' + head
           + (d.live.length ? d.live.map(function (m) { return lobbyRow(m, true); }).join('') : '<div class="ck-empty">No match in play right now.</div>') + '</div>';

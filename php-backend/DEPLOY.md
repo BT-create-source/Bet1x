@@ -586,3 +586,40 @@ so with correct data they come out identical. `lib/fantasy-scoring.php` carries 
   wickets and one batter with 50–99 so both details are actually tested.
 * Any remaining difference then comes from the data (a scorer's correction, a run-out credited to a
   different fielder), not the rules — fix the facts with the override-stats endpoint.
+
+## 12. Virtual Cricket — real money on the simulated league (until Roanuz is connected)
+
+With no Roanuz keys, the cricket games can run on the built-in simulated league as **Virtual Cricket**:
+fictional teams, matches played out ball by ball in real time, real-money betting on all three products.
+The pages label it as Virtual Cricket and drop the Roanuz credit.
+
+Switch on in the server's `php-backend/.env`:
+
+```ini
+CRICKET_ENABLED=true
+FANTASY_ENABLED=true
+FANTASY_SOURCE=feed
+CRICKET_VIRTUAL=true          # the explicit production opt-in; without it the simulator is refused
+# CRICKET_VIRTUAL_SECRET=     # optional, 32+ random chars; defaults to a key derived from APP_SECRET
+```
+
+What makes it safe to take money on:
+
+* **Unpredictable matches.** Each match is generated from an HMAC-SHA256 stream keyed by a server secret
+  (`CricketSecureRng` in `lib/cricket-mock.php`), so neither the source code nor any number of watched
+  balls lets anyone predict the next ball. **Never change `APP_SECRET` or `CRICKET_VIRTUAL_SECRET` while a
+  virtual match is in progress** — it would rewrite the rest of that match.
+* **Prices that fit the game.** The simulator scores higher and far more consistently than real T20
+  (about 168 ± 21 first-innings runs vs 157 ± 39), so match betting on virtual matches is priced from
+  `data/cricket-model-virtual.json`, learned from 6,000 simulated matches — not from the real-cricket
+  model. Rebuild it whenever the simulation code changes:
+
+  ```bash
+  php -d extension=zip php-backend/tools/export_virtual_matches.php 6000 virtual-matches.zip
+  python php-backend/tools/build_cricket_model.py --virtual virtual-matches.zip
+  ```
+
+* Ball by Ball and Your 11 pay out of the players' own pools, so the house carries no pricing risk there.
+
+**Going real later:** add the Roanuz keys and webhook secret (§9). The source switches to real cricket
+automatically; `CRICKET_VIRTUAL` then has no effect and can be removed.

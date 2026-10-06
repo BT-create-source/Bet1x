@@ -72,6 +72,18 @@ check($r['fantasy'] === false, 'FANTASY_SOURCE=mock: Your 11 held OFF', $r);
 $r = decide($prod + ['CRICKET_ENABLED' => 'false', 'FANTASY_ENABLED' => 'false']);
 check(($r['env'] ?? null) === 'production' && $r['cricket'] === false && !$r['cb'] && $r['log'] === '', 'games switched off: nothing held, nothing logged, and the rest of the site still boots', $r);
 
+echo "== Virtual Cricket (explicit opt-in) ==\n";
+$r = decide($prod + ['CRICKET_ENABLED' => 'true', 'FANTASY_ENABLED' => 'true', 'FANTASY_SOURCE' => 'feed', 'CRICKET_VIRTUAL' => 'true']);
+check($r['cricket'] === true && $r['fantasy'] === true && !$r['cb'] && !$r['fb'], 'CRICKET_VIRTUAL=true, no Roanuz keys: the virtual league runs (no webhook secret needed)', $r);
+$r = decide($prod + ['CRICKET_ENABLED' => 'true', 'CRICKET_VIRTUAL' => 'true', 'CRICKET_VIRTUAL_SECRET' => 'short']);
+check($r['cricket'] === true, 'a short CRICKET_VIRTUAL_SECRET is fine while APP_SECRET is strong', $r);
+$r = decide($prod + $keys + ['CRICKET_ENABLED' => 'true', 'CRICKET_VIRTUAL' => 'true', 'FANTASY_ENABLED' => 'true', 'FANTASY_SOURCE' => 'feed']);
+check($r['cricket'] === true && !$r['cb'], 'Roanuz keys present: real cricket takes over, the virtual flag notwithstanding', $r);
+$r = decide($prod + ['FANTASY_ENABLED' => 'true', 'FANTASY_SOURCE' => 'mock', 'CRICKET_VIRTUAL' => 'true']);
+check($r['fantasy'] === false, 'FANTASY_SOURCE=mock (canned fixtures) stays refused even with CRICKET_VIRTUAL', $r);
+$r = decide($prod + ['CRICKET_ENABLED' => 'true']);
+check($r['cricket'] === false, 'without CRICKET_VIRTUAL the simulator is still refused in production', $r);
+
 echo "== Development (unchanged) ==\n";
 $r = decide(['NODE_ENV' => 'development', 'CRICKET_ENABLED' => 'true', 'FANTASY_ENABLED' => 'true', 'FANTASY_SOURCE' => 'feed']);
 check($r['cricket'] === true && $r['fantasy'] === true, 'development keeps the simulated league running without keys', $r);

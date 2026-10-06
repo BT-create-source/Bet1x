@@ -79,6 +79,49 @@ final class CricketMockRng {
     public function int($min, $max) { return $min + (int) floor($this->next() * ($max - $min + 1)); }
 }
 
+/**
+ * The match generator for the virtual league, where real money rides on the result.
+ *
+ * mulberry32 above has a 32-bit state: anyone who watched a few balls could try all ~4 billion seeds
+ * offline and then know every remaining ball. This one is a keyed stream — HMAC-SHA256(secret,
+ * "<label>|<counter>") — so without the server's secret the next ball is unpredictable however many
+ * balls have been seen, yet every PHP process still generates the identical match from the same key.
+ * Same pick()/int() interface, so the simulation code is unchanged.
+ */
+final class CricketSecureRng {
+    private $key; private $label; private $counter = 0; private $buf = ''; private $pos = 0;
+    public function __construct($label) { $this->key = cricket_mock_secret(); $this->label = (string) $label; }
+    public function next() {
+        if ($this->pos + 4 > strlen($this->buf)) {
+            $this->buf = hash_hmac('sha256', $this->label . '|' . $this->counter++, $this->key, true);
+            $this->pos = 0;
+        }
+        $v = unpack('N', substr($this->buf, $this->pos, 4))[1];
+        $this->pos += 4;
+        return ($v & 0xFFFFFFFF) / 4294967296.0;
+    }
+    public function pick(array $weights) {
+        $total = array_sum($weights);
+        $r = $this->next() * $total;
+        foreach ($weights as $k => $w) {
+            if ($r < $w) return $k;
+            $r -= $w;
+        }
+        return array_key_last($weights);
+    }
+    public function int($min, $max) { return $min + (int) floor($this->next() * ($max - $min + 1)); }
+}
+
+/**
+ * The virtual league's secret: CRICKET_VIRTUAL_SECRET if set, else derived from APP_SECRET. Changing
+ * it rewrites every match that has not happened yet — and any match in progress — so never rotate it
+ * while a virtual match is live.
+ */
+function cricket_mock_secret() {
+    $own = (string) env_get('CRICKET_VIRTUAL_SECRET', '');
+    return $own !== '' ? $own : hash_hmac('sha256', 'bet1x-cricket-virtual-league', (string) cfg('APP_SECRET', ''));
+}
+
 // -------------------------------------------------------------------------------------------------
 // The fictional league
 // -------------------------------------------------------------------------------------------------
@@ -213,7 +256,7 @@ function cricket_mock_fixtures($nowMs = null) {
                 'b' => ['key' => $meta['team_b']['key'], 'name' => $meta['team_b']['name'], 'code' => $meta['team_b']['code']],
             ],
             'venue'      => ['name' => $meta['venue']],
-            'tournament' => ['key' => 'mock_league_2026', 'name' => 'Bet1x Premier League 2026 (simulated)'],
+            'tournament' => ['key' => 'mock_league_2026', 'name' => 'Bet1x Virtual Cricket League'],
         ];
     }
     return $out;
@@ -253,7 +296,7 @@ function cricket_mock_simulate($slot) {
 
     $c = cricket_mock_conf();
     $meta = cricket_mock_match_meta($slot);
-    $rng = new CricketMockRng(crc32('match:' . $slot));
+    $rng = new CricketSecureRng('match:' . $slot);   // unpredictable without the server secret
 
     $tossWinner = $rng->next() < 0.5 ? 'a' : 'b';
     $elected = $rng->next() < 0.6 ? 'bowl' : 'bat';
@@ -468,6 +511,7 @@ function cricket_mock_simulate($slot) {
         }
     }
 
+    if (count($cache) >= 24) unset($cache[array_key_first($cache)]);   // bounded (by key: array_shift would renumber the slot keys): a long-running process (cron, exporter) must not grow forever
     return $cache[$slot] = [
         'meta' => $meta,
         'balls' => $balls,
