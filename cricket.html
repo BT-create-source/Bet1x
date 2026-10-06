@@ -130,7 +130,11 @@
           return '<a href="#match/' + encodeURIComponent(m.match_key) + '">' + esc(m.team_a_short) + ' v ' + esc(m.team_b_short)
             + (d.live.indexOf(m) >= 0 ? ' <span class="live">LIVE</span>' : '') + '</a>';
         }).join('');
-      }).catch(function (e) { $('viewLobby').innerHTML = '<div class="ck-empty">' + esc(e.message) + '</div>'; });
+      }).catch(function (e) {
+        // 404 = the cricket games are switched off on this deployment (the route is not mounted).
+        var msg = e.status === 404 ? "Cricket betting isn't available right now. Please check back soon." : e.message;
+        $('viewLobby').innerHTML = '<div class="ck-empty">' + esc(msg) + '</div>';
+      });
     }
 
     // ------------------------------------------------------------------ match
