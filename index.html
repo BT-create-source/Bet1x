@@ -144,22 +144,22 @@
         <div id="homeCricketRows"></div>
       </section>
       <style>
-        .hck { margin: 4px 0 0; border-radius: 12px; overflow: hidden; background: var(--surface, #12163a); border: 1px solid rgba(255,255,255,.07); }
-        .hck-h { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; color: #fff; font-weight: 700; font-size: 14px;
+        .hck { margin: 4px 0 0; border-radius: 10px; overflow: hidden; background: var(--surface, #12163a); border: 1px solid rgba(255,255,255,.07); }
+        .hck-h { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; color: #fff; font-weight: 700; font-size: 12.5px;
                  background: linear-gradient(90deg, #1a2050 0%, #232a66 100%); }
-        .hck-h a { color: #fff; opacity: .85; font-size: 12.5px; text-decoration: none; }
-        .hck-cols { display: grid; grid-template-columns: minmax(160px, 1fr) 70px 70px 70px 70px; }
-        .hck-head .h { text-align: center; font-size: 11.5px; font-weight: 800; color: var(--text-dim, #9aa3c7); padding: 6px 0; }
+        .hck-h a { color: #fff; opacity: .85; font-size: 11.5px; text-decoration: none; }
+        .hck-cols { display: grid; grid-template-columns: minmax(160px, 1fr) 54px 54px 54px 54px; gap: 0 2px; padding-right: 6px; }
+        .hck-head .h { text-align: center; font-size: 10.5px; font-weight: 800; color: var(--text-dim, #9aa3c7); padding: 2px 0; }
         .hck-row { border-top: 1px solid rgba(255,255,255,.07); cursor: pointer; }
         .hck-row:hover { background: rgba(255,255,255,.03); }
-        .hck-row .nm { padding: 9px 12px; font-size: 13.5px; font-weight: 700; color: var(--text, #fff); }
-        .hck-row .nm small { display: block; color: var(--text-dim, #9aa3c7); font-weight: 600; font-size: 11.5px; margin-top: 2px; }
+        .hck-row .nm { padding: 5px 10px; font-size: 12.5px; line-height: 1.25; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700; color: var(--text, #fff); }
+        .hck-row .nm small { display: block; color: var(--text-dim, #9aa3c7); font-weight: 600; font-size: 10.5px; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; }
         .hck-row .nm small .inplay { color: var(--green, #22c55e); font-weight: 800; }
-        .hck-px { display: flex; align-items: center; justify-content: center; font-family: var(--font-mono, monospace); font-weight: 700; font-size: 13px; color: #fff; }
+        .hck-px { display: flex; align-items: center; justify-content: center; font-family: var(--font-mono, monospace); font-weight: 700; font-size: 12px; color: #fff; margin: 3px 0; border-radius: 4px; }
         .hck-px.b { background: #2f6fd6; } .hck-px.l { background: #d2507d; }
-        .hck-px.s { background: rgba(255,255,255,.03); color: var(--text-dim, #9aa3c7); font-size: 11px; grid-column: span 4; }
+        .hck-px.s { background: rgba(255,255,255,.03); color: var(--text-dim, #9aa3c7); font-size: 10.5px; grid-column: span 4; }
         @media (max-width: 760px) {
-          .hck-cols { grid-template-columns: minmax(120px, 1fr) 58px 58px; }
+          .hck-cols { grid-template-columns: minmax(110px, 1fr) 50px 50px; }
           .hck-cols .x { display: none; }
           .hck-px.s { grid-column: span 2; }
         }
