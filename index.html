@@ -95,7 +95,48 @@
           onclick="document.querySelector('.exchange-section-header')?.scrollIntoView({behavior:'smooth'});">Detail</button>
       </div>
 
-      <!-- Cricket match odds: the next 5 matches (live first), same feed as cricket.html. Hidden entirely
+      <!-- Hero Banner Slideshow (Compact & Sleek) -->
+      <div class="banner-slideshow" id="bannerSlideshow">
+        <div class="banner-track" id="bannerTrack">
+          <div class="banner-slide" style="background-image: url('assets/banners/banner_cyber.jpg');"></div>
+          <div class="banner-slide" style="background-image: url('assets/banners/banner_cricket.jpg');"></div>
+          <div class="banner-slide" style="background-image: url('assets/banners/banner1.jpg');"></div>
+          <div class="banner-slide" style="background-image: url('assets/banners/banner2.jpg');"></div>
+          <div class="banner-slide" style="background-image: url('assets/banners/banner3.jpg');"></div>
+          <div class="banner-slide" style="background-image: url('assets/banners/banner_cyber.jpg');"></div>
+        </div>
+        <!-- Prev/Next arrows -->
+        <button type="button" class="banner-arrow banner-arrow--prev" id="bannerPrev"
+          aria-label="Previous slide">‹</button>
+        <button type="button" class="banner-arrow banner-arrow--next" id="bannerNext" aria-label="Next slide">›</button>
+        <!-- Navigation dots -->
+        <div class="banner-dots" id="bannerDots">
+          <span class="banner-dot active" data-index="0"></span>
+          <span class="banner-dot" data-index="1"></span>
+          <span class="banner-dot" data-index="2"></span>
+          <span class="banner-dot" data-index="3"></span>
+          <span class="banner-dot" data-index="4"></span>
+        </div>
+      </div>
+
+      <!-- Quick Sub Navigation Bar -->
+      <div class="sub-navbar" style="margin-bottom: 10px; border-radius: 4px;">
+        <ul class="sub-navbar-links">
+          <li class="sub-navbar-item"><a href="index.html" class="sub-navbar-link active">Home</a></li>
+          <li class="sub-navbar-item"><a href="aviator.html" class="sub-navbar-link">Vimaan</a></li>
+          <li class="sub-navbar-item"><a href="win.html" class="sub-navbar-link">Sapre</a></li>
+          <li class="sub-navbar-item"><a href="win1.html" class="sub-navbar-link">Becone</a></li>
+          <li class="sub-navbar-item"><a href="win2.html" class="sub-navbar-link">Emred</a></li>
+          <li class="sub-navbar-item"><a href="teenpatti.html" class="sub-navbar-link">Teen Patti</a></li>
+          <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
+          <li data-feature="cricket" class="sub-navbar-item"><a href="cricket.html" class="sub-navbar-link">Cricket</a></li>
+          <li data-feature="cricket" class="sub-navbar-item"><a href="youreleven.html" class="sub-navbar-link">Your 11</a></li>
+          <li data-feature="cricket" class="sub-navbar-item"><a href="boundarybaazi.html" class="sub-navbar-link">Ball by Ball</a></li>
+          <li class="sub-navbar-item"><a href="win3.html" class="sub-navbar-link">VIP</a></li>
+        </ul>
+      </div>
+
+      <!-- Cricket match odds, between the game tabs and the Universe Games bar: the next 5 matches (live first), same feed as cricket.html. Hidden entirely
            when the cricket games are switched off or nothing is scheduled. -->
       <section class="hck" id="homeCricket" hidden>
         <div class="hck-h"><span>🏏 Cricket · Match Odds</span><a href="cricket.html">View all ›</a></div>
@@ -103,7 +144,7 @@
         <div id="homeCricketRows"></div>
       </section>
       <style>
-        .hck { margin: 0 0 14px; border-radius: 12px; overflow: hidden; background: var(--surface, #12163a); border: 1px solid rgba(255,255,255,.07); }
+        .hck { margin: 4px 0 0; border-radius: 12px; overflow: hidden; background: var(--surface, #12163a); border: 1px solid rgba(255,255,255,.07); }
         .hck-h { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; color: #fff; font-weight: 700; font-size: 14px;
                  background: linear-gradient(90deg, #1a2050 0%, #232a66 100%); }
         .hck-h a { color: #fff; opacity: .85; font-size: 12.5px; text-decoration: none; }
@@ -156,47 +197,6 @@
           });
         })();
       </script>
-
-      <!-- Hero Banner Slideshow (Compact & Sleek) -->
-      <div class="banner-slideshow" id="bannerSlideshow">
-        <div class="banner-track" id="bannerTrack">
-          <div class="banner-slide" style="background-image: url('assets/banners/banner_cyber.jpg');"></div>
-          <div class="banner-slide" style="background-image: url('assets/banners/banner_cricket.jpg');"></div>
-          <div class="banner-slide" style="background-image: url('assets/banners/banner1.jpg');"></div>
-          <div class="banner-slide" style="background-image: url('assets/banners/banner2.jpg');"></div>
-          <div class="banner-slide" style="background-image: url('assets/banners/banner3.jpg');"></div>
-          <div class="banner-slide" style="background-image: url('assets/banners/banner_cyber.jpg');"></div>
-        </div>
-        <!-- Prev/Next arrows -->
-        <button type="button" class="banner-arrow banner-arrow--prev" id="bannerPrev"
-          aria-label="Previous slide">‹</button>
-        <button type="button" class="banner-arrow banner-arrow--next" id="bannerNext" aria-label="Next slide">›</button>
-        <!-- Navigation dots -->
-        <div class="banner-dots" id="bannerDots">
-          <span class="banner-dot active" data-index="0"></span>
-          <span class="banner-dot" data-index="1"></span>
-          <span class="banner-dot" data-index="2"></span>
-          <span class="banner-dot" data-index="3"></span>
-          <span class="banner-dot" data-index="4"></span>
-        </div>
-      </div>
-
-      <!-- Quick Sub Navigation Bar -->
-      <div class="sub-navbar" style="margin-bottom: 10px; border-radius: 4px;">
-        <ul class="sub-navbar-links">
-          <li class="sub-navbar-item"><a href="index.html" class="sub-navbar-link active">Home</a></li>
-          <li class="sub-navbar-item"><a href="aviator.html" class="sub-navbar-link">Vimaan</a></li>
-          <li class="sub-navbar-item"><a href="win.html" class="sub-navbar-link">Sapre</a></li>
-          <li class="sub-navbar-item"><a href="win1.html" class="sub-navbar-link">Becone</a></li>
-          <li class="sub-navbar-item"><a href="win2.html" class="sub-navbar-link">Emred</a></li>
-          <li class="sub-navbar-item"><a href="teenpatti.html" class="sub-navbar-link">Teen Patti</a></li>
-          <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
-          <li data-feature="cricket" class="sub-navbar-item"><a href="cricket.html" class="sub-navbar-link">Cricket</a></li>
-          <li data-feature="cricket" class="sub-navbar-item"><a href="youreleven.html" class="sub-navbar-link">Your 11</a></li>
-          <li data-feature="cricket" class="sub-navbar-item"><a href="boundarybaazi.html" class="sub-navbar-link">Ball by Ball</a></li>
-          <li class="sub-navbar-item"><a href="win3.html" class="sub-navbar-link">VIP</a></li>
-        </ul>
-      </div>
 
       <!-- Universe Games Section Header & Category Filter Tabs -->
       <div class="exchange-section-header"
