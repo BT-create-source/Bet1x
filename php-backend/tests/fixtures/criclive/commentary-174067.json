@@ -1,0 +1,275 @@
+{
+    "success": true,
+    "data": {
+        "match_id": 174067,
+        "miniscore": {
+            "innings_id": 2,
+            "bat_team_id": 15,
+            "bat_team_score": 299,
+            "bat_team_wickets": 6,
+            "status": "United States of America won by 4 wkts",
+            "overs": 48.5,
+            "target": null,
+            "crr": 6.12,
+            "rrr": 0,
+            "ovs_rem": "$undefined",
+            "recent_overs": "... 0  | 1 1 1 1 0 2  | 2 1 2 4 1",
+            "last_wicket": "Milind Kumar  c Ruben Trumpelmann b Bernard Scholtz 18(13)  - 282/6 in 46.3 ov.",
+            "last_10_overs": {
+                "runs": 65,
+                "wickets": 0,
+                "overs": ""
+            },
+            "partnership": {
+                "runs": 17,
+                "balls": 14
+            },
+            "striker": {
+                "id": 11315,
+                "name": "Shubham Ranjane",
+                "runs": 6,
+                "balls": 6,
+                "fours": 0,
+                "sixes": 0,
+                "strike_rate": "100.00",
+                "url": "/profiles/11315/shubham-ranjane"
+            },
+            "non_striker": {
+                "id": 8426,
+                "name": "Harmeet Singh",
+                "runs": 12,
+                "balls": 9,
+                "fours": 1,
+                "sixes": 0,
+                "strike_rate": "133.33",
+                "url": "/profiles/8426/harmeet-singh"
+            },
+            "bowler_striker": {
+                "id": 10769,
+                "name": "Bernard Scholtz",
+                "overs": 8.5,
+                "maidens": 0,
+                "runs": 65,
+                "wickets": 1,
+                "economy": 7.36,
+                "url": "/profiles/10769/bernard-scholtz"
+            },
+            "bowler_non_striker": {
+                "id": 14431,
+                "name": "Ruben Trumpelmann",
+                "overs": 10,
+                "maidens": 0,
+                "runs": 38,
+                "wickets": 1,
+                "economy": 3.8,
+                "url": "/profiles/14431/ruben-trumpelmann"
+            },
+            "innings_scores": [
+                {
+                    "innings_id": 1,
+                    "bat_team": "NAM",
+                    "score": 298,
+                    "wickets": 9,
+                    "overs": 50,
+                    "is_declared": false,
+                    "is_follow_on": false
+                },
+                {
+                    "innings_id": 2,
+                    "bat_team": "USA",
+                    "score": 299,
+                    "wickets": 6,
+                    "overs": 48.5,
+                    "is_declared": false,
+                    "is_follow_on": false
+                }
+            ],
+            "match_format": "ODI",
+            "custom_status": "United States of America won by 4 wkts",
+            "state": "Complete"
+        },
+        "match_header": {
+            "match_id": 174067,
+            "description": "130th Match",
+            "format": "ODI",
+            "status": "United States of America won by 4 wkts",
+            "state": "Complete",
+            "start_time_ist": "8:30 PM",
+            "start_time_gmt": "3:00 PM",
+            "start_time_local": "10:00 AM",
+            "toss_winner": "Namibia",
+            "toss_decision": "Batting",
+            "team1": {
+                "id": 15,
+                "name": "United States of America",
+                "short": "USA"
+            },
+            "team2": {
+                "id": 161,
+                "name": "Namibia",
+                "short": "NAM"
+            },
+            "series_name": "ICC Cricket World Cup League Two 2023-27",
+            "venue": ""
+        },
+        "win_probability": null,
+        "commentary": [
+            {
+                "timestamp": 1791412790091,
+                "text": "<b>17:39 Local Time, 22:39 GMT, 04:09 IST:</b> Result: United States of America won by 4 wkts",
+                "ball_metric": 48.5,
+                "innings_id": 2,
+                "over_separator": null
+            },
+            {
+                "timestamp": 1791412776129,
+                "text": "Bernard Scholtz to Harmeet Singh, 1 run",
+                "ball_metric": 48.5,
+                "innings_id": 2,
+                "over_separator": null
+            },
+            {
+                "timestamp": 1791412743475,
+                "text": "Bernard Scholtz to Harmeet Singh, <b>FOUR</b>",
+                "ball_metric": 48.4,
+                "innings_id": 2,
+                "over_separator": null
+            },
+            {
+                "timestamp": 1791412709707,
+                "text": "Bernard Scholtz to Harmeet Singh, 2 runs",
+                "ball_metric": 48.3,
+                "innings_id": 2,
+                "over_separator": null
+            },
+            {
+                "timestamp": 1791412656042,
+                "text": "Bernard Scholtz to Shubham Ranjane, 1 run",
+                "ball_metric": 48.2,
+                "innings_id": 2,
+                "over_separator": null
+            },
+            {
+                "timestamp": 1791412622574,
+                "text": "Bernard Scholtz to Shubham Ranjane, 2 runs",
+                "ball_metric": 48.1,
+                "innings_id": 2,
+                "over_separator": null
+            },
+            {
+                "timestamp": 1791412553423,
+                "text": "Ruben Trumpelmann to Harmeet Singh, 2 runs",
+                "ball_metric": 47.6,
+                "innings_id": 2,
+                "over_separator": {
+                    "over_number": 48,
+                    "over_summary": "1 1 1 1 0 2 ",
+                    "over_runs": 6,
+                    "bat_team_score": "289-6",
+                    "striker": "5(6)",
+                    "non_striker": "3(4)",
+                    "bowler": "10-0-38-1"
+                }
+            },
+            {
+                "timestamp": 1791412510451,
+                "text": "Ruben Trumpelmann to Harmeet Singh, no run",
+                "ball_metric": 47.5,
+                "innings_id": 2,
+                "over_separator": null
+            },
+            {
+                "timestamp": 1791412482403,
+                "text": "Ruben Trumpelmann to Shubham Ranjane, 1 run",
+                "ball_metric": 47.4,
+                "innings_id": 2,
+                "over_separator": null
+            },
+            {
+                "timestamp": 1791412445666,
+                "text": "Ruben Trumpelmann to Harmeet Singh, 1 run",
+                "ball_metric": 47.3,
+                "innings_id": 2,
+                "over_separator": null
+            },
+            {
+                "timestamp": 1791412408394,
+                "text": "Ruben Trumpelmann to Shubham Ranjane, 1 run",
+                "ball_metric": 47.2,
+                "innings_id": 2,
+                "over_separator": null
+            },
+            {
+                "timestamp": 1791412372799,
+                "text": "Ruben Trumpelmann to Harmeet Singh, 1 run",
+                "ball_metric": 47.1,
+                "innings_id": 2,
+                "over_separator": null
+            },
+            {
+                "timestamp": 1791412369372,
+                "text": "<b>Ruben Trumpelmann [9.0-0-32-1] is back into the attack</b>",
+                "ball_metric": 46.6,
+                "innings_id": 2,
+                "over_separator": null
+            },
+            {
+                "timestamp": 1791412307023,
+                "text": "Bernard Scholtz to Shubham Ranjane, no run",
+                "ball_metric": 46.6,
+                "innings_id": 2,
+                "over_separator": {
+                    "over_number": 47,
+                    "over_summary": "0 6 W 0 1 0 ",
+                    "over_runs": 7,
+                    "bat_team_score": "283-6",
+                    "striker": "1(2)",
+                    "non_striker": "1(2)",
+                    "bowler": "8-0-55-1"
+                }
+            },
+            {
+                "timestamp": 1791412271014,
+                "text": "Bernard Scholtz to Harmeet Singh, 1 run",
+                "ball_metric": 46.5,
+                "innings_id": 2,
+                "over_separator": null
+            },
+            {
+                "timestamp": 1791412268092,
+                "text": "Bernard Scholtz to Harmeet Singh, no run",
+                "ball_metric": 46.4,
+                "innings_id": 2,
+                "over_separator": null
+            },
+            {
+                "timestamp": 1791412265396,
+                "text": "<b>Harmeet Singh, left handed bat, comes to the crease</b>",
+                "ball_metric": 46.3,
+                "innings_id": 2,
+                "over_separator": null
+            },
+            {
+                "timestamp": 1791412176310,
+                "text": "Bernard Scholtz to Milind Kumar, <b>out</b> Caught by Ruben Trumpelmann!! <b>Milind Kumar c Ruben Trumpelmann b Bernard Scholtz 18(13) [4s-2 6s-1]</b>",
+                "ball_metric": 46.3,
+                "innings_id": 2,
+                "over_separator": null
+            },
+            {
+                "timestamp": 1791412171468,
+                "text": "Bernard Scholtz to Milind Kumar, <b>THATS OUT!!</b> Caught!!",
+                "ball_metric": 46.2,
+                "innings_id": 2,
+                "over_separator": null
+            },
+            {
+                "timestamp": 1791412120300,
+                "text": "Bernard Scholtz to Milind Kumar, <b>SIX</b>",
+                "ball_metric": 46.2,
+                "innings_id": 2,
+                "over_separator": null
+            }
+        ]
+    }
+}

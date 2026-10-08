@@ -41,14 +41,26 @@ function cb_get($path, array $q = []) {
     $ch = curl_init($url);
     curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 25, CURLOPT_ENCODING => '',
                             CURLOPT_HTTPHEADER => ['Accept: application/json', 'x-api-market-key: ' . $key]]);
+    if ($ca = cb_ca_bundle()) curl_setopt($ch, CURLOPT_CAINFO, $ca);   // verify TLS; never switched off
     $t0 = microtime(true);
     $raw = curl_exec($ch);
     $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $err = curl_error($ch);
     curl_close($ch);
-    if ($path !== '/health') $used++;
+    if ($path !== '/health' && $status > 0) $used++;   // a request that never reached the server costs nothing
     return ['status' => $status, 'ms' => (int) round((microtime(true) - $t0) * 1000), 'raw' => $raw === false ? '' : $raw, 'error' => $err,
             'data' => $raw === false ? null : json_decode($raw, true)];
+}
+/**
+ * Windows PHP builds often ship without a list of trusted certificates, so HTTPS fails with "unable to
+ * get local issuer certificate". Use php.ini's curl.cainfo if set, else CA_BUNDLE from .env, else the
+ * bundle that Git for Windows installs. Verification stays on in every case.
+ */
+function cb_ca_bundle() {
+    if (ini_get('curl.cainfo')) return null;
+    foreach ([(string) env_get('CA_BUNDLE', ''), 'C:/Program Files/Git/mingw64/etc/ssl/certs/ca-bundle.crt',
+              'C:/Program Files/Git/usr/ssl/certs/ca-bundle.crt'] as $f) if ($f !== '' && is_file($f)) return $f;
+    return null;
 }
 function cb_save($name, $r) {
     global $out;
@@ -75,6 +87,15 @@ function cb_find($data, array $names) {
 }
 
 echo "Cricbuzz API trial check\n\n";
+// Balls-only mode (2 units):  cricbuzz-check.php <match_id> balls  — a quick look at live deliveries.
+if (isset($argv[1], $argv[2]) && $argv[2] === 'balls') {
+    $mid = (int) $argv[1];
+    foreach (['get-ball-by-ball' => '6-ball-by-ball', 'get-scorecard' => '8-scorecard'] as $ep => $file) {
+        $r = cb_get('/matches/' . $ep, ['match_id' => $mid]); cb_save($file, $r); cb_report('matches/' . $ep, $r);
+    }
+    echo "\nUnits used: about $used\nRaw replies saved in:\n  $out\n";
+    exit(0);
+}
 $h = cb_get('/health'); cb_save('0-health', $h); cb_report('health', $h);
 $live = cb_get('/matches/live'); cb_save('1-live', $live); $liveOk = cb_report('matches/live', $live);
 $up = cb_get('/matches/upcoming'); cb_save('2-upcoming', $up); cb_report('matches/upcoming', $up);

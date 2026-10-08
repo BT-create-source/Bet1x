@@ -1,0 +1,785 @@
+{
+    "success": true,
+    "data": {
+        "match_id": 174067,
+        "innings": [
+            {
+                "bat_team": "Namibia",
+                "bat_team_short": "NAM",
+                "bowl_team": "United States of America",
+                "score": "298/9 (50 ov)",
+                "run_rate": 5.96,
+                "batsmen": [
+                    {
+                        "player_id": 11136,
+                        "name": "Michael van Lingen",
+                        "short_name": "Michael van Lingen",
+                        "is_captain": false,
+                        "is_keeper": false,
+                        "runs": 124,
+                        "balls": 121,
+                        "fours": 11,
+                        "sixes": 0,
+                        "strike_rate": 102.48,
+                        "out_desc": "b Shehan Jayasuriya",
+                        "wicket_code": "BOWLED",
+                        "mins": 168,
+                        "dots": 41
+                    },
+                    {
+                        "player_id": 10769,
+                        "name": "Bernard Scholtz",
+                        "short_name": "Bernard Scholtz",
+                        "is_captain": false,
+                        "is_keeper": false,
+                        "runs": 1,
+                        "balls": 1,
+                        "fours": 0,
+                        "sixes": 0,
+                        "strike_rate": 100,
+                        "out_desc": "not out",
+                        "wicket_code": "",
+                        "mins": 2,
+                        "dots": 0
+                    },
+                    {
+                        "player_id": 53954,
+                        "name": "Jack Brassell",
+                        "short_name": "Jack Brassell",
+                        "is_captain": false,
+                        "is_keeper": false,
+                        "runs": 1,
+                        "balls": 1,
+                        "fours": 0,
+                        "sixes": 0,
+                        "strike_rate": 100,
+                        "out_desc": "not out",
+                        "wicket_code": "",
+                        "mins": 1,
+                        "dots": 0
+                    },
+                    {
+                        "player_id": 9893,
+                        "name": "Malan Kruger",
+                        "short_name": "Malan Kruger",
+                        "is_captain": false,
+                        "is_keeper": false,
+                        "runs": 3,
+                        "balls": 17,
+                        "fours": 0,
+                        "sixes": 0,
+                        "strike_rate": 17.65,
+                        "out_desc": "b Milind Kumar",
+                        "wicket_code": "BOWLED",
+                        "mins": 17,
+                        "dots": 14
+                    },
+                    {
+                        "player_id": 8522,
+                        "name": "Jan Frylinck",
+                        "short_name": "Jan Frylinck",
+                        "is_captain": false,
+                        "is_keeper": false,
+                        "runs": 4,
+                        "balls": 14,
+                        "fours": 0,
+                        "sixes": 0,
+                        "strike_rate": 28.57,
+                        "out_desc": "c Smit Patel b Ehsan Adil",
+                        "wicket_code": "CAUGHT",
+                        "mins": 12,
+                        "dots": 11
+                    },
+                    {
+                        "player_id": 20262,
+                        "name": "Louren Steenkamp",
+                        "short_name": "Louren Steenkamp",
+                        "is_captain": false,
+                        "is_keeper": false,
+                        "runs": 30,
+                        "balls": 55,
+                        "fours": 1,
+                        "sixes": 0,
+                        "strike_rate": 54.55,
+                        "out_desc": "c Monank Patel b Ehsan Adil",
+                        "wicket_code": "CAUGHT",
+                        "mins": 81,
+                        "dots": 29
+                    },
+                    {
+                        "player_id": 7973,
+                        "name": "Gerhard Erasmus",
+                        "short_name": "Gerhard Erasmus",
+                        "is_captain": true,
+                        "is_keeper": false,
+                        "runs": 76,
+                        "balls": 45,
+                        "fours": 9,
+                        "sixes": 3,
+                        "strike_rate": 168.89,
+                        "out_desc": "c Yasir Mohammad b Saurabh Netravalkar",
+                        "wicket_code": "CAUGHT",
+                        "mins": 52,
+                        "dots": 13
+                    },
+                    {
+                        "player_id": 13438,
+                        "name": "Jan Nicol Loftie-Eaton",
+                        "short_name": "Jan Nicol Loftie-Eaton",
+                        "is_captain": false,
+                        "is_keeper": false,
+                        "runs": 11,
+                        "balls": 12,
+                        "fours": 0,
+                        "sixes": 1,
+                        "strike_rate": 91.67,
+                        "out_desc": "c and b Shehan Jayasuriya",
+                        "wicket_code": "CAUGHTBOWLED",
+                        "mins": 15,
+                        "dots": 6
+                    },
+                    {
+                        "player_id": 9885,
+                        "name": "JJ Smit",
+                        "short_name": "Smit",
+                        "is_captain": false,
+                        "is_keeper": false,
+                        "runs": 2,
+                        "balls": 3,
+                        "fours": 0,
+                        "sixes": 0,
+                        "strike_rate": 66.67,
+                        "out_desc": "c Sanjay Krishnamurthi b Shehan Jayasuriya",
+                        "wicket_code": "CAUGHT",
+                        "mins": 2,
+                        "dots": 1
+                    },
+                    {
+                        "player_id": 9890,
+                        "name": "Zane Green",
+                        "short_name": "Zane Green",
+                        "is_captain": false,
+                        "is_keeper": true,
+                        "runs": 22,
+                        "balls": 17,
+                        "fours": 3,
+                        "sixes": 0,
+                        "strike_rate": 129.41,
+                        "out_desc": "c Saiteja Mukkamalla b Ehsan Adil",
+                        "wicket_code": "CAUGHT",
+                        "mins": 29,
+                        "dots": 5
+                    },
+                    {
+                        "player_id": 14431,
+                        "name": "Ruben Trumpelmann",
+                        "short_name": "Ruben Trumpelmann",
+                        "is_captain": false,
+                        "is_keeper": false,
+                        "runs": 18,
+                        "balls": 14,
+                        "fours": 1,
+                        "sixes": 0,
+                        "strike_rate": 128.57,
+                        "out_desc": "lbw b Ehsan Adil",
+                        "wicket_code": "LBW",
+                        "mins": 17,
+                        "dots": 3
+                    }
+                ],
+                "yet_to_bat": [],
+                "bowlers": [
+                    {
+                        "player_id": 9748,
+                        "name": "Saurabh Netravalkar",
+                        "short_name": "Saurabh Netravalkar",
+                        "is_captain": false,
+                        "overs": 10,
+                        "maidens": 0,
+                        "runs": 45,
+                        "wickets": 1,
+                        "no_balls": 0,
+                        "wides": 0,
+                        "economy": 4.5,
+                        "dots": 0
+                    },
+                    {
+                        "player_id": 8773,
+                        "name": "Milind Kumar",
+                        "short_name": "Milind Kumar",
+                        "is_captain": false,
+                        "overs": 8,
+                        "maidens": 1,
+                        "runs": 31,
+                        "wickets": 1,
+                        "no_balls": 0,
+                        "wides": 1,
+                        "economy": 3.9,
+                        "dots": 0
+                    },
+                    {
+                        "player_id": 8362,
+                        "name": "Ehsan Adil",
+                        "short_name": "Ehsan Adil",
+                        "is_captain": false,
+                        "overs": 8,
+                        "maidens": 0,
+                        "runs": 41,
+                        "wickets": 4,
+                        "no_balls": 0,
+                        "wides": 1,
+                        "economy": 5.1,
+                        "dots": 0
+                    },
+                    {
+                        "player_id": 11315,
+                        "name": "Shubham Ranjane",
+                        "short_name": "Shubham Ranjane",
+                        "is_captain": false,
+                        "overs": 8,
+                        "maidens": 0,
+                        "runs": 54,
+                        "wickets": 0,
+                        "no_balls": 0,
+                        "wides": 1,
+                        "economy": 6.8,
+                        "dots": 0
+                    },
+                    {
+                        "player_id": 8426,
+                        "name": "Harmeet Singh",
+                        "short_name": "Harmeet Singh",
+                        "is_captain": false,
+                        "overs": 6,
+                        "maidens": 0,
+                        "runs": 53,
+                        "wickets": 0,
+                        "no_balls": 0,
+                        "wides": 0,
+                        "economy": 8.8,
+                        "dots": 0
+                    },
+                    {
+                        "player_id": 22901,
+                        "name": "Yasir Mohammad",
+                        "short_name": "Yasir Mohammad",
+                        "is_captain": false,
+                        "overs": 5,
+                        "maidens": 0,
+                        "runs": 41,
+                        "wickets": 0,
+                        "no_balls": 0,
+                        "wides": 0,
+                        "economy": 8.2,
+                        "dots": 0
+                    },
+                    {
+                        "player_id": 7883,
+                        "name": "Shehan Jayasuriya",
+                        "short_name": "Shehan Jayasuriya",
+                        "is_captain": false,
+                        "overs": 5,
+                        "maidens": 0,
+                        "runs": 30,
+                        "wickets": 3,
+                        "no_balls": 0,
+                        "wides": 0,
+                        "economy": 6,
+                        "dots": 0
+                    }
+                ],
+                "extras": "Extras: 6 (b 0, lb 3, w 3, nb 0, p 0)",
+                "extras_detail": {
+                    "total": 6,
+                    "byes": 0,
+                    "leg_byes": 3,
+                    "wides": 3,
+                    "no_balls": 0,
+                    "penalty": 0
+                },
+                "fall_of_wickets": [
+                    {
+                        "wkt_num": 1,
+                        "player": "Malan Kruger",
+                        "runs": 15,
+                        "over": 5.4
+                    },
+                    {
+                        "wkt_num": 2,
+                        "player": "Jan Frylinck",
+                        "runs": 24,
+                        "over": 8.6
+                    },
+                    {
+                        "wkt_num": 3,
+                        "player": "Louren Steenkamp",
+                        "runs": 137,
+                        "over": 29.5
+                    },
+                    {
+                        "wkt_num": 4,
+                        "player": "Michael van Lingen",
+                        "runs": 239,
+                        "over": 41.3
+                    },
+                    {
+                        "wkt_num": 5,
+                        "player": "Gerhard Erasmus",
+                        "runs": 243,
+                        "over": 42.3
+                    },
+                    {
+                        "wkt_num": 6,
+                        "player": "JJ Smit",
+                        "runs": 246,
+                        "over": 43.1
+                    },
+                    {
+                        "wkt_num": 7,
+                        "player": "Jan Nicol Loftie-Eaton",
+                        "runs": 267,
+                        "over": 45.5
+                    },
+                    {
+                        "wkt_num": 8,
+                        "player": "Ruben Trumpelmann",
+                        "runs": 294,
+                        "over": 49.2
+                    },
+                    {
+                        "wkt_num": 9,
+                        "player": "Zane Green",
+                        "runs": 297,
+                        "over": 49.5
+                    }
+                ],
+                "partnerships": [
+                    {
+                        "bat1_name": "Michael van Lingen",
+                        "bat1_runs": 11,
+                        "bat2_name": "Malan Kruger",
+                        "bat2_runs": 3,
+                        "total_runs": 15,
+                        "total_balls": 34
+                    },
+                    {
+                        "bat1_name": "Bernard Scholtz",
+                        "bat1_runs": 0,
+                        "bat2_name": "Jack Brassell",
+                        "bat2_runs": 1,
+                        "total_runs": 1,
+                        "total_balls": 1
+                    },
+                    {
+                        "bat1_name": "Michael van Lingen",
+                        "bat1_runs": 5,
+                        "bat2_name": "Jan Frylinck",
+                        "bat2_runs": 4,
+                        "total_runs": 9,
+                        "total_balls": 20
+                    },
+                    {
+                        "bat1_name": "Michael van Lingen",
+                        "bat1_runs": 82,
+                        "bat2_name": "Louren Steenkamp",
+                        "bat2_runs": 30,
+                        "total_runs": 113,
+                        "total_balls": 125
+                    },
+                    {
+                        "bat1_name": "Michael van Lingen",
+                        "bat1_runs": 26,
+                        "bat2_name": "Gerhard Erasmus",
+                        "bat2_runs": 78,
+                        "total_runs": 106,
+                        "total_balls": 71
+                    },
+                    {
+                        "bat1_name": "Loftie-Eaton",
+                        "bat1_runs": 2,
+                        "bat2_name": "Gerhard Erasmus",
+                        "bat2_runs": 2,
+                        "total_runs": 4,
+                        "total_balls": 6
+                    },
+                    {
+                        "bat1_name": "Loftie-Eaton",
+                        "bat1_runs": 1,
+                        "bat2_name": "Smit",
+                        "bat2_runs": 2,
+                        "total_runs": 3,
+                        "total_balls": 4
+                    },
+                    {
+                        "bat1_name": "Loftie-Eaton",
+                        "bat1_runs": 8,
+                        "bat2_name": "Zane Green",
+                        "bat2_runs": 12,
+                        "total_runs": 21,
+                        "total_balls": 16
+                    },
+                    {
+                        "bat1_name": "Ruben Trumpelmann",
+                        "bat1_runs": 18,
+                        "bat2_name": "Zane Green",
+                        "bat2_runs": 8,
+                        "total_runs": 27,
+                        "total_balls": 21
+                    },
+                    {
+                        "bat1_name": "Bernard Scholtz",
+                        "bat1_runs": 1,
+                        "bat2_name": "Zane Green",
+                        "bat2_runs": 2,
+                        "total_runs": 3,
+                        "total_balls": 3
+                    }
+                ],
+                "innings_id": 0,
+                "is_declared": false,
+                "is_following_on": false
+            },
+            {
+                "bat_team": "United States of America",
+                "bat_team_short": "USA",
+                "bowl_team": "Namibia",
+                "score": "299/6 (48.5 ov)",
+                "run_rate": 6.12,
+                "batsmen": [
+                    {
+                        "player_id": 8350,
+                        "name": "Smit Patel",
+                        "short_name": "Smit Patel",
+                        "is_captain": false,
+                        "is_keeper": true,
+                        "runs": 50,
+                        "balls": 62,
+                        "fours": 4,
+                        "sixes": 2,
+                        "strike_rate": 80.65,
+                        "out_desc": "c Gerhard Erasmus b Jan Nicol Loftie-Eaton",
+                        "wicket_code": "CAUGHT",
+                        "mins": 4,
+                        "dots": 35
+                    },
+                    {
+                        "player_id": 14732,
+                        "name": "Monank Patel",
+                        "short_name": "Monank Patel",
+                        "is_captain": true,
+                        "is_keeper": false,
+                        "runs": 108,
+                        "balls": 100,
+                        "fours": 14,
+                        "sixes": 0,
+                        "strike_rate": 108,
+                        "out_desc": "c Zane Green b Ruben Trumpelmann",
+                        "wicket_code": "CAUGHT",
+                        "mins": 53,
+                        "dots": 35
+                    },
+                    {
+                        "player_id": 7883,
+                        "name": "Shehan Jayasuriya",
+                        "short_name": "Shehan Jayasuriya",
+                        "is_captain": false,
+                        "is_keeper": false,
+                        "runs": 74,
+                        "balls": 75,
+                        "fours": 9,
+                        "sixes": 1,
+                        "strike_rate": 98.67,
+                        "out_desc": "c and b Smit",
+                        "wicket_code": "CAUGHTBOWLED",
+                        "mins": 85,
+                        "dots": 34
+                    },
+                    {
+                        "player_id": 26232,
+                        "name": "Saiteja Mukkamalla",
+                        "short_name": "Saiteja Mukkamalla",
+                        "is_captain": false,
+                        "is_keeper": false,
+                        "runs": 6,
+                        "balls": 6,
+                        "fours": 1,
+                        "sixes": 0,
+                        "strike_rate": 100,
+                        "out_desc": "c Zane Green b Smit",
+                        "wicket_code": "CAUGHT",
+                        "mins": 14,
+                        "dots": 4
+                    },
+                    {
+                        "player_id": 20241,
+                        "name": "Sanjay Krishnamurthi",
+                        "short_name": "Sanjay Krishnamurthi",
+                        "is_captain": false,
+                        "is_keeper": false,
+                        "runs": 17,
+                        "balls": 23,
+                        "fours": 1,
+                        "sixes": 0,
+                        "strike_rate": 73.91,
+                        "out_desc": "c Ruben Trumpelmann b Jan Nicol Loftie-Eaton",
+                        "wicket_code": "CAUGHT",
+                        "mins": 38,
+                        "dots": 10
+                    },
+                    {
+                        "player_id": 8773,
+                        "name": "Milind Kumar",
+                        "short_name": "Milind Kumar",
+                        "is_captain": false,
+                        "is_keeper": false,
+                        "runs": 18,
+                        "balls": 13,
+                        "fours": 2,
+                        "sixes": 1,
+                        "strike_rate": 138.46,
+                        "out_desc": "c Ruben Trumpelmann b Bernard Scholtz",
+                        "wicket_code": "CAUGHT",
+                        "mins": 19,
+                        "dots": 6
+                    },
+                    {
+                        "player_id": 11315,
+                        "name": "Shubham Ranjane",
+                        "short_name": "Shubham Ranjane",
+                        "is_captain": false,
+                        "is_keeper": false,
+                        "runs": 6,
+                        "balls": 6,
+                        "fours": 0,
+                        "sixes": 0,
+                        "strike_rate": 100,
+                        "out_desc": "not out",
+                        "wicket_code": "",
+                        "mins": 13,
+                        "dots": 1
+                    },
+                    {
+                        "player_id": 8426,
+                        "name": "Harmeet Singh",
+                        "short_name": "Harmeet Singh",
+                        "is_captain": false,
+                        "is_keeper": false,
+                        "runs": 12,
+                        "balls": 9,
+                        "fours": 1,
+                        "sixes": 0,
+                        "strike_rate": 133.33,
+                        "out_desc": "not out",
+                        "wicket_code": "",
+                        "mins": 8,
+                        "dots": 2
+                    }
+                ],
+                "yet_to_bat": [
+                    "Ehsan Adil",
+                    "Yasir Mohammad",
+                    "Saurabh Netravalkar"
+                ],
+                "bowlers": [
+                    {
+                        "player_id": 14431,
+                        "name": "Ruben Trumpelmann",
+                        "short_name": "Ruben Trumpelmann",
+                        "is_captain": false,
+                        "overs": 10,
+                        "maidens": 0,
+                        "runs": 38,
+                        "wickets": 1,
+                        "no_balls": 0,
+                        "wides": 0,
+                        "economy": 3.8,
+                        "dots": 0
+                    },
+                    {
+                        "player_id": 9885,
+                        "name": "JJ Smit",
+                        "short_name": "Smit",
+                        "is_captain": false,
+                        "overs": 10,
+                        "maidens": 0,
+                        "runs": 46,
+                        "wickets": 2,
+                        "no_balls": 0,
+                        "wides": 0,
+                        "economy": 4.6,
+                        "dots": 0
+                    },
+                    {
+                        "player_id": 10769,
+                        "name": "Bernard Scholtz",
+                        "short_name": "Bernard Scholtz",
+                        "is_captain": false,
+                        "overs": 8.5,
+                        "maidens": 0,
+                        "runs": 65,
+                        "wickets": 1,
+                        "no_balls": 0,
+                        "wides": 0,
+                        "economy": 7.4,
+                        "dots": 0
+                    },
+                    {
+                        "player_id": 53954,
+                        "name": "Jack Brassell",
+                        "short_name": "Jack Brassell",
+                        "is_captain": false,
+                        "overs": 10,
+                        "maidens": 0,
+                        "runs": 84,
+                        "wickets": 0,
+                        "no_balls": 0,
+                        "wides": 5,
+                        "economy": 8.4,
+                        "dots": 0
+                    },
+                    {
+                        "player_id": 13438,
+                        "name": "Jan Nicol Loftie-Eaton",
+                        "short_name": "Jan Nicol Loftie-Eaton",
+                        "is_captain": false,
+                        "overs": 6,
+                        "maidens": 0,
+                        "runs": 39,
+                        "wickets": 2,
+                        "no_balls": 0,
+                        "wides": 0,
+                        "economy": 6.5,
+                        "dots": 0
+                    },
+                    {
+                        "player_id": 7973,
+                        "name": "Gerhard Erasmus",
+                        "short_name": "Gerhard Erasmus",
+                        "is_captain": true,
+                        "overs": 4,
+                        "maidens": 0,
+                        "runs": 25,
+                        "wickets": 0,
+                        "no_balls": 0,
+                        "wides": 0,
+                        "economy": 6.2,
+                        "dots": 0
+                    }
+                ],
+                "extras": "Extras: 8 (b 1, lb 1, w 5, nb 1, p 0)",
+                "extras_detail": {
+                    "total": 8,
+                    "byes": 1,
+                    "leg_byes": 1,
+                    "wides": 5,
+                    "no_balls": 1,
+                    "penalty": 0
+                },
+                "fall_of_wickets": [
+                    {
+                        "wkt_num": 1,
+                        "player": "Smit Patel",
+                        "runs": 96,
+                        "over": 17.6
+                    },
+                    {
+                        "wkt_num": 2,
+                        "player": "Monank Patel",
+                        "runs": 217,
+                        "over": 35.4
+                    },
+                    {
+                        "wkt_num": 3,
+                        "player": "Saiteja Mukkamalla",
+                        "runs": 232,
+                        "over": 38.3
+                    },
+                    {
+                        "wkt_num": 4,
+                        "player": "Shehan Jayasuriya",
+                        "runs": 255,
+                        "over": 42.3
+                    },
+                    {
+                        "wkt_num": 5,
+                        "player": "Sanjay Krishnamurthi",
+                        "runs": 274,
+                        "over": 45.4
+                    },
+                    {
+                        "wkt_num": 6,
+                        "player": "Milind Kumar",
+                        "runs": 282,
+                        "over": 46.3
+                    }
+                ],
+                "partnerships": [
+                    {
+                        "bat1_name": "Smit Patel",
+                        "bat1_runs": 50,
+                        "bat2_name": "Monank Patel",
+                        "bat2_runs": 45,
+                        "total_runs": 96,
+                        "total_balls": 108
+                    },
+                    {
+                        "bat1_name": "Shehan Jayasuriya",
+                        "bat1_runs": 52,
+                        "bat2_name": "Monank Patel",
+                        "bat2_runs": 63,
+                        "total_runs": 121,
+                        "total_balls": 106
+                    },
+                    {
+                        "bat1_name": "Shehan Jayasuriya",
+                        "bat1_runs": 9,
+                        "bat2_name": "Saiteja Mukkamalla",
+                        "bat2_runs": 6,
+                        "total_runs": 15,
+                        "total_balls": 17
+                    },
+                    {
+                        "bat1_name": "Shehan Jayasuriya",
+                        "bat1_runs": 13,
+                        "bat2_name": "Sanjay Krishnamurthi",
+                        "bat2_runs": 10,
+                        "total_runs": 23,
+                        "total_balls": 24
+                    },
+                    {
+                        "bat1_name": "Milind Kumar",
+                        "bat1_runs": 11,
+                        "bat2_name": "Sanjay Krishnamurthi",
+                        "bat2_runs": 7,
+                        "total_runs": 19,
+                        "total_balls": 19
+                    },
+                    {
+                        "bat1_name": "Milind Kumar",
+                        "bat1_runs": 7,
+                        "bat2_name": "Shubham Ranjane",
+                        "bat2_runs": 1,
+                        "total_runs": 8,
+                        "total_balls": 5
+                    },
+                    {
+                        "bat1_name": "Harmeet Singh",
+                        "bat1_runs": 12,
+                        "bat2_name": "Shubham Ranjane",
+                        "bat2_runs": 5,
+                        "total_runs": 17,
+                        "total_balls": 14
+                    }
+                ],
+                "innings_id": 0,
+                "is_declared": false,
+                "is_following_on": false
+            }
+        ],
+        "match_header": {
+            "name": "United States of America vs Namibia, 130th Match, ICC Cricket World Cup League Two 2023-27 - Live Cricket Score, Commentary",
+            "start_date": "2026-10-07T15:00:00.000Z",
+            "location": "Grand Prairie Stadium"
+        }
+    }
+}

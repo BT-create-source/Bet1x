@@ -1,0 +1,577 @@
+{
+ "success": true,
+ "data": [
+  {
+   "date": "FRI, OCT 09 2026",
+   "long_date": "1791504000000",
+   "series": [
+    {
+     "series_name": "ICC Men's T20 World Cup Asia Sub Regional Qualifier A 2026",
+     "series_id": 13253,
+     "series_category": "International",
+     "matches": [
+      {
+       "match_id": 173761,
+       "match_desc": "12th Match",
+       "match_format": "T20",
+       "start_date": "1791508500000",
+       "end_date": "1791590399000",
+       "team1": "Qatar",
+       "team1_short": "QAT",
+       "team1_id": 525,
+       "team2": "Myanmar",
+       "team2_short": "MMR",
+       "team2_id": 565,
+       "ground": "Selangor Turf Club",
+       "city": "Kuala Lumpur",
+       "country": "Malaysia",
+       "timezone": "+08:00"
+      },
+      {
+       "match_id": 173753,
+       "match_desc": "10th Match",
+       "match_format": "T20",
+       "start_date": "1791508500000",
+       "end_date": "1791590399000",
+       "team1": "Mongolia",
+       "team1_short": "MGL",
+       "team1_id": 1804,
+       "team2": "Thailand",
+       "team2_short": "THAI",
+       "team2_id": 384,
+       "ground": "Bayuemas Oval",
+       "city": "Kuala Lumpur",
+       "country": "Malaysia",
+       "timezone": "+08:00"
+      },
+      {
+       "match_id": 173760,
+       "match_desc": "11th Match",
+       "match_format": "T20",
+       "start_date": "1791508500000",
+       "end_date": "1791590399000",
+       "team1": "Bahrain",
+       "team1_short": "BHR",
+       "team1_id": 543,
+       "team2": "Kuwait",
+       "team2_short": "KUW",
+       "team2_id": 298,
+       "ground": "YSD-UKM Cricket Oval",
+       "city": "Bangi",
+       "country": "Malaysia",
+       "timezone": "+08:00"
+      }
+     ]
+    },
+    {
+     "series_name": "Afghanistan vs Bangladesh in UAE, 2026",
+     "series_id": 13187,
+     "series_category": "International",
+     "matches": [
+      {
+       "match_id": 172671,
+       "match_desc": "One-off Test, Day 1",
+       "match_format": "TEST",
+       "start_date": "1791523800000",
+       "end_date": "1791935999000",
+       "team1": "Afghanistan",
+       "team1_short": "AFG",
+       "team1_id": 96,
+       "team2": "Bangladesh",
+       "team2_short": "BAN",
+       "team2_id": 6,
+       "ground": "Sheikh Zayed Stadium",
+       "city": "Abu Dhabi",
+       "country": "United Arab Emirates",
+       "timezone": "+04:00"
+      }
+     ]
+    },
+    {
+     "series_name": "ICC Men's T20 World Cup Asia Sub Regional Qualifier B 2026",
+     "series_id": 13257,
+     "series_category": "International",
+     "matches": [
+      {
+       "match_id": 173871,
+       "match_desc": "4th Match",
+       "match_format": "T20",
+       "start_date": "1791525600000",
+       "end_date": "1791590399000",
+       "team1": "Malaysia",
+       "team1_short": "MLY",
+       "team1_id": 71,
+       "team2": "Saudi Arabia",
+       "team2_short": "SAU",
+       "team2_id": 571,
+       "ground": "Bayuemas Oval",
+       "city": "Kuala Lumpur",
+       "country": "Malaysia",
+       "timezone": "+08:00"
+      },
+      {
+       "match_id": 173873,
+       "match_desc": "5th Match",
+       "match_format": "T20",
+       "start_date": "1791525600000",
+       "end_date": "1791590399000",
+       "team1": "China",
+       "team1_short": "CHN",
+       "team1_id": 524,
+       "team2": "Hong Kong, China",
+       "team2_short": "HKC",
+       "team2_id": 8,
+       "ground": "YSD-UKM Cricket Oval",
+       "city": "Bangi",
+       "country": "Malaysia",
+       "timezone": "+08:00"
+      },
+      {
+       "match_id": 173883,
+       "match_desc": "6th Match",
+       "match_format": "T20",
+       "start_date": "1791525600000",
+       "end_date": "1791590399000",
+       "team1": "Maldives",
+       "team1_short": "MDV",
+       "team1_id": 563,
+       "team2": "Singapore",
+       "team2_short": "SIN",
+       "team2_id": 190,
+       "ground": "Selangor Turf Club",
+       "city": "Kuala Lumpur",
+       "country": "Malaysia",
+       "timezone": "+08:00"
+      }
+     ]
+    },
+    {
+     "series_name": "ICC Cricket World Cup League Two 2023-27",
+     "series_id": 7572,
+     "series_category": "International",
+     "matches": [
+      {
+       "match_id": 169910,
+       "match_desc": "131st Match",
+       "match_format": "ODI",
+       "start_date": "1791525600000",
+       "end_date": "1791590399000",
+       "team1": "Oman",
+       "team1_short": "OMAN",
+       "team1_id": 304,
+       "team2": "Canada",
+       "team2_short": "CAN",
+       "team2_id": 26,
+       "ground": "Al Amerat Cricket Ground (Ministry Turf 1)",
+       "city": "Al Amerat",
+       "country": "Oman",
+       "timezone": "+04:00"
+      },
+      {
+       "match_id": 174077,
+       "match_desc": "132nd Match",
+       "match_format": "ODI",
+       "start_date": "1791558000000",
+       "end_date": "1791590399000",
+       "team1": "Namibia",
+       "team1_short": "NAM",
+       "team1_id": 161,
+       "team2": "United Arab Emirates",
+       "team2_short": "UAE",
+       "team2_id": 7,
+       "ground": "Grand Prairie Stadium",
+       "city": "Dallas",
+       "country": "United States",
+       "timezone": "-05:00"
+      }
+     ]
+    },
+    {
+     "series_name": "Australia tour of South Africa, 2026",
+     "series_id": 11595,
+     "series_category": "International",
+     "matches": [
+      {
+       "match_id": 147920,
+       "match_desc": "1st Test, Day 1",
+       "match_format": "TEST",
+       "start_date": "1791531000000",
+       "end_date": "1791935999000",
+       "team1": "South Africa",
+       "team1_short": "RSA",
+       "team1_id": 11,
+       "team2": "Australia",
+       "team2_short": "AUS",
+       "team2_id": 4,
+       "ground": "Kingsmead",
+       "city": "Durban",
+       "country": "South Africa",
+       "timezone": "+02:00"
+      }
+     ]
+    },
+    {
+     "series_name": "West Indies tour of India, 2026",
+     "series_id": 11902,
+     "series_category": "International",
+     "matches": [
+      {
+       "match_id": 151576,
+       "match_desc": "2nd T20I",
+       "match_format": "T20",
+       "start_date": "1791552600000",
+       "end_date": "1791590399000",
+       "team1": "India",
+       "team1_short": "IND",
+       "team1_id": 2,
+       "team2": "West Indies",
+       "team2_short": "WI",
+       "team2_id": 10,
+       "ground": "JSCA International Stadium Complex",
+       "city": "Ranchi",
+       "country": "India",
+       "timezone": "+05:30"
+      }
+     ]
+    },
+    {
+     "series_name": "Sri Lanka tour of Pakistan, 2026",
+     "series_id": 13037,
+     "series_category": "International",
+     "matches": [
+      {
+       "match_id": 170687,
+       "match_desc": "1st T20I",
+       "match_format": "T20",
+       "start_date": "1791558000000",
+       "end_date": "1791590399000",
+       "team1": "Pakistan",
+       "team1_short": "PAK",
+       "team1_id": 3,
+       "team2": "Sri Lanka",
+       "team2_short": "SL",
+       "team2_id": 5,
+       "ground": "Rawalpindi Cricket Stadium",
+       "city": "Rawalpindi",
+       "country": "Pakistan",
+       "timezone": "+05:00"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "date": "SAT, OCT 10 2026",
+   "long_date": "1791590400000",
+   "series": [
+    {
+     "series_name": "Afghanistan vs Bangladesh in UAE, 2026",
+     "series_id": 13187,
+     "series_category": "International",
+     "matches": [
+      {
+       "match_id": 172671,
+       "match_desc": "One-off Test, Day 2",
+       "match_format": "TEST",
+       "start_date": "1791610200000",
+       "end_date": "1791935999000",
+       "team1": "Afghanistan",
+       "team1_short": "AFG",
+       "team1_id": 96,
+       "team2": "Bangladesh",
+       "team2_short": "BAN",
+       "team2_id": 6,
+       "ground": "Sheikh Zayed Stadium",
+       "city": "Abu Dhabi",
+       "country": "United Arab Emirates",
+       "timezone": "+04:00"
+      }
+     ]
+    },
+    {
+     "series_name": "Australia tour of South Africa, 2026",
+     "series_id": 11595,
+     "series_category": "International",
+     "matches": [
+      {
+       "match_id": 147920,
+       "match_desc": "1st Test, Day 2",
+       "match_format": "TEST",
+       "start_date": "1791617400000",
+       "end_date": "1791935999000",
+       "team1": "South Africa",
+       "team1_short": "RSA",
+       "team1_id": 11,
+       "team2": "Australia",
+       "team2_short": "AUS",
+       "team2_id": 4,
+       "ground": "Kingsmead",
+       "city": "Durban",
+       "country": "South Africa",
+       "timezone": "+02:00"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "date": "SUN, OCT 11 2026",
+   "long_date": "1791676800000",
+   "series": [
+    {
+     "series_name": "ICC Men's T20 World Cup Asia Sub Regional Qualifier B 2026",
+     "series_id": 13257,
+     "series_category": "International",
+     "matches": [
+      {
+       "match_id": 173887,
+       "match_desc": "7th Match",
+       "match_format": "T20",
+       "start_date": "1791681300000",
+       "end_date": "1791763199000",
+       "team1": "Hong Kong, China",
+       "team1_short": "HKC",
+       "team1_id": 8,
+       "team2": "Saudi Arabia",
+       "team2_short": "SAU",
+       "team2_id": 571,
+       "ground": "Bayuemas Oval",
+       "city": "Kuala Lumpur",
+       "country": "Malaysia",
+       "timezone": "+08:00"
+      },
+      {
+       "match_id": 173901,
+       "match_desc": "9th Match",
+       "match_format": "T20",
+       "start_date": "1791681300000",
+       "end_date": "1791763199000",
+       "team1": "China",
+       "team1_short": "CHN",
+       "team1_id": 524,
+       "team2": "Singapore",
+       "team2_short": "SIN",
+       "team2_id": 190,
+       "ground": "Selangor Turf Club",
+       "city": "Kuala Lumpur",
+       "country": "Malaysia",
+       "timezone": "+08:00"
+      },
+      {
+       "match_id": 173891,
+       "match_desc": "8th Match",
+       "match_format": "T20",
+       "start_date": "1791681300000",
+       "end_date": "1791763199000",
+       "team1": "Malaysia",
+       "team1_short": "MLY",
+       "team1_id": 71,
+       "team2": "Maldives",
+       "team2_short": "MDV",
+       "team2_id": 563,
+       "ground": "YSD-UKM Cricket Oval",
+       "city": "Bangi",
+       "country": "Malaysia",
+       "timezone": "+08:00"
+      }
+     ]
+    },
+    {
+     "series_name": "Afghanistan vs Bangladesh in UAE, 2026",
+     "series_id": 13187,
+     "series_category": "International",
+     "matches": [
+      {
+       "match_id": 172671,
+       "match_desc": "One-off Test, Day 3",
+       "match_format": "TEST",
+       "start_date": "1791696600000",
+       "end_date": "1791935999000",
+       "team1": "Afghanistan",
+       "team1_short": "AFG",
+       "team1_id": 96,
+       "team2": "Bangladesh",
+       "team2_short": "BAN",
+       "team2_id": 6,
+       "ground": "Sheikh Zayed Stadium",
+       "city": "Abu Dhabi",
+       "country": "United Arab Emirates",
+       "timezone": "+04:00"
+      }
+     ]
+    },
+    {
+     "series_name": "ICC Men's T20 World Cup Asia Sub Regional Qualifier A 2026",
+     "series_id": 13253,
+     "series_category": "International",
+     "matches": [
+      {
+       "match_id": 173773,
+       "match_desc": "13th Match",
+       "match_format": "T20",
+       "start_date": "1791698400000",
+       "end_date": "1791763199000",
+       "team1": "Kuwait",
+       "team1_short": "KUW",
+       "team1_id": 298,
+       "team2": "Myanmar",
+       "team2_short": "MMR",
+       "team2_id": 565,
+       "ground": "Bayuemas Oval",
+       "city": "Kuala Lumpur",
+       "country": "Malaysia",
+       "timezone": "+08:00"
+      },
+      {
+       "match_id": 173783,
+       "match_desc": "14th Match",
+       "match_format": "T20",
+       "start_date": "1791698400000",
+       "end_date": "1791763199000",
+       "team1": "Bhutan",
+       "team1_short": "BTN",
+       "team1_id": 555,
+       "team2": "Qatar",
+       "team2_short": "QAT",
+       "team2_id": 525,
+       "ground": "YSD-UKM Cricket Oval",
+       "city": "Bangi",
+       "country": "Malaysia",
+       "timezone": "+08:00"
+      },
+      {
+       "match_id": 173791,
+       "match_desc": "15th Match",
+       "match_format": "T20",
+       "start_date": "1791698400000",
+       "end_date": "1791763199000",
+       "team1": "Bahrain",
+       "team1_short": "BHR",
+       "team1_id": 543,
+       "team2": "Mongolia",
+       "team2_short": "MGL",
+       "team2_id": 1804,
+       "ground": "Selangor Turf Club",
+       "city": "Kuala Lumpur",
+       "country": "Malaysia",
+       "timezone": "+08:00"
+      }
+     ]
+    },
+    {
+     "series_name": "ICC Cricket World Cup League Two 2023-27",
+     "series_id": 7572,
+     "series_category": "International",
+     "matches": [
+      {
+       "match_id": 169921,
+       "match_desc": "133rd Match",
+       "match_format": "ODI",
+       "start_date": "1791698400000",
+       "end_date": "1791763199000",
+       "team1": "Nepal",
+       "team1_short": "NEP",
+       "team1_id": 72,
+       "team2": "Canada",
+       "team2_short": "CAN",
+       "team2_id": 26,
+       "ground": "Al Amerat Cricket Ground (Ministry Turf 1)",
+       "city": "Al Amerat",
+       "country": "Oman",
+       "timezone": "+04:00"
+      },
+      {
+       "match_id": 174083,
+       "match_desc": "134th Match",
+       "match_format": "ODI",
+       "start_date": "1791730800000",
+       "end_date": "1791763199000",
+       "team1": "United States of America",
+       "team1_short": "USA",
+       "team1_id": 15,
+       "team2": "United Arab Emirates",
+       "team2_short": "UAE",
+       "team2_id": 7,
+       "ground": "Grand Prairie Stadium",
+       "city": "Dallas",
+       "country": "United States",
+       "timezone": "-05:00"
+      }
+     ]
+    },
+    {
+     "series_name": "Australia tour of South Africa, 2026",
+     "series_id": 11595,
+     "series_category": "International",
+     "matches": [
+      {
+       "match_id": 147920,
+       "match_desc": "1st Test, Day 3",
+       "match_format": "TEST",
+       "start_date": "1791703800000",
+       "end_date": "1791935999000",
+       "team1": "South Africa",
+       "team1_short": "RSA",
+       "team1_id": 11,
+       "team2": "Australia",
+       "team2_short": "AUS",
+       "team2_id": 4,
+       "ground": "Kingsmead",
+       "city": "Durban",
+       "country": "South Africa",
+       "timezone": "+02:00"
+      }
+     ]
+    },
+    {
+     "series_name": "West Indies tour of India, 2026",
+     "series_id": 11902,
+     "series_category": "International",
+     "matches": [
+      {
+       "match_id": 151587,
+       "match_desc": "3rd T20I",
+       "match_format": "T20",
+       "start_date": "1791725400000",
+       "end_date": "1791763199000",
+       "team1": "India",
+       "team1_short": "IND",
+       "team1_id": 2,
+       "team2": "West Indies",
+       "team2_short": "WI",
+       "team2_id": 10,
+       "ground": "Holkar Stadium",
+       "city": "Indore",
+       "country": "India",
+       "timezone": "+05:30"
+      }
+     ]
+    },
+    {
+     "series_name": "Sri Lanka tour of Pakistan, 2026",
+     "series_id": 13037,
+     "series_category": "International",
+     "matches": [
+      {
+       "match_id": 170690,
+       "match_desc": "2nd T20I",
+       "match_format": "T20",
+       "start_date": "1791730800000",
+       "end_date": "1791763199000",
+       "team1": "Pakistan",
+       "team1_short": "PAK",
+       "team1_id": 3,
+       "team2": "Sri Lanka",
+       "team2_short": "SL",
+       "team2_id": 5,
+       "ground": "Rawalpindi Cricket Stadium",
+       "city": "Rawalpindi",
+       "country": "Pakistan",
+       "timezone": "+05:00"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
