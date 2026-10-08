@@ -317,6 +317,27 @@
   </div>
 
   <script>
+  // Phone layout: the Bet Slip / Open Bets column sits just ABOVE the Results tabs instead of at the very
+  // bottom of the page. On wider screens (laptop) it stays in the right-hand column, untouched. 760px is
+  // the breakpoint where assets/css/cricket.css collapses the page to a single column.
+  (function () {
+    var mq = window.matchMedia('(max-width: 760px)');
+    function place() {
+      var right = document.querySelector('.ck-right'), tabs = document.querySelector('#viewMatch .bb-tabs'), shell = document.querySelector('.ck-shell');
+      if (!right || !tabs || !shell) return;
+      if (mq.matches) {
+        if (right.nextElementSibling !== tabs) { tabs.parentNode.insertBefore(right, tabs); right.classList.add('ck-right--inline'); }
+      } else if (right.parentNode !== shell) {
+        shell.appendChild(right); right.classList.remove('ck-right--inline');
+      }
+    }
+    document.addEventListener('DOMContentLoaded', place);
+    if (mq.addEventListener) mq.addEventListener('change', place); else if (mq.addListener) mq.addListener(place);
+  })();
+  </script>
+  <style>.ck-right--inline { margin: 14px 0 4px; }</style>
+
+  <script>
   (function () {
     var POLL_MS = 1500;
     var state = null, matchKey = null, pollTimer = null, lobbyTimer = null, clockSkew = 0;
