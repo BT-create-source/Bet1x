@@ -34,6 +34,11 @@ function profile_classify_txn($details) {
     }
     if (stripos($details, 'Mines Bet') === 0)      return ['game' => 'Mines', 'kind' => 'bet'];
     if (stripos($details, 'Mines Cash Out') === 0) return ['game' => 'Mines', 'kind' => 'win'];
+    if (stripos($details, 'Chicken Road Bet') === 0)      return ['game' => 'Chicken Road', 'kind' => 'bet'];
+    if (stripos($details, 'Chicken Road Cash Out') === 0) return ['game' => 'Chicken Road', 'kind' => 'win'];
+    // Astronaut is deliberately absent: a player can hold two bets in one round, which the
+    // bet-then-win pairing below cannot untangle. Its rounds come from AstronautBet instead —
+    // see profile_astronaut_rounds().
     if (stripos($details, 'Teen Patti Boot') === 0)     return ['game' => 'Teen Patti', 'kind' => 'bet'];
     if (stripos($details, 'Teen Patti Chaal') === 0)    return ['game' => 'Teen Patti', 'kind' => 'bet'];
     if (stripos($details, 'Teen Patti Won Pot') === 0)  return ['game' => 'Teen Patti', 'kind' => 'win'];
@@ -49,6 +54,27 @@ function profile_classify_txn($details) {
     if (stripos($details, 'Cricket Refund') === 0)      return ['game' => 'Cricket', 'kind' => 'win'];
     if (stripos($details, 'Cricket Cash Out') === 0)    return ['game' => 'Cricket', 'kind' => 'win'];
     return null;
+}
+
+/** Settled Astronaut bets as history rounds, read from their own table rather than the ledger. */
+function profile_astronaut_rounds($username) {
+    try {
+        $rows = all('SELECT "amount","status","payout","created_at" FROM "AstronautBet"
+                     WHERE LOWER("username") = LOWER(?) AND "status" IN (\'won\',\'lost\')
+                     ORDER BY "id" DESC LIMIT 200', [$username]);
+    } catch (Throwable $e) {
+        return [];   // table not migrated yet: no Astronaut history, nothing else affected
+    }
+    return array_map(function ($b) {
+        $won = $b['status'] === 'won';
+        return [
+            'game'      => 'Astronaut',
+            'result'    => $won ? 'won' : 'lost',
+            'amount'    => round($won ? (float) $b['payout'] : (float) $b['amount'], 2),
+            'stake'     => round((float) $b['amount'], 2),
+            'timestamp' => $b['created_at'],
+        ];
+    }, $rows);
 }
 
 function profile_color_room_name($room) {
@@ -179,6 +205,8 @@ function register_profile_routes(Router $app) {
             }
 
             $rounds = profile_build_rounds($classified);
+            $rounds = array_merge($rounds, profile_astronaut_rounds($user['username']));
+            usort($rounds, function ($a, $b) { return strcmp($b['timestamp'], $a['timestamp']); });
 
             $wins = 0; $losses = 0; $totalWon = 0.0; $totalLost = 0.0;
             foreach ($rounds as $r) {

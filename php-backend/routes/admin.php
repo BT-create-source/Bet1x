@@ -36,6 +36,12 @@ function classify_gameplay_transaction($details) {
     if (strpos($details, 'Teen Patti Won Pot') !== false)     return ['game' => 'teenpatti', 'kind' => 'win'];
     if (strpos($details, 'Mines Bet') !== false)              return ['game' => 'mines', 'kind' => 'wager'];
     if (strpos($details, 'Mines Cash Out') !== false)         return ['game' => 'mines', 'kind' => 'win'];
+    if (strpos($details, 'Chicken Road Bet') === 0)           return ['game' => 'chickenroad', 'kind' => 'wager'];
+    if (strpos($details, 'Chicken Road Cash Out') === 0)      return ['game' => 'chickenroad', 'kind' => 'win'];
+    if (strpos($details, 'Astronaut Bet Round') === 0)        return ['game' => 'astronaut', 'kind' => 'wager'];
+    // A cancelled bet is the stake handed back, so it nets against its wager like a win would.
+    if (strpos($details, 'Astronaut Bet Cancelled') === 0)    return ['game' => 'astronaut', 'kind' => 'win'];
+    if (strpos($details, 'Astronaut Cash Out') === 0)         return ['game' => 'astronaut', 'kind' => 'win'];
     return null;
 }
 
@@ -45,6 +51,8 @@ function game_labels() {
         'aviator'     => 'Aviator',
         'teenpatti'   => 'Teen Patti',
         'mines'       => 'Mines',
+        'chickenroad' => 'Chicken Road',
+        'astronaut'   => 'Astronaut',
     ];
 }
 

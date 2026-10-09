@@ -51,6 +51,7 @@ require_once __DIR__ . '/../games/color.php';
 require_once __DIR__ . '/../games/aviator.php';
 require_once __DIR__ . '/../games/teenpatti.php';
 require_once __DIR__ . '/../games/mines.php';
+require_once __DIR__ . '/../games/astronaut.php';
 
 $startedAt = microtime(true);
 
@@ -65,6 +66,10 @@ with_named_lock('cron_tick', 5, function () {
     catch (Throwable $e) { log_error('cron: aviator tick failed', ['message' => $e->getMessage()]); }
 
     // 2. Colour Prediction — settle any round that ended while nobody was polling.
+    // Settles an Astronaut round nobody is watching, so auto cash-outs and losses never sit open.
+    try { astro_tick(); }
+    catch (Throwable $e) { log_error('cron: astronaut tick failed', ['message' => $e->getMessage()]); }
+
     try { color_advance_all_rooms(); }
     catch (Throwable $e) { log_error('cron: colour settlement failed', ['message' => $e->getMessage()]); }
 
