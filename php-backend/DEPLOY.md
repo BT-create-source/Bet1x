@@ -649,7 +649,17 @@ Go live
    **remove `CRICKET_VIRTUAL=true`** (Virtual Cricket and real cricket do not run side by side).
    Keep `CRICKET_ENABLED=true`, `FANTASY_ENABLED=true`, `FANTASY_SOURCE=feed`.
 2. `/api/health` must show cricket enabled and not held off.
-3. Watch the first live match in the admin cricket panel before advertising it.
+3. Retire Virtual Cricket: `tools/retire-virtual-cricket.php` (dry run) then `--apply` — refunds every
+   open virtual Ball by Ball stake, match bet and Your 11 entry in full and removes the simulated
+   fixtures from the lobbies. No shell on cPanel: run it once from a one-off cron line writing a log,
+   then delete that cron line. Re-running is harmless.
+4. Watch the first live match in the admin cricket panel before advertising it.
+
+Result safety: a "Finished" fixture settles only once Sportmonks' winner, the result note and (limited
+overs, no rain target) the runs agree — on 9 Oct 2026 India v West Indies came back with the wrong
+winner for ~4 minutes. Until they agree the match shows "awaiting confirmed result" and nothing settles.
+Disk: each real match archives ~15–20 MB of raw snapshots in `cricket_feed_raw`; prune old matches
+periodically.
 
 Checks: `php php-backend/tests/test_sportmonks.php` (real replies; rebuilds every innings ball by
 ball and must equal Sportmonks' own scoreboard).
