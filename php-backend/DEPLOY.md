@@ -663,3 +663,23 @@ periodically.
 
 Checks: `php php-backend/tests/test_sportmonks.php` (real replies; rebuilds every innings ball by
 ball and must equal Sportmonks' own scoreboard).
+
+## 14. Chicken Road and Astronaut — `chickenroad.html`, `astronaut.html`
+
+Two house games, live as soon as their tables exist. Nothing to add to `.env`.
+
+1. Run `sql/migration-012-chickenroad-astronaut-postgres.sql` once (additive; safe to re-run). It
+   creates `ChickenRoadSession` (one road per player) and `AstronautBet`.
+2. No new cron line: the existing `cron/tick.php` also settles any Astronaut round nobody is watching,
+   so auto cash-outs and losses never sit open.
+3. Admin console → **Chicken Road & Astronaut** tab: open/close each game, RTP (90–99%; defaults 98% and
+   97%), bet limits, Astronaut's highest crash, and the per-round maximum win (reached = auto cash-out).
+
+How they price: Chicken Road is 25 hidden slots with 1/3/5/10 fire slots (Easy/Medium/Hard/Hardcore),
+which reproduces the original's ladders exactly (Easy tops out at 24.50x, Hard 52,067.40x, Hardcore
+3,203,384.80x at 98%). Astronaut's crash is `floor(100·RTP/(1−u))/100`, so any cash-out target returns
+RTP. Both are provably fair: the seed's hash is shown before play and the seed is revealed after, and
+each page re-checks the last round in the browser. Neither game is wired to the bot-takeover engine.
+
+Checks: `php -d extension=pdo_pgsql -d extension=curl php-backend/test_crash_games.php` (maths, the
+HTTP API on four servers at once, races, wallet reconciliation; about a minute, real clock).

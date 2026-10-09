@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chicken Road — bet1x</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <script src="assets/js/ui-common.js"></script>
+  <script src="assets/js/sound-fx.js"></script>
+  <script src="assets/js/result-popup.js"></script>
+  <style>
+    /* ==========================================================================================
+       Chicken Road. The road itself is a fixed-dark "stage" (like Vimaan's sky and Teen Patti's
+       felt), so its colours are literal; everything around it uses the site's theme tokens.
+       ========================================================================================== */
+    .cr-wrap { max-width: 1120px; margin: 18px auto 0; padding: 0 14px; box-sizing: border-box; }
+
+    .cr-topbar {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      margin-bottom: 10px; flex-wrap: wrap;
+    }
+    .cr-title { display: flex; align-items: center; gap: 10px; }
+    .cr-title h1 {
+      margin: 0; font-family: var(--font-display); font-size: 22px; letter-spacing: 0.5px; color: var(--text);
+    }
+    .cr-title h1 span { color: var(--gold); }
+    .cr-title svg { width: 34px; height: 34px; }
+    .cr-top-actions { display: flex; gap: 8px; align-items: center; }
+    .cr-pill-btn {
+      background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+      border-radius: var(--radius-pill); padding: 7px 14px; font: 600 13px var(--font-body); cursor: pointer;
+    }
+    .cr-pill-btn:hover { border-color: var(--gold); }
+    .cr-balance {
+      font-family: var(--font-mono); font-weight: 700; color: var(--green);
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 7px 14px;
+    }
+
+    /* ---- the stage ---------------------------------------------------------------------------- */
+    .cr-stage {
+      position: relative; height: var(--cr-stage-h); overflow: hidden; border-radius: var(--radius-lg);
+      background: #1b1d2b; border: 1px solid var(--border); box-shadow: var(--shadow-card);
+      user-select: none; -webkit-user-select: none;
+    }
+    .cr-track {
+      position: absolute; top: 0; left: 0; height: 100%; display: flex;
+      transition: transform 0.55s cubic-bezier(.2,.8,.2,1); will-change: transform;
+    }
+    .cr-kerb {
+      position: relative; flex: 0 0 var(--cr-kerb-w); height: 100%;
+      background:
+        repeating-linear-gradient(0deg, rgba(255,255,255,0.05) 0 2px, transparent 2px 46px),
+        linear-gradient(90deg, #3b4060, #33385a);
+      box-shadow: inset -6px 0 0 #c9cde0, inset -10px 0 0 #8c91ad;
+    }
+    .cr-kerb.finish {
+      flex-basis: var(--cr-finish-w);
+      box-shadow: inset 6px 0 0 #c9cde0, inset 10px 0 0 #8c91ad;
+      background:
+        repeating-linear-gradient(0deg, rgba(255,255,255,0.05) 0 2px, transparent 2px 46px),
+        linear-gradient(90deg, #33385a, #3b4060);
+    }
+    .cr-kerb-label {
+      position: absolute; bottom: 14px; left: 0; right: 0; text-align: center;
+      font: 700 11px var(--font-display); letter-spacing: 2px; color: rgba(255,255,255,0.45);
+    }
+    .cr-egg {
+      position: absolute; top: 50%; left: 50%; width: 54px; height: 66px; transform: translate(-50%, -62%);
+      filter: drop-shadow(0 0 14px rgba(255,197,61,0.65)); animation: crEggGlow 2.4s ease-in-out infinite;
+    }
+    @keyframes crEggGlow { 50% { filter: drop-shadow(0 0 26px rgba(255,197,61,0.95)); } }
+
+    .cr-lane {
+      position: relative; flex: 0 0 var(--cr-lane-w); height: 100%;
+      background: linear-gradient(90deg, #262838, #2c2f42 50%, #262838);
+    }
+    .cr-lane + .cr-lane::before {
+      content: ''; position: absolute; left: -2px; top: 0; bottom: 0; width: 4px;
+      background: repeating-linear-gradient(180deg, rgba(255,255,255,0.55) 0 26px, transparent 26px 52px);
+      opacity: 0.55;
+    }
+    .cr-manhole {
+      position: absolute; left: 50%; top: 50%; width: var(--cr-hole); height: var(--cr-hole);
+      transform: translate(-50%, -50%); border-radius: 50%;
+      background:
+        repeating-linear-gradient(0deg, transparent 0 7px, rgba(0,0,0,0.28) 7px 9px),
+        radial-gradient(circle at 35% 30%, #8a8fa6, #555a70 55%, #3b3f52);
+      box-shadow: 0 0 0 4px #1d1f2c, 0 3px 8px rgba(0,0,0,0.6), inset 0 0 0 3px rgba(255,255,255,0.08);
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+    .cr-mult {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      font: 700 var(--cr-mult-fs) var(--font-mono); color: #f2f3fb; text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+      white-space: nowrap; pointer-events: none; transition: color 0.3s;
+    }
+    .cr-lane.next .cr-manhole { box-shadow: 0 0 0 4px #1d1f2c, 0 0 0 7px rgba(46,212,122,0.65), 0 0 22px rgba(46,212,122,0.45); animation: crPulse 1.1s ease-in-out infinite; }
+    @keyframes crPulse { 50% { box-shadow: 0 0 0 4px #1d1f2c, 0 0 0 9px rgba(46,212,122,0.35), 0 0 30px rgba(46,212,122,0.6); } }
+    .cr-lane.passed .cr-manhole {
+      background:
+        repeating-linear-gradient(0deg, transparent 0 7px, rgba(120,70,0,0.25) 7px 9px),
+        radial-gradient(circle at 35% 30%, #ffe08a, #f2b229 55%, #b97a09);
+      box-shadow: 0 0 0 4px #1d1f2c, 0 0 18px rgba(255,197,61,0.55);
+    }
+    .cr-lane.passed .cr-mult { color: #3a2500; text-shadow: 0 1px 0 rgba(255,255,255,0.45); }
+    .cr-lane.fire .cr-manhole { background: radial-gradient(circle, #ffef9a, #ff7a1a 45%, #b3200c 75%, #2b0a05); box-shadow: 0 0 0 4px #1d1f2c, 0 0 40px rgba(255,90,20,0.9); }
+
+    /* barrier that holds traffic off the hen's lane */
+    .cr-barrier {
+      position: absolute; left: 8%; right: 8%; top: 18px; height: 12px; border-radius: 3px; opacity: 0;
+      transform: translateY(-8px); transition: opacity 0.25s, transform 0.25s;
+      background: repeating-linear-gradient(-45deg, #ffc53d 0 10px, #1d1f2c 10px 20px);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+    }
+    .cr-lane.current .cr-barrier { opacity: 1; transform: none; }
+
+    /* traffic */
+    .cr-car {
+      position: absolute; left: 50%; top: 0; width: calc(var(--cr-lane-w) * 0.42); height: calc(var(--cr-lane-w) * 0.78);
+      margin-left: calc(var(--cr-lane-w) * -0.21);
+      animation: crDrive var(--dur, 2s) linear infinite; animation-delay: var(--delay, 0s);
+      transition: opacity 0.2s;
+    }
+    .cr-car svg { width: 100%; height: 100%; display: block; }
+    @keyframes crDrive { from { transform: translateY(-120%); } to { transform: translateY(calc(var(--cr-stage-h) + 20%)); } }
+    .cr-lane.current .cr-car, .cr-lane.fire .cr-car { opacity: 0; animation-play-state: paused; }
+
+    /* flames */
+    .cr-flames {
+      position: absolute; left: 50%; top: 50%; width: calc(var(--cr-hole) * 1.25); height: calc(var(--cr-hole) * 1.9);
+      transform: translate(-50%, -88%); opacity: 0; pointer-events: none;
+    }
+    .cr-lane.fire .cr-flames { opacity: 1; animation: crFlameRise 0.35s ease-out; }
+    .cr-flames path { transform-origin: 50% 100%; animation: crFlicker 0.18s ease-in-out infinite alternate; }
+    .cr-flames path:nth-child(2) { animation-duration: 0.23s; }
+    .cr-flames path:nth-child(3) { animation-duration: 0.15s; }
+    @keyframes crFlicker { from { transform: scaleY(0.88) scaleX(1.04); } to { transform: scaleY(1.06) scaleX(0.95); } }
+    @keyframes crFlameRise { from { transform: translate(-50%, -40%) scale(0.3); } }
+
+    /* the hen */
+    .cr-hen {
+      position: absolute; top: 50%; left: 0; width: var(--cr-hen); height: var(--cr-hen);
+      margin-left: calc(var(--cr-hen) / -2); margin-top: calc(var(--cr-hen) * -0.86);
+      transition: transform 0.38s cubic-bezier(.3,.7,.4,1); z-index: 5; pointer-events: none;
+    }
+    .cr-hen-body { width: 100%; height: 100%; animation: crIdle 1.6s ease-in-out infinite; transform-origin: 50% 100%; }
+    .cr-hen.hop .cr-hen-body { animation: crHop 0.38s ease-out; }
+    @keyframes crIdle { 50% { transform: scaleY(0.96) translateY(2%); } }
+    @keyframes crHop { 0% { transform: translateY(0) scale(1, 0.9); } 45% { transform: translateY(-38%) scale(0.95, 1.06); } 100% { transform: translateY(0); } }
+    .cr-hen svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 6px 5px rgba(0,0,0,0.55)); }
+    .cr-hen .roast { display: none; }
+    .cr-hen.roasted .alive { display: none; }
+    .cr-hen.roasted .roast { display: block; }
+    .cr-hen.roasted .cr-hen-body { animation: crShake 0.5s ease-in-out 2; }
+    @keyframes crShake { 25% { transform: rotate(-8deg); } 75% { transform: rotate(8deg); } }
+    .cr-hen.won .cr-hen-body { animation: crCheer 0.6s ease-in-out 3; }
+    @keyframes crCheer { 50% { transform: translateY(-22%) rotate(-6deg); } }
+
+    /* HUD over the stage */
+    .cr-hud {
+      position: absolute; top: 12px; left: 12px; z-index: 8; display: flex; gap: 8px; flex-wrap: wrap;
+      pointer-events: none;
+    }
+    .cr-hud-chip {
+      background: rgba(11,14,29,0.82); border: 1px solid rgba(255,255,255,0.12); border-radius: var(--radius-pill);
+      padding: 5px 12px; font: 700 13px var(--font-mono); color: #edeffa; backdrop-filter: blur(4px);
+    }
+    .cr-hud-chip b { color: #ffc53d; }
+    .cr-hud-chip.win b { color: #2ed47a; }
+    .cr-banner {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(0.8); z-index: 9;
+      padding: 14px 26px; border-radius: var(--radius); text-align: center; opacity: 0; pointer-events: none;
+      transition: opacity 0.25s, transform 0.25s; background: rgba(11,14,29,0.9); border: 1px solid rgba(255,255,255,0.15);
+      font-family: var(--font-display); color: #edeffa;
+    }
+    .cr-banner.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    .cr-banner .big { font-size: 30px; font-weight: 700; }
+    .cr-banner.win .big { color: #2ed47a; }
+    .cr-banner.lose .big { color: #ff4b6e; }
+    .cr-banner .sub { font: 600 14px var(--font-mono); color: #c9cde0; margin-top: 4px; }
+
+    /* ---- controls ----------------------------------------------------------------------------- */
+    .cr-controls {
+      margin-top: 12px; display: grid; grid-template-columns: 1.1fr 1.3fr 1fr; gap: 12px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px;
+    }
+    .cr-block-label {
+      font: 600 11px var(--font-body); color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 7px;
+      display: flex; justify-content: space-between;
+    }
+    .cr-amount { display: flex; align-items: stretch; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+    .cr-amount button {
+      flex: 0 0 42px; border: 0; background: transparent; color: var(--text); font: 700 20px var(--font-mono); cursor: pointer;
+    }
+    .cr-amount button:hover:not(:disabled) { background: rgba(255,255,255,0.05); }
+    .cr-amount input {
+      flex: 1; min-width: 0; border: 0; background: transparent; color: var(--text); text-align: center;
+      font: 700 18px var(--font-mono); padding: 10px 0; outline: none;
+    }
+    .cr-chips { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 8px; }
+    .cr-chip {
+      background: var(--surface-2); border: 1px solid var(--border); color: var(--text-dim); border-radius: 8px;
+      padding: 6px 0; font: 600 12px var(--font-mono); cursor: pointer;
+    }
+    .cr-chip:hover:not(:disabled) { color: var(--text); border-color: var(--gold); }
+    .cr-diffs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .cr-diff {
+      background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer;
+      padding: 9px 4px; text-align: center; color: var(--text); transition: border-color 0.15s, background 0.15s;
+    }
+    .cr-diff .n { font: 700 14px var(--font-display); }
+    .cr-diff .m { font: 600 11px var(--font-mono); color: var(--text-dim); margin-top: 2px; }
+    .cr-diff.active { border-color: var(--gold); background: var(--gold-soft); }
+    .cr-diff.active .m { color: var(--gold); }
+    .cr-diff-note { font: 500 12px var(--font-body); color: var(--text-dim); margin-top: 8px; }
+    .cr-actions { display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+    .cr-btn {
+      border: 0; border-radius: var(--radius); cursor: pointer; font-family: var(--font-display); font-weight: 700;
+      letter-spacing: 1px; padding: 14px 10px; transition: transform 0.08s, filter 0.15s, opacity 0.15s;
+    }
+    .cr-btn:active:not(:disabled) { transform: scale(0.97); }
+    .cr-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .cr-btn-go {
+      background: linear-gradient(180deg, #3ee68b, #1fa85d); color: #062313; font-size: 22px;
+      box-shadow: 0 6px 18px rgba(46,212,122,0.3), inset 0 -3px 0 rgba(0,0,0,0.18);
+    }
+    .cr-btn-go small { display: block; font: 600 12px var(--font-mono); letter-spacing: 0; opacity: 0.8; }
+    .cr-btn-cash {
+      background: linear-gradient(180deg, #ffd768, #f0a91c); color: #2e1d00; font-size: 16px;
+      box-shadow: 0 6px 18px rgba(255,197,61,0.25), inset 0 -3px 0 rgba(0,0,0,0.15);
+    }
+    .cr-btn-cash small { display: block; font: 700 15px var(--font-mono); letter-spacing: 0; }
+    .cr-row { display: flex; gap: 8px; }
+    .cr-row .cr-btn { flex: 1; }
+    .cr-row[hidden], .cr-btn[hidden] { display: none; }
+    .cr-msg { min-height: 18px; font: 500 13px var(--font-body); color: var(--text-dim); text-align: center; }
+    .cr-msg.err { color: var(--red); }
+    .cr-fair {
+      margin-top: 8px; font: 500 11px var(--font-mono); color: var(--text-dim); display: flex; gap: 14px;
+      flex-wrap: wrap; justify-content: space-between; padding: 0 4px; word-break: break-all;
+    }
+    .cr-fair a { color: var(--gold); cursor: pointer; text-decoration: underline; }
+
+    /* ---- modal -------------------------------------------------------------------------------- */
+    .cr-modal { position: fixed; inset: 0; z-index: 2000; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(5,7,16,0.72); }
+    .cr-modal.open { display: flex; }
+    .cr-modal-card {
+      width: 100%; max-width: 560px; max-height: 88vh; overflow: auto; background: var(--surface);
+      border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 22px; color: var(--text);
+      box-shadow: var(--shadow-card); font: 400 14px/1.55 var(--font-body);
+    }
+    .cr-modal-card h2 { margin: 0 0 10px; font: 700 20px var(--font-display); }
+    .cr-modal-card h3 { margin: 16px 0 6px; font: 700 15px var(--font-display); color: var(--gold); }
+    .cr-modal-card ol, .cr-modal-card ul { padding-left: 20px; margin: 6px 0; }
+    .cr-modal-card table { width: 100%; border-collapse: collapse; font: 500 13px var(--font-mono); }
+    .cr-modal-card th, .cr-modal-card td { padding: 6px 4px; border-bottom: 1px solid var(--border); text-align: left; }
+    .cr-modal-card th { color: var(--text-dim); font-weight: 600; }
+    .cr-modal-close { float: right; background: none; border: 0; color: var(--text-dim); font-size: 24px; cursor: pointer; line-height: 1; }
+    .cr-verify { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px; font: 500 12px var(--font-mono); word-break: break-all; }
+    .cr-verify .ok { color: var(--green); } .cr-verify .bad { color: var(--red); }
+
+    @media (max-width: 860px) {
+      .cr-controls { grid-template-columns: 1fr 1fr; }
+      .cr-actions { grid-column: 1 / -1; }
+    }
+    @media (max-width: 560px) {
+      .cr-wrap { padding: 0 10px; }
+      .cr-controls { grid-template-columns: 1fr; padding: 12px; }
+      .cr-title h1 { font-size: 19px; }
+      .cr-diff .m { font-size: 10px; }
+    }
+  </style>
+</head>
+
+<body class="exchange-theme">
+
+  <nav class="navbar exchange-header">
+    <div style="display:flex; align-items:center; gap:12px;">
+      <div class="exchange-logo-box">Bet1x</div>
+    </div>
+    <div id="headerAuthArea"></div>
+  </nav>
+
+  <div class="sub-navbar">
+    <ul class="sub-navbar-links">
+      <li class="sub-navbar-item"><a href="index.html" class="sub-navbar-link">Home</a></li>
+      <li class="sub-navbar-item"><a href="aviator.html" class="sub-navbar-link">Vimaan</a></li>
+      <li class="sub-navbar-item"><a href="astronaut.html" class="sub-navbar-link">Astronaut</a></li>
+      <li class="sub-navbar-item"><a href="chickenroad.html" class="sub-navbar-link active">Chicken Road</a></li>
+      <li class="sub-navbar-item"><a href="mining.html" class="sub-navbar-link">Mines</a></li>
+      <li class="sub-navbar-item"><a href="win.html" class="sub-navbar-link">Sapre</a></li>
+      <li class="sub-navbar-item"><a href="teenpatti.html" class="sub-navbar-link">Teen Patti</a></li>
+    </ul>
+  </div>
+
+  <!-- Shared artwork, drawn once and reused with <use>. -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <radialGradient id="crEggGrad" cx="38%" cy="32%" r="70%">
+        <stop offset="0" stop-color="#fff6c8"/><stop offset="0.45" stop-color="#ffc53d"/><stop offset="1" stop-color="#b9780a"/>
+      </radialGradient>
+      <linearGradient id="crRoastGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#e3923a"/><stop offset="1" stop-color="#8a3f10"/>
+      </linearGradient>
+      <linearGradient id="crFlameOuter" x1="0" y1="1" x2="0" y2="0">
+        <stop offset="0" stop-color="#ff3d0a"/><stop offset="1" stop-color="#ff9f1a" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="crFlameMid" x1="0" y1="1" x2="0" y2="0">
+        <stop offset="0" stop-color="#ff8a1a"/><stop offset="1" stop-color="#ffd23d" stop-opacity="0.1"/>
+      </linearGradient>
+      <linearGradient id="crFlameCore" x1="0" y1="1" x2="0" y2="0">
+        <stop offset="0" stop-color="#fff3b0"/><stop offset="1" stop-color="#ffe066" stop-opacity="0.2"/>
+      </linearGradient>
+    </defs>
+    <symbol id="crHenAlive" viewBox="0 0 64 64">
+      <path d="M14 34 L5 27 L9 37 L4 40 L13 41 Z" fill="#e9e9f2"/>
+      <ellipse cx="30" cy="38" rx="17" ry="14" fill="#ffffff"/>
+      <path d="M22 38 Q30 46 39 37 Q32 41 22 38 Z" fill="#dcdce8"/>
+      <circle cx="43" cy="24" r="10" fill="#ffffff"/>
+      <path d="M38 15 Q40 9 43 13 Q45 8 48 13 Q51 11 50 17 Z" fill="#ff3b4f"/>
+      <path d="M52 24 L60 27 L52 30 Z" fill="#ffad1f"/>
+      <path d="M50 31 Q52 36 48 35 Z" fill="#ff3b4f"/>
+      <circle cx="46" cy="22.5" r="2.1" fill="#1b1d2b"/><circle cx="46.7" cy="21.8" r="0.7" fill="#fff"/>
+      <path d="M25 51 L24 60 M24 60 L20 62 M24 60 L27 62 M34 51 L35 60 M35 60 L31 62 M35 60 L38 62" stroke="#ffad1f" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+    </symbol>
+    <symbol id="crHenRoast" viewBox="0 0 64 64">
+      <ellipse cx="32" cy="40" rx="20" ry="14" fill="url(#crRoastGrad)"/>
+      <path d="M18 36 Q32 30 46 36" stroke="#5d2a08" stroke-width="1.6" fill="none" opacity="0.7"/>
+      <path d="M20 44 Q32 39 44 44" stroke="#5d2a08" stroke-width="1.6" fill="none" opacity="0.5"/>
+      <path d="M12 38 L4 34 M4 34 Q1 31 3 29 M4 34 Q1 37 3 39" stroke="#f3e2c8" stroke-width="3" stroke-linecap="round" fill="none"/>
+      <path d="M52 38 L60 34 M60 34 Q63 31 61 29 M60 34 Q63 37 61 39" stroke="#f3e2c8" stroke-width="3" stroke-linecap="round" fill="none"/>
+      <path d="M26 22 Q22 16 27 12 Q31 8 28 3 M36 22 Q32 15 37 11 Q41 7 38 2" stroke="#9aa0b8" stroke-width="2.2" stroke-linecap="round" fill="none" opacity="0.7"/>
+    </symbol>
+    <symbol id="crCar" viewBox="0 0 40 72">
+      <rect x="3" y="2" width="34" height="68" rx="10" fill="currentColor"/>
+      <rect x="7" y="40" width="26" height="14" rx="4" fill="#141626" opacity="0.85"/>
+      <rect x="7" y="14" width="26" height="10" rx="3" fill="#141626" opacity="0.75"/>
+      <rect x="7" y="25" width="26" height="14" rx="2" fill="#ffffff" opacity="0.12"/>
+      <rect x="6" y="64" width="8" height="4" rx="2" fill="#fff6c2"/><rect x="26" y="64" width="8" height="4" rx="2" fill="#fff6c2"/>
+      <rect x="6" y="3" width="8" height="3" rx="1.5" fill="#ff3b4f"/><rect x="26" y="3" width="8" height="3" rx="1.5" fill="#ff3b4f"/>
+      <rect x="0" y="16" width="3" height="10" rx="1.5" fill="#111"/><rect x="37" y="16" width="3" height="10" rx="1.5" fill="#111"/>
+      <rect x="0" y="48" width="3" height="10" rx="1.5" fill="#111"/><rect x="37" y="48" width="3" height="10" rx="1.5" fill="#111"/>
+    </symbol>
+    <symbol id="crEgg" viewBox="0 0 54 66">
+      <path d="M27 2 C12 2 3 26 3 41 C3 56 14 64 27 64 C40 64 51 56 51 41 C51 26 42 2 27 2 Z" fill="url(#crEggGrad)"/>
+      <ellipse cx="18" cy="22" rx="5" ry="9" fill="#ffffff" opacity="0.5" transform="rotate(20 18 22)"/>
+    </symbol>
+    <symbol id="crFlame" viewBox="0 0 60 90">
+      <path d="M30 90 C6 86 0 62 12 44 C14 58 22 60 22 60 C16 40 26 20 34 6 C36 26 54 40 54 62 C54 80 44 90 30 90 Z" fill="url(#crFlameOuter)"/>
+      <path d="M30 90 C14 86 12 70 20 58 C22 68 28 70 28 70 C26 56 32 44 38 34 C40 48 48 58 46 72 C45 84 38 90 30 90 Z" fill="url(#crFlameMid)"/>
+      <path d="M30 90 C22 88 21 80 25 73 C27 78 31 79 31 79 C30 72 33 66 36 60 C38 70 41 76 39 82 C38 87 34 90 30 90 Z" fill="url(#crFlameCore)"/>
+    </symbol>
+  </svg>
+
+  <div class="cr-wrap">
+    <div class="cr-topbar">
+      <div class="cr-title">
+        <svg viewBox="0 0 64 64"><use href="#crHenAlive"/></svg>
+        <h1>Chicken <span>Road</span></h1>
+      </div>
+      <div class="cr-top-actions">
+        <span class="cr-balance" id="crBalance">₹0.00</span>
+        <button type="button" class="cr-pill-btn" id="crHowBtn">How to play</button>
+      </div>
+    </div>
+
+    <div class="cr-stage" id="crStage">
+      <div class="cr-track" id="crTrack"></div>
+      <div class="cr-hud" id="crHud"></div>
+      <div class="cr-banner" id="crBanner"><div class="big"></div><div class="sub"></div></div>
+    </div>
+
+    <div class="cr-controls">
+      <div>
+        <div class="cr-block-label"><span>Bet amount</span><span id="crLimits"></span></div>
+        <div class="cr-amount">
+          <button type="button" id="crMinus" aria-label="Decrease bet">−</button>
+          <input type="text" inputmode="decimal" id="crAmount" value="10" aria-label="Bet amount">
+          <button type="button" id="crPlus" aria-label="Increase bet">+</button>
+        </div>
+        <div class="cr-chips" id="crChips"></div>
+      </div>
+      <div>
+        <div class="cr-block-label"><span>Difficulty</span><span id="crLanesNote"></span></div>
+        <div class="cr-diffs" id="crDiffs"></div>
+        <div class="cr-diff-note" id="crDiffNote"></div>
+      </div>
+      <div class="cr-actions">
+        <div class="cr-row" id="crActiveRow" hidden>
+          <button type="button" class="cr-btn cr-btn-cash" id="crCashBtn">CASH OUT<small id="crCashAmt">₹0.00</small></button>
+          <button type="button" class="cr-btn cr-btn-go" id="crGoBtn">GO<small id="crGoNext"></small></button>
+        </div>
+        <button type="button" class="cr-btn cr-btn-go" id="crPlayBtn">PLAY<small id="crPlayNote">Place bet &amp; cross</small></button>
+        <div class="cr-msg" id="crMsg"></div>
+      </div>
+    </div>
+
+    <div class="cr-fair" id="crFair"></div>
+  </div>
+
+  <div id="cr-history" style="max-width:1120px; margin:14px auto 0; padding:0 14px; box-sizing:border-box;"></div>
+  <script>initGameHistoryPanel({ mount: 'cr-history', games: ['Chicken Road'] });</script>
+
+  <div class="cr-modal" id="crModal" role="dialog" aria-modal="true" aria-labelledby="crModalTitle">
+    <div class="cr-modal-card">
+      <button type="button" class="cr-modal-close" id="crModalClose" aria-label="Close">×</button>
+      <h2 id="crModalTitle">How to play Chicken Road</h2>
+      <ol>
+        <li>Choose your bet and a difficulty, then press <b>PLAY</b>. The hen steps onto the first lane.</li>
+        <li>Every lane she crosses raises your multiplier. Press <b>GO</b> to step into the next one.</li>
+        <li>Any manhole might burst into flame. If it does, the hen is roasted and the bet is lost.</li>
+        <li>Press <b>CASH OUT</b> at any time to take your bet × the current multiplier.</li>
+        <li>Cross every lane to reach the <b>Golden Egg</b> and win the top multiplier.</li>
+      </ol>
+      <h3>Difficulty</h3>
+      <table id="crRulesTable"><thead><tr><th>Mode</th><th>Lanes</th><th>Lane 1 risk</th><th>First</th><th>Golden Egg</th></tr></thead><tbody></tbody></table>
+      <p style="color:var(--text-dim); font-size:13px; margin:8px 0 0;" id="crRulesFoot"></p>
+      <h3>Shortcuts</h3>
+      <ul><li><b>Space</b>: Play / Go</li><li><b>C</b>: Cash out</li></ul>
+      <h3>Provably fair</h3>
+      <p style="margin:0 0 8px;">The whole road is decided when you place the bet, from a secret server seed. Its SHA-256 hash is shown before your first step,
+        and the seed is revealed when the road ends. Lane <i>n</i> is on fire when
+        <code>HMAC-SHA256(seed, "lane:n")</code> (first 13 hex digits ÷ 16¹³) is below <code>fire ÷ (26 − n)</code>,
+        where fire is 1, 3, 5 or 10 by difficulty. Check your last road below.</p>
+      <div class="cr-verify" id="crVerify">Finish a road to verify it here.</div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    // ---- element handles -----------------------------------------------------------------------
+    const $ = (id) => document.getElementById(id);
+    const stage = $('crStage'), track = $('crTrack'), hud = $('crHud'), banner = $('crBanner');
+    const amountEl = $('crAmount'), playBtn = $('crPlayBtn'), goBtn = $('crGoBtn'), cashBtn = $('crCashBtn');
+    const activeRow = $('crActiveRow'), msgEl = $('crMsg');
+
+    const CAR_COLORS = ['#ff4b6e', '#3d8bfd', '#a56bff', '#2ed47a', '#ffc53d', '#e8eaf5', '#ff8a3d', '#22c3d6'];
+
+    let config = null;           // from the server: ladders, limits, RTP
+    let state = null;            // the player's road
+    let signedIn = false;
+    let difficulty = 'easy';
+    let busy = false;            // one request at a time from this tab
+    let laneEls = [];
+    let hen = null;
+    let dims = null;
+    let lastFinished = null;     // for the fairness check
+
+    const fmt = (n) => '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const fmtX = (m) => {
+      m = Number(m);
+      if (m >= 1e6) return (m / 1e6).toFixed(2) + 'M';
+      if (m >= 1000) return Math.round(m).toLocaleString('en-IN');
+      return m.toFixed(2);
+    };
+    const diffInfo = (key) => config.difficulties.find((d) => d.key === key) || config.difficulties[0];
+    const sfx = (name) => { try { if (window.SoundFX) SoundFX.play(name); } catch (e) {} };
+
+    // ---- sizing --------------------------------------------------------------------------------
+    function computeDims() {
+      const w = stage.clientWidth || 900;
+      const small = w < 600;
+      const d = {
+        stageW: w,
+        stageH: small ? 250 : 320,
+        laneW: small ? 88 : 116,
+        kerbW: small ? 84 : 124,
+        finishW: small ? 104 : 150,
+        hole: small ? 56 : 72,
+        hen: small ? 62 : 80,
+        multFs: small ? '12px' : '14px',
+      };
+      const s = stage.style;
+      s.setProperty('--cr-stage-h', d.stageH + 'px');
+      s.setProperty('--cr-lane-w', d.laneW + 'px');
+      s.setProperty('--cr-kerb-w', d.kerbW + 'px');
+      s.setProperty('--cr-finish-w', d.finishW + 'px');
+      s.setProperty('--cr-hole', d.hole + 'px');
+      s.setProperty('--cr-hen', d.hen + 'px');
+      s.setProperty('--cr-mult-fs', d.multFs);
+      return d;
+    }
+
+    // ---- the road ------------------------------------------------------------------------------
+    function buildRoad(diffKey) {
+      dims = computeDims();
+      const info = diffInfo(diffKey);
+      track.innerHTML = '';
+      laneEls = [];
+
+      const start = document.createElement('div');
+      start.className = 'cr-kerb';
+      start.innerHTML = '<div class="cr-kerb-label">START</div>';
+      track.appendChild(start);
+
+      info.ladder.forEach((mult, i) => {
+        const lane = document.createElement('div');
+        lane.className = 'cr-lane';
+        const color = CAR_COLORS[(i * 5 + 3) % CAR_COLORS.length];
+        const dur = (1.5 + ((i * 37) % 11) / 10).toFixed(2);
+        const delay = (-((i * 53) % 23) / 10).toFixed(2);
+        lane.innerHTML =
+          '<div class="cr-car" style="color:' + color + ';--dur:' + dur + 's;--delay:' + delay + 's"><svg viewBox="0 0 40 72"><use href="#crCar"/></svg></div>' +
+          '<div class="cr-barrier"></div>' +
+          '<div class="cr-manhole"></div>' +
+          '<svg class="cr-flames" viewBox="0 0 60 90"><use href="#crFlame"/></svg>' +
+          '<div class="cr-mult">' + fmtX(mult) + 'x</div>';
+        track.appendChild(lane);
+        laneEls.push(lane);
+      });
+
+      const finish = document.createElement('div');
+      finish.className = 'cr-kerb finish';
+      finish.innerHTML = '<svg class="cr-egg" viewBox="0 0 54 66"><use href="#crEgg"/></svg><div class="cr-kerb-label">GOLDEN EGG</div>';
+      track.appendChild(finish);
+
+      hen = document.createElement('div');
+      hen.className = 'cr-hen';
+      hen.innerHTML = '<div class="cr-hen-body"><svg class="alive" viewBox="0 0 64 64"><use href="#crHenAlive"/></svg>' +
+                      '<svg class="roast" viewBox="0 0 64 64"><use href="#crHenRoast"/></svg></div>';
+      track.appendChild(hen);
+      track.style.width = (dims.kerbW + info.ladder.length * dims.laneW + dims.finishW) + 'px';
+    }
+
+    /** x-centre of position p: 0 = start kerb, 1..L = lanes, L+1 = the Golden Egg. */
+    function posX(p, lanes) {
+      if (p <= 0) return dims.kerbW / 2;
+      if (p > lanes) return dims.kerbW + lanes * dims.laneW + dims.finishW / 2;
+      return dims.kerbW + (p - 0.5) * dims.laneW;
+    }
+
+    function placeHen(p, animate) {
+      const lanes = laneEls.length;
+      const x = posX(p, lanes);
+      if (!animate) { hen.style.transition = 'none'; }
+      hen.style.transform = 'translateX(' + x + 'px)';
+      if (!animate) { void hen.offsetWidth; hen.style.transition = ''; }
+      else {
+        hen.classList.remove('hop'); void hen.offsetWidth; hen.classList.add('hop');
+      }
+      // Keep the hen about a third of the way across the stage.
+      const trackW = parseFloat(track.style.width) || 0;
+      const maxShift = Math.max(0, trackW - dims.stageW);
+      const shift = Math.min(maxShift, Math.max(0, x - dims.stageW * 0.36));
+      if (!animate) { track.style.transition = 'none'; }
+      track.style.transform = 'translateX(' + (-shift) + 'px)';
+      if (!animate) { void track.offsetWidth; track.style.transition = ''; }
+    }
+
+    function paintLanes() {
+      const st = state || { status: 'idle', step: 0 };
+      const live = st.status === 'active';
+      laneEls.forEach((el, i) => {
+        const n = i + 1;
+        el.classList.toggle('passed', st.status !== 'idle' && n <= st.step && !(st.status === 'busted' && n === st.fire_lane));
+        el.classList.toggle('current', (live || st.status === 'cashed') && n === st.step);
+        el.classList.toggle('next', live && n === st.step + 1);
+        el.classList.toggle('fire', st.status === 'busted' && n === st.fire_lane);
+      });
+      hen.classList.toggle('roasted', st.status === 'busted');
+    }
+
+    function henPosition() {
+      if (!state || state.status === 'idle') return 0;
+      if (state.status === 'busted') return state.fire_lane;
+      if (state.status === 'cashed' && state.step === laneEls.length) return laneEls.length + 1;
+      return state.step;
+    }
+
+    // ---- HUD, controls -------------------------------------------------------------------------
+    function renderHud() {
+      const st = state;
+      if (!st || st.status === 'idle') {
+        const info = diffInfo(difficulty);
+        hud.innerHTML = '<span class="cr-hud-chip">' + info.label + ' · <b>' + info.lanes + ' lanes</b></span>' +
+                        '<span class="cr-hud-chip">Up to <b>' + fmtX(info.ladder[info.ladder.length - 1]) + 'x</b></span>';
+        return;
+      }
+      const info = diffInfo(st.difficulty);
+      const parts = ['<span class="cr-hud-chip">' + info.label + ' · Bet <b>' + fmt(st.bet_amount) + '</b></span>'];
+      if (st.step > 0 && st.status !== 'busted') {
+        parts.push('<span class="cr-hud-chip win">x' + fmtX(st.multiplier) + ' · <b>' +
+                   fmt(st.status === 'cashed' ? st.payout : st.cashout_value) + '</b></span>');
+      }
+      parts.push('<span class="cr-hud-chip">Lane <b>' + st.step + '/' + st.lanes + '</b></span>');
+      hud.innerHTML = parts.join('');
+    }
+
+    function renderControls() {
+      const st = state || { status: 'idle' };
+      const live = st.status === 'active';
+      activeRow.hidden = !live;
+      playBtn.hidden = live;
+      playBtn.disabled = busy || (config && !config.enabled);
+      goBtn.disabled = busy;
+      cashBtn.disabled = busy || !live || st.step < 1;
+      $('crCashAmt').textContent = fmt(live ? st.cashout_value : 0);
+      $('crGoNext').textContent = live && st.next_multiplier ? '→ x' + fmtX(st.next_multiplier) : '';
+      $('crPlayNote').textContent = !signedIn ? 'Sign in to play' : (config && !config.enabled ? 'Temporarily unavailable' : 'Place bet & cross');
+
+      document.querySelectorAll('.cr-diff').forEach((b) => {
+        b.classList.toggle('active', b.dataset.key === (live ? st.difficulty : difficulty));
+        b.disabled = live || busy;
+      });
+      [amountEl, $('crMinus'), $('crPlus')].forEach((el) => { el.disabled = live || busy; });
+      document.querySelectorAll('.cr-chip').forEach((el) => { el.disabled = live || busy; });
+
+      const info = diffInfo(live ? st.difficulty : difficulty);
+      $('crLanesNote').textContent = info.lanes + ' lanes';
+      $('crDiffNote').textContent = 'Chance the first manhole burns: ' + (100 * info.hazards / 25).toFixed(0) +
+                                    '% · Golden Egg pays x' + fmtX(info.ladder[info.ladder.length - 1]);
+
+      const fair = $('crFair');
+      if (st.round_ref) {
+        fair.innerHTML = '<span>Round ' + escapeHtml(st.round_ref) + '</span><span>Hash ' + escapeHtml((st.seed_hash || '').slice(0, 24)) +
+                         '…</span><a id="crFairLink">Verify fairness</a>';
+        $('crFairLink').onclick = openModal;
+      } else {
+        fair.innerHTML = '<span>RTP ' + (config.rtp * 100).toFixed(0) + '% · Max win ' + fmt(config.max_win) + '</span>';
+      }
+    }
+
+    function render(animate) {
+      paintLanes();
+      placeHen(henPosition(), animate);
+      renderHud();
+      renderControls();
+    }
+
+    function showBanner(kind, big, sub, ms) {
+      banner.className = 'cr-banner show ' + kind;
+      banner.querySelector('.big').textContent = big;
+      banner.querySelector('.sub').textContent = sub || '';
+      clearTimeout(showBanner.t);
+      showBanner.t = setTimeout(() => { banner.className = 'cr-banner'; }, ms || 2200);
+    }
+
+    function setMsg(text, isErr) { msgEl.textContent = text || ''; msgEl.classList.toggle('err', !!isErr); }
+
+    function setBalance(b) {
+      if (b === null || b === undefined) return;
+      $('crBalance').textContent = fmt(b);
+      if (window.bet1xSetWallet) window.bet1xSetWallet(b);
+    }
+
+    // ---- server --------------------------------------------------------------------------------
+    async function api(path, body) {
+      const opts = body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
+      const res = await fetch('api/chickenroad/' + path, opts);
+      let data = null;
+      try { data = await res.json(); } catch (e) {}
+      if (!data) data = { ok: false, error: 'Unexpected server response.' };
+      data._status = res.status;
+      return data;
+    }
+
+    async function load() {
+      try {
+        const data = await api('state');
+        if (!data.ok) { setMsg(data.error || 'Could not load the game.', true); return; }
+        config = data.config;
+        signedIn = !!data.signed_in;
+        state = data.state;
+        if (state.status !== 'idle') difficulty = state.difficulty;
+        buildDifficulties();
+        buildChips();
+        buildRoad(difficulty);
+        render(false);
+        setBalance(state.balance);
+        fillRulesTable();
+        if (state.status === 'active') setMsg('Your road is waiting — GO or CASH OUT.');
+      } catch (e) {
+        setMsg('Cannot reach the server. Please refresh.', true);
+      }
+    }
+
+    // ---- bet amount ----------------------------------------------------------------------------
+    function readAmount() {
+      const v = parseFloat(String(amountEl.value).replace(/[^\d.]/g, ''));
+      return Number.isFinite(v) ? v : 0;
+    }
+    function setAmount(v) {
+      v = Math.max(config.min_bet, Math.min(config.max_bet, Math.round(v * 100) / 100));
+      amountEl.value = String(v);
+    }
+    function buildChips() {
+      const box = $('crChips');
+      const opts = [10, 50, 100, 500, 1000].filter((v) => v >= config.min_bet && v <= config.max_bet);
+      box.innerHTML = '';
+      opts.forEach((v) => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'cr-chip'; b.textContent = v >= 1000 ? (v / 1000) + 'K' : String(v);
+        b.onclick = () => { setAmount(v); sfx('chipStack'); };
+        box.appendChild(b);
+      });
+      $('crLimits').textContent = 'Min ₹' + config.min_bet + ' · Max ₹' + config.max_bet.toLocaleString('en-IN');
+    }
+    $('crMinus').onclick = () => { const a = readAmount(); setAmount(a <= 10 ? a - 1 : a / 2); };
+    $('crPlus').onclick = () => { const a = readAmount(); setAmount(a < 10 ? a + 1 : a * 2); };
+    amountEl.addEventListener('blur', () => setAmount(readAmount()));
+
+    function buildDifficulties() {
+      const box = $('crDiffs');
+      box.innerHTML = '';
+      config.difficulties.forEach((d) => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'cr-diff'; b.dataset.key = d.key;
+        b.innerHTML = '<div class="n">' + d.label + '</div><div class="m">x' + fmtX(d.ladder[d.ladder.length - 1]) + '</div>';
+        b.onclick = () => {
+          if (state && state.status === 'active') return;
+          difficulty = d.key;
+          state = Object.assign({}, state, { status: 'idle', step: 0 });
+          buildRoad(difficulty);
+          render(false);
+          sfx('tabSwitch');
+        };
+        box.appendChild(b);
+      });
+    }
+
+    // ---- play ----------------------------------------------------------------------------------
+    async function play() {
+      if (busy || !config) return;
+      if (!signedIn) { if (window.openAuthModal) openAuthModal('login'); return; }
+      const amount = readAmount();
+      if (amount < config.min_bet || amount > config.max_bet) { setMsg('Bet must be between ₹' + config.min_bet + ' and ₹' + config.max_bet + '.', true); return; }
+      busy = true; renderControls(); setMsg('');
+      try {
+        const data = await api('start', { bet_amount: amount, difficulty: difficulty });
+        if (!data.ok) { setMsg(data.error, true); return; }
+        sfx('betPlace');
+        state = data.state;
+        setBalance(state.balance);
+        buildRoad(state.difficulty);
+        render(false);
+        await new Promise((r) => setTimeout(r, 160));
+        busy = false;
+        await step();
+      } catch (e) {
+        setMsg('Cannot reach the server. Please try again.', true);
+      } finally {
+        busy = false; renderControls();
+      }
+    }
+
+    async function step() {
+      if (busy || !state || state.status !== 'active') return;
+      busy = true; renderControls(); setMsg('');
+      try {
+        const data = await api('step', {});
+        if (!data.ok) {
+          setMsg(data.error, true);
+          if (data._status === 409 || data._status === 400) await refresh();
+          return;
+        }
+        const prev = state;
+        state = data.state;
+        // Hop first, then reveal what the manhole did.
+        placeHen(data.outcome === 'fire' ? state.fire_lane : Math.min(state.step, laneEls.length), true);
+        await new Promise((r) => setTimeout(r, 360));
+        if (data.outcome === 'fire') {
+          paintLanes(); renderHud(); sfx('mineHit');
+          showBanner('lose', 'ROASTED!', 'Lane ' + state.fire_lane + ' was on fire', 2200);
+          if (window.ResultPopup) setTimeout(() => ResultPopup.show({ outcome: 'lose', amount: prev.bet_amount }), 900);
+          finishRound();
+        } else if (data.outcome === 'golden_egg' || data.outcome === 'max_win') {
+          render(true); sfx('bigWin');
+          hen.classList.add('won');
+          showBanner('win', data.outcome === 'golden_egg' ? 'GOLDEN EGG!' : 'MAX WIN!', 'x' + fmtX(state.multiplier) + ' · ' + fmt(state.payout), 2600);
+          if (window.ResultPopup) setTimeout(() => ResultPopup.show({ outcome: 'win', amount: state.payout, big: true }), 700);
+          setBalance(state.balance);
+          finishRound();
+        } else {
+          paintLanes(); renderHud(); sfx('gemReveal');
+        }
+      } catch (e) {
+        setMsg('Cannot reach the server. Please try again.', true);
+      } finally {
+        busy = false; renderControls();
+      }
+    }
+
+    async function cashout() {
+      if (busy || !state || state.status !== 'active' || state.step < 1) return;
+      busy = true; renderControls(); setMsg('');
+      try {
+        const data = await api('cashout', {});
+        if (!data.ok) { setMsg(data.error, true); await refresh(); return; }
+        state = data.state;
+        render(false);
+        setBalance(state.balance);
+        const big = state.multiplier >= 5;
+        sfx(big ? 'bigWin' : 'cashout');
+        hen.classList.add('won');
+        showBanner('win', '+' + fmt(data.payout), 'Cashed out at x' + fmtX(state.multiplier), 2200);
+        if (window.ResultPopup) ResultPopup.show({ outcome: 'win', amount: data.payout, big: big });
+        finishRound();
+      } catch (e) {
+        setMsg('Cannot reach the server. Please try again.', true);
+      } finally {
+        busy = false; renderControls();
+      }
+    }
+
+    async function refresh() {
+      const data = await api('state');
+      if (data.ok) { state = data.state; render(false); setBalance(state.balance); }
+    }
+
+    function finishRound() {
+      lastFinished = Object.assign({}, state);
+      setTimeout(() => hen && hen.classList.remove('won'), 2000);
+      renderVerify();
+    }
+
+    playBtn.onclick = play;
+    goBtn.onclick = step;
+    cashBtn.onclick = cashout;
+    document.addEventListener('keydown', (e) => {
+      if (e.target && /input|textarea/i.test(e.target.tagName)) return;
+      if ($('crModal').classList.contains('open')) { if (e.key === 'Escape') closeModal(); return; }
+      if (e.code === 'Space') { e.preventDefault(); if (state && state.status === 'active') step(); else play(); }
+      else if (e.key === 'c' || e.key === 'C') cashout();
+    });
+
+    let resizeT = null;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeT);
+      resizeT = setTimeout(() => {
+        if (!config) return;
+        buildRoad(state && state.status !== 'idle' ? state.difficulty : difficulty);
+        render(false);
+      }, 150);
+    });
+
+    // ---- rules & fairness ----------------------------------------------------------------------
+    function fillRulesTable() {
+      const tb = document.querySelector('#crRulesTable tbody');
+      tb.innerHTML = config.difficulties.map((d) =>
+        '<tr><td>' + d.label + '</td><td>' + d.lanes + '</td><td>' + (100 * d.hazards / 25).toFixed(0) + '%</td><td>x' +
+        fmtX(d.ladder[0]) + '</td><td>x' + fmtX(d.ladder[d.ladder.length - 1]) + '</td></tr>').join('');
+      $('crRulesFoot').textContent = 'Return to player ' + (config.rtp * 100).toFixed(0) + '% at every lane. Maximum win per round ' +
+        fmt(config.max_win) + ' — a road that reaches it is cashed out automatically.';
+    }
+    function openModal() { $('crModal').classList.add('open'); sfx('modalOpen'); renderVerify(); }
+    function closeModal() { $('crModal').classList.remove('open'); sfx('modalClose'); }
+    $('crHowBtn').onclick = openModal;
+    $('crModalClose').onclick = closeModal;
+    $('crModal').addEventListener('click', (e) => { if (e.target.id === 'crModal') closeModal(); });
+
+    async function hmacHex(key, msg) {
+      const enc = new TextEncoder();
+      const k = await crypto.subtle.importKey('raw', enc.encode(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+      const sig = await crypto.subtle.sign('HMAC', k, enc.encode(msg));
+      return Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, '0')).join('');
+    }
+    async function sha256Hex(msg) {
+      const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
+      return Array.from(new Uint8Array(d)).map((b) => b.toString(16).padStart(2, '0')).join('');
+    }
+    async function renderVerify() {
+      const box = $('crVerify');
+      const r = lastFinished || (state && (state.status === 'busted' || state.status === 'cashed') ? state : null);
+      if (!r || !r.server_seed) { box.textContent = 'Finish a road to verify it here.'; return; }
+      if (!window.crypto || !crypto.subtle) {
+        box.innerHTML = 'Seed: ' + escapeHtml(r.server_seed) + '<br>Hash: ' + escapeHtml(r.seed_hash) + '<br>(Your browser cannot compute the check here.)';
+        return;
+      }
+      const info = diffInfo(r.difficulty);
+      const hashOk = (await sha256Hex(r.server_seed)) === r.seed_hash;
+      let fire = 0;
+      for (let n = 1; n <= info.lanes; n++) {
+        const u = parseInt((await hmacHex(r.server_seed, 'lane:' + n)).slice(0, 13), 16) / Math.pow(16, 13);
+        if (u < info.hazards / (26 - n)) { fire = n; break; }
+      }
+      const outcomeOk = r.status === 'busted' ? fire === r.fire_lane : (fire === 0 || fire > r.step);
+      box.innerHTML =
+        'Round ' + escapeHtml(r.round_ref || '') + ' · ' + info.label + '<br>' +
+        'Seed: ' + escapeHtml(r.server_seed) + '<br>' +
+        'Hash: ' + escapeHtml(r.seed_hash) + ' <span class="' + (hashOk ? 'ok' : 'bad') + '">' + (hashOk ? '✓ matches' : '✗ mismatch') + '</span><br>' +
+        'Fire lane from the seed: ' + (fire || 'none — the road was clear') +
+        ' <span class="' + (outcomeOk ? 'ok' : 'bad') + '">' + (outcomeOk ? '✓ consistent with your round' : '✗ inconsistent') + '</span>';
+    }
+
+    load();
+  })();
+  </script>
+</body>
+
+</html>

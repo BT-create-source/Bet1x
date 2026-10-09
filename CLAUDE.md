@@ -39,6 +39,15 @@ Dream11 point tables per format in `fantasy-scoring.php`, feed bridge + contest 
 (built from Cricsheet by `tools/build_cricket_model.py`); tests `test_exchange.php`; DEPLOY.md §10. Both games must behave like the established sites (Dream11 / pro
 ball-by-ball) — that is the standing top priority for any change to them.
 
+**Chicken Road and Astronaut** (PHP only, no Node counterpart): `games/chickenroad.php` +
+`routes/chickenroad.php` (one road per player, Mines-style claim; a 25-slot model with 1/3/5/10 fire
+slots that reproduces the original game's ladders exactly) and `games/astronaut.php` +
+`routes/astronaut.php` (one shared crash round driven by the wall clock like Aviator, but with bets in
+their own `AstronautBet` table, two panels, auto cash-out). Both are priced only by an operator RTP,
+are provably fair (seed hash shown first, seed revealed after), and are deliberately not wired to the
+bot-takeover engine. Pages `chickenroad.html` / `astronaut.html`; admin tab in
+`assets/js/admin-newgames.js`; migration 012; tests `php-backend/test_crash_games.php`; DEPLOY.md §14.
+
 The `README.md` describes an earlier "pitch demo, no backend" mode (pure HTML/CSS/JS with localStorage);
 the repo has since grown a real backend, so treat the README's "no backend" framing as historical/optional
 rather than how the app currently runs.

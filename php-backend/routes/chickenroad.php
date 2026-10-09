@@ -39,16 +39,22 @@ function cr_pay($user, $username, $payout, $multiplier, $goldenEgg) {
 
 function register_chickenroad_routes(Router $app) {
 
-    // --- GET /api/chickenroad/state ---
-    $app->get('/api/chickenroad/state', 'require_auth', function (Req $req, Res $res) {
+    // --- GET /api/chickenroad/state --- open to visitors too, so the road draws before sign-in.
+    $app->get('/api/chickenroad/state', function (Req $req, Res $res) {
         try {
+            $config = cr_config_get();
+            if (!$req->auth) {
+                $res->json(['ok' => true, 'signed_in' => false, 'config' => cr_public_config($config),
+                            'state' => cr_public_state(null, $config, null)]);
+                return;
+            }
             $user = get_or_create_user(acting_username($req));
             if (!$user) { $res->status(404)->json(['ok' => false, 'error' => 'Account not found.']); return; }
-            $config = cr_config_get();
             $session = cr_session_get($user['username']);
             $res->json([
-                'ok'     => true,
-                'config' => cr_public_config($config),
+                'ok'        => true,
+                'signed_in' => true,
+                'config'    => cr_public_config($config),
                 'state'  => cr_public_state($session, $config, (float) $user['wallet_balance']),
             ]);
         } catch (Throwable $err) {

@@ -194,6 +194,9 @@ section('4. Chicken Road over HTTP');
 $A = $players['a']['tok'];
 [$c] = http('POST', '/api/chickenroad/start', null, ['bet_amount' => 10, 'difficulty' => 'easy']);
 check($c === 401, "Play with no token is refused: $c");
+[$c, $b] = http('GET', '/api/chickenroad/state');
+check($c === 200 && $b['signed_in'] === false && $b['state']['status'] === 'idle' && $b['state']['balance'] === null,
+      'a visitor gets the ladders and an idle road, and no balance');
 [$c, $b] = http('GET', '/api/chickenroad/state', $A);
 check($c === 200 && $b['state']['status'] === 'idle' && count($b['config']['difficulties']) === 4, 'state: idle, four difficulties with ladders');
 [$c] = http('POST', '/api/chickenroad/start', $A, ['bet_amount' => 10, 'difficulty' => 'impossible']);

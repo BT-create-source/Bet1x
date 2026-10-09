@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="800" height="800">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0a0820"/><stop offset="0.6" stop-color="#140f3a"/><stop offset="1" stop-color="#22175a"/>
+    </linearGradient>
+    <radialGradient id="neb" cx="75%" cy="20%" r="60%">
+      <stop offset="0" stop-color="#a56bff" stop-opacity="0.45"/><stop offset="1" stop-color="#a56bff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="planet" cx="35%" cy="30%" r="70%">
+      <stop offset="0" stop-color="#7d6bff"/><stop offset="0.5" stop-color="#3b2a9c"/><stop offset="1" stop-color="#160f45"/>
+    </radialGradient>
+    <linearGradient id="trail" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#a56bff" stop-opacity="0"/><stop offset="1" stop-color="#ff5bd2"/>
+    </linearGradient>
+    <linearGradient id="visor" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe9a8"/><stop offset="0.5" stop-color="#ffb43d"/><stop offset="1" stop-color="#a5560a"/>
+    </linearGradient>
+    <linearGradient id="suit" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#c6cbe6"/>
+    </linearGradient>
+    <linearGradient id="jet" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff3b0"/><stop offset="0.4" stop-color="#ff9f1a"/><stop offset="1" stop-color="#ff3d6e" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="800" fill="url(#sky)"/>
+  <rect width="800" height="800" fill="url(#neb)"/>
+  <g fill="#ffffff">
+    <circle cx="80" cy="90" r="2"/><circle cx="210" cy="160" r="1.5"/><circle cx="330" cy="60" r="2.5"/><circle cx="460" cy="140" r="1.5"/>
+    <circle cx="120" cy="300" r="1.5"/><circle cx="260" cy="420" r="2"/><circle cx="60" cy="560" r="2.5"/><circle cx="380" cy="300" r="1.5"/>
+    <circle cx="700" cy="80" r="2"/><circle cx="560" cy="250" r="1.5"/><circle cx="740" cy="330" r="2"/><circle cx="160" cy="700" r="1.5"/>
+    <circle cx="300" cy="620" r="1.5"/><circle cx="520" cy="420" r="2"/><circle cx="640" cy="520" r="1.5"/>
+  </g>
+  <circle cx="700" cy="760" r="230" fill="url(#planet)"/>
+  <ellipse cx="700" cy="740" rx="330" ry="40" fill="none" stroke="#ffc53d" stroke-opacity="0.35" stroke-width="8" transform="rotate(-14 700 740)"/>
+  <path d="M40 760 C 220 740 380 640 520 380" fill="none" stroke="url(#trail)" stroke-width="10" stroke-linecap="round"/>
+  <path d="M40 760 C 220 740 380 640 520 380 L 520 800 L 40 800 Z" fill="#a56bff" opacity="0.10"/>
+  <g transform="translate(400 160) scale(2.8) rotate(35 50 50)">
+    <path d="M38 74 Q44 100 50 108 Q56 100 62 74 Z" fill="url(#jet)"/>
+    <rect x="33" y="40" width="34" height="34" rx="8" fill="#8f96bd"/>
+    <path d="M30 46 Q30 38 38 38 L62 38 Q70 38 70 46 L70 70 Q70 76 64 76 L36 76 Q30 76 30 70 Z" fill="url(#suit)"/>
+    <path d="M30 50 Q18 52 16 62 Q15 68 21 68 Q24 60 32 58 Z" fill="url(#suit)"/>
+    <path d="M70 50 Q84 46 88 36 Q90 30 84 30 Q80 40 70 42 Z" fill="url(#suit)"/>
+    <path d="M36 76 L36 90 Q36 94 41 94 L47 94 L47 76 Z M53 76 L53 94 L59 94 Q64 94 64 90 L64 76 Z" fill="url(#suit)"/>
+    <rect x="40" y="52" width="20" height="10" rx="2" fill="#5d6390"/>
+    <circle cx="45" cy="57" r="2" fill="#ff4b6e"/><circle cx="51" cy="57" r="2" fill="#2ed47a"/>
+    <circle cx="50" cy="24" r="17" fill="url(#suit)"/>
+    <ellipse cx="51" cy="25" rx="12" ry="10" fill="url(#visor)"/>
+    <ellipse cx="46" cy="21" rx="4" ry="2.6" fill="#ffffff" opacity="0.7"/>
+  </g>
+  <text x="70" y="250" font-family="Arial, sans-serif" font-weight="700" font-size="92" fill="#ffffff" opacity="0.92">2.47x</text>
+</svg>

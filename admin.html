@@ -418,6 +418,7 @@
         <button class="admin-tab-btn" onclick="switchAdminTab('wagers', this)">Game Betting History</button>
         <button class="admin-tab-btn active" onclick="switchAdminTab('cheats', this)">Outcome Bias Console</button>
         <button class="admin-tab-btn" data-feature="cricket" onclick="switchAdminTab('cricket', this)">Cricket Ops</button>
+        <button class="admin-tab-btn" onclick="switchAdminTab('newgames', this)">Chicken Road &amp; Astronaut</button>
       </div>
 
       <!-- Tab: Pending UPI Deposits -->
@@ -1060,6 +1061,9 @@
 
     </div> <!-- End of admin-cheats -->
 
+    <!-- Tab: Chicken Road & Astronaut settings — filled by assets/js/admin-newgames.js -->
+    <div id="admin-newgames" class="admin-content"></div>
+
     <!-- Tab 6: Cricket Ops (Your 11 + Boundary Baazi) -->
     <div id="admin-cricket" class="admin-content" data-feature="cricket">
       <h3 style="margin-bottom:12px; font-size:16px;">Cricket Pipeline Operations</h3>
@@ -1213,6 +1217,7 @@
   <script src="assets/js/ui-common.js"></script>
   <script src="assets/js/sound-fx.js"></script>
   <script src="assets/js/qrcode-gen.js"></script>
+  <script src="assets/js/admin-newgames.js"></script>
   <script>
     // The operator token travels in the Authorization header (see ui-common.js). It is deliberately
     // never appended to the query string, where it would end up in web-server access logs, browser
