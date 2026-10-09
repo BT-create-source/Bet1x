@@ -90,9 +90,12 @@ function sm_format($type) {
 }
 
 /** Our status from Sportmonks' fixture status string (+ the live flag). */
-function sm_status($status, $live = false) {
+function sm_status($status, $live = false, $note = '', $noResult = null) {
     $s = strtolower(trim((string) $status));
     foreach (['aban', 'cancl', 'cancel', 'no result', 'postp'] as $n) if (strpos($s, $n) !== false) return 'abandoned';
+    // "Finished" can still mean no result (rain): every such match must refund, never settle.
+    if (strpos($s, 'finish') !== false && (!empty($noResult) && stripos((string) $noResult, 'draw') === false
+        || preg_match('/no result|abandon|cancel/i', (string) $note))) return 'abandoned';
     if ($s === 'finished' || strpos($s, 'finish') !== false) return 'completed';
     if (strpos($s, 'innings break') !== false || $s === 'break') return 'innings_break';
     if (strpos($s, 'innings') !== false || strpos($s, 'stump') !== false || strpos($s, 'int.') !== false
@@ -118,7 +121,7 @@ function sm_normalise_fixture(array $f) {
         'short_name' => $a['code'] . ' vs ' . $b['code'],
         'format'     => sm_format($f['type'] ?? ''),
         'start_ms'   => $start ? $start * 1000 : null,
-        'status'     => sm_status($f['status'] ?? '', !empty($f['live'])),
+        'status'     => sm_status($f['status'] ?? '', !empty($f['live']), $f['note'] ?? '', $f['draw_noresult'] ?? null),
         'teams'      => ['a' => $a, 'b' => $b],
         'venue'      => (string) cricket_pick($f, ['venue.name'], ''),
         // The squad endpoint is per team per SEASON, so the season id stands in for Roanuz's tournament key.
@@ -259,6 +262,10 @@ function sm_snapshot(array $f) {
     }
 
     $status = $fx['status'];
+    // "Finished" can arrive a moment before winner_team_id is filled in. Match betting reads a completed
+    // match with no winner as a TIE and voids every bet, so it stays in play until the winner is known
+    // or the note says it really was a tie.
+    if ($status === 'completed' && empty($f['winner_team_id']) && !preg_match('/\btie|tied|draw/i', (string) ($f['note'] ?? ''))) $status = 'live';
     $toss = null;
     if (!empty($f['toss_won_team_id']) && isset($sideOf[(int) $f['toss_won_team_id']])) {
         $toss = ['winner' => $fx['teams'][$sideOf[(int) $f['toss_won_team_id']]]['key'],

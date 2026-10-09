@@ -93,6 +93,18 @@ check(sm_status('NS') === 'not_started' && sm_status('1st Innings') === 'live' &
       && sm_status('Finished') === 'completed' && sm_status('Aban.') === 'abandoned' && sm_status('Cancl.') === 'abandoned' && sm_status('Int.') === 'live',
       'NS, innings, break, finished, abandoned, cancelled, interrupted');
 
+check(sm_status('Finished', false, 'Match abandoned without a ball bowled') === 'abandoned' && sm_status('Finished', false, '', 'no result') === 'abandoned'
+      && sm_status('Finished', false, 'India won by 25 runs') === 'completed', '"Finished" with a no-result note refunds; a real result settles');
+$done = fx('fixture-71344-live.json'); $done['status'] = 'Finished'; $done['live'] = false; $done['winner_team_id'] = $done['localteam_id']; $done['note'] = 'Pakistan won by 5 wickets';
+$p = cricket_parse_snapshot(sm_snapshot($done));
+check($p['status'] === 'completed' && $p['winner'] === 'a' && $p['result_text'] === 'Pakistan won by 5 wickets', 'a finished match: completed, winner side a, result text kept for settlement', array_intersect_key($p, array_flip(['status', 'winner', 'result_text'])));
+$early = $done; $early['winner_team_id'] = null; $early['note'] = '';
+check(cricket_parse_snapshot(sm_snapshot($early))['status'] === 'live', '"Finished" before the winner is filled in stays in play (else match bets would void as a tie)');
+$early['note'] = 'Match tied (Pakistan won the Super Over)';
+check(cricket_parse_snapshot(sm_snapshot($early))['status'] === 'completed', 'a genuine tie with no winner id does complete');
+$done['winner_team_id'] = null; $done['draw_noresult'] = 'no result'; $done['note'] = 'No result';
+check(cricket_parse_snapshot(sm_snapshot($done))['status'] === 'abandoned', 'a finished match with no result is abandoned (refund path)');
+
 echo "== Snapshot flags ==\n";
 $s = sm_snapshot(fx('fixture-71344-live.json'));
 check(cricket_parse_snapshot($s)['balls_complete'] === true, 'a Sportmonks snapshot says it lists every ball (so withdrawn balls can be removed)');

@@ -90,8 +90,10 @@ function bbb_config() {
         $cfg['confirm_seconds'] = 0;   // the simulator never corrects a ball
     }
     // A polled feed reaches us ~5s after the ball (Sportmonks, measured 9 Oct 2026), which a 12s window
-    // counted from the ball would mostly eat; 20s still closes well before the next T20 delivery (35-45s).
-    if (cricket_source_mode() === 'sportmonks') $cfg['window_seconds'] = max($cfg['window_seconds'], 20);
+    // counted from the ball would mostly eat. 15s leaves ~10s to bet. Longer costs more voids: ~17% of
+    // Sportmonks balls are posted under 8s after the previous one (the scorer catching up), and those
+    // must void whatever the window; measured over 298 balls, 15s voids ~20%, 20s ~25%.
+    if (cricket_source_mode() === 'sportmonks') $cfg['window_seconds'] = max($cfg['window_seconds'], 15);
     return $cfg;
 }
 
