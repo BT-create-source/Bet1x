@@ -14,6 +14,10 @@
  *   3. every finished match: settle its contests — or, if it ended without a result, cancel and
  *      refund them                                                 (fantasy_settle_match)
  *
+ * With CRICKET_SOURCE=sportmonks it stays alive the same way, polling /livescores every
+ * SPORTMONKS_POLL_SECONDS (default 4; ~900 calls an hour against the plan's 2,000) and ingesting each
+ * live match.
+ *
  * In MOCK mode it also stays alive for ~55 seconds, pushing the simulated matches through the real
  * ingest path every few seconds, so a demo site behaves like a live one with no key at all.
  *
@@ -93,6 +97,28 @@ try {
     with_named_lock('cricket_tick', 5, function () use (&$ran, $work, &$summary, $once) {
         $ran = true;
         $work();
+        // Sportmonks: poll every few seconds for the rest of this minute — one /livescores call carries
+        // every live match with every ball — then give Ball by Ball and the exchange a pass at each
+        // live match, so held balls settle and new markets open between polls.
+        if (cricket_source_mode() === 'sportmonks') {
+            $every = max(2, (int) env_get('SPORTMONKS_POLL_SECONDS', 4));
+            $until = microtime(true) + ($once ? 0 : 52);
+            do {
+                $t0 = microtime(true);
+                $p = sm_poll_once();
+                $summary['pumps']++;
+                if (!$p['ok']) { $summary['errors'][] = 'sportmonks: ' . $p['error']; }
+                elseif (cricket_enabled()) {
+                    foreach (all('SELECT "match_key" FROM "cricket_match_feed" WHERE "match_key" LIKE ? AND "status" IN (?,?)', ['sm\_%', 'live', 'innings_break']) as $m) {
+                        try { bbb_process_match($m['match_key']); mx_process_match($m['match_key'], now_ms()); }
+                        catch (Throwable $e) { $summary['errors'][] = $m['match_key'] . ': ' . $e->getMessage(); }
+                    }
+                }
+                $left = $every - (microtime(true) - $t0);
+                if (microtime(true) + $left >= $until) break;
+                if ($left > 0) usleep((int) ($left * 1e6));
+            } while (true);
+        }
         // Mock mode: keep the simulation moving for the rest of this minute.
         if (!$once && cricket_source_mode() === 'mock') {
             $until = microtime(true) + 52;

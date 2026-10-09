@@ -13,10 +13,12 @@
  *
  * Paths and the rs-token header follow Roanuz's v5 docs (core/auth confirmed 2026-08-24 for the
  * Node build). In mock mode every call is answered by cricket-mock.php in the same shape, so the
- * calling code is exercised identically whether or not a key exists.
+ * calling code is exercised identically whether or not a key exists. With CRICKET_SOURCE=sportmonks the
+ * same four functions answer from lib/cricket-sportmonks.php instead.
  */
 
 require_once __DIR__ . '/cricket-feed.php';
+require_once __DIR__ . '/cricket-sportmonks.php';
 
 function roanuz_conf() {
     return [
@@ -98,6 +100,7 @@ function roanuz_call($method, $path, $body = null) {
  * [['key','name','short_name','format','start_ms','status','teams'=>['a'=>..,'b'=>..],'venue','tournament_key','tournament_name']]
  */
 function roanuz_fixtures() {
+    if (cricket_source_mode() === 'sportmonks') return sm_fixtures();
     if (cricket_source_mode() === 'mock') {
         return ['ok' => true, 'fixtures' => array_map('roanuz_normalise_fixture', array_map(function ($f) {
             return $f + ['_tournament' => $f['tournament']];
@@ -161,6 +164,7 @@ function fantasy_format_key_light($fmt) {
  * One team's squad for a tournament: [['key','name','role','skill'?], ...].
  */
 function roanuz_team_squad($tournamentKey, $teamKey) {
+    if (cricket_source_mode() === 'sportmonks') return sm_team_squad($tournamentKey, $teamKey);
     if (cricket_source_mode() === 'mock') {
         $data = ['data' => cricket_mock_tournament_team($teamKey)];
     } else {
@@ -188,6 +192,8 @@ function roanuz_team_squad($tournamentKey, $teamKey) {
 /** Ask Roanuz to start pushing a match to our webhook. Mock: nothing to do. */
 function roanuz_subscribe($matchKey) {
     if (cricket_source_mode() === 'mock') return ['ok' => true, 'mock' => true];
+    // Sportmonks is polled (sm_poll_once from the cron), so there is nothing to subscribe to.
+    if (cricket_source_mode() === 'sportmonks') return ['ok' => true, 'already' => true];
     $already = state_get('roanuz_sub_' . $matchKey);
     if (is_array($already) && !empty($already['ok'])) return ['ok' => true, 'already' => true];
     $res = roanuz_call('POST', '/match/' . rawurlencode($matchKey) . '/subscribe/', ['method' => 'web_hook']);
@@ -198,6 +204,7 @@ function roanuz_subscribe($matchKey) {
 
 /** A full snapshot of one match by REST — the manual resync path. */
 function roanuz_match_snapshot($matchKey) {
+    if (cricket_source_mode() === 'sportmonks') return sm_match_snapshot($matchKey);
     if (cricket_source_mode() === 'mock') {
         $s = cricket_mock_snapshot($matchKey);
         return $s ? ['ok' => true, 'snapshot' => $s] : ['ok' => false, 'error' => 'not a mock match'];

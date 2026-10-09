@@ -69,6 +69,10 @@ function bbb_config_defaults() {
         'window_seconds'         => 12,
         // A market only settles if it closed at least this long before its delivery arrived.
         'latency_guard_seconds'  => 4,
+        // A delivery only settles once it has stood unchanged this long. Feeds correct themselves: on
+        // the 9 Oct 2026 Sportmonks test about 1 ball in 7 was first posted wrong (FOUR -> 5 Wides) and
+        // fixed within ~10s, and wrong entries were sometimes withdrawn altogether.
+        'confirm_seconds'        => 20,
         // No push for this long during play = the feed is stalled: void and stop opening markets.
         'stall_seconds'          => 90,
     ];
@@ -83,7 +87,11 @@ function bbb_config() {
         $ball = cricket_mock_conf()['ball_ms'] / 1000;
         $cfg['window_seconds'] = min($cfg['window_seconds'], max(4, (int) floor($ball * 0.5)));
         $cfg['latency_guard_seconds'] = min($cfg['latency_guard_seconds'], max(1, (int) floor($ball * 0.12)));
+        $cfg['confirm_seconds'] = 0;   // the simulator never corrects a ball
     }
+    // A polled feed reaches us ~5s after the ball (Sportmonks, measured 9 Oct 2026), which a 12s window
+    // counted from the ball would mostly eat; 20s still closes well before the next T20 delivery (35-45s).
+    if (cricket_source_mode() === 'sportmonks') $cfg['window_seconds'] = max($cfg['window_seconds'], 20);
     return $cfg;
 }
 
@@ -94,7 +102,7 @@ function bbb_config_save(array $in) {
     $limits = [
         'rake_pct' => [0, 30], 'min_stake' => [1, 100000], 'max_stake' => [1, 1000000],
         'max_user_stake_per_ball' => [1, 10000000], 'window_seconds' => [3, 60],
-        'latency_guard_seconds' => [0, 30], 'stall_seconds' => [20, 600],
+        'latency_guard_seconds' => [0, 30], 'stall_seconds' => [20, 600], 'confirm_seconds' => [0, 120],
     ];
     foreach ($limits as $k => [$lo, $hi]) {
         if (!array_key_exists($k, $in)) continue;
@@ -276,6 +284,8 @@ function bbb_process_match($matchKey, $nowMs = null) {
         $k = $r['innings'] . ':' . $r['delivery_idx'];
         if (!isset($pos[$k])) continue;
         $d = $pos[$k];
+        // Not yet: the ball changed (or arrived) too recently to be trusted. A later pass settles it.
+        if ($now - (int) $d['received_ms'] < ((int) $cfg['confirm_seconds']) * 1000) continue;
         $closesMs = sql_to_ms($r['closes_at']);
         $arrivedMs = $d['first_seen_ms'];
         if ($arrivedMs < $closesMs + ((int) $cfg['latency_guard_seconds']) * 1000) {

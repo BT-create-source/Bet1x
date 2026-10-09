@@ -623,3 +623,33 @@ What makes it safe to take money on:
 
 **Going real later:** add the Roanuz keys and webhook secret (§9). The source switches to real cricket
 automatically; `CRICKET_VIRTUAL` then has no effect and can be removed.
+
+## 13. Real cricket on Sportmonks (instead of Roanuz)
+
+`lib/cricket-sportmonks.php` reads Sportmonks Cricket API v2 and hands the pipeline the same snapshot
+Roanuz would, so Ball by Ball, match betting and Your 11 run unchanged. Chosen after the 9 Oct 2026
+live test (`tools/sportmonks-live-sample.php`): a new ball reached us a median **5.6s** after
+Sportmonks posted it, against ~90s for CricLive. Plan: "Major" (€29/month) covers IPL, every T20I,
+T20 World Cups, BBL/PSL/BPL/Blast/Super Smash; NOT WPL, SMAT, Ranji, men's ODIs or Tests.
+
+How it works
+- The cron (`cron/cricket-tick.php`, every minute) stays alive ~52s and calls `/livescores` every
+  `SPORTMONKS_POLL_SECONDS` (default 4 → ~900 calls/hour; the plan allows 2,000/hour per endpoint).
+  One call carries every live match with every ball. A match that leaves the live list gets one
+  final `/fixtures/{id}` read so its result is recorded.
+- Fixtures (next 7 days) and season squads come from the same API every 10 minutes (Your 11).
+- **Corrections:** ~1 ball in 7 was first posted wrong and fixed within ~10s. Ball by Ball settles a
+  ball only after it has stood unchanged for `confirm_seconds` (default 20, admin-editable).
+- **Withdrawn balls:** each snapshot lists the whole ball set; a stored ball the provider no longer
+  lists is deleted (at most 3 at a time; a reply missing more is treated as a glitch and ignored).
+- The Ball by Ball window is at least 20s with this source (the ball reaches us ~5s late).
+
+Go live
+1. Server `php-backend/.env`: `CRICKET_SOURCE=sportmonks`, `SPORTMONKS_API_TOKEN=<token>`, and
+   **remove `CRICKET_VIRTUAL=true`** (Virtual Cricket and real cricket do not run side by side).
+   Keep `CRICKET_ENABLED=true`, `FANTASY_ENABLED=true`, `FANTASY_SOURCE=feed`.
+2. `/api/health` must show cricket enabled and not held off.
+3. Watch the first live match in the admin cricket panel before advertising it.
+
+Checks: `php php-backend/tests/test_sportmonks.php` (real replies; rebuilds every innings ball by
+ball and must equal Sportmonks' own scoreboard).

@@ -313,7 +313,7 @@ $FANTASY_ENABLED = env_bool('FANTASY_ENABLED', false);
 // /api/health. Deliberately not a site-wide fail-fast: a missing cricket key must not take Aviator,
 // the cashier and everything else down with it.
 $CRICKET_SOURCE_RESOLVED = strtolower(trim((string) env_get('CRICKET_SOURCE', '')));
-if (!in_array($CRICKET_SOURCE_RESOLVED, ['mock', 'roanuz'], true)) {
+if (!in_array($CRICKET_SOURCE_RESOLVED, ['mock', 'roanuz', 'sportmonks'], true)) {
     $CRICKET_SOURCE_RESOLVED = (trim((string) env_get('ROANUZ_API_KEY', '')) !== '' && trim((string) env_get('ROANUZ_PROJECT_KEY', '')) !== '')
         ? 'roanuz' : 'mock';
 }
@@ -333,6 +333,9 @@ if ($IS_PRODUCTION) {
         }
         if ($CRICKET_SOURCE_RESOLVED === 'mock' && $CRICKET_VIRTUAL && strlen((string) env_get('CRICKET_VIRTUAL_SECRET', '')) < 32 && strlen($APP_SECRET) < 32) {
             $CRICKET_BLOCKED[] = 'Virtual Cricket needs a secret of at least 32 characters (CRICKET_VIRTUAL_SECRET or APP_SECRET), or its matches could be predicted.';
+        }
+        if ($CRICKET_SOURCE_RESOLVED === 'sportmonks' && trim((string) env_get('SPORTMONKS_API_TOKEN', '')) === '') {
+            $CRICKET_BLOCKED[] = 'CRICKET_SOURCE=sportmonks but SPORTMONKS_API_TOKEN is not set, so no live ball could ever arrive.';
         }
         if ($CRICKET_SOURCE_RESOLVED === 'roanuz' && trim((string) env_get('ROANUZ_WEBHOOK_SECRET', '')) === '') {
             $CRICKET_BLOCKED[] = 'ROANUZ_WEBHOOK_SECRET is not set, so no live ball could ever arrive.';

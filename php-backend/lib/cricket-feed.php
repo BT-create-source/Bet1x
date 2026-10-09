@@ -48,14 +48,14 @@ function cricket_enabled() {
 }
 
 /**
- * 'roanuz' or 'mock'. Left unset it resolves itself from whether Roanuz credentials exist, so
+ * 'roanuz', 'sportmonks' (polled; only when CRICKET_SOURCE=sportmonks says so) or 'mock'. Left unset it resolves itself from whether Roanuz credentials exist, so
  * dropping a real key into .env is the entire switch from simulated to live.
  */
 function cricket_source_mode() {
     // Belt and braces behind the config guard: production never resolves to the simulator.
     if (cfg('IS_PRODUCTION') && !cfg('CRICKET_LIVE')) return 'off';
     $explicit = strtolower(trim((string) env_get('CRICKET_SOURCE', '')));
-    if (in_array($explicit, ['mock', 'roanuz'], true)) return $explicit;
+    if (in_array($explicit, ['mock', 'roanuz', 'sportmonks'], true)) return $explicit;
     return (trim((string) env_get('ROANUZ_API_KEY', '')) !== '' && trim((string) env_get('ROANUZ_PROJECT_KEY', '')) !== '')
         ? 'roanuz' : 'mock';
 }
@@ -327,6 +327,8 @@ function cricket_parse_snapshot(array $body) {
         'winner'        => is_array($result) ? (cricket_pick($result, ['winner', 'winning_team', 'winner.key'], null) ?: null) : null,
         'venue'         => (string) cricket_pick($m, ['venue.name', 'venue'], ''),
         'balls'         => $balls,
+        // The source lists every delivery of the match each time (see the deletion step in the ingest).
+        'balls_complete' => !empty($m['_balls_complete']),
     ];
 }
 
@@ -482,7 +484,23 @@ function cricket_feed_ingest(array $body, $source = 'push', $receivedMs = null) 
         if ($new > 0) {
             q('UPDATE "cricket_match_feed" SET "last_ball_at" = ? WHERE "match_key" = ?', [$nowSql, $key]);
         }
-        return ['duplicate' => false, 'new_balls' => $new, 'changed_balls' => $changed];
+        // A source that always sends the complete ball list (Sportmonks) deletes a wrong entry by simply
+        // no longer listing it. Only a handful at a time, and never from an empty list: a reply that
+        // lost its balls altogether is a glitch, not thirty deletions.
+        $deleted = 0;
+        if (!empty($snap['balls_complete']) && $snap['balls']) {
+            $listed = [];
+            foreach ($snap['balls'] as $b) $listed[$b['uid']] = true;
+            $gone = array_values(array_diff(array_keys($known), array_keys($listed)));
+            if ($gone && count($gone) <= 3) {
+                foreach ($gone as $uid) q('DELETE FROM "cricket_deliveries" WHERE "match_key" = ? AND "ball_uid" = ?', [$key, $uid]);
+                $deleted = count($gone);
+                log_info('cricket: provider withdrew deliveries', ['match' => $key, 'balls' => $gone]);
+            } elseif ($gone) {
+                log_error('cricket: snapshot is missing too many known deliveries; kept them', ['match' => $key, 'missing' => count($gone)]);
+            }
+        }
+        return ['duplicate' => false, 'new_balls' => $new, 'changed_balls' => $changed, 'deleted_balls' => $deleted];
     });
 
     $out['ok'] = true;

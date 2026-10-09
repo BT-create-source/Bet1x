@@ -59,6 +59,11 @@ check(isset($r['cb'][0]) && strpos(implode(' ', $r['cb']), 'ROANUZ_API_KEY') !==
 $r = decide($prod + $keys + ['CRICKET_ENABLED' => 'true', 'FANTASY_ENABLED' => 'true', 'FANTASY_SOURCE' => 'feed']);
 check($r['cricket'] === true && $r['fantasy'] === true && !$r['cb'] && !$r['fb'], 'with both keys and the webhook secret: everything runs', $r);
 
+$r = decide($prod + ['CRICKET_ENABLED' => 'true', 'FANTASY_ENABLED' => 'true', 'FANTASY_SOURCE' => 'feed', 'CRICKET_SOURCE' => 'sportmonks', 'SPORTMONKS_API_TOKEN' => 'tok']);
+check($r['cricket'] === true && $r['fantasy'] === true && !$r['cb'] && !$r['fb'], 'CRICKET_SOURCE=sportmonks with a token: real cricket runs, no Roanuz keys needed', $r);
+$r = decide($prod + ['CRICKET_ENABLED' => 'true', 'CRICKET_SOURCE' => 'sportmonks']);
+check($r['cricket'] === false && strpos(implode(' ', $r['cb']), 'SPORTMONKS_API_TOKEN') !== false, 'CRICKET_SOURCE=sportmonks without a token: held OFF, and the reason says why', $r['cb'] ?? null);
+
 $r = decide($prod + $keys + ['CRICKET_ENABLED' => 'true', 'CRICKET_SOURCE' => 'mock', 'FANTASY_ENABLED' => 'true', 'FANTASY_SOURCE' => 'feed']);
 check($r['cricket'] === false && $r['fantasy'] === false, 'CRICKET_SOURCE=mock forced on: held OFF even with keys present', $r);
 
