@@ -11,263 +11,209 @@
   <script src="assets/js/result-popup.js"></script>
   <style>
     /* ==========================================================================================
-       Chicken Road. The road itself is a fixed-dark "stage" (like Vimaan's sky and Teen Patti's
-       felt), so its colours are literal; everything around it uses the site's theme tokens.
+       Chicken Road (traffic edition). The game frame — top bar, road and controls — is its own
+       fixed palette (warm grey asphalt, dark grey chrome), like Vimaan's sky and Teen Patti's felt;
+       the page around it keeps the site theme.
        ========================================================================================== */
-    .cr-wrap { max-width: 1120px; margin: 18px auto 0; padding: 0 14px; box-sizing: border-box; }
+    .cr-wrap { max-width: 1180px; margin: 16px auto 0; padding: 0 14px; box-sizing: border-box; }
+    .cr-game {
+      --chrome: #2a292e; --chrome-2: #36353b; --chrome-3: #424148; --ink: #f4f4f6; --ink-dim: #a9a8b0;
+      --go: #3dbb4a; --go-2: #2b9a39; --cash: #f7c21a; --cash-2: #e0a20a; --navy: #2c3a63;
+      background: var(--chrome); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow-card);
+      border: 1px solid #1d1c21; font-family: 'Poppins', var(--font-body);
+    }
+    .cr-game:fullscreen { border-radius: 0; display: flex; flex-direction: column; }
+    .cr-game:fullscreen .cr-stage { flex: 1; height: auto !important; }
 
-    .cr-topbar {
-      display: flex; align-items: center; justify-content: space-between; gap: 10px;
-      margin-bottom: 10px; flex-wrap: wrap;
+    /* ---- top bar ------------------------------------------------------------------------------ */
+    .cr-bar { height: 50px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px 0 14px; gap: 8px; }
+    .cr-logo { display: flex; align-items: center; gap: 2px; font: 800 20px 'Poppins', sans-serif; color: #fff; letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap; }
+    .cr-logo svg { width: 30px; height: 30px; margin: 0 3px; }
+    .cr-bar-r { display: flex; align-items: center; gap: 6px; }
+    .cr-chip-btn {
+      height: 34px; display: inline-flex; align-items: center; gap: 7px; padding: 0 12px; border-radius: 8px; border: 0;
+      background: var(--chrome-2); color: var(--ink); font: 600 13px 'Poppins', sans-serif; cursor: pointer; white-space: nowrap;
     }
-    .cr-title { display: flex; align-items: center; gap: 10px; }
-    .cr-title h1 {
-      margin: 0; font-family: var(--font-display); font-size: 22px; letter-spacing: 0.5px; color: var(--text);
-    }
-    .cr-title h1 span { color: var(--gold); }
-    .cr-title svg { width: 34px; height: 34px; }
-    .cr-top-actions { display: flex; gap: 8px; align-items: center; }
-    .cr-pill-btn {
-      background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
-      border-radius: var(--radius-pill); padding: 7px 14px; font: 600 13px var(--font-body); cursor: pointer;
-    }
-    .cr-pill-btn:hover { border-color: var(--gold); }
-    .cr-balance {
-      font-family: var(--font-mono); font-weight: 700; color: var(--green);
-      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 7px 14px;
-    }
+    .cr-chip-btn:hover { background: var(--chrome-3); }
+    .cr-chip-btn.sq { width: 34px; padding: 0; justify-content: center; }
+    .cr-chip-btn svg { width: 16px; height: 16px; }
+    .cr-bal { min-width: 120px; justify-content: space-between; font-weight: 600; cursor: default; }
+    .cr-bal i { width: 18px; height: 18px; border-radius: 50%; background: #fff; color: var(--chrome); font: 800 11px/18px 'Poppins'; text-align: center; font-style: normal; }
 
     /* ---- the stage ---------------------------------------------------------------------------- */
-    .cr-stage {
-      position: relative; height: var(--cr-stage-h); overflow: hidden; border-radius: var(--radius-lg);
-      background: #1b1d2b; border: 1px solid var(--border); box-shadow: var(--shadow-card);
-      user-select: none; -webkit-user-select: none;
+    .cr-stage { position: relative; height: var(--h); overflow: hidden; background: #5b5859; user-select: none; -webkit-user-select: none; }
+    .cr-track { position: absolute; top: 0; left: 0; height: 100%; transition: transform 0.6s cubic-bezier(.2,.8,.2,1); will-change: transform; }
+    .cr-walk {
+      position: absolute; top: 0; height: 100%;
+      background-color: #a7a4a3;
+      background-image:
+        linear-gradient(#8e8b8b 2px, transparent 2px),
+        linear-gradient(90deg, #8e8b8b 2px, transparent 2px);
+      background-size: calc(var(--L) * 0.42) calc(var(--L) * 0.42);
     }
-    .cr-track {
-      position: absolute; top: 0; left: 0; height: 100%; display: flex;
-      transition: transform 0.55s cubic-bezier(.2,.8,.2,1); will-change: transform;
-    }
-    .cr-kerb {
-      position: relative; flex: 0 0 var(--cr-kerb-w); height: 100%;
-      background:
-        repeating-linear-gradient(0deg, rgba(255,255,255,0.05) 0 2px, transparent 2px 46px),
-        linear-gradient(90deg, #3b4060, #33385a);
-      box-shadow: inset -6px 0 0 #c9cde0, inset -10px 0 0 #8c91ad;
-    }
-    .cr-kerb.finish {
-      flex-basis: var(--cr-finish-w);
-      box-shadow: inset 6px 0 0 #c9cde0, inset 10px 0 0 #8c91ad;
-      background:
-        repeating-linear-gradient(0deg, rgba(255,255,255,0.05) 0 2px, transparent 2px 46px),
-        linear-gradient(90deg, #33385a, #3b4060);
-    }
-    .cr-kerb-label {
-      position: absolute; bottom: 14px; left: 0; right: 0; text-align: center;
-      font: 700 11px var(--font-display); letter-spacing: 2px; color: rgba(255,255,255,0.45);
-    }
-    .cr-egg {
-      position: absolute; top: 50%; left: 50%; width: 54px; height: 66px; transform: translate(-50%, -62%);
-      filter: drop-shadow(0 0 14px rgba(255,197,61,0.65)); animation: crEggGlow 2.4s ease-in-out infinite;
-    }
-    @keyframes crEggGlow { 50% { filter: drop-shadow(0 0 26px rgba(255,197,61,0.95)); } }
+    .cr-walk.start { left: 0; width: var(--kerb); box-shadow: inset -10px 0 0 #d9d6d3, inset -16px 0 0 #8a8786; }
+    .cr-walk.end   { width: var(--fin); box-shadow: inset 10px 0 0 #d9d6d3, inset 16px 0 0 #8a8786; }
+    .cr-grass { position: absolute; left: 0; top: 0; bottom: 0; width: 18%; background: #57b947; }
+    .cr-bush { position: absolute; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #7bd75f, #44a336 60%, #2f7d26); box-shadow: 0 4px 0 rgba(0,0,0,0.15); }
+    .cr-lamp { position: absolute; left: 34%; top: 0; width: 10px; height: 30%; background: linear-gradient(90deg, #72747c, #9a9ca4, #72747c); border-radius: 0 0 4px 4px; }
+    .cr-lamp::before { content: ''; position: absolute; left: -9px; bottom: -12px; width: 28px; height: 28px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #a5a7ae, #6b6d74); }
+    .cr-lamp::after { content: ''; position: absolute; left: 0; top: 4px; width: calc(var(--L) * 0.5); height: 9px; background: #8a8c94; border-radius: 0 6px 6px 0; }
+    .cr-egg { position: absolute; left: 50%; top: var(--row); width: calc(var(--L) * 0.5); height: calc(var(--L) * 0.62); transform: translate(-50%, -60%); filter: drop-shadow(0 0 16px rgba(255,197,61,0.8)); animation: crEggGlow 2.2s ease-in-out infinite; }
+    @keyframes crEggGlow { 50% { filter: drop-shadow(0 0 30px rgba(255,197,61,1)); } }
 
-    .cr-lane {
-      position: relative; flex: 0 0 var(--cr-lane-w); height: 100%;
-      background: linear-gradient(90deg, #262838, #2c2f42 50%, #262838);
+    .cr-lane { position: absolute; top: 0; height: 100%; width: var(--L); }
+    .cr-lane.dash::before {
+      content: ''; position: absolute; left: -3px; top: 0; bottom: 0; width: 6px;
+      background: repeating-linear-gradient(180deg, #f2f1ef 0 calc(var(--L) * 0.25), transparent calc(var(--L) * 0.25) calc(var(--L) * 0.5));
+      opacity: 0.95;
     }
-    .cr-lane + .cr-lane::before {
-      content: ''; position: absolute; left: -2px; top: 0; bottom: 0; width: 4px;
-      background: repeating-linear-gradient(180deg, rgba(255,255,255,0.55) 0 26px, transparent 26px 52px);
-      opacity: 0.55;
-    }
-    .cr-manhole {
-      position: absolute; left: 50%; top: 50%; width: var(--cr-hole); height: var(--cr-hole);
-      transform: translate(-50%, -50%); border-radius: 50%;
-      background:
-        repeating-linear-gradient(0deg, transparent 0 7px, rgba(0,0,0,0.28) 7px 9px),
-        radial-gradient(circle at 35% 30%, #8a8fa6, #555a70 55%, #3b3f52);
-      box-shadow: 0 0 0 4px #1d1f2c, 0 3px 8px rgba(0,0,0,0.6), inset 0 0 0 3px rgba(255,255,255,0.08);
-      transition: background 0.3s, box-shadow 0.3s;
-    }
-    .cr-mult {
-      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-      font: 700 var(--cr-mult-fs) var(--font-mono); color: #f2f3fb; text-shadow: 0 1px 3px rgba(0,0,0,0.9);
-      white-space: nowrap; pointer-events: none; transition: color 0.3s;
-    }
-    .cr-lane.next .cr-manhole { box-shadow: 0 0 0 4px #1d1f2c, 0 0 0 7px rgba(46,212,122,0.65), 0 0 22px rgba(46,212,122,0.45); animation: crPulse 1.1s ease-in-out infinite; }
-    @keyframes crPulse { 50% { box-shadow: 0 0 0 4px #1d1f2c, 0 0 0 9px rgba(46,212,122,0.35), 0 0 30px rgba(46,212,122,0.6); } }
-    .cr-lane.passed .cr-manhole {
-      background:
-        repeating-linear-gradient(0deg, transparent 0 7px, rgba(120,70,0,0.25) 7px 9px),
-        radial-gradient(circle at 35% 30%, #ffe08a, #f2b229 55%, #b97a09);
-      box-shadow: 0 0 0 4px #1d1f2c, 0 0 18px rgba(255,197,61,0.55);
-    }
-    .cr-lane.passed .cr-mult { color: #3a2500; text-shadow: 0 1px 0 rgba(255,255,255,0.45); }
-    .cr-lane.fire .cr-manhole { background: radial-gradient(circle, #ffef9a, #ff7a1a 45%, #b3200c 75%, #2b0a05); box-shadow: 0 0 0 4px #1d1f2c, 0 0 40px rgba(255,90,20,0.9); }
 
-    /* barrier that holds traffic off the hen's lane */
+    /* manhole */
+    .cr-hole {
+      position: absolute; left: 50%; top: var(--row); width: var(--hole); height: var(--hole); transform: translate(-50%, -50%);
+      border-radius: 50%; background: #3f3d3e; box-shadow: 0 0 0 calc(var(--hole) * 0.045) #2e2c2d, inset 0 0 0 calc(var(--hole) * 0.05) #4b494a;
+      opacity: 0.55; transition: opacity 0.25s;
+    }
+    .cr-hole::before {
+      content: ''; position: absolute; inset: 15%; border-radius: 50%;
+      background: repeating-linear-gradient(90deg, #2b292a 0 calc(var(--hole) * 0.035), #4d4a4b calc(var(--hole) * 0.035) calc(var(--hole) * 0.08));
+      box-shadow: inset 0 0 0 calc(var(--hole) * 0.03) #343233;
+    }
+    .cr-hole span {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      font: 800 var(--mfs) 'Poppins', sans-serif; color: #fff; letter-spacing: -0.3px;
+      text-shadow: 0 0 3px #222, 0 1px 2px #222, 1px 0 2px #222, -1px 0 2px #222;
+    }
+    .cr-lane.next .cr-hole, .cr-stage.idle .cr-hole { opacity: 1; }
+    .cr-lane.current .cr-hole, .cr-lane.passed .cr-hole, .cr-lane.hit .cr-hole { opacity: 0; }
+
+    /* coin */
+    .cr-coin {
+      position: absolute; left: 50%; top: var(--row); width: var(--hole); height: var(--hole); margin: calc(var(--hole) / -2) 0 0 calc(var(--hole) / -2);
+      opacity: 0; transform: rotateY(90deg); transition: transform 0.45s cubic-bezier(.3,1.6,.5,1), opacity 0.1s;
+    }
+    .cr-coin svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 3px 0 rgba(0,0,0,0.25)); }
+    .cr-lane.passed .cr-coin { opacity: 1; transform: rotateY(0deg); }
+
+    /* barrier */
     .cr-barrier {
-      position: absolute; left: 8%; right: 8%; top: 18px; height: 12px; border-radius: 3px; opacity: 0;
-      transform: translateY(-8px); transition: opacity 0.25s, transform 0.25s;
-      background: repeating-linear-gradient(-45deg, #ffc53d 0 10px, #1d1f2c 10px 20px);
-      box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+      position: absolute; left: 50%; top: calc(var(--row) - var(--hole) * 1.02); width: calc(var(--L) * 0.84); height: calc(var(--L) * 0.36);
+      margin-left: calc(var(--L) * -0.42); transform: translateY(-50%) translateY(-140%); opacity: 0; z-index: 3;
+      transition: transform 0.38s cubic-bezier(.3,1.5,.5,1), opacity 0.15s;
     }
-    .cr-lane.current .cr-barrier { opacity: 1; transform: none; }
+    .cr-barrier svg { width: 100%; height: 100%; display: block; }
+    .cr-lane.passed .cr-barrier, .cr-lane.current .cr-barrier { opacity: 1; transform: translateY(-50%); }
 
-    /* traffic */
-    .cr-car {
-      position: absolute; left: 50%; top: 0; width: calc(var(--cr-lane-w) * 0.42); height: calc(var(--cr-lane-w) * 0.78);
-      margin-left: calc(var(--cr-lane-w) * -0.21);
-      animation: crDrive var(--dur, 2s) linear infinite; animation-delay: var(--delay, 0s);
-      transition: opacity 0.2s;
-    }
-    .cr-car svg { width: 100%; height: 100%; display: block; }
-    @keyframes crDrive { from { transform: translateY(-120%); } to { transform: translateY(calc(var(--cr-stage-h) + 20%)); } }
-    .cr-lane.current .cr-car, .cr-lane.fire .cr-car { opacity: 0; animation-play-state: paused; }
+    /* vehicles */
+    .cr-car { position: absolute; left: 50%; top: 0; z-index: 4; will-change: transform; transition: opacity 0.35s; }
+    .cr-car svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 6px 4px rgba(0,0,0,0.35)); }
+    .cr-car.gone { opacity: 0; }
 
-    /* flames */
-    .cr-flames {
-      position: absolute; left: 50%; top: 50%; width: calc(var(--cr-hole) * 1.25); height: calc(var(--cr-hole) * 1.9);
-      transform: translate(-50%, -88%); opacity: 0; pointer-events: none;
-    }
-    .cr-lane.fire .cr-flames { opacity: 1; animation: crFlameRise 0.35s ease-out; }
-    .cr-flames path { transform-origin: 50% 100%; animation: crFlicker 0.18s ease-in-out infinite alternate; }
-    .cr-flames path:nth-child(2) { animation-duration: 0.23s; }
-    .cr-flames path:nth-child(3) { animation-duration: 0.15s; }
-    @keyframes crFlicker { from { transform: scaleY(0.88) scaleX(1.04); } to { transform: scaleY(1.06) scaleX(0.95); } }
-    @keyframes crFlameRise { from { transform: translate(-50%, -40%) scale(0.3); } }
-
-    /* the hen */
+    /* hen */
     .cr-hen {
-      position: absolute; top: 50%; left: 0; width: var(--cr-hen); height: var(--cr-hen);
-      margin-left: calc(var(--cr-hen) / -2); margin-top: calc(var(--cr-hen) * -0.86);
-      transition: transform 0.38s cubic-bezier(.3,.7,.4,1); z-index: 5; pointer-events: none;
+      position: absolute; left: 0; top: var(--row); width: var(--hen); height: var(--hen);
+      margin: calc(var(--hen) * -0.62) 0 0 calc(var(--hen) / -2); z-index: 5; pointer-events: none;
+      transition: transform 0.42s cubic-bezier(.35,.6,.4,1);
     }
-    .cr-hen-body { width: 100%; height: 100%; animation: crIdle 1.6s ease-in-out infinite; transform-origin: 50% 100%; }
-    .cr-hen.hop .cr-hen-body { animation: crHop 0.38s ease-out; }
-    @keyframes crIdle { 50% { transform: scaleY(0.96) translateY(2%); } }
-    @keyframes crHop { 0% { transform: translateY(0) scale(1, 0.9); } 45% { transform: translateY(-38%) scale(0.95, 1.06); } 100% { transform: translateY(0); } }
-    .cr-hen svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 6px 5px rgba(0,0,0,0.55)); }
-    .cr-hen .roast { display: none; }
-    .cr-hen.roasted .alive { display: none; }
-    .cr-hen.roasted .roast { display: block; }
-    .cr-hen.roasted .cr-hen-body { animation: crShake 0.5s ease-in-out 2; }
-    @keyframes crShake { 25% { transform: rotate(-8deg); } 75% { transform: rotate(8deg); } }
-    .cr-hen.won .cr-hen-body { animation: crCheer 0.6s ease-in-out 3; }
-    @keyframes crCheer { 50% { transform: translateY(-22%) rotate(-6deg); } }
+    .cr-hen .body { width: 100%; height: 100%; transform-origin: 50% 92%; animation: crBreathe 1.8s ease-in-out infinite; }
+    .cr-hen.hop .body { animation: crHop 0.42s ease-out; }
+    .cr-hen svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 5px 3px rgba(0,0,0,0.3)); overflow: visible; }
+    @keyframes crBreathe { 50% { transform: scale(1.025, 0.975); } }
+    @keyframes crHop { 0% { transform: scale(1.08, 0.86); } 40% { transform: translateY(-42%) scale(0.94, 1.08); } 80% { transform: translateY(0) scale(1.1, 0.88); } 100% { transform: none; } }
+    .cr-hen.squash .body { animation: crSquash 0.5s cubic-bezier(.2,.8,.2,1) forwards; }
+    @keyframes crSquash { 0% { transform: none; } 30% { transform: scale(1.35, 0.35) rotate(-8deg); } 100% { transform: scale(1.4, 0.22) translateY(10%); opacity: 0.85; } }
+    .cr-hen.cheer .body { animation: crCheer 0.55s ease-in-out 3; }
+    @keyframes crCheer { 50% { transform: translateY(-24%) rotate(-5deg); } }
+    .cr-feather { position: absolute; width: 14px; height: 7px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1px #d5d6de; z-index: 6; pointer-events: none; animation: crFeather 1.1s ease-out forwards; }
+    @keyframes crFeather { to { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity: 0; } }
 
-    /* HUD over the stage */
-    .cr-hud {
-      position: absolute; top: 12px; left: 12px; z-index: 8; display: flex; gap: 8px; flex-wrap: wrap;
-      pointer-events: none;
+    .cr-tag {
+      position: absolute; left: 0; top: calc(var(--row) + var(--hole) * 0.62); z-index: 6; pointer-events: none;
+      transform: translateX(-50%); background: var(--navy); color: #fff; border-radius: 7px; box-shadow: 0 3px 0 #1b2440;
+      padding: calc(var(--L) * 0.035) calc(var(--L) * 0.09); font: 800 calc(var(--L) * 0.15) 'Poppins', sans-serif; white-space: nowrap;
+      transition: left 0.42s cubic-bezier(.35,.6,.4,1), opacity 0.2s;
     }
-    .cr-hud-chip {
-      background: rgba(11,14,29,0.82); border: 1px solid rgba(255,255,255,0.12); border-radius: var(--radius-pill);
-      padding: 5px 12px; font: 700 13px var(--font-mono); color: #edeffa; backdrop-filter: blur(4px);
-    }
-    .cr-hud-chip b { color: #ffc53d; }
-    .cr-hud-chip.win b { color: #2ed47a; }
+    .cr-tag::before { content: ''; position: absolute; left: 50%; top: -7px; margin-left: -8px; border: 8px solid transparent; border-top: 0; border-bottom-color: var(--navy); }
+    .cr-tag[hidden] { display: none; }
+
+    /* live strip */
+    .cr-live { position: absolute; top: 8px; left: 10px; z-index: 8; font: 600 11px 'Poppins', sans-serif; color: #eee; pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,0.7); }
+    .cr-live .row1 { display: flex; gap: 10px; align-items: center; }
+    .cr-live .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #3dbb4a; margin-right: 5px; box-shadow: 0 0 6px #3dbb4a; }
+    .cr-live .win { display: flex; gap: 6px; align-items: center; margin-top: 6px; background: rgba(30,29,34,0.75); padding: 3px 10px 3px 3px; border-radius: 12px; width: max-content; animation: crWinIn 0.4s ease-out; }
+    .cr-live .win .av { width: 18px; height: 18px; border-radius: 50%; background: linear-gradient(135deg, #ff6b6b, #c0392b); }
+    .cr-live .win b { color: #4cd964; font-weight: 700; }
+    @keyframes crWinIn { from { opacity: 0; transform: translateY(-6px); } }
+
     .cr-banner {
-      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(0.8); z-index: 9;
-      padding: 14px 26px; border-radius: var(--radius); text-align: center; opacity: 0; pointer-events: none;
-      transition: opacity 0.25s, transform 0.25s; background: rgba(11,14,29,0.9); border: 1px solid rgba(255,255,255,0.15);
-      font-family: var(--font-display); color: #edeffa;
+      position: absolute; left: 50%; top: 24%; z-index: 9; transform: translate(-50%, -50%) scale(0.7); opacity: 0; pointer-events: none;
+      text-align: center; padding: 14px 30px; border-radius: 14px; transition: opacity 0.2s, transform 0.25s cubic-bezier(.3,1.6,.5,1);
+      background: linear-gradient(180deg, #47c957, #2b9a39); border: 3px solid #a6f0ad; box-shadow: 0 10px 30px rgba(0,0,0,0.4); color: #fff;
     }
     .cr-banner.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-    .cr-banner .big { font-size: 30px; font-weight: 700; }
-    .cr-banner.win .big { color: #2ed47a; }
-    .cr-banner.lose .big { color: #ff4b6e; }
-    .cr-banner .sub { font: 600 14px var(--font-mono); color: #c9cde0; margin-top: 4px; }
+    .cr-banner.lose { background: linear-gradient(180deg, #ff5a5a, #c62f2f); border-color: #ffb3b3; }
+    .cr-banner .x { font: 800 34px 'Poppins', sans-serif; line-height: 1.1; }
+    .cr-banner .s { font: 700 15px 'Poppins', sans-serif; opacity: 0.95; }
 
     /* ---- controls ----------------------------------------------------------------------------- */
-    .cr-controls {
-      margin-top: 12px; display: grid; grid-template-columns: 1.1fr 1.3fr 1fr; gap: 12px;
-      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px;
-    }
-    .cr-block-label {
-      font: 600 11px var(--font-body); color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 7px;
-      display: flex; justify-content: space-between;
-    }
-    .cr-amount { display: flex; align-items: stretch; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
-    .cr-amount button {
-      flex: 0 0 42px; border: 0; background: transparent; color: var(--text); font: 700 20px var(--font-mono); cursor: pointer;
-    }
-    .cr-amount button:hover:not(:disabled) { background: rgba(255,255,255,0.05); }
-    .cr-amount input {
-      flex: 1; min-width: 0; border: 0; background: transparent; color: var(--text); text-align: center;
-      font: 700 18px var(--font-mono); padding: 10px 0; outline: none;
-    }
+    .cr-controls { display: grid; grid-template-columns: 1.05fr 1.35fr 1fr; gap: 12px; padding: 12px; background: #222126; }
+    .cr-box { background: var(--chrome); border-radius: 12px; padding: 10px 12px; }
+    .cr-lbl { font: 600 11px 'Poppins', sans-serif; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 7px; display: flex; justify-content: space-between; gap: 6px; }
+    .cr-amount { display: flex; background: var(--chrome-2); border-radius: 9px; overflow: hidden; }
+    .cr-amount button { flex: 0 0 42px; border: 0; background: var(--chrome-3); color: #fff; font: 700 20px 'Poppins'; cursor: pointer; }
+    .cr-amount input { flex: 1; min-width: 0; border: 0; background: transparent; color: #fff; text-align: center; font: 700 18px 'Poppins'; padding: 9px 0; outline: none; }
     .cr-chips { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 8px; }
-    .cr-chip {
-      background: var(--surface-2); border: 1px solid var(--border); color: var(--text-dim); border-radius: 8px;
-      padding: 6px 0; font: 600 12px var(--font-mono); cursor: pointer;
-    }
-    .cr-chip:hover:not(:disabled) { color: var(--text); border-color: var(--gold); }
-    .cr-diffs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-    .cr-diff {
-      background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer;
-      padding: 9px 4px; text-align: center; color: var(--text); transition: border-color 0.15s, background 0.15s;
-    }
-    .cr-diff .n { font: 700 14px var(--font-display); }
-    .cr-diff .m { font: 600 11px var(--font-mono); color: var(--text-dim); margin-top: 2px; }
-    .cr-diff.active { border-color: var(--gold); background: var(--gold-soft); }
-    .cr-diff.active .m { color: var(--gold); }
-    .cr-diff-note { font: 500 12px var(--font-body); color: var(--text-dim); margin-top: 8px; }
+    .cr-chip { background: var(--chrome-2); border: 0; color: var(--ink); border-radius: 8px; padding: 7px 0; font: 600 12px 'Poppins'; cursor: pointer; }
+    .cr-chip:hover:not(:disabled), .cr-amount button:hover:not(:disabled) { background: #4d4c54; }
+    .cr-diffs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; background: var(--chrome-2); padding: 4px; border-radius: 10px; }
+    .cr-diff { border: 0; background: transparent; border-radius: 8px; padding: 8px 2px; cursor: pointer; color: var(--ink-dim); text-align: center; }
+    .cr-diff .n { font: 700 13px 'Poppins'; }
+    .cr-diff .m { font: 600 10.5px 'Poppins'; opacity: 0.8; margin-top: 1px; }
+    .cr-diff.active { background: #4b4a52; color: #fff; box-shadow: 0 2px 0 rgba(0,0,0,0.3); }
+    .cr-diff.active .m { color: var(--cash); opacity: 1; }
+    .cr-note { font: 500 12px 'Poppins'; color: var(--ink-dim); margin-top: 8px; }
+    .cr-note b { color: #fff; }
     .cr-actions { display: flex; flex-direction: column; gap: 8px; justify-content: center; }
-    .cr-btn {
-      border: 0; border-radius: var(--radius); cursor: pointer; font-family: var(--font-display); font-weight: 700;
-      letter-spacing: 1px; padding: 14px 10px; transition: transform 0.08s, filter 0.15s, opacity 0.15s;
-    }
-    .cr-btn:active:not(:disabled) { transform: scale(0.97); }
-    .cr-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-    .cr-btn-go {
-      background: linear-gradient(180deg, #3ee68b, #1fa85d); color: #062313; font-size: 22px;
-      box-shadow: 0 6px 18px rgba(46,212,122,0.3), inset 0 -3px 0 rgba(0,0,0,0.18);
-    }
-    .cr-btn-go small { display: block; font: 600 12px var(--font-mono); letter-spacing: 0; opacity: 0.8; }
-    .cr-btn-cash {
-      background: linear-gradient(180deg, #ffd768, #f0a91c); color: #2e1d00; font-size: 16px;
-      box-shadow: 0 6px 18px rgba(255,197,61,0.25), inset 0 -3px 0 rgba(0,0,0,0.15);
-    }
-    .cr-btn-cash small { display: block; font: 700 15px var(--font-mono); letter-spacing: 0; }
     .cr-row { display: flex; gap: 8px; }
-    .cr-row .cr-btn { flex: 1; }
     .cr-row[hidden], .cr-btn[hidden] { display: none; }
-    .cr-msg { min-height: 18px; font: 500 13px var(--font-body); color: var(--text-dim); text-align: center; }
-    .cr-msg.err { color: var(--red); }
-    .cr-fair {
-      margin-top: 8px; font: 500 11px var(--font-mono); color: var(--text-dim); display: flex; gap: 14px;
-      flex-wrap: wrap; justify-content: space-between; padding: 0 4px; word-break: break-all;
-    }
-    .cr-fair a { color: var(--gold); cursor: pointer; text-decoration: underline; }
+    .cr-btn { flex: 1; border: 0; border-radius: 12px; cursor: pointer; font: 800 22px 'Poppins', sans-serif; padding: 12px 8px; transition: transform 0.08s, filter 0.15s; }
+    .cr-btn:active:not(:disabled) { transform: translateY(2px); }
+    .cr-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .cr-btn small { display: block; font: 600 12px 'Poppins'; opacity: 0.85; }
+    .cr-btn-go { background: linear-gradient(180deg, #4fd35d, var(--go-2)); color: #fff; box-shadow: 0 4px 0 #1f7a2b; text-shadow: 0 1px 0 rgba(0,0,0,0.25); }
+    .cr-btn-cash { background: linear-gradient(180deg, #ffd84d, var(--cash-2)); color: #3a2a00; box-shadow: 0 4px 0 #a87600; font-size: 16px; }
+    .cr-btn-cash small { font: 800 15px 'Poppins'; opacity: 1; }
+    .cr-msg { min-height: 18px; font: 500 12.5px 'Poppins'; color: var(--ink-dim); text-align: center; }
+    .cr-msg.err { color: #ff6b6b; }
+    .cr-fair { padding: 8px 14px 10px; background: #222126; font: 500 11px var(--font-mono); color: #8d8c94; display: flex; gap: 14px; flex-wrap: wrap; justify-content: space-between; word-break: break-all; }
+    .cr-fair a { color: var(--cash); cursor: pointer; text-decoration: underline; }
 
     /* ---- modal -------------------------------------------------------------------------------- */
-    .cr-modal { position: fixed; inset: 0; z-index: 2000; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(5,7,16,0.72); }
+    .cr-modal { position: fixed; inset: 0; z-index: 3000; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(10,10,14,0.72); }
     .cr-modal.open { display: flex; }
-    .cr-modal-card {
-      width: 100%; max-width: 560px; max-height: 88vh; overflow: auto; background: var(--surface);
-      border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 22px; color: var(--text);
-      box-shadow: var(--shadow-card); font: 400 14px/1.55 var(--font-body);
-    }
-    .cr-modal-card h2 { margin: 0 0 10px; font: 700 20px var(--font-display); }
-    .cr-modal-card h3 { margin: 16px 0 6px; font: 700 15px var(--font-display); color: var(--gold); }
+    .cr-modal-card { width: 100%; max-width: 560px; max-height: 88vh; overflow: auto; background: #2a292e; border-radius: 14px; padding: 20px 22px; color: #f1f1f4; font: 400 14px/1.55 'Poppins', sans-serif; }
+    .cr-modal-card h2 { margin: 0 0 10px; font: 800 20px 'Poppins'; }
+    .cr-modal-card h3 { margin: 16px 0 6px; font: 700 15px 'Poppins'; color: #f7c21a; }
     .cr-modal-card ol, .cr-modal-card ul { padding-left: 20px; margin: 6px 0; }
-    .cr-modal-card table { width: 100%; border-collapse: collapse; font: 500 13px var(--font-mono); }
-    .cr-modal-card th, .cr-modal-card td { padding: 6px 4px; border-bottom: 1px solid var(--border); text-align: left; }
-    .cr-modal-card th { color: var(--text-dim); font-weight: 600; }
-    .cr-modal-close { float: right; background: none; border: 0; color: var(--text-dim); font-size: 24px; cursor: pointer; line-height: 1; }
-    .cr-verify { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px; font: 500 12px var(--font-mono); word-break: break-all; }
-    .cr-verify .ok { color: var(--green); } .cr-verify .bad { color: var(--red); }
+    .cr-modal-card table { width: 100%; border-collapse: collapse; font: 500 13px 'Poppins'; }
+    .cr-modal-card th, .cr-modal-card td { padding: 6px 4px; border-bottom: 1px solid #3d3c43; text-align: left; }
+    .cr-modal-card th { color: #a9a8b0; font-weight: 600; }
+    .cr-modal-card code { font-size: 12px; }
+    .cr-modal-close { float: right; background: none; border: 0; color: #a9a8b0; font-size: 26px; cursor: pointer; line-height: 1; }
+    .cr-verify { background: #36353b; border-radius: 10px; padding: 10px; font: 500 12px var(--font-mono); word-break: break-all; }
+    .cr-verify .ok { color: #4cd964; } .cr-verify .bad { color: #ff6b6b; }
 
-    @media (max-width: 860px) {
+    @media (max-width: 900px) {
       .cr-controls { grid-template-columns: 1fr 1fr; }
       .cr-actions { grid-column: 1 / -1; }
     }
-    @media (max-width: 560px) {
-      .cr-wrap { padding: 0 10px; }
-      .cr-controls { grid-template-columns: 1fr; padding: 12px; }
-      .cr-title h1 { font-size: 19px; }
-      .cr-diff .m { font-size: 10px; }
+    @media (max-width: 600px) {
+      .cr-wrap { padding: 0 8px; }
+      .cr-controls { grid-template-columns: 1fr; padding: 10px; }
+      .cr-logo { font-size: 15px; }
+      .cr-logo svg { width: 24px; height: 24px; }
+      .cr-hide-sm { display: none !important; }
+      .cr-bal { min-width: 0; }
     }
   </style>
 </head>
@@ -293,135 +239,183 @@
     </ul>
   </div>
 
-  <!-- Shared artwork, drawn once and reused with <use>. -->
+  <!-- ======================================================================================
+       Artwork, drawn once and reused with <use>. Original drawings in the style of the game.
+       ====================================================================================== -->
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
     <defs>
-      <radialGradient id="crEggGrad" cx="38%" cy="32%" r="70%">
-        <stop offset="0" stop-color="#fff6c8"/><stop offset="0.45" stop-color="#ffc53d"/><stop offset="1" stop-color="#b9780a"/>
-      </radialGradient>
-      <linearGradient id="crRoastGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#e3923a"/><stop offset="1" stop-color="#8a3f10"/>
-      </linearGradient>
-      <linearGradient id="crFlameOuter" x1="0" y1="1" x2="0" y2="0">
-        <stop offset="0" stop-color="#ff3d0a"/><stop offset="1" stop-color="#ff9f1a" stop-opacity="0"/>
-      </linearGradient>
-      <linearGradient id="crFlameMid" x1="0" y1="1" x2="0" y2="0">
-        <stop offset="0" stop-color="#ff8a1a"/><stop offset="1" stop-color="#ffd23d" stop-opacity="0.1"/>
-      </linearGradient>
-      <linearGradient id="crFlameCore" x1="0" y1="1" x2="0" y2="0">
-        <stop offset="0" stop-color="#fff3b0"/><stop offset="1" stop-color="#ffe066" stop-opacity="0.2"/>
-      </linearGradient>
+      <radialGradient id="gCoin" cx="38%" cy="32%" r="70%"><stop offset="0" stop-color="#ffe680"/><stop offset="0.6" stop-color="#f6bd1e"/><stop offset="1" stop-color="#d98f00"/></radialGradient>
+      <radialGradient id="gEgg" cx="38%" cy="32%" r="70%"><stop offset="0" stop-color="#fff6c8"/><stop offset="0.45" stop-color="#ffc53d"/><stop offset="1" stop-color="#b9780a"/></radialGradient>
+      <linearGradient id="gBody" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e9eaf1"/></linearGradient>
+      <pattern id="pStripe" width="22" height="22" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+        <rect width="22" height="22" fill="#f6a21a"/><rect width="11" height="22" fill="#45434c"/>
+      </pattern>
     </defs>
-    <symbol id="crHenAlive" viewBox="0 0 64 64">
-      <path d="M14 34 L5 27 L9 37 L4 40 L13 41 Z" fill="#e9e9f2"/>
-      <ellipse cx="30" cy="38" rx="17" ry="14" fill="#ffffff"/>
-      <path d="M22 38 Q30 46 39 37 Q32 41 22 38 Z" fill="#dcdce8"/>
-      <circle cx="43" cy="24" r="10" fill="#ffffff"/>
-      <path d="M38 15 Q40 9 43 13 Q45 8 48 13 Q51 11 50 17 Z" fill="#ff3b4f"/>
-      <path d="M52 24 L60 27 L52 30 Z" fill="#ffad1f"/>
-      <path d="M50 31 Q52 36 48 35 Z" fill="#ff3b4f"/>
-      <circle cx="46" cy="22.5" r="2.1" fill="#1b1d2b"/><circle cx="46.7" cy="21.8" r="0.7" fill="#fff"/>
-      <path d="M25 51 L24 60 M24 60 L20 62 M24 60 L27 62 M34 51 L35 60 M35 60 L31 62 M35 60 L38 62" stroke="#ffad1f" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+
+    <!-- the hen: plump, big-eyed, facing the road -->
+    <symbol id="sHen" viewBox="0 0 120 120">
+      <path d="M50 102 L47 113 M47 113 L41 116 M47 113 L52 117 M70 102 L71 113 M71 113 L66 117 M71 113 L77 116" stroke="#f39a1e" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+      <path d="M26 66 C14 60 12 48 20 44 C22 52 28 54 30 52 C24 44 28 36 34 36 C32 46 36 52 38 54 Z" fill="#ffffff" stroke="#cfd1db" stroke-width="2"/>
+      <path d="M30 66 C30 40 46 26 66 26 C92 26 106 46 104 68 C102 92 84 106 62 106 C40 106 30 88 30 66 Z" fill="url(#gBody)" stroke="#cfd1db" stroke-width="2.5"/>
+      <path d="M40 70 C48 60 62 62 62 74 C58 86 44 86 40 70 Z" fill="#eef0f6" stroke="#cfd1db" stroke-width="2"/>
+      <path d="M54 30 C48 20 56 10 62 18 C62 6 76 4 76 16 C82 8 92 14 86 26 C76 22 64 24 54 30 Z" fill="#ee3a33" stroke="#c42621" stroke-width="2"/>
+      <ellipse cx="72" cy="50" rx="11" ry="13" fill="#fff6d0" stroke="#3a3a3a" stroke-width="2"/>
+      <ellipse cx="91" cy="50" rx="9.5" ry="12" fill="#fff6d0" stroke="#3a3a3a" stroke-width="2"/>
+      <circle cx="75" cy="52" r="4.6" fill="#1d1d1f"/><circle cx="93" cy="52" r="4.2" fill="#1d1d1f"/>
+      <circle cx="76.6" cy="50.2" r="1.5" fill="#fff"/><circle cx="94.4" cy="50.3" r="1.4" fill="#fff"/>
+      <path d="M93 60 Q110 62 112 68 Q104 74 92 70 Z" fill="#ffa31a" stroke="#d9800a" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M93 70 C98 72 98 82 92 82 C88 80 88 74 93 70 Z" fill="#ee3a33" stroke="#c42621" stroke-width="1.6"/>
     </symbol>
-    <symbol id="crHenRoast" viewBox="0 0 64 64">
-      <ellipse cx="32" cy="40" rx="20" ry="14" fill="url(#crRoastGrad)"/>
-      <path d="M18 36 Q32 30 46 36" stroke="#5d2a08" stroke-width="1.6" fill="none" opacity="0.7"/>
-      <path d="M20 44 Q32 39 44 44" stroke="#5d2a08" stroke-width="1.6" fill="none" opacity="0.5"/>
-      <path d="M12 38 L4 34 M4 34 Q1 31 3 29 M4 34 Q1 37 3 39" stroke="#f3e2c8" stroke-width="3" stroke-linecap="round" fill="none"/>
-      <path d="M52 38 L60 34 M60 34 Q63 31 61 29 M60 34 Q63 37 61 39" stroke="#f3e2c8" stroke-width="3" stroke-linecap="round" fill="none"/>
-      <path d="M26 22 Q22 16 27 12 Q31 8 28 3 M36 22 Q32 15 37 11 Q41 7 38 2" stroke="#9aa0b8" stroke-width="2.2" stroke-linecap="round" fill="none" opacity="0.7"/>
+
+    <!-- passed-lane coin: a roast chicken stamped in gold -->
+    <symbol id="sCoin" viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="48" fill="#c78400"/>
+      <circle cx="50" cy="50" r="44" fill="url(#gCoin)"/>
+      <circle cx="50" cy="50" r="35" fill="none" stroke="#e09d0b" stroke-width="3"/>
+      <ellipse cx="48" cy="54" rx="20" ry="14" fill="#c97a12"/>
+      <ellipse cx="44" cy="50" rx="10" ry="5" fill="#e0952a" opacity="0.7"/>
+      <path d="M64 48 L74 40 M74 40 a3 3 0 1 1 3 3 M66 58 L77 62 M77 62 a3 3 0 1 1 1 4" stroke="#f5e1b8" stroke-width="4" stroke-linecap="round" fill="none"/>
+      <path d="M50 58 L54 62 M54 58 L50 62" stroke="#8a4d06" stroke-width="2" stroke-linecap="round"/>
     </symbol>
-    <symbol id="crCar" viewBox="0 0 40 72">
-      <rect x="3" y="2" width="34" height="68" rx="10" fill="currentColor"/>
-      <rect x="7" y="40" width="26" height="14" rx="4" fill="#141626" opacity="0.85"/>
-      <rect x="7" y="14" width="26" height="10" rx="3" fill="#141626" opacity="0.75"/>
-      <rect x="7" y="25" width="26" height="14" rx="2" fill="#ffffff" opacity="0.12"/>
-      <rect x="6" y="64" width="8" height="4" rx="2" fill="#fff6c2"/><rect x="26" y="64" width="8" height="4" rx="2" fill="#fff6c2"/>
-      <rect x="6" y="3" width="8" height="3" rx="1.5" fill="#ff3b4f"/><rect x="26" y="3" width="8" height="3" rx="1.5" fill="#ff3b4f"/>
-      <rect x="0" y="16" width="3" height="10" rx="1.5" fill="#111"/><rect x="37" y="16" width="3" height="10" rx="1.5" fill="#111"/>
-      <rect x="0" y="48" width="3" height="10" rx="1.5" fill="#111"/><rect x="37" y="48" width="3" height="10" rx="1.5" fill="#111"/>
+
+    <symbol id="sBarrier" viewBox="0 0 140 60">
+      <rect x="18" y="38" width="8" height="20" rx="2" fill="#aeb3bf"/><rect x="114" y="38" width="8" height="20" rx="2" fill="#aeb3bf"/>
+      <rect x="10" y="54" width="24" height="5" rx="2" fill="#8f94a0"/><rect x="106" y="54" width="24" height="5" rx="2" fill="#8f94a0"/>
+      <rect x="2" y="10" width="136" height="32" rx="6" fill="url(#pStripe)" stroke="#3a3842" stroke-width="2.5"/>
+      <rect x="2" y="10" width="136" height="7" rx="3" fill="#ffffff" opacity="0.18"/>
+      <rect x="12" y="4" width="18" height="10" rx="3" fill="#d4d8e1" stroke="#9aa0ad" stroke-width="1.5"/>
+      <rect x="110" y="4" width="18" height="10" rx="3" fill="#d4d8e1" stroke="#9aa0ad" stroke-width="1.5"/>
     </symbol>
-    <symbol id="crEgg" viewBox="0 0 54 66">
-      <path d="M27 2 C12 2 3 26 3 41 C3 56 14 64 27 64 C40 64 51 56 51 41 C51 26 42 2 27 2 Z" fill="url(#crEggGrad)"/>
+
+    <symbol id="sEgg" viewBox="0 0 54 66">
+      <path d="M27 2 C12 2 3 26 3 41 C3 56 14 64 27 64 C40 64 51 56 51 41 C51 26 42 2 27 2 Z" fill="url(#gEgg)"/>
       <ellipse cx="18" cy="22" rx="5" ry="9" fill="#ffffff" opacity="0.5" transform="rotate(20 18 22)"/>
     </symbol>
-    <symbol id="crFlame" viewBox="0 0 60 90">
-      <path d="M30 90 C6 86 0 62 12 44 C14 58 22 60 22 60 C16 40 26 20 34 6 C36 26 54 40 54 62 C54 80 44 90 30 90 Z" fill="url(#crFlameOuter)"/>
-      <path d="M30 90 C14 86 12 70 20 58 C22 68 28 70 28 70 C26 56 32 44 38 34 C40 48 48 58 46 72 C45 84 38 90 30 90 Z" fill="url(#crFlameMid)"/>
-      <path d="M30 90 C22 88 21 80 25 73 C27 78 31 79 31 79 C30 72 33 66 36 60 C38 70 41 76 39 82 C38 87 34 90 30 90 Z" fill="url(#crFlameCore)"/>
+
+    <!-- vehicles: top-down, driving DOWN the screen (front at the bottom) -->
+    <symbol id="vTaxi" viewBox="0 0 60 104">
+      <rect x="4" y="4" width="52" height="96" rx="14" fill="#ffc21a" stroke="#c98d00" stroke-width="2"/>
+      <rect x="9" y="62" width="42" height="18" rx="5" fill="#2c3540"/>
+      <rect x="10" y="22" width="40" height="12" rx="4" fill="#2c3540"/>
+      <rect x="11" y="36" width="38" height="24" rx="3" fill="#ffd451"/>
+      <rect x="14" y="40" width="32" height="13" rx="3" fill="#1d1d22"/>
+      <text x="30" y="50" font-family="Poppins, Arial" font-size="8" font-weight="800" text-anchor="middle" fill="#ffc21a">TAXI</text>
+      <rect x="8" y="92" width="11" height="5" rx="2" fill="#fff7c2"/><rect x="41" y="92" width="11" height="5" rx="2" fill="#fff7c2"/>
+      <rect x="9" y="6" width="10" height="4" rx="2" fill="#ff4b4b"/><rect x="41" y="6" width="10" height="4" rx="2" fill="#ff4b4b"/>
+    </symbol>
+    <symbol id="vPolice" viewBox="0 0 60 104">
+      <rect x="4" y="4" width="52" height="96" rx="14" fill="#25262c" stroke="#111" stroke-width="2"/>
+      <rect x="6" y="30" width="48" height="44" rx="6" fill="#f4f5f8"/>
+      <rect x="9" y="64" width="42" height="14" rx="5" fill="#2c3540"/>
+      <rect x="10" y="22" width="40" height="10" rx="4" fill="#2c3540"/>
+      <rect x="10" y="44" width="20" height="7" rx="2" fill="#ff3b3b"/><rect x="30" y="44" width="20" height="7" rx="2" fill="#3b7bff"/>
+      <rect x="8" y="92" width="11" height="5" rx="2" fill="#fff7c2"/><rect x="41" y="92" width="11" height="5" rx="2" fill="#fff7c2"/>
+    </symbol>
+    <symbol id="vIce" viewBox="0 0 64 130">
+      <rect x="5" y="4" width="54" height="122" rx="10" fill="#5cb8ff" stroke="#2f86d1" stroke-width="2"/>
+      <rect x="5" y="4" width="8" height="82" fill="#ff8fc8" opacity="0.8"/>
+      <rect x="9" y="92" width="46" height="14" rx="4" fill="#2c3540"/>
+      <rect x="12" y="110" width="40" height="10" rx="3" fill="#2f86d1"/>
+      <path d="M32 6 L18 40 L46 40 Z" fill="#f29a3b" stroke="#c7701b" stroke-width="2"/>
+      <circle cx="32" cy="52" r="15" fill="#ff8fc8" stroke="#e05a9e" stroke-width="2"/>
+      <circle cx="32" cy="66" r="11" fill="#ffb3da"/>
+      <rect x="10" y="118" width="10" height="5" rx="2" fill="#fff7c2"/><rect x="44" y="118" width="10" height="5" rx="2" fill="#fff7c2"/>
+    </symbol>
+    <symbol id="vFire" viewBox="0 0 64 140">
+      <rect x="5" y="4" width="54" height="132" rx="10" fill="#e8352e" stroke="#a81f1a" stroke-width="2"/>
+      <rect x="18" y="8" width="5" height="94" fill="#d7dbe3"/><rect x="41" y="8" width="5" height="94" fill="#d7dbe3"/>
+      <g fill="#d7dbe3"><rect x="18" y="14" width="28" height="4"/><rect x="18" y="28" width="28" height="4"/><rect x="18" y="42" width="28" height="4"/><rect x="18" y="56" width="28" height="4"/><rect x="18" y="70" width="28" height="4"/><rect x="18" y="84" width="28" height="4"/></g>
+      <rect x="9" y="106" width="46" height="16" rx="4" fill="#2c3540"/>
+      <rect x="12" y="100" width="18" height="5" rx="2" fill="#3b7bff"/><rect x="34" y="100" width="18" height="5" rx="2" fill="#3b7bff"/>
+      <rect x="10" y="128" width="10" height="5" rx="2" fill="#fff7c2"/><rect x="44" y="128" width="10" height="5" rx="2" fill="#fff7c2"/>
+    </symbol>
+    <symbol id="vLorry" viewBox="0 0 64 128">
+      <rect x="5" y="4" width="54" height="86" rx="6" fill="#4bb54a" stroke="#2f8a2f" stroke-width="2"/>
+      <g stroke="#3a9a3a" stroke-width="2"><line x1="5" y1="26" x2="59" y2="26"/><line x1="5" y1="48" x2="59" y2="48"/><line x1="5" y1="70" x2="59" y2="70"/></g>
+      <rect x="8" y="92" width="48" height="32" rx="9" fill="#2f8a2f"/>
+      <rect x="12" y="104" width="40" height="13" rx="4" fill="#2c3540"/>
+      <rect x="10" y="119" width="10" height="5" rx="2" fill="#fff7c2"/><rect x="44" y="119" width="10" height="5" rx="2" fill="#fff7c2"/>
+    </symbol>
+    <symbol id="vVan" viewBox="0 0 60 112">
+      <rect x="4" y="4" width="52" height="104" rx="12" fill="#f1f2f6" stroke="#b9bcc8" stroke-width="2"/>
+      <rect x="9" y="76" width="42" height="16" rx="5" fill="#2c3540"/>
+      <rect x="8" y="14" width="44" height="54" rx="4" fill="#e1e3ea"/>
+      <rect x="8" y="100" width="11" height="5" rx="2" fill="#fff7c2"/><rect x="41" y="100" width="11" height="5" rx="2" fill="#fff7c2"/>
+      <rect x="9" y="6" width="10" height="4" rx="2" fill="#ff4b4b"/><rect x="41" y="6" width="10" height="4" rx="2" fill="#ff4b4b"/>
     </symbol>
   </svg>
 
   <div class="cr-wrap">
-    <div class="cr-topbar">
-      <div class="cr-title">
-        <svg viewBox="0 0 64 64"><use href="#crHenAlive"/></svg>
-        <h1>Chicken <span>Road</span></h1>
-      </div>
-      <div class="cr-top-actions">
-        <span class="cr-balance" id="crBalance">₹0.00</span>
-        <button type="button" class="cr-pill-btn" id="crHowBtn">How to play</button>
-      </div>
-    </div>
-
-    <div class="cr-stage" id="crStage">
-      <div class="cr-track" id="crTrack"></div>
-      <div class="cr-hud" id="crHud"></div>
-      <div class="cr-banner" id="crBanner"><div class="big"></div><div class="sub"></div></div>
-    </div>
-
-    <div class="cr-controls">
-      <div>
-        <div class="cr-block-label"><span>Bet amount</span><span id="crLimits"></span></div>
-        <div class="cr-amount">
-          <button type="button" id="crMinus" aria-label="Decrease bet">−</button>
-          <input type="text" inputmode="decimal" id="crAmount" value="10" aria-label="Bet amount">
-          <button type="button" id="crPlus" aria-label="Increase bet">+</button>
+    <div class="cr-game" id="crGame">
+      <div class="cr-bar">
+        <div class="cr-logo">Chicken<svg viewBox="0 0 120 120"><use href="#sHen"/></svg>Road</div>
+        <div class="cr-bar-r">
+          <button type="button" class="cr-chip-btn" id="crHowBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span class="cr-hide-sm">How to play?</span></button>
+          <span class="cr-chip-btn cr-bal"><span id="crBalance">0.00</span><i>₹</i></span>
+          <button type="button" class="cr-chip-btn sq cr-hide-sm" id="crFullBtn" aria-label="Full screen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+          <button type="button" class="cr-chip-btn sq" id="crMenuBtn" aria-label="Rules and fairness"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
         </div>
-        <div class="cr-chips" id="crChips"></div>
       </div>
-      <div>
-        <div class="cr-block-label"><span>Difficulty</span><span id="crLanesNote"></span></div>
-        <div class="cr-diffs" id="crDiffs"></div>
-        <div class="cr-diff-note" id="crDiffNote"></div>
-      </div>
-      <div class="cr-actions">
-        <div class="cr-row" id="crActiveRow" hidden>
-          <button type="button" class="cr-btn cr-btn-cash" id="crCashBtn">CASH OUT<small id="crCashAmt">₹0.00</small></button>
-          <button type="button" class="cr-btn cr-btn-go" id="crGoBtn">GO<small id="crGoNext"></small></button>
-        </div>
-        <button type="button" class="cr-btn cr-btn-go" id="crPlayBtn">PLAY<small id="crPlayNote">Place bet &amp; cross</small></button>
-        <div class="cr-msg" id="crMsg"></div>
-      </div>
-    </div>
 
-    <div class="cr-fair" id="crFair"></div>
+      <div class="cr-stage" id="crStage">
+        <div class="cr-track" id="crTrack"></div>
+        <div class="cr-live" id="crLive"><div class="row1"><span>Live wins:</span><span><i class="dot"></i>Online: <span id="crOnline">0</span></span></div><div id="crLiveWin"></div></div>
+        <div class="cr-banner" id="crBanner"><div class="x"></div><div class="s"></div></div>
+      </div>
+
+      <div class="cr-controls">
+        <div class="cr-box">
+          <div class="cr-lbl"><span>Bet amount</span><span id="crLimits"></span></div>
+          <div class="cr-amount">
+            <button type="button" id="crMinus" aria-label="Decrease bet">−</button>
+            <input type="text" inputmode="decimal" id="crAmount" value="10" aria-label="Bet amount">
+            <button type="button" id="crPlus" aria-label="Increase bet">+</button>
+          </div>
+          <div class="cr-chips" id="crChips"></div>
+        </div>
+        <div class="cr-box">
+          <div class="cr-lbl"><span>Difficulty</span><span id="crLanesNote"></span></div>
+          <div class="cr-diffs" id="crDiffs"></div>
+          <div class="cr-note" id="crDiffNote"></div>
+        </div>
+        <div class="cr-actions">
+          <div class="cr-row" id="crActiveRow" hidden>
+            <button type="button" class="cr-btn cr-btn-cash" id="crCashBtn">Cash out<small id="crCashAmt">₹0.00</small></button>
+            <button type="button" class="cr-btn cr-btn-go" id="crGoBtn">GO<small id="crGoNext"></small></button>
+          </div>
+          <button type="button" class="cr-btn cr-btn-go" id="crPlayBtn">Play<small id="crPlayNote">Place bet &amp; cross</small></button>
+          <div class="cr-msg" id="crMsg"></div>
+        </div>
+      </div>
+      <div class="cr-fair" id="crFair"></div>
+    </div>
   </div>
 
-  <div id="cr-history" style="max-width:1120px; margin:14px auto 0; padding:0 14px; box-sizing:border-box;"></div>
+  <div id="cr-history" style="max-width:1180px; margin:14px auto 0; padding:0 14px; box-sizing:border-box;"></div>
   <script>initGameHistoryPanel({ mount: 'cr-history', games: ['Chicken Road'] });</script>
 
   <div class="cr-modal" id="crModal" role="dialog" aria-modal="true" aria-labelledby="crModalTitle">
     <div class="cr-modal-card">
       <button type="button" class="cr-modal-close" id="crModalClose" aria-label="Close">×</button>
-      <h2 id="crModalTitle">How to play Chicken Road</h2>
+      <h2 id="crModalTitle">How to play</h2>
       <ol>
-        <li>Choose your bet and a difficulty, then press <b>PLAY</b>. The hen steps onto the first lane.</li>
-        <li>Every lane she crosses raises your multiplier. Press <b>GO</b> to step into the next one.</li>
-        <li>Any manhole might burst into flame. If it does, the hen is roasted and the bet is lost.</li>
-        <li>Press <b>CASH OUT</b> at any time to take your bet × the current multiplier.</li>
+        <li>Choose your bet and a difficulty, then press <b>Play</b>. The hen steps onto the first lane.</li>
+        <li>Every lane she crosses raises your multiplier. Press <b>GO</b> to hop into the next one.</li>
+        <li>On any lane a car might run her over — then the bet is lost.</li>
+        <li>Each lane she survives gets a barrier, and the manhole she crossed turns into a gold coin.</li>
+        <li>Press <b>Cash out</b> at any time to take your bet × the current multiplier.</li>
         <li>Cross every lane to reach the <b>Golden Egg</b> and win the top multiplier.</li>
       </ol>
       <h3>Difficulty</h3>
-      <table id="crRulesTable"><thead><tr><th>Mode</th><th>Lanes</th><th>Lane 1 risk</th><th>First</th><th>Golden Egg</th></tr></thead><tbody></tbody></table>
-      <p style="color:var(--text-dim); font-size:13px; margin:8px 0 0;" id="crRulesFoot"></p>
+      <table id="crRulesTable"><thead><tr><th>Mode</th><th>Lanes</th><th>Lane 1 risk</th><th>First</th><th>Top</th></tr></thead><tbody></tbody></table>
+      <p style="color:#a9a8b0; font-size:13px; margin:8px 0 0;" id="crRulesFoot"></p>
       <h3>Shortcuts</h3>
-      <ul><li><b>Space</b>: Play / Go</li><li><b>C</b>: Cash out</li></ul>
+      <ul><li><b>Space</b>: Play / GO</li><li><b>C</b>: Cash out</li></ul>
       <h3>Provably fair</h3>
-      <p style="margin:0 0 8px;">The whole road is decided when you place the bet, from a secret server seed. Its SHA-256 hash is shown before your first step,
-        and the seed is revealed when the road ends. Lane <i>n</i> is on fire when
-        <code>HMAC-SHA256(seed, "lane:n")</code> (first 13 hex digits ÷ 16¹³) is below <code>fire ÷ (26 − n)</code>,
-        where fire is 1, 3, 5 or 10 by difficulty. Check your last road below.</p>
+      <p style="margin:0 0 8px;">The whole road is decided when you place the bet, from a secret server seed. Its SHA-256 hash is shown
+        before your first step, and the seed is revealed when the road ends. A car hits lane <i>n</i> when
+        <code>HMAC-SHA256(seed, "lane:n")</code> (first 13 hex digits ÷ 16¹³) is below <code>1 − M(n−1) ÷ M(n)</code>,
+        where M is the lane's multiplier and M(0) is the RTP. Check your last road below.</p>
       <div class="cr-verify" id="crVerify">Finish a road to verify it here.</div>
     </div>
   </div>
@@ -430,25 +424,30 @@
   (function () {
     'use strict';
 
-    // ---- element handles -----------------------------------------------------------------------
     const $ = (id) => document.getElementById(id);
-    const stage = $('crStage'), track = $('crTrack'), hud = $('crHud'), banner = $('crBanner');
+    const game = $('crGame'), stage = $('crStage'), track = $('crTrack'), banner = $('crBanner');
     const amountEl = $('crAmount'), playBtn = $('crPlayBtn'), goBtn = $('crGoBtn'), cashBtn = $('crCashBtn');
     const activeRow = $('crActiveRow'), msgEl = $('crMsg');
 
-    const CAR_COLORS = ['#ff4b6e', '#3d8bfd', '#a56bff', '#2ed47a', '#ffc53d', '#e8eaf5', '#ff8a3d', '#22c3d6'];
+    // Vehicle catalogue: symbol id, aspect (height / width), relative weight.
+    const VEHICLES = [
+      { id: 'vTaxi', ratio: 104 / 60, w: 3 }, { id: 'vPolice', ratio: 104 / 60, w: 2 }, { id: 'vVan', ratio: 112 / 60, w: 2 },
+      { id: 'vIce', ratio: 130 / 64, w: 2 }, { id: 'vFire', ratio: 140 / 64, w: 1 }, { id: 'vLorry', ratio: 128 / 64, w: 2 },
+    ];
 
-    let config = null;           // from the server: ladders, limits, RTP
-    let state = null;            // the player's road
-    let signedIn = false;
-    let difficulty = 'easy';
-    let busy = false;            // one request at a time from this tab
-    let laneEls = [];
-    let hen = null;
-    let dims = null;
-    let lastFinished = null;     // for the fairness check
+    let config = null, state = null, signedIn = false, difficulty = 'easy', busy = false;
+    let D = null;                 // current dimensions
+    let lanes = [];               // lane elements
+    let hen = null, tag = null;
+    let henPos = 0;               // 0 = kerb, 1..N lanes, N+1 = golden egg
+    let lastFinished = null;
+    let shift = 0;                // camera offset (px)
+    let cars = [];                // live traffic
+    let crash = null;             // the car scripted to hit the hen, when one is coming
+    let nextSpawn = 0;
 
     const fmt = (n) => '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const fmtBal = (n) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const fmtX = (m) => {
       m = Number(m);
       if (m >= 1e6) return (m / 1e6).toFixed(2) + 'M';
@@ -456,138 +455,230 @@
       return m.toFixed(2);
     };
     const diffInfo = (key) => config.difficulties.find((d) => d.key === key) || config.difficulties[0];
-    const sfx = (name) => { try { if (window.SoundFX) SoundFX.play(name); } catch (e) {} };
+    const sfx = (n) => { try { if (window.SoundFX) SoundFX.play(n); } catch (e) {} };
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
     // ---- sizing --------------------------------------------------------------------------------
     function computeDims() {
-      const w = stage.clientWidth || 900;
+      const w = stage.clientWidth || 1000;
+      const fs = document.fullscreenElement === game;
       const small = w < 600;
-      const d = {
-        stageW: w,
-        stageH: small ? 250 : 320,
-        laneW: small ? 88 : 116,
-        kerbW: small ? 84 : 124,
-        finishW: small ? 104 : 150,
-        hole: small ? 56 : 72,
-        hen: small ? 62 : 80,
-        multFs: small ? '12px' : '14px',
-      };
+      const h = fs ? stage.clientHeight || window.innerHeight - 260 : (small ? 300 : 440);
+      const L = Math.round(h * (small ? 0.36 : 0.35));
+      const d = { w, h, L, kerb: Math.round(L * 1.2), fin: Math.round(L * 1.4), hole: Math.round(L * 0.7), hen: Math.round(L * 0.82), row: Math.round(h * 0.6) };
       const s = stage.style;
-      s.setProperty('--cr-stage-h', d.stageH + 'px');
-      s.setProperty('--cr-lane-w', d.laneW + 'px');
-      s.setProperty('--cr-kerb-w', d.kerbW + 'px');
-      s.setProperty('--cr-finish-w', d.finishW + 'px');
-      s.setProperty('--cr-hole', d.hole + 'px');
-      s.setProperty('--cr-hen', d.hen + 'px');
-      s.setProperty('--cr-mult-fs', d.multFs);
+      if (!fs) s.setProperty('--h', h + 'px');
+      s.setProperty('--L', L + 'px'); s.setProperty('--kerb', d.kerb + 'px'); s.setProperty('--fin', d.fin + 'px');
+      s.setProperty('--hole', d.hole + 'px'); s.setProperty('--hen', d.hen + 'px'); s.setProperty('--row', d.row + 'px');
+      s.setProperty('--mfs', Math.round(L * 0.155) + 'px');
       return d;
     }
+    const laneX = (n) => D.kerb + (n - 0.5) * D.L;                     // centre of lane n
+    const posX = (p, N) => p <= 0 ? D.kerb * 0.62 : (p > N ? D.kerb + N * D.L + D.fin / 2 : laneX(p));
 
-    // ---- the road ------------------------------------------------------------------------------
+    // ---- building the road ---------------------------------------------------------------------
     function buildRoad(diffKey) {
-      dims = computeDims();
+      D = computeDims();
+      clearTraffic();
       const info = diffInfo(diffKey);
+      const N = info.ladder.length;
       track.innerHTML = '';
-      laneEls = [];
+      lanes = [];
+      track.style.width = (D.kerb + N * D.L + D.fin) + 'px';
 
       const start = document.createElement('div');
-      start.className = 'cr-kerb';
-      start.innerHTML = '<div class="cr-kerb-label">START</div>';
+      start.className = 'cr-walk start';
+      start.innerHTML = '<div class="cr-grass"></div><div class="cr-lamp"></div>' +
+        '<div class="cr-bush" style="left:-12%; top:4%; width:46%; height:30%"></div>' +
+        '<div class="cr-bush" style="left:-18%; top:70%; width:50%; height:26%"></div>';
       track.appendChild(start);
 
-      info.ladder.forEach((mult, i) => {
+      info.ladder.forEach((m, i) => {
         const lane = document.createElement('div');
-        lane.className = 'cr-lane';
-        const color = CAR_COLORS[(i * 5 + 3) % CAR_COLORS.length];
-        const dur = (1.5 + ((i * 37) % 11) / 10).toFixed(2);
-        const delay = (-((i * 53) % 23) / 10).toFixed(2);
+        lane.className = 'cr-lane' + (i > 0 ? ' dash' : '');
+        lane.style.left = (D.kerb + i * D.L) + 'px';
         lane.innerHTML =
-          '<div class="cr-car" style="color:' + color + ';--dur:' + dur + 's;--delay:' + delay + 's"><svg viewBox="0 0 40 72"><use href="#crCar"/></svg></div>' +
-          '<div class="cr-barrier"></div>' +
-          '<div class="cr-manhole"></div>' +
-          '<svg class="cr-flames" viewBox="0 0 60 90"><use href="#crFlame"/></svg>' +
-          '<div class="cr-mult">' + fmtX(mult) + 'x</div>';
+          '<div class="cr-hole"><span>' + fmtX(m) + 'x</span></div>' +
+          '<div class="cr-coin"><svg viewBox="0 0 100 100"><use href="#sCoin"/></svg></div>' +
+          '<div class="cr-barrier"><svg viewBox="0 0 140 60"><use href="#sBarrier"/></svg></div>';
         track.appendChild(lane);
-        laneEls.push(lane);
+        lanes.push(lane);
       });
 
-      const finish = document.createElement('div');
-      finish.className = 'cr-kerb finish';
-      finish.innerHTML = '<svg class="cr-egg" viewBox="0 0 54 66"><use href="#crEgg"/></svg><div class="cr-kerb-label">GOLDEN EGG</div>';
-      track.appendChild(finish);
+      const end = document.createElement('div');
+      end.className = 'cr-walk end';
+      end.style.left = (D.kerb + N * D.L) + 'px';
+      end.innerHTML = '<svg class="cr-egg" viewBox="0 0 54 66"><use href="#sEgg"/></svg>';
+      track.appendChild(end);
 
       hen = document.createElement('div');
       hen.className = 'cr-hen';
-      hen.innerHTML = '<div class="cr-hen-body"><svg class="alive" viewBox="0 0 64 64"><use href="#crHenAlive"/></svg>' +
-                      '<svg class="roast" viewBox="0 0 64 64"><use href="#crHenRoast"/></svg></div>';
+      hen.innerHTML = '<div class="body"><svg viewBox="0 0 120 120"><use href="#sHen"/></svg></div>';
       track.appendChild(hen);
-      track.style.width = (dims.kerbW + info.ladder.length * dims.laneW + dims.finishW) + 'px';
+
+      tag = document.createElement('div');
+      tag.className = 'cr-tag';
+      tag.hidden = true;
+      track.appendChild(tag);
     }
 
-    /** x-centre of position p: 0 = start kerb, 1..L = lanes, L+1 = the Golden Egg. */
-    function posX(p, lanes) {
-      if (p <= 0) return dims.kerbW / 2;
-      if (p > lanes) return dims.kerbW + lanes * dims.laneW + dims.finishW / 2;
-      return dims.kerbW + (p - 0.5) * dims.laneW;
-    }
-
-    function placeHen(p, animate) {
-      const lanes = laneEls.length;
-      const x = posX(p, lanes);
-      if (!animate) { hen.style.transition = 'none'; }
-      hen.style.transform = 'translateX(' + x + 'px)';
-      if (!animate) { void hen.offsetWidth; hen.style.transition = ''; }
-      else {
-        hen.classList.remove('hop'); void hen.offsetWidth; hen.classList.add('hop');
-      }
-      // Keep the hen about a third of the way across the stage.
+    function setCamera(p, animate) {
+      const x = posX(p, lanes.length);
       const trackW = parseFloat(track.style.width) || 0;
-      const maxShift = Math.max(0, trackW - dims.stageW);
-      const shift = Math.min(maxShift, Math.max(0, x - dims.stageW * 0.36));
-      if (!animate) { track.style.transition = 'none'; }
+      // Hold the camera until the hen is nearly half way across, so the pavement stays in view for
+      // the first lanes, then keep her just left of centre.
+      shift = Math.min(Math.max(0, trackW - D.w), Math.max(0, x - D.w * 0.45));
+      if (!animate) track.style.transition = 'none';
       track.style.transform = 'translateX(' + (-shift) + 'px)';
       if (!animate) { void track.offsetWidth; track.style.transition = ''; }
     }
 
+    function placeHen(p, animate) {
+      henPos = p;
+      const x = posX(p, lanes.length);
+      if (!animate) hen.style.transition = 'none';
+      hen.style.transform = 'translateX(' + x + 'px)';
+      if (!animate) { void hen.offsetWidth; hen.style.transition = ''; }
+      else { hen.classList.remove('hop'); void hen.offsetWidth; hen.classList.add('hop'); }
+      if (!animate) tag.style.transition = 'none';
+      tag.style.left = x + 'px';
+      if (!animate) { void tag.offsetWidth; tag.style.transition = ''; }
+      setCamera(p, animate);
+    }
+
+    /** Lane classes from the round state. */
     function paintLanes() {
       const st = state || { status: 'idle', step: 0 };
       const live = st.status === 'active';
-      laneEls.forEach((el, i) => {
+      const N = lanes.length;
+      stage.classList.toggle('idle', st.status === 'idle');
+      lanes.forEach((el, i) => {
         const n = i + 1;
-        el.classList.toggle('passed', st.status !== 'idle' && n <= st.step && !(st.status === 'busted' && n === st.fire_lane));
-        el.classList.toggle('current', (live || st.status === 'cashed') && n === st.step);
-        el.classList.toggle('next', live && n === st.step + 1);
-        el.classList.toggle('fire', st.status === 'busted' && n === st.fire_lane);
+        const hit = st.status === 'busted' && n === st.fire_lane;
+        const onLane = (live || st.status === 'cashed') && n === st.step && henPos === n;
+        el.classList.toggle('passed', st.status !== 'idle' && n <= st.step && !onLane);
+        el.classList.toggle('current', onLane || (live && n === st.step));
+        el.classList.toggle('next', (live && n === st.step + 1) || (st.status !== 'active' && n === 1 && !hit && st.status === 'idle'));
+        el.classList.toggle('hit', hit);
       });
-      hen.classList.toggle('roasted', st.status === 'busted');
+      // The tag rides under the hen while she is on a lane with a multiplier to show.
+      const showTag = (live || st.status === 'cashed') && st.step > 0 && henPos >= 1 && henPos <= N;
+      tag.hidden = !showTag;
+      if (showTag) tag.textContent = fmtX(st.multiplier) + 'x';
     }
 
-    function henPosition() {
+    function henAt() {
       if (!state || state.status === 'idle') return 0;
       if (state.status === 'busted') return state.fire_lane;
-      if (state.status === 'cashed' && state.step === laneEls.length) return laneEls.length + 1;
+      if (state.status === 'cashed' && state.step === lanes.length) return lanes.length + 1;
       return state.step;
     }
 
-    // ---- HUD, controls -------------------------------------------------------------------------
-    function renderHud() {
-      const st = state;
-      if (!st || st.status === 'idle') {
-        const info = diffInfo(difficulty);
-        hud.innerHTML = '<span class="cr-hud-chip">' + info.label + ' · <b>' + info.lanes + ' lanes</b></span>' +
-                        '<span class="cr-hud-chip">Up to <b>' + fmtX(info.ladder[info.ladder.length - 1]) + 'x</b></span>';
-        return;
-      }
-      const info = diffInfo(st.difficulty);
-      const parts = ['<span class="cr-hud-chip">' + info.label + ' · Bet <b>' + fmt(st.bet_amount) + '</b></span>'];
-      if (st.step > 0 && st.status !== 'busted') {
-        parts.push('<span class="cr-hud-chip win">x' + fmtX(st.multiplier) + ' · <b>' +
-                   fmt(st.status === 'cashed' ? st.payout : st.cashout_value) + '</b></span>');
-      }
-      parts.push('<span class="cr-hud-chip">Lane <b>' + st.step + '/' + st.lanes + '</b></span>');
-      hud.innerHTML = parts.join('');
+    // ---- traffic -------------------------------------------------------------------------------
+    function pickVehicle() {
+      const total = VEHICLES.reduce((a, v) => a + v.w, 0);
+      let r = Math.random() * total;
+      for (const v of VEHICLES) { if ((r -= v.w) < 0) return v; }
+      return VEHICLES[0];
+    }
+    /** A lane is closed to traffic once its barrier is down (every lane up to the hen's). */
+    function laneBlocked(n) {
+      const st = state || { status: 'idle', step: 0 };
+      if (st.status === 'active' || st.status === 'cashed') return n <= st.step;
+      if (st.status === 'busted') return n < st.fire_lane;
+      return false;
+    }
+    function spawnCar(n, opts) {
+      const v = opts && opts.vehicle || pickVehicle();
+      const w = D.L * 0.5, h = w * v.ratio;
+      const el = document.createElement('div');
+      el.className = 'cr-car';
+      el.style.width = w + 'px'; el.style.height = h + 'px'; el.style.marginLeft = (laneX(n) - w / 2) + 'px'; el.style.left = '0';
+      el.innerHTML = '<svg viewBox="0 0 ' + (v.ratio > 1.9 ? 64 : 60) + ' ' + Math.round((v.ratio > 1.9 ? 64 : 60) * v.ratio) + '"><use href="#' + v.id + '"/></svg>';
+      track.appendChild(el);
+      const car = { n, el, w, h, y: -h - 4, speed: (opts && opts.speed) || D.h * (0.85 + Math.random() * 0.75), stopped: false, dead: false };
+      el.style.transform = 'translateY(' + car.y + 'px)';
+      cars.push(car);
+      return car;
+    }
+    function removeCar(car) {
+      if (car.dead) return;
+      car.dead = true;
+      car.el.classList.add('gone');
+      setTimeout(() => car.el.remove(), 400);
+    }
+    function clearTraffic() { cars.forEach((c) => c.el.remove()); cars = []; crash = null; }
+    /** Before the hen lands on lane n, clear anything that would sit on top of her. */
+    function clearLaneAtRow(n) {
+      cars.forEach((c) => {
+        if (c.n !== n || c.dead) return;
+        const top = c.y, bottom = c.y + c.h;
+        if (bottom > D.row - D.hen && top < D.row + D.hen * 0.6) removeCar(c);
+      });
     }
 
+    let lastT = performance.now();
+    function frame(t) {
+      const dt = Math.min(0.05, (t - lastT) / 1000); lastT = t;
+      if (D && lanes.length) {
+        // spawn into visible, open lanes ahead of the hen
+        if (t >= nextSpawn) {
+          nextSpawn = t + 380 + Math.random() * 650;
+          const first = Math.max(1, Math.floor((shift - D.kerb) / D.L) + 1);
+          const last = Math.min(lanes.length, Math.ceil((shift + D.w - D.kerb) / D.L));
+          const open = [];
+          for (let n = first; n <= last; n++) {
+            if (laneBlocked(n)) continue;
+            if (crash && crash.n === n) continue;
+            if (state && state.status === 'busted' && n === state.fire_lane) continue;          // leave the scene of the accident
+            if (state && state.status === 'active' && busy && n === state.step + 1) continue;   // the lane she is hopping into
+            if (cars.some((c) => c.n === n && !c.dead && c.y < c.h * 0.6)) continue;          // just spawned there
+            open.push(n);
+          }
+          if (open.length) spawnCar(open[Math.floor(Math.random() * open.length)]);
+        }
+        const barrierTop = D.row - D.hole * 1.02 - D.L * 0.18;
+        for (const c of cars) {
+          if (c.dead) continue;
+          let ny = c.y + c.speed * dt;
+          if (c !== (crash && crash.car) && laneBlocked(c.n) && c.y + c.h <= barrierTop + 2) {
+            const stopAt = barrierTop - c.h - 4;
+            if (ny > stopAt) { ny = stopAt; if (!c.stopped) { c.stopped = true; setTimeout(() => removeCar(c), 700); } }
+          }
+          c.y = ny;
+          c.el.style.transform = 'translateY(' + c.y + 'px)';
+          if (crash && crash.car === c && !crash.done && c.y + c.h >= D.row - D.hen * 0.25) { crash.done = true; crash.resolve(); }
+          if (c.y > D.h + 20) removeCar(c);
+        }
+        cars = cars.filter((c) => !c.dead || c.el.isConnected);
+      }
+      requestAnimationFrame(frame);
+    }
+
+    /** Send a car down lane n to hit the hen; resolves at the moment of impact. */
+    function runOver(n) {
+      cars.forEach((c) => { if (c.n === n) removeCar(c); });
+      return new Promise((resolve) => {
+        const car = spawnCar(n, { vehicle: VEHICLES[Math.floor(Math.random() * VEHICLES.length)], speed: D.h * 2.6 });
+        crash = { n, car, done: false, resolve };
+      });
+    }
+
+    function feathers() {
+      const x = posX(henPos, lanes.length), y = D.row - D.hen * 0.3;
+      for (let i = 0; i < 9; i++) {
+        const f = document.createElement('div');
+        f.className = 'cr-feather';
+        const a = Math.random() * Math.PI * 2, r = D.L * (0.4 + Math.random() * 0.5);
+        f.style.left = x + 'px'; f.style.top = y + 'px';
+        f.style.setProperty('--dx', Math.cos(a) * r + 'px'); f.style.setProperty('--dy', (Math.sin(a) * r - D.L * 0.2) + 'px');
+        f.style.setProperty('--rot', (Math.random() * 540 - 270) + 'deg');
+        track.appendChild(f);
+        setTimeout(() => f.remove(), 1200);
+      }
+    }
+
+    // ---- HUD & controls ------------------------------------------------------------------------
     function renderControls() {
       const st = state || { status: 'idle' };
       const live = st.status === 'active';
@@ -597,7 +688,7 @@
       goBtn.disabled = busy;
       cashBtn.disabled = busy || !live || st.step < 1;
       $('crCashAmt').textContent = fmt(live ? st.cashout_value : 0);
-      $('crGoNext').textContent = live && st.next_multiplier ? '→ x' + fmtX(st.next_multiplier) : '';
+      $('crGoNext').textContent = live && st.next_multiplier ? fmtX(st.next_multiplier) + 'x' : '';
       $('crPlayNote').textContent = !signedIn ? 'Sign in to play' : (config && !config.enabled ? 'Temporarily unavailable' : 'Place bet & cross');
 
       document.querySelectorAll('.cr-diff').forEach((b) => {
@@ -609,39 +700,35 @@
 
       const info = diffInfo(live ? st.difficulty : difficulty);
       $('crLanesNote').textContent = info.lanes + ' lanes';
-      $('crDiffNote').textContent = 'Chance the first manhole burns: ' + (100 * info.hazards / 25).toFixed(0) +
-                                    '% · Golden Egg pays x' + fmtX(info.ladder[info.ladder.length - 1]);
+      $('crDiffNote').innerHTML = 'Chance of being hit on lane 1: <b>' + (100 * info.lane1_risk).toFixed(1) + '%</b> · top x' + fmtX(info.ladder[info.ladder.length - 1]);
 
       const fair = $('crFair');
       if (st.round_ref) {
-        fair.innerHTML = '<span>Round ' + escapeHtml(st.round_ref) + '</span><span>Hash ' + escapeHtml((st.seed_hash || '').slice(0, 24)) +
-                         '…</span><a id="crFairLink">Verify fairness</a>';
+        fair.innerHTML = '<span>Round ' + escapeHtml(st.round_ref) + '</span><span>Hash ' + escapeHtml((st.seed_hash || '').slice(0, 24)) + '…</span><a id="crFairLink">Verify fairness</a>';
         $('crFairLink').onclick = openModal;
       } else {
-        fair.innerHTML = '<span>RTP ' + (config.rtp * 100).toFixed(0) + '% · Max win ' + fmt(config.max_win) + '</span>';
+        fair.innerHTML = '<span>RTP ' + (config.rtp * 100).toFixed(1) + '% · Max win ' + fmt(config.max_win) + '</span><span>Provably fair</span>';
       }
     }
 
     function render(animate) {
+      placeHen(henAt(), animate);
       paintLanes();
-      placeHen(henPosition(), animate);
-      renderHud();
+      hen.classList.toggle('squash', !!(state && state.status === 'busted'));
       renderControls();
     }
 
     function showBanner(kind, big, sub, ms) {
-      banner.className = 'cr-banner show ' + kind;
-      banner.querySelector('.big').textContent = big;
-      banner.querySelector('.sub').textContent = sub || '';
+      banner.className = 'cr-banner show' + (kind === 'lose' ? ' lose' : '');
+      banner.querySelector('.x').textContent = big;
+      banner.querySelector('.s').textContent = sub || '';
       clearTimeout(showBanner.t);
       showBanner.t = setTimeout(() => { banner.className = 'cr-banner'; }, ms || 2200);
     }
-
-    function setMsg(text, isErr) { msgEl.textContent = text || ''; msgEl.classList.toggle('err', !!isErr); }
-
+    const setMsg = (t, err) => { msgEl.textContent = t || ''; msgEl.classList.toggle('err', !!err); };
     function setBalance(b) {
       if (b === null || b === undefined) return;
-      $('crBalance').textContent = fmt(b);
+      $('crBalance').textContent = fmtBal(b);
       if (window.bet1xSetWallet) window.bet1xSetWallet(b);
     }
 
@@ -660,42 +747,51 @@
       try {
         const data = await api('state');
         if (!data.ok) { setMsg(data.error || 'Could not load the game.', true); return; }
-        config = data.config;
-        signedIn = !!data.signed_in;
-        state = data.state;
+        config = data.config; signedIn = !!data.signed_in; state = data.state;
         if (state.status !== 'idle') difficulty = state.difficulty;
-        buildDifficulties();
-        buildChips();
+        buildDifficulties(); buildChips();
         buildRoad(difficulty);
         render(false);
         setBalance(state.balance);
         fillRulesTable();
-        if (state.status === 'active') setMsg('Your road is waiting — GO or CASH OUT.');
+        if (state.status === 'active') setMsg('Your road is waiting — GO or Cash out.');
+        requestAnimationFrame(frame);
+        loadLive(); setInterval(loadLive, 8000);
       } catch (e) {
         setMsg('Cannot reach the server. Please refresh.', true);
       }
     }
 
-    // ---- bet amount ----------------------------------------------------------------------------
-    function readAmount() {
-      const v = parseFloat(String(amountEl.value).replace(/[^\d.]/g, ''));
-      return Number.isFinite(v) ? v : 0;
+    // ---- live strip (real data) ------------------------------------------------------------------
+    let liveWins = [], liveIdx = 0;
+    async function loadLive() {
+      try {
+        const d = await api('live');
+        if (!d.ok) return;
+        $('crOnline').textContent = d.online;
+        liveWins = d.wins || [];
+      } catch (e) {}
     }
-    function setAmount(v) {
-      v = Math.max(config.min_bet, Math.min(config.max_bet, Math.round(v * 100) / 100));
-      amountEl.value = String(v);
-    }
+    setInterval(() => {
+      const box = $('crLiveWin');
+      if (!liveWins.length) { box.innerHTML = ''; return; }
+      const w = liveWins[liveIdx++ % liveWins.length];
+      box.innerHTML = '<div class="win"><span class="av"></span><span>' + escapeHtml(w.player) + '</span><b>+' + fmt(w.amount) + '</b></div>';
+    }, 3200);
+
+    // ---- bet amount & difficulty -----------------------------------------------------------------
+    function readAmount() { const v = parseFloat(String(amountEl.value).replace(/[^\d.]/g, '')); return Number.isFinite(v) ? v : 0; }
+    function setAmount(v) { v = Math.max(config.min_bet, Math.min(config.max_bet, Math.round(v * 100) / 100)); amountEl.value = String(v); }
     function buildChips() {
       const box = $('crChips');
-      const opts = [10, 50, 100, 500, 1000].filter((v) => v >= config.min_bet && v <= config.max_bet);
       box.innerHTML = '';
-      opts.forEach((v) => {
+      [10, 50, 100, 500, 1000].filter((v) => v >= config.min_bet && v <= config.max_bet).forEach((v) => {
         const b = document.createElement('button');
         b.type = 'button'; b.className = 'cr-chip'; b.textContent = v >= 1000 ? (v / 1000) + 'K' : String(v);
         b.onclick = () => { setAmount(v); sfx('chipStack'); };
         box.appendChild(b);
       });
-      $('crLimits').textContent = 'Min ₹' + config.min_bet + ' · Max ₹' + config.max_bet.toLocaleString('en-IN');
+      $('crLimits').textContent = '₹' + config.min_bet + ' – ₹' + config.max_bet.toLocaleString('en-IN');
     }
     $('crMinus').onclick = () => { const a = readAmount(); setAmount(a <= 10 ? a - 1 : a / 2); };
     $('crPlus').onclick = () => { const a = readAmount(); setAmount(a < 10 ? a + 1 : a * 2); };
@@ -712,15 +808,13 @@
           if (state && state.status === 'active') return;
           difficulty = d.key;
           state = Object.assign({}, state, { status: 'idle', step: 0 });
-          buildRoad(difficulty);
-          render(false);
-          sfx('tabSwitch');
+          buildRoad(difficulty); render(false); sfx('tabSwitch');
         };
         box.appendChild(b);
       });
     }
 
-    // ---- play ----------------------------------------------------------------------------------
+    // ---- play ------------------------------------------------------------------------------------
     async function play() {
       if (busy || !config) return;
       if (!signedIn) { if (window.openAuthModal) openAuthModal('login'); return; }
@@ -728,14 +822,14 @@
       if (amount < config.min_bet || amount > config.max_bet) { setMsg('Bet must be between ₹' + config.min_bet + ' and ₹' + config.max_bet + '.', true); return; }
       busy = true; renderControls(); setMsg('');
       try {
-        const data = await api('start', { bet_amount: amount, difficulty: difficulty });
+        const data = await api('start', { bet_amount: amount, difficulty });
         if (!data.ok) { setMsg(data.error, true); return; }
         sfx('betPlace');
         state = data.state;
         setBalance(state.balance);
         buildRoad(state.difficulty);
         render(false);
-        await new Promise((r) => setTimeout(r, 160));
+        await sleep(180);
         busy = false;
         await step();
       } catch (e) {
@@ -757,23 +851,30 @@
         }
         const prev = state;
         state = data.state;
-        // Hop first, then reveal what the manhole did.
-        placeHen(data.outcome === 'fire' ? state.fire_lane : Math.min(state.step, laneEls.length), true);
-        await new Promise((r) => setTimeout(r, 360));
+        const target = data.outcome === 'fire' ? state.fire_lane : Math.min(state.step, lanes.length);
+        if (data.outcome !== 'fire') clearLaneAtRow(target);
+        // Hop first; the coin behind her and the barrier over her lane both land with her.
+        placeHen(target, true);
+        tag.hidden = true;
+        sfx('go');
+        await sleep(430);
+        if (data.outcome !== 'fire') paintLanes();
         if (data.outcome === 'fire') {
-          paintLanes(); renderHud(); sfx('mineHit');
-          showBanner('lose', 'ROASTED!', 'Lane ' + state.fire_lane + ' was on fire', 2200);
-          if (window.ResultPopup) setTimeout(() => ResultPopup.show({ outcome: 'lose', amount: prev.bet_amount }), 900);
+          paintLanes();
+          await runOver(target);
+          sfx('crash');
+          hen.classList.add('squash'); feathers();
+          showBanner('lose', 'Run over!', 'Lost ' + fmt(prev.bet_amount), 2200);
           finishRound();
         } else if (data.outcome === 'golden_egg' || data.outcome === 'max_win') {
-          render(true); sfx('bigWin');
-          hen.classList.add('won');
-          showBanner('win', data.outcome === 'golden_egg' ? 'GOLDEN EGG!' : 'MAX WIN!', 'x' + fmtX(state.multiplier) + ' · ' + fmt(state.payout), 2600);
-          if (window.ResultPopup) setTimeout(() => ResultPopup.show({ outcome: 'win', amount: state.payout, big: true }), 700);
+          if (data.outcome === 'golden_egg') { await sleep(150); placeHen(lanes.length + 1, true); await sleep(430); }
+          paintLanes(); sfx('bigWin');
+          hen.classList.add('cheer');
+          showBanner('win', 'x' + fmtX(state.multiplier), (data.outcome === 'golden_egg' ? 'Golden Egg! ' : 'Max win! ') + fmt(state.payout), 2800);
           setBalance(state.balance);
           finishRound();
         } else {
-          paintLanes(); renderHud(); sfx('gemReveal');
+          sfx('gemReveal');
         }
       } catch (e) {
         setMsg('Cannot reach the server. Please try again.', true);
@@ -789,13 +890,12 @@
         const data = await api('cashout', {});
         if (!data.ok) { setMsg(data.error, true); await refresh(); return; }
         state = data.state;
-        render(false);
+        paintLanes();
         setBalance(state.balance);
         const big = state.multiplier >= 5;
         sfx(big ? 'bigWin' : 'cashout');
-        hen.classList.add('won');
-        showBanner('win', '+' + fmt(data.payout), 'Cashed out at x' + fmtX(state.multiplier), 2200);
-        if (window.ResultPopup) ResultPopup.show({ outcome: 'win', amount: data.payout, big: big });
+        hen.classList.add('cheer');
+        showBanner('win', 'x' + fmtX(state.multiplier), 'WIN ' + fmt(data.payout), 2400);
         finishRound();
       } catch (e) {
         setMsg('Cannot reach the server. Please try again.', true);
@@ -811,8 +911,13 @@
 
     function finishRound() {
       lastFinished = Object.assign({}, state);
-      setTimeout(() => hen && hen.classList.remove('won'), 2000);
+      setTimeout(() => hen && hen.classList.remove('cheer'), 1800);
       renderVerify();
+      loadLive();
+      // The game shows its own win / run-over card, as the original does, instead of the site-wide
+      // result popup — so the history panel below is refreshed through its own button rather than
+      // through the popup hook it normally listens to.
+      setTimeout(() => { const b = document.querySelector('#cr-history .gh-refresh'); if (b) b.click(); }, 800);
     }
 
     playBtn.onclick = play;
@@ -825,41 +930,35 @@
       else if (e.key === 'c' || e.key === 'C') cashout();
     });
 
+    function rebuild() {
+      if (!config) return;
+      buildRoad(state && state.status !== 'idle' ? state.difficulty : difficulty);
+      render(false);
+    }
     let resizeT = null;
-    window.addEventListener('resize', () => {
-      clearTimeout(resizeT);
-      resizeT = setTimeout(() => {
-        if (!config) return;
-        buildRoad(state && state.status !== 'idle' ? state.difficulty : difficulty);
-        render(false);
-      }, 150);
-    });
+    window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(rebuild, 150); });
+    $('crFullBtn').onclick = () => {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else if (game.requestFullscreen) game.requestFullscreen();
+    };
+    document.addEventListener('fullscreenchange', () => setTimeout(rebuild, 60));
 
-    // ---- rules & fairness ----------------------------------------------------------------------
+    // ---- rules & fairness --------------------------------------------------------------------------
     function fillRulesTable() {
-      const tb = document.querySelector('#crRulesTable tbody');
-      tb.innerHTML = config.difficulties.map((d) =>
-        '<tr><td>' + d.label + '</td><td>' + d.lanes + '</td><td>' + (100 * d.hazards / 25).toFixed(0) + '%</td><td>x' +
+      document.querySelector('#crRulesTable tbody').innerHTML = config.difficulties.map((d) =>
+        '<tr><td>' + d.label + '</td><td>' + d.lanes + '</td><td>' + (100 * d.lane1_risk).toFixed(1) + '%</td><td>x' +
         fmtX(d.ladder[0]) + '</td><td>x' + fmtX(d.ladder[d.ladder.length - 1]) + '</td></tr>').join('');
-      $('crRulesFoot').textContent = 'Return to player ' + (config.rtp * 100).toFixed(0) + '% at every lane. Maximum win per round ' +
+      $('crRulesFoot').textContent = 'Return to player ' + (config.rtp * 100).toFixed(1) + '% at every lane. Maximum win per round ' +
         fmt(config.max_win) + ' — a road that reaches it is cashed out automatically.';
     }
     function openModal() { $('crModal').classList.add('open'); sfx('modalOpen'); renderVerify(); }
     function closeModal() { $('crModal').classList.remove('open'); sfx('modalClose'); }
     $('crHowBtn').onclick = openModal;
+    $('crMenuBtn').onclick = openModal;
     $('crModalClose').onclick = closeModal;
     $('crModal').addEventListener('click', (e) => { if (e.target.id === 'crModal') closeModal(); });
 
-    async function hmacHex(key, msg) {
-      const enc = new TextEncoder();
-      const k = await crypto.subtle.importKey('raw', enc.encode(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-      const sig = await crypto.subtle.sign('HMAC', k, enc.encode(msg));
-      return Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, '0')).join('');
-    }
-    async function sha256Hex(msg) {
-      const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
-      return Array.from(new Uint8Array(d)).map((b) => b.toString(16).padStart(2, '0')).join('');
-    }
+    const hex = (buf) => Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
     async function renderVerify() {
       const box = $('crVerify');
       const r = lastFinished || (state && (state.status === 'busted' || state.status === 'cashed') ? state : null);
@@ -868,20 +967,24 @@
         box.innerHTML = 'Seed: ' + escapeHtml(r.server_seed) + '<br>Hash: ' + escapeHtml(r.seed_hash) + '<br>(Your browser cannot compute the check here.)';
         return;
       }
+      const enc = new TextEncoder();
       const info = diffInfo(r.difficulty);
-      const hashOk = (await sha256Hex(r.server_seed)) === r.seed_hash;
-      let fire = 0;
+      const hashOk = hex(await crypto.subtle.digest('SHA-256', enc.encode(r.server_seed))) === r.seed_hash;
+      const key = await crypto.subtle.importKey('raw', enc.encode(r.server_seed), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+      let hitLane = 0;
       for (let n = 1; n <= info.lanes; n++) {
-        const u = parseInt((await hmacHex(r.server_seed, 'lane:' + n)).slice(0, 13), 16) / Math.pow(16, 13);
-        if (u < info.hazards / (26 - n)) { fire = n; break; }
+        const u = parseInt(hex(await crypto.subtle.sign('HMAC', key, enc.encode('lane:' + n))).slice(0, 13), 16) / Math.pow(16, 13);
+        const prev = n === 1 ? config.rtp : info.ladder[n - 2];
+        if (u < 1 - prev / info.ladder[n - 1]) { hitLane = n; break; }
       }
-      const outcomeOk = r.status === 'busted' ? fire === r.fire_lane : (fire === 0 || fire > r.step);
+      const ok = r.status === 'busted' ? hitLane === r.fire_lane : (hitLane === 0 || hitLane > r.step);
       box.innerHTML =
         'Round ' + escapeHtml(r.round_ref || '') + ' · ' + info.label + '<br>' +
         'Seed: ' + escapeHtml(r.server_seed) + '<br>' +
         'Hash: ' + escapeHtml(r.seed_hash) + ' <span class="' + (hashOk ? 'ok' : 'bad') + '">' + (hashOk ? '✓ matches' : '✗ mismatch') + '</span><br>' +
-        'Fire lane from the seed: ' + (fire || 'none — the road was clear') +
-        ' <span class="' + (outcomeOk ? 'ok' : 'bad') + '">' + (outcomeOk ? '✓ consistent with your round' : '✗ inconsistent') + '</span>';
+        'Car lane from the seed: ' + (hitLane || 'none — the road was clear') +
+        ' <span class="' + (ok ? 'ok' : 'bad') + '">' + (ok ? '✓ consistent with your round' : '✗ inconsistent') + '</span>' +
+        '<br><span style="color:#8d8c94">(Checked at the current RTP of ' + (config.rtp * 100).toFixed(1) + '%.)</span>';
     }
 
     load();

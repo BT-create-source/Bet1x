@@ -14,7 +14,7 @@
     {
       key: 'chickenroad', title: 'Chicken Road', page: 'chickenroad.html',
       fields: [
-        { k: 'rtp', label: 'Return to player (%)', pct: true, step: '0.1', hint: '90–99. 98% matches the original game.' },
+        { k: 'rtp', label: 'Return to player (%)', pct: true, step: '0.1', hint: '90–99. 95.5% matches the original game; changes the risk, not the multipliers.' },
         { k: 'min_bet', label: 'Minimum bet (₹)', step: '1' },
         { k: 'max_bet', label: 'Maximum bet (₹)', step: '1' },
         { k: 'max_win', label: 'Maximum win per round (₹)', step: '1', hint: 'A road reaching this is cashed out automatically.' },

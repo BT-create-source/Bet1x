@@ -1,63 +1,79 @@
 <?php
 /**
- * Chicken Road — a hen crosses a road one lane at a time; every lane raises the multiplier, and any
- * lane can be the manhole that bursts into flame. Cash out before that, or lose the stake.
+ * Chicken Road (the "2" edition, with traffic) — a hen crosses a road one lane at a time; every lane
+ * raises the multiplier, and on any lane a car can run her over. Cash out before that, or lose the
+ * stake.
  *
  * =================================================================================================
- * THE MATHS, AND WHY IT IS THIS AND NOT SOMETHING SIMPLER
+ * THE LADDERS
  * =================================================================================================
  *
- * The published game's figures pin the model down exactly. Treat the road as 25 hidden slots, of
- * which H are fire (1 / 3 / 5 / 10 by difficulty), and walk the slots without replacement:
+ * Lane counts are 30 / 25 / 22 / 18 (Easy / Medium / Hard / Hardcore) and the multipliers are the
+ * published game's, used verbatim like the Mines payout table. What is confirmed and what is not:
  *
- *   lanes(H)         = 25 - H                                  24 / 22 / 20 / 15
- *   P(survive n)     = prod_{i<n} (25-H-i) / (25-i)
- *   multiplier(n)    = RTP / P(survive n)
+ *   - Lanes 1-6 of every mode are read off gameplay footage of the original.
+ *   - Easy's whole ladder (1.01x -> 23.24x) and Hardcore's top (3,608,855.25x) match published figures.
+ *   - The remaining tail values are the best available reconstruction, kept smooth and rising.
  *
- * At RTP 98% that reproduces every number the original quotes: Easy opens at 1.02x and tops out at
- * 24.50x on lane 24; Hard tops out at 52,067.40x on lane 20; Hardcore at 3,203,384.80x on lane 15.
- * A flat per-lane hazard (the obvious alternative) cannot hit both ends of those ladders at once.
+ * =================================================================================================
+ * THE RISK, AND WHY ANY LADDER WORKS
+ * =================================================================================================
  *
- * Multipliers are floored to two decimals, so the paid figure never exceeds the true fair value
- * times RTP — rounding can only ever cost the player a fraction of a paisa, never the house.
+ * The chance of the car comes from the ladder itself, so that cashing out at ANY lane returns RTP:
  *
- * Cashing out at ANY lane n returns RTP on average: P(survive n) * multiplier(n) = RTP. There is no
- * lane where stopping is better or worse value than any other, exactly as in the original.
+ *   P(survive n)               = RTP / M(n)
+ *   P(hit on lane n | reached) = 1 - M(n-1) / M(n),   with M(0) = RTP
+ *
+ * so P(survive n) * M(n) = RTP for every lane of every mode. The operator's RTP setting moves the
+ * risk, never the displayed multipliers. It must stay below the smallest first lane (1.01x), which
+ * the 90-99% bound guarantees.
  *
  * =================================================================================================
  * FAIRNESS
  * =================================================================================================
  *
- * The whole road is decided at the moment the bet is placed, from a random server seed whose
- * SHA-256 is shown to the player before the first step. Lane n burns when
+ * The whole road is decided when the bet is placed, from a random server seed whose SHA-256 is shown
+ * before the first step. Lane n is hit when
  *
  *   u(n) = HMAC-SHA256(server_seed, "lane:" . n), first 13 hex digits / 16^13
- *   u(n) < H / (26 - n)
+ *   u(n) < 1 - M(n-1) / M(n)
  *
- * — the conditional chance that slot n is fire given the n-1 before it were not. The seed is
- * revealed when the round ends, so the player can recompute every lane and check the hash. Nothing
- * after the bet (not the player's timing, not an operator) can move the fire.
+ * The seed is revealed when the road ends, so the player can recompute every lane and check the
+ * hash. Nothing after the bet (not the player's timing, not an operator) can move the car.
  * =================================================================================================
  */
 
 require_once __DIR__ . '/../lib/db.php';
 require_once __DIR__ . '/../lib/helpers.php';
 
-const CR_SLOTS = 25;
-
-/** The four difficulty modes, in display order. */
+/** The four difficulty modes, in display order, with their ladders (index 0 = lane 1). */
 function cr_difficulties() {
-    return [
-        'easy'     => ['label' => 'Easy',     'hazards' => 1],
-        'medium'   => ['label' => 'Medium',   'hazards' => 3],
-        'hard'     => ['label' => 'Hard',     'hazards' => 5],
-        'hardcore' => ['label' => 'Hardcore', 'hazards' => 10],
+    static $d = null;
+    if ($d !== null) return $d;
+    $d = [
+        'easy' => ['label' => 'Easy', 'ladder' => [
+            1.01, 1.03, 1.06, 1.10, 1.15, 1.19, 1.24, 1.30, 1.35, 1.42, 1.48, 1.56, 1.65, 1.75, 1.85,
+            1.98, 2.12, 2.28, 2.47, 2.70, 2.96, 3.28, 3.70, 4.11, 4.64, 5.39, 6.50, 8.36, 12.08, 23.24,
+        ]],
+        'medium' => ['label' => 'Medium', 'ladder' => [
+            1.08, 1.21, 1.37, 1.56, 1.78, 2.05, 2.37, 2.77, 3.24, 3.85, 4.62, 5.61, 6.91, 8.64, 10.99,
+            14.29, 18.96, 25.82, 36.27, 52.97, 80.91, 132.45, 239.08, 510.86, 1566.05,
+        ]],
+        'hard' => ['label' => 'Hard', 'ladder' => [
+            1.18, 1.46, 1.83, 2.31, 2.95, 3.82, 5.02, 6.66, 9.04, 12.52, 17.74, 25.80, 38.71, 60.21,
+            97.34, 165.07, 296.07, 568.38, 1183.30, 2738.10, 7569.80, 30279.20,
+        ]],
+        'hardcore' => ['label' => 'Hardcore', 'ladder' => [
+            1.44, 2.21, 3.45, 5.53, 9.09, 15.30, 26.78, 48.70, 92.54, 185.08, 391.25, 894.29, 2235.72,
+            6096.15, 19507.68, 78030.72, 429168.96, 3608855.25,
+        ]],
     ];
+    return $d;
 }
 
 function cr_lane_count($difficulty) {
     $d = cr_difficulties()[$difficulty] ?? null;
-    return $d ? CR_SLOTS - $d['hazards'] : 0;
+    return $d ? count($d['ladder']) : 0;
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -67,9 +83,9 @@ function cr_lane_count($difficulty) {
 function cr_config_default() {
     return [
         'enabled' => true,
-        'rtp'     => 0.98,
-        // Largest single payout. The Hardcore ladder reaches 3.2 million x, so without a cap one
-        // lucky road on a big stake is unbounded house exposure. Reaching the cap cashes out.
+        'rtp'     => 0.955,   // the original developer's stated figure
+        // Largest single payout. Hardcore reaches 3.6 million x, so without a cap one lucky road on
+        // a big stake is unbounded house exposure. Reaching the cap cashes out.
         'max_win' => 1000000.0,
         'min_bet' => (float) cfg('MIN_BET'),
         'max_bet' => min((float) cfg('MAX_BET'), 10000.0),
@@ -89,8 +105,8 @@ function cr_config_get() {
 
 /**
  * Validate and store operator settings. Returns ['ok'=>true,'config'=>...] or ['ok'=>false,'error'=>...].
- * RTP is bounded to 90-99%: below that the game stops resembling the original, above it the house
- * edge is too thin to absorb the cap and rounding.
+ * RTP is bounded to 90-99%: the top of that range keeps it below the lowest first-lane multiplier
+ * (1.01x), which the risk formula above requires.
  */
 function cr_config_update(array $patch) {
     $c = cr_config_get();
@@ -115,28 +131,30 @@ function cr_config_update(array $patch) {
 // Maths
 // -------------------------------------------------------------------------------------------------
 
-/** Chance of surviving the first $n lanes of a road with $hazards fire slots. */
-function cr_survival($hazards, $n) {
-    $p = 1.0;
-    for ($i = 0; $i < $n; $i++) $p *= (CR_SLOTS - $hazards - $i) / (CR_SLOTS - $i);
-    return $p;
-}
-
-/** Multiplier for having crossed $n lanes (n >= 1), floored to two decimals. */
-function cr_multiplier($difficulty, $n, $rtp) {
+/** Multiplier for having crossed $n lanes (n >= 1). $rtp is accepted for call compatibility; the ladder is fixed. */
+function cr_multiplier($difficulty, $n, $rtp = null) {
     $d = cr_difficulties()[$difficulty] ?? null;
     if (!$d || $n <= 0) return 1.0;
-    $n = min($n, CR_SLOTS - $d['hazards']);
-    // The small epsilon keeps exact values (24.50 on Easy) from flooring to 24.49 through float noise.
-    return floor(($rtp / cr_survival($d['hazards'], $n)) * 100 + 1e-7) / 100;
+    $n = min($n, count($d['ladder']));
+    return (float) $d['ladder'][$n - 1];
 }
 
 /** The full ladder for one difficulty: index 0 is lane 1. */
-function cr_ladder($difficulty, $rtp) {
-    $out = [];
-    $lanes = cr_lane_count($difficulty);
-    for ($n = 1; $n <= $lanes; $n++) $out[] = cr_multiplier($difficulty, $n, $rtp);
-    return $out;
+function cr_ladder($difficulty, $rtp = null) {
+    $d = cr_difficulties()[$difficulty] ?? null;
+    return $d ? array_map('floatval', $d['ladder']) : [];
+}
+
+/** Chance of surviving the first $n lanes: RTP / M(n). */
+function cr_survival($difficulty, $n, $rtp) {
+    if ($n <= 0) return 1.0;
+    return $rtp / cr_multiplier($difficulty, $n);
+}
+
+/** Chance that lane $n is hit, given the hen reached it. */
+function cr_hit_chance($difficulty, $n, $rtp) {
+    $prev = $n <= 1 ? $rtp : cr_multiplier($difficulty, $n - 1);
+    return 1 - $prev / cr_multiplier($difficulty, $n);
 }
 
 /** u(n) in [0,1) for lane n, derived from the round's seed — see the FAIRNESS note above. */
@@ -145,13 +163,12 @@ function cr_lane_unit($serverSeed, $n) {
     return hexdec(substr($h, 0, 13)) / pow(16, 13);
 }
 
-/** The lane that burns on this road, or 0 if the hen can cross all of it. */
-function cr_fail_step($serverSeed, $difficulty) {
-    $d = cr_difficulties()[$difficulty] ?? null;
-    if (!$d) return 1;
-    $lanes = CR_SLOTS - $d['hazards'];
+/** The lane where the car hits on this road, or 0 if the hen can cross all of it. */
+function cr_fail_step($serverSeed, $difficulty, $rtp) {
+    $lanes = cr_lane_count($difficulty);
+    if ($lanes === 0) return 1;
     for ($n = 1; $n <= $lanes; $n++) {
-        if (cr_lane_unit($serverSeed, $n) < $d['hazards'] / (CR_SLOTS + 1 - $n)) return $n;
+        if (cr_lane_unit($serverSeed, $n) < cr_hit_chance($difficulty, $n, $rtp)) return $n;
     }
     return 0;
 }
@@ -159,7 +176,7 @@ function cr_fail_step($serverSeed, $difficulty) {
 /** What cashing out after $step lanes pays, after the operator's cap. */
 function cr_payout($bet, $difficulty, $step, $config) {
     if ($step <= 0) return 0.0;
-    $raw = round2($bet * cr_multiplier($difficulty, $step, $config['rtp']));
+    $raw = round2($bet * cr_multiplier($difficulty, $step));
     return min($raw, (float) $config['max_win']);
 }
 
@@ -238,7 +255,10 @@ function cr_session_advance($username, $fromStep, $toStatus, $toStep, $multiplie
                     [$toStatus, $toStep, $multiplier, $payout, $username, $fromStep]) > 0;
 }
 
-/** Public view of a session. Never exposes the fire lane or the seed while the road is live. */
+/**
+ * Public view of a session. Never exposes the hit lane or the seed while the road is live.
+ * ('fire_lane' keeps its name from the first edition: it is the lane where the car hit.)
+ */
 function cr_public_state($session, $config, $balance) {
     $status = $session['status'] ?? 'idle';
     if ($status === 'starting' || !$session) $status = 'idle';
@@ -248,7 +268,7 @@ function cr_public_state($session, $config, $balance) {
     $bet = (float) ($session['bet_amount'] ?? 0);
     $lanes = cr_lane_count($difficulty);
 
-    $nextMult = ($status === 'active' && $step < $lanes) ? cr_multiplier($difficulty, $step + 1, $config['rtp']) : null;
+    $nextMult = ($status === 'active' && $step < $lanes) ? cr_multiplier($difficulty, $step + 1) : null;
 
     return [
         'status'          => $status,
@@ -256,7 +276,7 @@ function cr_public_state($session, $config, $balance) {
         'lanes'           => $lanes,
         'bet_amount'      => $bet,
         'step'            => $step,
-        'multiplier'      => $step > 0 ? cr_multiplier($difficulty, $step, $config['rtp']) : 1.0,
+        'multiplier'      => $step > 0 ? cr_multiplier($difficulty, $step) : 1.0,
         'next_multiplier' => $nextMult,
         'cashout_value'   => $status === 'active' ? cr_payout($bet, $difficulty, $step, $config) : 0,
         'payout'          => $status === 'cashed' ? (float) ($session['payout'] ?? 0) : 0,
@@ -273,11 +293,11 @@ function cr_public_config($config) {
     $diffs = [];
     foreach (cr_difficulties() as $key => $d) {
         $diffs[] = [
-            'key'     => $key,
-            'label'   => $d['label'],
-            'hazards' => $d['hazards'],
-            'lanes'   => CR_SLOTS - $d['hazards'],
-            'ladder'  => cr_ladder($key, $config['rtp']),
+            'key'        => $key,
+            'label'      => $d['label'],
+            'lanes'      => count($d['ladder']),
+            'ladder'     => cr_ladder($key),
+            'lane1_risk' => round(cr_hit_chance($key, 1, $config['rtp']), 4),
         ];
     }
     return [
@@ -288,4 +308,21 @@ function cr_public_config($config) {
         'max_bet'      => $config['max_bet'],
         'difficulties' => $diffs,
     ];
+}
+
+/**
+ * The "Live wins / Online" strip: real recent cash-outs (masked) and the number of players who have
+ * touched a road in the last five minutes. Nothing here is invented.
+ */
+function cr_live_feed() {
+    $rows = all('SELECT "user","amount","timestamp" FROM "Transaction"
+                 WHERE "details" LIKE \'Chicken Road Cash Out%\' ORDER BY "timestamp" DESC LIMIT 15');
+    $wins = array_map(function ($r) {
+        $name = (string) $r['user'];
+        $masked = strlen($name) <= 2 ? $name . '***' : substr($name, 0, 1) . '***' . substr($name, -1);
+        return ['player' => $masked, 'amount' => (float) $r['amount']];
+    }, $rows);
+    $online = (int) scalar('SELECT COUNT(*) FROM "ChickenRoadSession"
+                            WHERE "updated_at" > CURRENT_TIMESTAMP(3) - INTERVAL \'5 minutes\'', [], 0);
+    return ['wins' => $wins, 'online' => $online];
 }

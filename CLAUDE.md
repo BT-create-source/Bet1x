@@ -40,8 +40,8 @@ Dream11 point tables per format in `fantasy-scoring.php`, feed bridge + contest 
 ball-by-ball) — that is the standing top priority for any change to them.
 
 **Chicken Road and Astronaut** (PHP only, no Node counterpart): `games/chickenroad.php` +
-`routes/chickenroad.php` (one road per player, Mines-style claim; a 25-slot model with 1/3/5/10 fire
-slots that reproduces the original game's ladders exactly) and `games/astronaut.php` +
+`routes/chickenroad.php` (the traffic edition: one road per player, Mines-style claim; fixed
+30/25/22/18-lane ladders with the per-lane car chance derived from them so every cash-out returns RTP) and `games/astronaut.php` +
 `routes/astronaut.php` (one shared crash round driven by the wall clock like Aviator, but with bets in
 their own `AstronautBet` table, two panels, auto cash-out). Both are priced only by an operator RTP,
 are provably fair (seed hash shown first, seed revealed after), and are deliberately not wired to the

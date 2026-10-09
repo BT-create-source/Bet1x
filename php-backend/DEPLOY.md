@@ -675,9 +675,11 @@ Two house games, live as soon as their tables exist. Nothing to add to `.env`.
 3. Admin console → **Chicken Road & Astronaut** tab: open/close each game, RTP (90–99%; defaults 98% and
    97%), bet limits, Astronaut's highest crash, and the per-round maximum win (reached = auto cash-out).
 
-How they price: Chicken Road is 25 hidden slots with 1/3/5/10 fire slots (Easy/Medium/Hard/Hardcore),
-which reproduces the original's ladders exactly (Easy tops out at 24.50x, Hard 52,067.40x, Hardcore
-3,203,384.80x at 98%). Astronaut's crash is `floor(100·RTP/(1−u))/100`, so any cash-out target returns
+How they price: Chicken Road is the traffic ("2") edition — 30/25/22/18 lanes with the original's
+multiplier ladders used verbatim (lanes 1–6 of every mode match gameplay footage; Easy's 23.24x and
+Hardcore's 3,608,855.25x tops match published figures; the other tail values are a reconstruction).
+The chance of a car on each lane is derived from the ladder so any cash-out returns RTP (default 95.5%,
+the developer's stated figure); the RTP setting moves the risk, never the multipliers. Astronaut's crash is `floor(100·RTP/(1−u))/100`, so any cash-out target returns
 RTP. Both are provably fair: the seed's hash is shown before play and the seed is revealed after, and
 each page re-checks the last round in the browser. Neither game is wired to the bot-takeover engine.
 

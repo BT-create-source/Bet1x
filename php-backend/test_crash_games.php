@@ -39,36 +39,38 @@ function section($t) { echo "\n== $t ==\n"; }
 // =================================================================================================
 section('1. Chicken Road maths');
 // =================================================================================================
-$easy = cr_ladder('easy', 0.98); $med = cr_ladder('medium', 0.98);
-$hard = cr_ladder('hard', 0.98); $hc = cr_ladder('hardcore', 0.98);
-check(count($easy) === 24 && count($med) === 22 && count($hard) === 20 && count($hc) === 15, 'lane counts 24 / 22 / 20 / 15');
-check(near($easy[0], 1.02) && near($easy[23], 24.50), "Easy runs 1.02x -> 24.50x (got {$easy[0]} -> {$easy[23]})");
-check(near($med[0], 1.11), "Medium opens at 1.11x (got {$med[0]})");
-check(near($hard[0], 1.22) && near($hard[19], 52067.40), "Hard runs 1.22x -> 52,067.40x (got {$hard[0]} -> {$hard[19]})");
-check(near($hc[0], 1.63) && near($hc[14], 3203384.80, 0.02), "Hardcore runs 1.63x -> 3,203,384.80x (got {$hc[0]} -> {$hc[14]})");
-$monotone = true; $rtpOk = true;
+$RTP = 0.955;
+$easy = cr_ladder('easy'); $med = cr_ladder('medium'); $hard = cr_ladder('hard'); $hc = cr_ladder('hardcore');
+check(count($easy) === 30 && count($med) === 25 && count($hard) === 22 && count($hc) === 18, 'lane counts 30 / 25 / 22 / 18');
+check(array_slice($easy, 0, 6) === [1.01, 1.03, 1.06, 1.10, 1.15, 1.19], 'Easy opens 1.01, 1.03, 1.06, 1.10, 1.15, 1.19 (as in the footage)');
+check(array_slice($med, 0, 6) === [1.08, 1.21, 1.37, 1.56, 1.78, 2.05], 'Medium opens 1.08, 1.21, 1.37, 1.56, 1.78, 2.05');
+check(array_slice($hard, 0, 6) === [1.18, 1.46, 1.83, 2.31, 2.95, 3.82], 'Hard opens 1.18, 1.46, 1.83, 2.31, 2.95, 3.82');
+check(array_slice($hc, 0, 6) === [1.44, 2.21, 3.45, 5.53, 9.09, 15.30], 'Hardcore opens 1.44, 2.21, 3.45, 5.53, 9.09, 15.30');
+check(near($easy[29], 23.24) && near($hc[17], 3608855.25), "Easy tops out at 23.24x and Hardcore at 3,608,855.25x");
+$monotone = true; $rtpOk = true; $chanceOk = true;
 foreach (cr_difficulties() as $k => $d) {
-    $lad = cr_ladder($k, 0.98);
+    $lad = cr_ladder($k);
     foreach ($lad as $i => $m) {
         if ($i > 0 && $m <= $lad[$i - 1]) $monotone = false;
-        $ev = cr_survival($d['hazards'], $i + 1) * $m;
-        if ($ev > 0.98 + 1e-9 || $ev < 0.98 - 0.01) $rtpOk = false;
+        if (abs(cr_survival($k, $i + 1, $RTP) * $m - $RTP) > 1e-9) $rtpOk = false;
+        $h = cr_hit_chance($k, $i + 1, $RTP);
+        if ($h <= 0 || $h >= 1) $chanceOk = false;
     }
 }
 check($monotone, 'every ladder strictly rises lane by lane');
-check($rtpOk, 'cashing out at ANY lane of ANY difficulty returns 98% (never more, within a paisa of it)');
-check(cr_fail_step('abc', 'hard') === cr_fail_step('abc', 'hard'), 'the fire lane is a pure function of the seed');
+check($rtpOk, 'cashing out at ANY lane of ANY difficulty returns exactly the RTP');
+check($chanceOk, 'every lane has a real chance of a car, strictly between 0 and 1');
+check(cr_fail_step('abc', 'hard', $RTP) === cr_fail_step('abc', 'hard', $RTP), 'the hit lane is a pure function of the seed');
 
 $N = $QUICK ? 20000 : 120000;
 foreach (['easy', 'hardcore'] as $k) {
-    $h = cr_difficulties()[$k]['hazards'];
     $survive = [1 => 0, 2 => 0, 3 => 0];
     for ($i = 0; $i < $N; $i++) {
-        $f = cr_fail_step('sim' . $k . $i, $k);
+        $f = cr_fail_step('sim' . $k . $i, $k, $RTP);
         foreach ([1, 2, 3] as $n) if ($f === 0 || $f > $n) $survive[$n]++;
     }
     foreach ([1, 2, 3] as $n) {
-        $exp = cr_survival($h, $n); $got = $survive[$n] / $N;
+        $exp = cr_survival($k, $n, $RTP); $got = $survive[$n] / $N;
         $tol = 4 * sqrt($exp * (1 - $exp) / $N) + 1e-4;
         check(abs($got - $exp) < $tol, sprintf('%s: P(survive %d lanes) = %.4f, expected %.4f', $k, $n, $got, $exp));
     }
@@ -243,7 +245,7 @@ for ($r = 0; $r < $ROUNDS; $r++) {
     }
     // Re-derive the road from the revealed seed.
     if (!$st['server_seed'] || hash('sha256', $st['server_seed']) !== $st['seed_hash']) { $mismatch++; continue; }
-    $f = cr_fail_step($st['server_seed'], $diff);
+    $f = cr_fail_step($st['server_seed'], $diff, $RTP);
     if ($st['status'] === 'busted') { if ($f !== $st['fire_lane']) $mismatch++; }
     else if ($f !== 0 && $f <= $st['step']) $mismatch++;
     $verified++;
@@ -252,6 +254,10 @@ check($rounds === $ROUNDS, "played $rounds roads ($wins cashed, $busts burnt, $e
 check($payOk, 'every cash-out paid exactly stake x the ladder multiplier, and the wallet moved by that much');
 check($verified === $rounds && $mismatch === 0, "every finished road re-derives from its revealed seed and matches its hash ($verified/$rounds, $mismatch mismatches)");
 check(reconciles('a'), 'player A: wallet = start + ledger deposits - ledger withdrawals, to the paisa');
+[$c, $b] = http('GET', '/api/chickenroad/live');
+$mine = array_filter($b['wins'] ?? [], function ($w) { return $w['player'] === 'c***a'; });
+check($c === 200 && $b['online'] >= 1 && ($wins === 0 || count($mine) > 0),
+      'the live strip shows real cash-outs (masked as c***a) and counts this player online');
 
 // =================================================================================================
 section('5. Chicken Road races (8 simultaneous requests over 4 servers)');
@@ -316,7 +322,9 @@ check($c === 401, "nobody signed in cannot change Astronaut settings: $c");
 check($c === 400, 'an RTP of 50% is refused');
 [$c, $b] = http('POST', '/api/admin/chickenroad/config', $ADMIN, ['rtp' => 95]);
 [$c2, $s] = http('GET', '/api/chickenroad/state', $A);
-check($c === 200 && near($s['config']['difficulties'][0]['ladder'][0], floor(0.95 * 25 / 24 * 100) / 100), 'an operator RTP of 95% reprices the ladder the page draws');
+check($c === 200 && near($s['config']['difficulties'][0]['ladder'][0], 1.01)
+      && near($s['config']['difficulties'][0]['lane1_risk'], round(1 - 0.95 / 1.01, 4), 0.00005),
+      'an operator RTP of 95% moves the risk the page shows, not the multipliers');
 [$c] = http('POST', '/api/admin/chickenroad/config', $ADMIN, ['enabled' => false]);
 [$c] = http('POST', '/api/chickenroad/start', $A, ['bet_amount' => 10, 'difficulty' => 'easy']);
 check($c === 403, 'with the game switched off, Play is refused');

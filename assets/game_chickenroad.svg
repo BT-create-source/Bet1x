@@ -33,7 +33,11 @@
   <circle cx="375" cy="430" r="62" fill="url(#gold)" stroke="#1d1f2c" stroke-width="8"/>
   <circle cx="545" cy="430" r="62" fill="url(#steel)" stroke="#1d1f2c" stroke-width="8"/>
   <circle cx="715" cy="430" r="62" fill="url(#steel)" stroke="#1d1f2c" stroke-width="8"/>
-  <path d="M715 430 C672 420 668 370 690 336 C694 362 708 366 708 366 C700 330 716 296 732 270 C736 306 768 330 768 368 C768 410 748 432 715 430 Z" fill="url(#flame)"/>
+  <!-- barriers over the cleared lanes -->
+  <g transform="translate(150 300)"><rect width="110" height="30" rx="6" fill="#f6a21a"/><path d="M14 0 L32 0 L22 30 L4 30 Z M50 0 L68 0 L58 30 L40 30 Z M86 0 L104 0 L94 30 L76 30 Z" fill="#45434c"/></g>
+  <g transform="translate(320 300)"><rect width="110" height="30" rx="6" fill="#f6a21a"/><path d="M14 0 L32 0 L22 30 L4 30 Z M50 0 L68 0 L58 30 L40 30 Z M86 0 L104 0 L94 30 L76 30 Z" fill="#45434c"/></g>
+  <!-- taxi coming down the next lane -->
+  <g transform="translate(515 250)"><rect width="62" height="108" rx="15" fill="#ffc21a" stroke="#c98d00" stroke-width="3"/><rect x="7" y="66" width="48" height="20" rx="6" fill="#2c3540"/><rect x="8" y="22" width="46" height="13" rx="5" fill="#2c3540"/><rect x="14" y="40" width="34" height="14" rx="3" fill="#1d1d22"/></g>
   <g font-family="Arial, sans-serif" font-weight="700" font-size="30" text-anchor="middle">
     <text x="205" y="441" fill="#3a2500">1.11x</text>
     <text x="375" y="441" fill="#3a2500">1.27x</text>

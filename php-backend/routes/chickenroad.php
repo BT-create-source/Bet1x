@@ -62,6 +62,15 @@ function register_chickenroad_routes(Router $app) {
         }
     });
 
+    // --- GET /api/chickenroad/live --- the "Live wins / Online" strip; public, real data only.
+    $app->get('/api/chickenroad/live', function (Req $req, Res $res) {
+        try {
+            $res->json(['ok' => true] + cr_live_feed());
+        } catch (Throwable $err) {
+            fail500($res, $err, 'chickenroad');
+        }
+    });
+
     // --- POST /api/chickenroad/start --- place the bet; the hen waits on the kerb for the first GO.
     $app->post('/api/chickenroad/start', 'require_auth', function (Req $req, Res $res) {
         $config = cr_config_get();
@@ -129,7 +138,7 @@ function register_chickenroad_routes(Router $app) {
             $session = [
                 'difficulty'  => $difficulty,
                 'bet_amount'  => $bet,
-                'fail_step'   => cr_fail_step($seed, $difficulty),
+                'fail_step'   => cr_fail_step($seed, $difficulty, $config['rtp']),
                 'server_seed' => $seed,
                 'seed_hash'   => hash('sha256', $seed),
                 'round_ref'   => strtoupper(substr(hash('sha256', 'ref:' . $seed), 0, 12)),
