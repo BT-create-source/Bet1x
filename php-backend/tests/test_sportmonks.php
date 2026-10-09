@@ -96,8 +96,19 @@ check(sm_status('NS') === 'not_started' && sm_status('1st Innings') === 'live' &
 check(sm_status('Finished', false, 'Match abandoned without a ball bowled') === 'abandoned' && sm_status('Finished', false, '', 'no result') === 'abandoned'
       && sm_status('Finished', false, 'India won by 25 runs') === 'completed', '"Finished" with a no-result note refunds; a real result settles');
 $done = fx('fixture-71344-live.json'); $done['status'] = 'Finished'; $done['live'] = false; $done['winner_team_id'] = $done['localteam_id']; $done['note'] = 'Pakistan won by 5 wickets';
+foreach ($done['runs'] as &$r) if ((int) $r['inning'] === 2) { $r['score'] = 187; $r['wickets'] = 6; $r['overs'] = 18.5; } unset($r);   // the real final: PAK 187/6 chasing 182
 $p = cricket_parse_snapshot(sm_snapshot($done));
 check($p['status'] === 'completed' && $p['winner'] === 'a' && $p['result_text'] === 'Pakistan won by 5 wickets', 'a finished match: completed, winner side a, result text kept for settlement', array_intersect_key($p, array_flip(['status', 'winner', 'result_text'])));
+// The real 9 Oct failure: India v West Indies "Finished", winner_team_id = India, no note — but WI chased 252/4 v 249/5.
+$wrong = fx('fixture-71010-live.json'); $wrong['status'] = 'Finished'; $wrong['live'] = false; $wrong['winner_team_id'] = $wrong['localteam_id']; $wrong['note'] = null;
+$wrong['runs'] = [['team_id' => $wrong['localteam_id'], 'inning' => 1, 'score' => 249, 'wickets' => 5, 'overs' => 20], ['team_id' => $wrong['visitorteam_id'], 'inning' => 2, 'score' => 252, 'wickets' => 4, 'overs' => 18.3]];
+$p = cricket_parse_snapshot(sm_snapshot($wrong));
+check($p['status'] === 'live' && $p['status_text'] === 'awaiting confirmed result', 'REAL CASE: Finished with a winner and no note is held, nothing settles', array_intersect_key($p, array_flip(['status', 'status_text'])));
+$wrong['note'] = 'India won by 6 wickets';
+check(cricket_parse_snapshot(sm_snapshot($wrong))['status'] === 'live', 'REAL CASE: even with a note, a winner who scored fewer runs is held');
+$wrong['winner_team_id'] = $wrong['visitorteam_id']; $wrong['note'] = 'West Indies won by 6 wickets (with 9 balls remaining)';
+$p = cricket_parse_snapshot(sm_snapshot($wrong));
+check($p['status'] === 'completed' && $p['winner'] === 'b', 'once Sportmonks corrects it (winner WI, note agrees, runs agree) it completes on West Indies');
 $early = $done; $early['winner_team_id'] = null; $early['note'] = '';
 check(cricket_parse_snapshot(sm_snapshot($early))['status'] === 'live', '"Finished" before the winner is filled in stays in play (else match bets would void as a tie)');
 $early['note'] = 'Match tied (Pakistan won the Super Over)';

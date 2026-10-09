@@ -266,6 +266,11 @@ function sm_snapshot(array $f) {
     // match with no winner as a TIE and voids every bet, so it stays in play until the winner is known
     // or the note says it really was a tie.
     if ($status === 'completed' && empty($f['winner_team_id']) && !preg_match('/\btie|tied|draw/i', (string) ($f['note'] ?? ''))) $status = 'live';
+    $resultHeld = null;
+    if ($status === 'completed') {
+        $resultHeld = sm_result_disagreement($f, $fx);
+        if ($resultHeld) { $status = 'live'; log_warn('sportmonks: result held back', ['match' => $fx['key'], 'why' => $resultHeld]); }
+    }
     $toss = null;
     if (!empty($f['toss_won_team_id']) && isset($sideOf[(int) $f['toss_won_team_id']])) {
         $toss = ['winner' => $fx['teams'][$sideOf[(int) $f['toss_won_team_id']]]['key'],
@@ -280,7 +285,7 @@ function sm_snapshot(array $f) {
         'key' => $fx['key'], 'name' => $fx['name'], 'short_name' => $fx['short_name'],
         'format' => strtolower($fx['format']), 'start_at' => $fx['start_ms'] ? (int) floor($fx['start_ms'] / 1000) : null,
         'status' => in_array($status, ['live', 'innings_break'], true) ? 'started' : ($status === 'completed' ? 'completed' : ($status === 'abandoned' ? 'abandoned' : 'not_started')),
-        'play_status' => $status === 'innings_break' ? 'innings_break' : ($status === 'live' ? 'in_play' : ($status === 'completed' ? 'result' : ($status === 'abandoned' ? 'no_result' : ''))),
+        'play_status' => $resultHeld ? 'awaiting confirmed result' : ($status === 'innings_break' ? 'innings_break' : ($status === 'live' ? 'in_play' : ($status === 'completed' ? 'result' : ($status === 'abandoned' ? 'no_result' : '')))),
         'teams' => $fx['teams'], 'squad' => $squad, 'players' => $players, 'toss' => $toss,
         'venue' => $fx['venue'],
         'play' => ['innings_order' => $order, 'target' => count($order) >= 2 ? $target : null,
@@ -291,6 +296,38 @@ function sm_snapshot(array $f) {
         '_balls_complete' => true,
         '_source' => 'sportmonks',
     ];
+}
+
+/**
+ * Why a "Finished" fixture's result cannot be trusted yet, or null when it can. Seen live on 9 Oct 2026:
+ * India v West Indies came back Finished with winner_team_id = India and no note, although West Indies
+ * had chased 252/4 against 249/5. Money settles on the winner, so it must agree with the result note
+ * AND (in a limited-overs match with no rain target) with the runs; until all three agree the match
+ * stays in play and nothing settles. A wrong field corrected later then settles correctly.
+ */
+function sm_result_disagreement(array $f, array $fx) {
+    if (empty($f['winner_team_id'])) return null;   // ties / no result are handled by the status rules
+    $sideOf = [(int) ($f['localteam_id'] ?? 0) => 'a', (int) ($f['visitorteam_id'] ?? 0) => 'b'];
+    $w = $sideOf[(int) $f['winner_team_id']] ?? null;
+    if (!$w) return 'winner is neither team';
+    $note = strtolower((string) ($f['note'] ?? ''));
+    $team = $fx['teams'][$w];
+    if ($note === '' || strpos($note, 'won') === false
+        || (strpos($note, strtolower($team['name'])) === false && strpos($note, strtolower($team['code'])) === false)) {
+        return 'result note does not name the winner yet';
+    }
+    if ($fx['format'] !== 'TEST' && empty($f['rpc_target'])) {
+        $runs = ['a' => null, 'b' => null];
+        foreach (sm_list($f['runs'] ?? []) as $r) {
+            $s = $sideOf[(int) ($r['team_id'] ?? 0)] ?? null;
+            if ($s && (int) ($r['inning'] ?? 0) <= 2) $runs[$s] = (int) $r['score'];
+        }
+        if ($runs['a'] !== null && $runs['b'] !== null && $runs['a'] !== $runs['b']) {
+            $more = $runs['a'] > $runs['b'] ? 'a' : 'b';
+            if ($more !== $w && empty($f['super_over'])) return 'winner contradicts the scores';
+        }
+    }
+    return null;
 }
 
 /** One match in full by REST — resync, and the final state of a match that has left /livescores. */

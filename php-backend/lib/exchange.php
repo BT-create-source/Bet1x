@@ -156,6 +156,8 @@ function mx_gate(array $feed, array $st, array $settings, array $deliveries, $no
     if ((int) ($settings['suspended'] ?? 0) === 1) return ['open' => false, 'reason' => 'Suspended'];
     if ((int) $feed['stalled'] === 1) return ['open' => false, 'reason' => 'Suspended — live data interrupted'];
     if (in_array($feed['status'], ['completed', 'abandoned'], true)) return ['open' => false, 'reason' => 'Closed'];
+    // Play is over but the source's result fields disagree (lib/cricket-sportmonks.php): no betting, no settling.
+    if (($feed['status_text'] ?? '') === 'awaiting confirmed result') return ['open' => false, 'reason' => 'Awaiting result'];
     if (!odds_model($feed['format'])) return ['open' => false, 'reason' => 'Not offered for this format'];
     if ($feed['status'] === 'not_started') {
         return ['open' => true, 'reason' => 'Pre-match'];
