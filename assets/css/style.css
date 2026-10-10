@@ -1868,12 +1868,14 @@ body.exchange-theme .sub-navbar-links {
 }
 body.exchange-theme .sub-navbar-item {
   min-width: 76px;
+  /* Grow to fit the label (e.g. "Chicken Road") instead of an equal share that long names overflow. */
+  flex: 1 0 auto;
 }
 body.exchange-theme .sub-navbar-link {
   color: #fff;
   font-family: var(--font-display);
   font-size: 12px;
-  padding: 11px 4px;
+  padding: 11px 12px;
   border-right: none;
   background: linear-gradient(160deg, #1e40af, #142a68);
   border: 1px solid var(--gold);
