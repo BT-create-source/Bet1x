@@ -111,11 +111,20 @@ ground.
 | Wing flap | one-shot | 1.2 s | Two beats about the shoulder, body lifts on each down-stroke, tail and head react. |
 | Look around | one-shot | 3.4 s | Back over the shoulder, then forward and down, pupils leading, a blink at the turn. |
 | React | one-shot | 0.95 s | Flinch, small hop with head thrown back, pupils contract, wing flick, tail cocked, settle with overshoot. |
+| Hop | one-shot | 0.42 s | Crouch, spring with feet tucked, land with a squash. Vertical only: the caller supplies the sideways travel over the same 0.42 s (Chicken Road hops her into the next lane with it). |
 
 **Controller rules**: one base at a time (switching cross-fades); at most one body action at a time
 (a new one fades the old out over 0.18 s rather than cutting); blinks layer over anything. Actions
 are additive offsets that start and end at exactly zero, so they can never snap the hen into or out
 of a pose. Time is real elapsed time × speed; clips are pure functions of time, so exports are exact.
+
+## Used in the game
+
+`chickenroad.html` (repo root) uses this hen as its character through `assets/js/chicken-hen.js`,
+which imports `src/rig` and `src/animation` and loads `src/character/hen.svg`. She idles (with an
+occasional glance or peck), hops on every GO, flaps on a cash-out, celebrates the Golden Egg, and
+flinches as the car arrives. Keep this folder deployed alongside the site. If it fails to load,
+the game falls back to its simple built-in hen.
 
 ## Export
 

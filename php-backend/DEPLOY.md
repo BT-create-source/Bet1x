@@ -672,6 +672,8 @@ Two house games, live as soon as their tables exist. Nothing to add to `.env`.
    creates `ChickenRoadSession` (one road per player) and `AstronautBet`.
 2. No new cron line: the existing `cron/tick.php` also settles any Astronaut round nobody is watching,
    so auto cash-outs and losses never sit open.
+   Upload the `hen-studio/` folder with the site: `chickenroad.html` loads its animated hen from
+   there (`assets/js/chicken-hen.js`). Without it the game still works, with a simpler hen.
 3. Admin console → **Chicken Road & Astronaut** tab: open/close each game, RTP (90–99%; defaults 98% and
    97%), bet limits, Astronaut's highest crash, and the per-round maximum win (reached = auto cash-out).
 

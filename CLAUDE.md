@@ -45,7 +45,10 @@ ball-by-ball) — that is the standing top priority for any change to them.
 `routes/astronaut.php` (one shared crash round driven by the wall clock like Aviator, but with bets in
 their own `AstronautBet` table, two panels, auto cash-out). Both are priced only by an operator RTP,
 are provably fair (seed hash shown first, seed revealed after), and are deliberately not wired to the
-bot-takeover engine. Pages `chickenroad.html` / `astronaut.html`; admin tab in
+bot-takeover engine. Chicken Road's character is the rigged hen from `hen-studio/` (traced from a
+reference image, animated by `hen-studio/src/animation`, driven in-game by `assets/js/chicken-hen.js`;
+see `hen-studio/README.md`), and its sounds are synthesized in `assets/js/chicken-sfx.js`.
+Pages `chickenroad.html` / `astronaut.html`; admin tab in
 `assets/js/admin-newgames.js`; migration 012; tests `php-backend/test_crash_games.php`; DEPLOY.md §14.
 
 The `README.md` describes an earlier "pitch demo, no backend" mode (pure HTML/CSS/JS with localStorage);

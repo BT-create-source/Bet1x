@@ -226,6 +226,29 @@ function react(t, P) {
   };
 }
 
+/**
+ * Hop (0.42 s): a single forward hop — crouch, spring up with the feet tucked, land with a squash.
+ * Vertical only: whatever moves her sideways (a game hopping her into the next lane) supplies the
+ * horizontal travel, timed to the same 0.42 s.
+ */
+function hop(t, P) {
+  const u = t / 0.42;
+  const crouch = track([[0, 0], [0.14, 1, 'out'], [0.24, 0], [0.74, 0], [0.84, 0.8, 'out'], [1, 0]], u);
+  const air = u < 0.18 || u > 0.78 ? 0 : Math.sin(Math.PI * (u - 0.18) / 0.6);
+  const lift = 72 * air * P.bob;
+  return {
+    body: { ty: 9 * crouch - lift, sy: 1 - 0.06 * crouch + 0.035 * air, sx: 1 + 0.035 * crouch - 0.02 * air, rot: 3 * air },
+    legNear: { ty: -lift * 0.92, tx: 6 * air }, legFar: { ty: -lift * 0.92, tx: -4 * air },
+    footNear: { rot: -14 * air }, footFar: { rot: -10 * air },
+    neck: { ty: (5 * crouch - 10 * air) * P.head, tx: 6 * air * P.head },
+    head: { rot: -3 * air * P.head },
+    wingNear: { rot: (14 * air + 4 * crouch) * P.flap },
+    tail: { rot: track([[0, 0], [0.2, -4], [0.5, 9], [0.82, -3], [1, 0]], u) },
+    comb: { rot: track([[0, 0], [0.22, -3], [0.55, 4], [0.85, -2], [1, 0]], u) },
+    wattle: { rot: track([[0, 0], [0.25, 6], [0.55, -6], [0.86, 4], [1, 0]], u) },
+  };
+}
+
 export const CLIPS = {
   idle:  { label: 'Idle',        kind: 'base',   loop: true,  duration: IDLE_LEN, sample: idle },
   walk:  { label: 'Walk',        kind: 'base',   loop: true,  duration: WALK.period, sample: walk },
@@ -235,6 +258,7 @@ export const CLIPS = {
   flap:  { label: 'Wing flap',   kind: 'action', loop: false, duration: 1.2,  sample: flap },
   look:  { label: 'Look around', kind: 'action', loop: false, duration: 3.4,  sample: look },
   react: { label: 'React',       kind: 'action', loop: false, duration: 0.95, sample: react },
+  hop:   { label: 'Hop',         kind: 'action', loop: false, duration: 0.42, sample: hop },
 };
 
 /** Ground speed that keeps a planted foot still while the hen walks across the stage (px/s). */

@@ -8,6 +8,9 @@
   <link rel="stylesheet" href="assets/css/style.css">
   <script src="assets/js/ui-common.js"></script>
   <script src="assets/js/sound-fx.js"></script>
+  <script src="assets/js/chicken-sfx.js"></script>
+  <!-- The rigged, animated hen (hen-studio). Optional: until it loads the page uses its simple hen. -->
+  <script type="module" src="assets/js/chicken-hen.js"></script>
   <script src="assets/js/result-popup.js"></script>
   <style>
     /* ==========================================================================================
@@ -124,6 +127,13 @@
     @keyframes crSquash { 0% { transform: none; } 30% { transform: scale(1.35, 0.35) rotate(-8deg); } 100% { transform: scale(1.4, 0.22) translateY(10%); opacity: 0.85; } }
     .cr-hen.cheer .body { animation: crCheer 0.55s ease-in-out 3; }
     @keyframes crCheer { 50% { transform: translateY(-24%) rotate(-5deg); } }
+    /* The rigged hen animates herself (breathing, hop, cheer); only the run-over flatten stays CSS. */
+    .cr-hen.rigged:not(.squash) .body { animation: none; }
+    .cr-hen.rigged svg { filter: drop-shadow(0 4px 3px rgba(0,0,0,0.25)); }
+    .cr-hen.rigged::after {
+      content: ''; position: absolute; left: 22%; right: 22%; bottom: 1%; height: 9%; border-radius: 50%;
+      background: radial-gradient(rgba(0,0,0,0.28), transparent 70%); z-index: -1;
+    }
     .cr-feather { position: absolute; width: 14px; height: 7px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1px #d5d6de; z-index: 6; pointer-events: none; animation: crFeather 1.1s ease-out forwards; }
     @keyframes crFeather { to { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity: 0; } }
 
@@ -465,7 +475,7 @@
       const small = w < 600;
       const h = fs ? stage.clientHeight || window.innerHeight - 260 : (small ? 300 : 440);
       const L = Math.round(h * (small ? 0.36 : 0.35));
-      const d = { w, h, L, kerb: Math.round(L * 1.2), fin: Math.round(L * 1.4), hole: Math.round(L * 0.7), hen: Math.round(L * 0.82), row: Math.round(h * 0.6) };
+      const d = { w, h, L, kerb: Math.round(L * 1.2), fin: Math.round(L * 1.4), hole: Math.round(L * 0.7), hen: Math.round(L * 0.95), row: Math.round(h * 0.6) };
       const s = stage.style;
       if (!fs) s.setProperty('--h', h + 'px');
       s.setProperty('--L', L + 'px'); s.setProperty('--kerb', d.kerb + 'px'); s.setProperty('--fin', d.fin + 'px');
@@ -514,12 +524,30 @@
       hen = document.createElement('div');
       hen.className = 'cr-hen';
       hen.innerHTML = '<div class="body"><svg viewBox="0 0 120 120"><use href="#sHen"/></svg></div>';
+      mountRiggedHen();
       track.appendChild(hen);
 
       tag = document.createElement('div');
       tag.className = 'cr-tag';
       tag.hidden = true;
       track.appendChild(tag);
+    }
+
+    /** Swap in the rigged hen once assets/js/chicken-hen.js has loaded (it may finish after this). */
+    function mountRiggedHen() {
+      if (!hen || !window.CRHen) return;
+      window.CRHen.attach(hen.querySelector('.body'));
+      hen.classList.add('rigged');
+      // No idle pecking and glancing about once she has been run over.
+      window.CRHen.setIdle(!(state && state.status === 'busted'));
+    }
+    window.addEventListener('crhen-ready', mountRiggedHen);
+    const henDo = (what) => { if (window.CRHen && hen && hen.classList.contains('rigged')) window.CRHen[what](); };
+
+    /** Game sounds: the Chicken Road pack when loaded, else the site's generic effects. */
+    function snd(name, opts, fallback) {
+      if (window.CRSound) window.CRSound.play(name, opts);
+      else if (fallback) sfx(fallback);
     }
 
     function setCamera(p, animate) {
@@ -617,7 +645,7 @@
       });
     }
 
-    let lastT = performance.now();
+    let lastT = performance.now(), lastWhoosh = 0;
     function frame(t) {
       const dt = Math.min(0.05, (t - lastT) / 1000); lastT = t;
       if (D && lanes.length) {
@@ -648,6 +676,14 @@
           c.y = ny;
           c.el.style.transform = 'translateY(' + c.y + 'px)';
           if (crash && crash.car === c && !crash.done && c.y + c.h >= D.row - D.hen * 0.25) { crash.done = true; crash.resolve(); }
+          // A whoosh as a car passes the hen's row in a lane near her, panned to its side.
+          if (!c.passed && c.y + c.h * 0.5 >= D.row) {
+            c.passed = true;
+            if (c !== (crash && crash.car) && Math.abs(c.n - henPos) <= 2 && t - lastWhoosh > 320) {
+              lastWhoosh = t;
+              snd('whoosh', { pan: (laneX(c.n) - posX(henPos, lanes.length)) / (D.L * 2.5) });
+            }
+          }
           if (c.y > D.h + 20) removeCar(c);
         }
         cars = cars.filter((c) => !c.dead || c.el.isConnected);
@@ -655,9 +691,15 @@
       requestAnimationFrame(frame);
     }
 
-    /** Send a car down lane n to hit the hen; resolves at the moment of impact. */
+    /**
+     * Send a car down lane n to hit the hen; resolves at the moment of impact. She sees it coming:
+     * a horn and a squeal of tyres, and she flinches just before it reaches her.
+     */
     function runOver(n) {
       cars.forEach((c) => { if (c.n === n) removeCar(c); });
+      snd('horn');
+      snd('screech', { delay: 0.12 });
+      henDo('startle');
       return new Promise((resolve) => {
         const car = spawnCar(n, { vehicle: VEHICLES[Math.floor(Math.random() * VEHICLES.length)], speed: D.h * 2.6 });
         crash = { n, car, done: false, resolve };
@@ -827,6 +869,7 @@
         sfx('betPlace');
         state = data.state;
         setBalance(state.balance);
+        if (window.CRHen) window.CRHen.reset();          // a fresh hen for a fresh road
         buildRoad(state.difficulty);
         render(false);
         await sleep(180);
@@ -855,20 +898,36 @@
         if (data.outcome !== 'fire') clearLaneAtRow(target);
         // Hop first; the coin behind her and the barrier over her lane both land with her.
         placeHen(target, true);
+        henDo('hop');
         tag.hidden = true;
-        sfx('go');
+        snd('hop', undefined, 'go');
+        snd('cluck', { delay: 0.05 });
         await sleep(430);
-        if (data.outcome !== 'fire') paintLanes();
+        snd('land');
+        if (data.outcome !== 'fire') {
+          paintLanes();
+          snd('barrier', { delay: 0.04 });
+          snd('coin', { delay: 0.16 }, 'gemReveal');
+        }
         if (data.outcome === 'fire') {
           paintLanes();
           await runOver(target);
-          sfx('crash');
+          snd('crash', undefined, 'crash');
+          snd('squawk', { delay: 0.03 });
+          if (window.CRHen) window.CRHen.setIdle(false);
           hen.classList.add('squash'); feathers();
           showBanner('lose', 'Run over!', 'Lost ' + fmt(prev.bet_amount), 2200);
           finishRound();
         } else if (data.outcome === 'golden_egg' || data.outcome === 'max_win') {
-          if (data.outcome === 'golden_egg') { await sleep(150); placeHen(lanes.length + 1, true); await sleep(430); }
-          paintLanes(); sfx('bigWin');
+          if (data.outcome === 'golden_egg') {
+            await sleep(150);
+            placeHen(lanes.length + 1, true); henDo('hop'); snd('hop'); snd('cluck', { delay: 0.05 });
+            await sleep(430);
+          }
+          paintLanes();
+          snd('fanfare', undefined, 'bigWin');
+          snd('cashout', { delay: 0.7 });
+          henDo('celebrate');
           hen.classList.add('cheer');
           showBanner('win', 'x' + fmtX(state.multiplier), (data.outcome === 'golden_egg' ? 'Golden Egg! ' : 'Max win! ') + fmt(state.payout), 2800);
           setBalance(state.balance);
@@ -893,7 +952,10 @@
         paintLanes();
         setBalance(state.balance);
         const big = state.multiplier >= 5;
-        sfx(big ? 'bigWin' : 'cashout');
+        snd('cashout', undefined, big ? 'bigWin' : 'cashout');
+        if (big) snd('fanfare', { delay: 0.35 });
+        snd('cluck', { delay: 0.15 });
+        henDo('cheer');
         hen.classList.add('cheer');
         showBanner('win', 'x' + fmtX(state.multiplier), 'WIN ' + fmt(data.payout), 2400);
         finishRound();
