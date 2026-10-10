@@ -85,6 +85,9 @@ $start = $sim['meta']['start_ms'];
 
 echo "\n== 1. Fixture, squads, credits, contests ==\n";
 at($start - 3 * 3600000);
+// Simulated players share keys across every mock match, so points history left by earlier runs (road
+// tests, the demo league) would re-price this squad; the credit check below is about the formula.
+q('DELETE FROM "fantasy_player_history" WHERE "player_key" LIKE ?', ['mk\_%']);
 $r = fantasy_feed_upsert_fixture(mock_fixture($SLOT));
 $matchId = $r['match_id'];
 $match = fantasy_find_match($matchId);

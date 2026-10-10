@@ -168,7 +168,7 @@ function fantasy_feed_upsert_fixture(array $f) {
         'match_title'   => $title,
         'team_a'        => $f['teams']['a']['name'], 'team_a_short' => $f['teams']['a']['code'],
         'team_b'        => $f['teams']['b']['name'], 'team_b_short' => $f['teams']['b']['code'],
-        'team_a_logo'   => null, 'team_b_logo' => null,
+        'team_a_logo'   => $f['teams']['a']['logo'] ?? null, 'team_b_logo' => $f['teams']['b']['logo'] ?? null,
         'format'        => $f['format'],
         'venue'         => $f['venue'],
         'start_time_ms' => $f['start_ms'],

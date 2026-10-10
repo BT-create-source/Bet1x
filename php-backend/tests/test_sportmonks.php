@@ -11,7 +11,7 @@
  */
 $root = dirname(__DIR__);
 require $root . '/config.php';
-foreach (['json', 'logger', 'db', 'http', 'auth', 'helpers', 'cricket-feed', 'cricket-sportmonks'] as $f) require_once "$root/lib/$f.php";
+foreach (['json', 'logger', 'db', 'http', 'auth', 'helpers', 'cricket-feed', 'cricket-sportmonks', 'fantasy-feed'] as $f) require_once "$root/lib/$f.php";
 
 $pass = 0; $fail = 0;
 function check($c, $l, $d = null) { global $pass, $fail; if ($c) { $pass++; echo "  PASS  $l\n"; } else { $fail++; echo "  FAIL  $l\n"; if ($d !== null) echo '        ' . json_encode($d) . "\n"; } }
@@ -92,6 +92,11 @@ echo "== Status ==\n";
 check(sm_status('NS') === 'not_started' && sm_status('1st Innings') === 'live' && sm_status('2nd Innings') === 'live' && sm_status('Innings Break') === 'innings_break'
       && sm_status('Finished') === 'completed' && sm_status('Aban.') === 'abandoned' && sm_status('Cancl.') === 'abandoned' && sm_status('Int.') === 'live',
       'NS, innings, break, finished, abandoned, cancelled, interrupted');
+check(sm_status('NS', true) === 'not_started' && sm_status('Delayed', true) === 'not_started',
+      'the "live" flag (live coverage available, true days ahead) never makes an unstarted match live');
+$ns = fx('fixture-71344-live.json'); $ns['status'] = 'NS'; $ns['live'] = true; $ns['balls'] = []; $ns['runs'] = [];
+check(sm_normalise_fixture($ns)['status'] === 'not_started' && cricket_parse_snapshot(sm_snapshot($ns))['status'] === 'not_started',
+      'an NS fixture with live coverage is not_started in the fixture list and in the snapshot');
 
 check(sm_status('Finished', false, 'Match abandoned without a ball bowled') === 'abandoned' && sm_status('Finished', false, '', 'no result') === 'abandoned'
       && sm_status('Finished', false, 'India won by 25 runs') === 'completed', '"Finished" with a no-result note refunds; a real result settles');
@@ -120,6 +125,33 @@ echo "== Snapshot flags ==\n";
 $s = sm_snapshot(fx('fixture-71344-live.json'));
 check(cricket_parse_snapshot($s)['balls_complete'] === true, 'a Sportmonks snapshot says it lists every ball (so withdrawn balls can be removed)');
 check(($s['play']['target'] ?? null) === 183, 'second-innings target = first innings + 1 (183, as Sportmonks\' note says)', $s['play']['target'] ?? null);
+
+echo "== Credits from career form ==\n";
+$career = fx('player-3338-career.json')['career'];
+$sk = sm_skill_from_career($career, 'T20');
+check($sk !== null && fantasy_feed_credits('x', 'ALL', $sk, 'T20') >= 9.5, 'Abhishek Sharma (T20 + T20I record) prices as a star: ' . fantasy_feed_credits('x', 'ALL', $sk, 'T20') . ' credits');
+check(sm_skill_from_career(array_slice($career, 0, 1), 'T20') === null, 'under 5 matches of record: no skill (falls back to the role default)');
+check(sm_skill_from_career($career, 'TEST') === null, 'a format with no record gives no skill');
+$row = function ($m, $runs, $balls, $f, $s, $wm, $wk, $ov, $conc) { return ['type' => 'T20', 'batting' => ['matches' => $m, 'runs_scored' => $runs, 'balls_faced' => $balls, 'four_x' => $f, 'six_x' => $s], 'bowling' => ['matches' => $wm, 'wickets' => $wk, 'overs' => $ov, 'runs' => $conc]]; };
+$tail = sm_skill_from_career([$row(30, 120, 130, 8, 1, 30, 4, 60, 560)], 'T20');
+$strikeBowler = sm_skill_from_career([$row(30, 80, 90, 5, 1, 30, 45, 110, 800)], 'T20');
+$opener = sm_skill_from_career([$row(30, 1050, 740, 110, 40, 2, 0, 2, 25)], 'T20');
+check($tail < $strikeBowler && $tail < $opener, 'a tail-ender costs less than a wicket-taker or a heavy-scoring opener');
+check(fantasy_feed_credits('x', 'BAT', $tail, 'T20') >= 6 && fantasy_feed_credits('x', 'BAT', $opener, 'T20') <= 10.5, 'credits stay inside 6-10.5');
+
+echo "== Pre-match price from rankings / standings ==\n";
+$rk = [10 => ['T20I|men' => 269], 43 => ['T20I|men' => 234], 300 => ['T20I|women' => 291], 301 => ['T20I|women' => 180]];
+$p = sm_prematch_prob(10, 43, 'T20', $rk, []);
+check($p > 0.65 && $p < 0.75, sprintf('India (269) v West Indies (234): India %.0f%%', 100 * $p));
+check(abs(sm_prematch_prob(10, 43, 'T20', $rk, []) + sm_prematch_prob(43, 10, 'T20', $rk, []) - 1) < 1e-9, 'symmetric: swapping the teams gives the complement');
+check(sm_prematch_prob(300, 301, 'T20', $rk, []) <= 0.75, 'a huge gap is capped at 75% (T20 is volatile)');
+check(sm_prematch_prob(10, 300, 'T20', $rk, []) === null, 'a men\'s side and a women\'s side are never compared');
+$st = [];
+foreach (fx('standings-1849.json') as $r) $st[(int) $r['team_id']] = $r;
+$ids = array_keys($st);
+$p = sm_prematch_prob($ids[0], end($ids), 'T20', [], $st);
+check($p !== null && $p > 0.5 && $p <= 0.65, sprintf('domestic: table-topper v bottom side from the real CSA standings %.0f%% (capped 65%%)', 100 * $p));
+check(sm_prematch_prob(999998, 999999, 'T20', $rk, $st) === null, 'unknown teams: no price (Match Odds waits for play, as before)');
 
 echo "\ntest_sportmonks: $pass passed, $fail failed\n";
 exit($fail ? 1 : 0);

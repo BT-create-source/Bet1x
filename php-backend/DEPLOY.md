@@ -655,6 +655,20 @@ Go live
    then delete that cron line. Re-running is harmless.
 4. Watch the first live match in the admin cricket panel before advertising it.
 
+What else is taken from Sportmonks (all automatic, all throttled well inside the 2,000 calls/hour):
+- Playing XI and toss ~30 minutes before the start (fixtures due within 75 min are read every 2 min), so
+  Your 11 shows Playing / Not playing before its deadline; XI players missing from the season squad are
+  added and priced.
+- Your 11 credits from each player's career record for the format (runs, boundaries, strike rate,
+  wickets, economy), balanced per match so the likely XI averages ~9.3 and an all-stars team costs more
+  than 100. Only matches nobody has built a team on yet are re-priced.
+- Pre-match Match Odds / Bookmaker prices from ICC team ratings (internationals) or the season table
+  (domestic, 2+ games each), so betting opens before the toss; capped 25-75% / 35-65%. An operator's own
+  price is never overwritten, and nothing is re-priced once play starts. No sound basis = waits for play.
+- Team crests, player photos, venue + city, and Player of the Match in the result line.
+- Ball by Ball and Fancy settle only after a ball has stood unchanged for 90s (Sportmonks corrects ~3% of
+  balls after posting them, up to minutes later).
+
 Result safety: a "Finished" fixture settles only once Sportmonks' winner, the result note and (limited
 overs, no rain target) the runs agree — on 9 Oct 2026 India v West Indies came back with the wrong
 winner for ~4 minutes. Until they agree the match shows "awaiting confirmed result" and nothing settles.

@@ -11,11 +11,13 @@ error_reporting(E_ALL & ~E_DEPRECATED);
 ini_set('display_errors', '0');
 $root = dirname(__DIR__);
 require_once $root . '/config.php';
-foreach (['json', 'logger', 'db', 'http', 'auth', 'helpers', 'cricket-feed', 'cricket-roanuz', 'bbb', 'fantasy-feed'] as $f) require_once "$root/lib/$f.php";
+foreach (['json', 'logger', 'db', 'http', 'auth', 'helpers', 'cricket-feed', 'cricket-roanuz', 'bbb', 'exchange', 'fantasy-feed'] as $f) require_once "$root/lib/$f.php";
 
 $task = json_decode((string) file_get_contents($argv[1] ?? ''), true);
 if (!is_array($task)) { echo json_encode(['ok' => false, 'error' => 'bad task']), "\n"; exit(0); }
 db();   // connect before the barrier so every worker fires at the same moment
+// Match betting checks "is the market open" against the clock; a race task pins the instant it was planned at.
+if (isset($task['clock'])) $GLOBALS['BET1X_TEST_NOW_MS'] = (int) $task['clock'];
 while ((int) round(microtime(true) * 1000) < (int) $task['start_at']) usleep(2000);
 
 try {
@@ -29,6 +31,15 @@ try {
             break;
         case 'settle_contest':
             $r = fantasy_settle_contest((int) $task['contest_id'], false);
+            break;
+        case 'mx_bet':
+            $r = mx_place_bet($user, (string) $task['match_key'], (array) $task['bet']);
+            break;
+        case 'mx_cashout':
+            $r = mx_cashout($user, (string) $task['match_key'], (string) $task['market_key']);
+            break;
+        case 'mx_process':
+            $r = mx_process_match((string) $task['match_key'], (int) $task['clock']);
             break;
         case 'bbb_settle':
             $r = bbb_process_match($task['match_key'], (int) $task['now']);
