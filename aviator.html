@@ -169,7 +169,6 @@
 <script src="assets/js/ui-common.js"></script>
 <script src="assets/js/sound-fx.js"></script>
 <script src="assets/js/result-popup.js"></script>
-<script src="assets/js/vimaan-plane.js"></script>
 <script>initGameHistoryPanel({ mount: 'vimaan-history', games: ['Vimaan'] });</script>
 
 <script>
@@ -1274,8 +1273,7 @@ function drawFlightCanvas(mult) {
   // Keep nose pitch gently inclined (between ~10° to 22° nose-up)
   const flightPitch = Math.max(-0.38, Math.min(-0.12, slopeAngle * 0.65)) + (hoverOffsetY * 0.008);
   ctx.rotate(flightPitch);
-  // Animated plane (assets/js/vimaan-plane.js); the original image if that is not ready.
-  if (!(window.VimaanPlane && VimaanPlane.draw(ctx, planeSize))) ctx.drawImage(planeImg, -planeSize / 2, -planeSize / 2, planeSize, planeSize);
+  ctx.drawImage(planeImg, -planeSize / 2, -planeSize / 2, planeSize, planeSize);
   ctx.restore();
 }
 

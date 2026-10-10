@@ -70,7 +70,7 @@
       position: absolute; left: 0; top: 0; width: 86px; height: 86px; margin: -43px 0 0 -43px;
       will-change: transform; z-index: 3; pointer-events: none;
     }
-    .as-astro svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 0 12px rgba(165,107,255,0.6)); }
+    .as-astro svg { width: 100%; height: 100%; display: block; overflow: visible; filter: drop-shadow(0 0 14px rgba(143,211,255,0.22)) drop-shadow(0 10px 18px rgba(4,2,16,0.45)); }
     .as-astro .flame { transform-origin: 50% 0; animation: asFlame 0.12s ease-in-out infinite alternate; }
     @keyframes asFlame { from { transform: scaleY(0.8); opacity: 0.85; } to { transform: scaleY(1.15); opacity: 1; } }
     .as-astro.idle .flame { display: none; }
@@ -212,85 +212,178 @@
 
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
     <defs>
-      <!-- Astronaut art: outlined, cel-shaded, in the same style as the rest of the site's game art. -->
-      <radialGradient id="asVisor" cx="35%" cy="30%" r="80%">
-        <stop offset="0" stop-color="#fff2c4"/><stop offset="0.45" stop-color="#ffb43d"/><stop offset="1" stop-color="#9a4a06"/>
+      <!-- Astronaut: volumetric, lit from the upper left with a cool rim light from the planet side.
+           Soft shading instead of outlines, a reflective gold visor, a metallic life-support pack and a
+           heat-blurred thruster. Motion is slow and eased (spline keyframes), as a body drifts in zero-g. -->
+      <radialGradient id="asSuitBody" cx="34%" cy="28%" r="78%">
+        <stop offset="0" stop-color="#ffffff"/><stop offset="0.45" stop-color="#eef0f7"/>
+        <stop offset="0.8" stop-color="#c3c8db"/><stop offset="1" stop-color="#8d93ad"/>
       </radialGradient>
-      <linearGradient id="asSuit" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#ffffff"/><stop offset="0.6" stop-color="#e3e6f3"/><stop offset="1" stop-color="#b3b9d6"/>
+      <linearGradient id="asSuitLimb" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#f7f8fc"/><stop offset="0.55" stop-color="#dde1ee"/><stop offset="1" stop-color="#9aa0bb"/>
       </linearGradient>
-      <linearGradient id="asPack" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0" stop-color="#c5cae0"/><stop offset="1" stop-color="#6e7499"/>
+      <linearGradient id="asSuitLimbBack" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#c9cee0"/><stop offset="1" stop-color="#7b819f"/>
       </linearGradient>
-      <linearGradient id="asJet" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#fffbe0"/><stop offset="0.35" stop-color="#ffd23d"/><stop offset="0.7" stop-color="#ff7a1a"/><stop offset="1" stop-color="#ff3d6e" stop-opacity="0"/>
+      <radialGradient id="asHelmet" cx="36%" cy="30%" r="72%">
+        <stop offset="0" stop-color="#ffffff"/><stop offset="0.55" stop-color="#e6e9f3"/><stop offset="1" stop-color="#959bb6"/>
+      </radialGradient>
+      <linearGradient id="asVisorG" x1="0.15" y1="0" x2="0.85" y2="1">
+        <stop offset="0" stop-color="#ffe7a3"/><stop offset="0.18" stop-color="#e9a83a"/>
+        <stop offset="0.5" stop-color="#7a3d12"/><stop offset="0.78" stop-color="#2a1140"/><stop offset="1" stop-color="#120a2a"/>
       </linearGradient>
-      <linearGradient id="asJetCore" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#fff3b0" stop-opacity="0"/>
+      <radialGradient id="asVisorDepth" cx="62%" cy="70%" r="60%">
+        <stop offset="0" stop-color="#3b2a9c" stop-opacity="0.55"/><stop offset="1" stop-color="#3b2a9c" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="asMetal" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#eef1f8"/><stop offset="0.35" stop-color="#b9bfd3"/>
+        <stop offset="0.6" stop-color="#7d839f"/><stop offset="1" stop-color="#4a4f6b"/>
       </linearGradient>
-      <clipPath id="asVisorClip"><ellipse cx="51" cy="25" rx="12" ry="10"/></clipPath>
+      <linearGradient id="asRing" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#d9dde9"/><stop offset="0.5" stop-color="#8a90aa"/><stop offset="1" stop-color="#555a76"/>
+      </linearGradient>
+      <linearGradient id="asBoot" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#9ea4bd"/><stop offset="1" stop-color="#4d5270"/>
+      </linearGradient>
+      <linearGradient id="asPlume" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ffffff"/><stop offset="0.12" stop-color="#c9f1ff"/>
+        <stop offset="0.38" stop-color="#7fb8ff"/><stop offset="0.7" stop-color="#8a5cff" stop-opacity="0.55"/>
+        <stop offset="1" stop-color="#8a5cff" stop-opacity="0"/>
+      </linearGradient>
+      <radialGradient id="asGlow" cx="50%" cy="50%" r="50%">
+        <stop offset="0" stop-color="#9fd8ff" stop-opacity="0.85"/><stop offset="1" stop-color="#7a5cff" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="asRim" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0.55" stop-color="#8fd3ff" stop-opacity="0"/><stop offset="1" stop-color="#8fd3ff" stop-opacity="0.75"/>
+      </linearGradient>
+      <filter id="asShadow" x="-30%" y="-30%" width="160%" height="160%">
+        <feDropShadow dx="1.2" dy="2.4" stdDeviation="1.8" flood-color="#05030f" flood-opacity="0.55"/>
+      </filter>
+      <filter id="asSoft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.6"/></filter>
+      <filter id="asHeat" x="-60%" y="-20%" width="220%" height="160%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.09 0.35" numOctaves="2" seed="4" result="n">
+          <animate attributeName="seed" values="1;2;3;4;5;6;7;8" dur="0.48s" repeatCount="indefinite" calcMode="discrete"/>
+        </feTurbulence>
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="3.2" xChannelSelector="R" yChannelSelector="G" result="d"/>
+        <feGaussianBlur in="d" stdDeviation="0.5"/>
+      </filter>
+      <clipPath id="asVisorClip"><path d="M38.6 24.5 Q39.6 14.6 51 14.2 Q62.6 14.6 63.4 24.6 Q62.8 33.6 51 34.2 Q39.4 33.6 38.6 24.5 Z"/></clipPath>
     </defs>
     <symbol id="asAstronaut" viewBox="0 0 100 100">
       <g transform="rotate(35 50 50)">
-        <animateTransform attributeName="transform" type="translate" additive="sum" values="0 0;0 -1.6;0 0" dur="2.2s" repeatCount="indefinite"/>
-        <!-- jet: flickering flame and sparks, scaled from the nozzle -->
-        <g class="flame" transform="translate(50 76)">
-          <g>
-            <animateTransform attributeName="transform" type="scale" values="1 1;0.86 1.22;1.08 0.9;0.94 1.12;1 1" dur="0.28s" repeatCount="indefinite"/>
-            <path d="M-11 0 Q-9 18 0 34 Q9 18 11 0 Z" fill="url(#asJet)"/>
-            <path d="M-5 0 Q-4 10 0 19 Q4 10 5 0 Z" fill="url(#asJetCore)"/>
+        <!-- slow zero-g drift: a lift and a sway, eased -->
+        <animateTransform attributeName="transform" type="translate" additive="sum" values="0 0;0.6 -1.8;0 0" keyTimes="0;0.5;1"
+                          calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1" dur="3.6s" repeatCount="indefinite"/>
+        <animateTransform attributeName="transform" type="rotate" additive="sum" values="-2.5 50 52;2.5 50 52;-2.5 50 52" keyTimes="0;0.5;1"
+                          calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1" dur="5.2s" repeatCount="indefinite"/>
+
+        <!-- thruster: glow, heat-distorted plume, white core, a few ions -->
+        <g class="flame" transform="translate(50 79)">
+          <ellipse cx="0" cy="12" rx="13" ry="17" fill="url(#asGlow)" filter="url(#asSoft)">
+            <animate attributeName="opacity" values="0.75;1;0.8;0.95;0.75" dur="0.9s" repeatCount="indefinite"/>
+          </ellipse>
+          <g filter="url(#asHeat)">
+            <g>
+              <animateTransform attributeName="transform" type="scale" values="1 1;0.93 1.12;1.04 0.94;0.97 1.07;1 1"
+                                calcMode="spline" keySplines="0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1" dur="0.6s" repeatCount="indefinite"/>
+              <path d="M-8 0 C-7.5 12 -3.6 26 0 40 C3.6 26 7.5 12 8 0 Z" fill="url(#asPlume)"/>
+              <path d="M-3.2 0 C-3 7 -1.5 14 0 21 C1.5 14 3 7 3.2 0 Z" fill="#ffffff" opacity="0.95"/>
+            </g>
           </g>
-          <circle r="1.6" fill="#ffd23d"><animate attributeName="cy" values="6;34" dur="0.5s" repeatCount="indefinite"/><animate attributeName="cx" values="-3;-6" dur="0.5s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;0" dur="0.5s" repeatCount="indefinite"/></circle>
-          <circle r="1.2" fill="#fff3b0"><animate attributeName="cy" values="8;30" dur="0.42s" begin="0.15s" repeatCount="indefinite"/><animate attributeName="cx" values="3;7" dur="0.42s" begin="0.15s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;0" dur="0.42s" begin="0.15s" repeatCount="indefinite"/></circle>
+          <circle r="0.7" fill="#d9f3ff"><animate attributeName="cy" values="4;30" dur="0.9s" repeatCount="indefinite"/><animate attributeName="cx" values="-1;-4" dur="0.9s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.9;0" dur="0.9s" repeatCount="indefinite"/></circle>
+          <circle r="0.55" fill="#bfa8ff"><animate attributeName="cy" values="6;27" dur="0.75s" begin="0.3s" repeatCount="indefinite"/><animate attributeName="cx" values="1;4.5" dur="0.75s" begin="0.3s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.9;0" dur="0.75s" begin="0.3s" repeatCount="indefinite"/></circle>
+          <circle r="0.5" fill="#ffffff"><animate attributeName="cy" values="5;24" dur="0.6s" begin="0.55s" repeatCount="indefinite"/><animate attributeName="cx" values="0;-2" dur="0.6s" begin="0.55s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;0" dur="0.6s" begin="0.55s" repeatCount="indefinite"/></circle>
         </g>
-        <!-- jetpack with two nozzles -->
-        <rect x="32" y="39" width="36" height="36" rx="9" fill="url(#asPack)" stroke="#2a1a14" stroke-width="2.4"/>
-        <rect x="35.5" y="42" width="5" height="28" rx="2.5" fill="#fff" opacity="0.35"/>
-        <rect x="39" y="72" width="9" height="7" rx="2" fill="#5d6390" stroke="#2a1a14" stroke-width="2"/>
-        <rect x="52" y="72" width="9" height="7" rx="2" fill="#5d6390" stroke="#2a1a14" stroke-width="2"/>
-        <!-- legs, kicking in turn from the hips -->
-        <g>
-          <animateTransform attributeName="transform" type="rotate" values="-14 44 72;12 44 72;-14 44 72" dur="1.1s" repeatCount="indefinite"/>
-          <path d="M38 70 L37 88 Q37 92 41 92 L47 92 Q49 92 49 89 L49 70 Z" fill="url(#asSuit)" stroke="#2a1a14" stroke-width="2.4" stroke-linejoin="round"/>
-          <path d="M36 87 Q36 96 44 96 L50 96 Q52 96 51 92 L50 87 Z" fill="#8f96bd" stroke="#2a1a14" stroke-width="2.4" stroke-linejoin="round"/>
-        </g>
-        <g>
-          <animateTransform attributeName="transform" type="rotate" values="12 56 72;-14 56 72;12 56 72" dur="1.1s" repeatCount="indefinite"/>
-          <path d="M51 70 L51 89 Q51 92 53 92 L59 92 Q63 92 63 88 L62 70 Z" fill="url(#asSuit)" stroke="#2a1a14" stroke-width="2.4" stroke-linejoin="round"/>
-          <path d="M50 87 L49 92 Q48 96 50 96 L56 96 Q64 96 64 87 Z" fill="#8f96bd" stroke="#2a1a14" stroke-width="2.4" stroke-linejoin="round"/>
-        </g>
-        <!-- back arm -->
-        <g>
-          <animateTransform attributeName="transform" type="rotate" values="8 34 48;-14 34 48;8 34 48" dur="1.6s" repeatCount="indefinite"/>
-          <path d="M33 46 Q20 50 17 62 Q16 68 21 69 Q26 69 27 64 Q29 57 36 55 Z" fill="url(#asSuit)" stroke="#2a1a14" stroke-width="2.4" stroke-linejoin="round"/>
-          <circle cx="20" cy="67" r="5" fill="#a5a9c9" stroke="#2a1a14" stroke-width="2.2"/>
-        </g>
-        <!-- suit -->
-        <path d="M30 47 Q30 37 39 37 L61 37 Q70 37 70 47 L70 69 Q70 76 63 76 L37 76 Q30 76 30 69 Z" fill="url(#asSuit)" stroke="#2a1a14" stroke-width="2.6" stroke-linejoin="round"/>
-        <path d="M34 44 Q35 40 40 40" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round"/>
-        <rect x="30" y="64" width="40" height="5" fill="#8f96bd" stroke="#2a1a14" stroke-width="1.8"/>
-        <rect x="39" y="49" width="22" height="11" rx="3" fill="#4b5180" stroke="#2a1a14" stroke-width="2"/>
-        <circle cx="44" cy="54.5" r="2.2" fill="#ff4b6e"><animate attributeName="opacity" values="1;0.25;1" dur="0.9s" repeatCount="indefinite"/></circle>
-        <circle cx="50" cy="54.5" r="2.2" fill="#2ed47a"><animate attributeName="opacity" values="0.25;1;0.25" dur="1.3s" repeatCount="indefinite"/></circle>
-        <circle cx="56" cy="54.5" r="1.8" fill="#ffc53d"><animate attributeName="opacity" values="1;0.4;1" dur="0.6s" repeatCount="indefinite"/></circle>
-        <!-- front arm, reaching ahead and swimming -->
-        <g>
-          <animateTransform attributeName="transform" type="rotate" values="-6 66 46;12 66 46;-6 66 46" dur="1.6s" begin="0.4s" repeatCount="indefinite"/>
-          <path d="M67 44 Q80 44 86 33 Q89 27 84 26 Q80 26 78 30 Q74 38 66 40 Z" fill="url(#asSuit)" stroke="#2a1a14" stroke-width="2.4" stroke-linejoin="round"/>
-          <circle cx="85" cy="29" r="5" fill="#a5a9c9" stroke="#2a1a14" stroke-width="2.2"/>
-        </g>
-        <!-- helmet, gold visor with a sweeping glint, antenna -->
-        <path d="M37 13 L32 4" stroke="#2a1a14" stroke-width="2.2" stroke-linecap="round"/>
-        <circle cx="32" cy="4" r="2.6" fill="#ff4b6e" stroke="#2a1a14" stroke-width="1.6"><animate attributeName="fill" values="#ff4b6e;#ffd0d8;#ff4b6e" dur="1s" repeatCount="indefinite"/></circle>
-        <circle cx="50" cy="24" r="17.5" fill="url(#asSuit)" stroke="#2a1a14" stroke-width="2.8"/>
-        <path d="M38 16 Q42 10 49 9" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round"/>
-        <ellipse cx="51" cy="25" rx="12" ry="10" fill="url(#asVisor)" stroke="#2a1a14" stroke-width="2.4"/>
-        <g clip-path="url(#asVisorClip)">
-          <rect x="30" y="10" width="6" height="30" fill="#fff" opacity="0.65" transform="skewX(-20)">
-            <animate attributeName="x" values="30;30;78;78" keyTimes="0;0.55;0.8;1" dur="3.2s" repeatCount="indefinite"/>
+
+        <g filter="url(#asShadow)">
+          <!-- life-support pack, metallic, with panel lines, vents and the nozzle -->
+          <path d="M31 40 Q31 34 37 34 L63 34 Q69 34 69 40 L69 71 Q69 77 63 77 L37 77 Q31 77 31 71 Z" fill="url(#asMetal)"/>
+          <path d="M33 40 Q33 36 37 36 L46 36 L46 75 L37 75 Q33 75 33 71 Z" fill="#ffffff" opacity="0.18"/>
+          <path d="M31 56 L69 56 M50 34 L50 77" stroke="#2c2f45" stroke-opacity="0.35" stroke-width="0.6"/>
+          <g fill="#2c2f45" opacity="0.45"><rect x="55" y="60" width="9" height="1.1" rx="0.5"/><rect x="55" y="63" width="9" height="1.1" rx="0.5"/><rect x="55" y="66" width="9" height="1.1" rx="0.5"/></g>
+          <path d="M44 77 L56 77 L54 81 L46 81 Z" fill="url(#asRing)"/>
+          <ellipse cx="50" cy="81" rx="4.2" ry="1.1" fill="#1a1b2c"/>
+          <ellipse class="flame" cx="50" cy="80.9" rx="3" ry="0.7" fill="#bfe9ff" opacity="0.9"/>
+
+          <!-- back arm, in the body's shadow -->
+          <g>
+            <animateTransform attributeName="transform" type="rotate" values="4 34 46;-6 34 46;4 34 46" keyTimes="0;0.5;1"
+                              calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1" dur="4.4s" repeatCount="indefinite"/>
+            <path d="M35 44 C28 45 23 50 21 57 C20 60 22.5 62 25 61 C27 60 27.5 57 29.5 54 C31 52 34 51 37 50.5 Z" fill="url(#asSuitLimbBack)"/>
+            <path d="M22.8 56.6 Q25.5 58.6 27.8 56.8" stroke="#555a76" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+            <path d="M20 59.5 C17.8 60.5 17.6 64 19.6 65.2 C21.6 66.4 24.6 65.2 25.4 62.6 Z" fill="url(#asBoot)"/>
+          </g>
+
+          <!-- legs, drifting apart and back, with knee joints and boots -->
+          <g>
+            <animateTransform attributeName="transform" type="rotate" values="-5 44 72;4 44 72;-5 44 72" keyTimes="0;0.5;1"
+                              calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1" dur="4.8s" repeatCount="indefinite"/>
+            <path d="M38 70 L37.4 80 C37.2 84 38.4 87 41 88 L47.4 88 C48.6 87.4 49 86 49 84 L49 70 Z" fill="url(#asSuitLimb)"/>
+            <path d="M37.6 78.6 Q43 80.4 48.9 78.6" stroke="#8f95b0" stroke-width="1.8" fill="none"/>
+            <path d="M36.6 86 C35.8 91 37.8 94.6 42.6 94.6 L49.2 94.6 C50.8 94.6 51.2 92.6 50.4 90.6 L49.6 86 Z" fill="url(#asBoot)"/>
+            <path d="M36.8 92.6 L50.9 92.6" stroke="#2a2d42" stroke-width="1.4" opacity="0.7"/>
+          </g>
+          <g>
+            <animateTransform attributeName="transform" type="rotate" values="4 56 72;-5 56 72;4 56 72" keyTimes="0;0.5;1"
+                              calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1" dur="4.8s" repeatCount="indefinite"/>
+            <path d="M51 70 L51 84 C51 86 51.4 87.4 52.6 88 L59 88 C61.6 87 62.8 84 62.6 80 L62 70 Z" fill="url(#asSuitLimb)"/>
+            <path d="M51.1 78.6 Q57 80.4 62.4 78.6" stroke="#8f95b0" stroke-width="1.8" fill="none"/>
+            <path d="M50.4 86 L49.6 90.6 C48.8 92.6 49.2 94.6 50.8 94.6 L57.4 94.6 C62.2 94.6 64.2 91 63.4 86 Z" fill="url(#asBoot)"/>
+            <path d="M49.1 92.6 L63.2 92.6" stroke="#2a2d42" stroke-width="1.4" opacity="0.7"/>
+          </g>
+
+          <!-- torso: shaded suit, seams, chest control unit, mission patch, waist ring -->
+          <path d="M30 47 C30 39.5 34 37 40 37 L60 37 C66 37 70 39.5 70 47 L70 68 C70 74 66.5 76.5 61 76.5 L39 76.5 C33.5 76.5 30 74 30 68 Z" fill="url(#asSuitBody)"/>
+          <path d="M30 47 C30 39.5 34 37 40 37 L60 37 C66 37 70 39.5 70 47 L70 68 C70 74 66.5 76.5 61 76.5 L39 76.5 C33.5 76.5 30 74 30 68 Z" fill="url(#asRim)"/>
+          <path d="M40 38 L40 64 M60 38 L60 64" stroke="#7d839f" stroke-opacity="0.28" stroke-width="0.7"/>
+          <rect x="30" y="64.5" width="40" height="4.4" fill="url(#asRing)"/>
+          <rect x="41.5" y="47" width="17" height="11.5" rx="2" fill="#3a3f5c"/>
+          <rect x="41.5" y="47" width="17" height="3" rx="1.5" fill="#ffffff" opacity="0.12"/>
+          <rect x="43.2" y="49.6" width="6.4" height="3.6" rx="0.8" fill="#0d1a2c"/>
+          <rect x="43.6" y="50" width="5.6" height="2.8" rx="0.6" fill="#38e8b0" opacity="0.85">
+            <animate attributeName="opacity" values="0.85;0.55;0.85" keyTimes="0;0.5;1" calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1" dur="2.4s" repeatCount="indefinite"/>
           </rect>
+          <circle cx="53" cy="51.4" r="1.15" fill="#ff5a7a"><animate attributeName="opacity" values="1;0.35;1" dur="1.8s" repeatCount="indefinite"/></circle>
+          <circle cx="56.2" cy="51.4" r="1.15" fill="#ffc53d"/>
+          <rect x="43.2" y="55" width="13.6" height="1.2" rx="0.6" fill="#8a90aa" opacity="0.7"/>
+          <circle cx="35.6" cy="44.6" r="2.6" fill="#2b2f8f"/><circle cx="35.6" cy="44.6" r="2.6" fill="none" stroke="#e1e4f0" stroke-width="0.6"/>
+          <path d="M34.2 45.4 L35.6 42.9 L37 45.4 Z" fill="#ffc53d"/>
+
+          <!-- front arm, reaching ahead; shoulder and elbow rings, glove -->
+          <g>
+            <animateTransform attributeName="transform" type="rotate" values="-3 65 45;6 65 45;-3 65 45" keyTimes="0;0.5;1"
+                              calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1" dur="4.4s" begin="-1.1s" repeatCount="indefinite"/>
+            <path d="M64 41 C70 40.5 75 37.5 78.5 32.5 C80.5 30 83.5 31 83.6 33.6 C83.6 36.4 81 39.4 77.5 42.2 C74 45 69.5 47.4 65.5 48 Z" fill="url(#asSuitLimb)"/>
+            <path d="M75.6 34.4 Q78.6 38 81.6 37.2" stroke="#8f95b0" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+            <path d="M64.6 41.3 C66.4 43 66.6 46 65.4 47.8" stroke="#8a90aa" stroke-width="2.2" fill="none"/>
+            <path d="M80.6 28.6 C83 26.4 87 27.2 87.4 30.4 C87.8 33.4 85 35.6 82.4 34.8 C80.2 34 79.4 30.4 80.6 28.6 Z" fill="url(#asBoot)"/>
+            <path d="M81.2 29 Q83.4 27.6 85.4 28.6" stroke="#ffffff" stroke-width="0.7" opacity="0.5" fill="none" stroke-linecap="round"/>
+          </g>
+
+          <!-- helmet: neck ring, shell, gold visor with depth, reflections and a slow sheen -->
+          <ellipse cx="50" cy="39.6" rx="12.6" ry="3.4" fill="url(#asRing)"/>
+          <circle cx="50" cy="24" r="17" fill="url(#asHelmet)"/>
+          <circle cx="50" cy="24" r="17" fill="url(#asRim)"/>
+          <path d="M38.6 24.5 Q39.6 14.6 51 14.2 Q62.6 14.6 63.4 24.6 Q62.8 33.6 51 34.2 Q39.4 33.6 38.6 24.5 Z" fill="#6f7591"/>
+          <path d="M39.4 24.5 Q40.3 15.4 51 15 Q61.8 15.4 62.6 24.6 Q62 32.8 51 33.4 Q40.2 32.8 39.4 24.5 Z" fill="url(#asVisorG)"/>
+          <g clip-path="url(#asVisorClip)">
+            <rect x="38" y="13" width="26" height="22" fill="url(#asVisorDepth)"/>
+            <!-- the planet and a star field reflected in the glass -->
+            <ellipse cx="58" cy="35" rx="11" ry="6" fill="#5b47d6" opacity="0.4"/>
+            <circle cx="56.5" cy="19" r="0.45" fill="#fff" opacity="0.8"/><circle cx="59.6" cy="22.4" r="0.35" fill="#fff" opacity="0.7"/><circle cx="54" cy="27.4" r="0.3" fill="#fff" opacity="0.6"/>
+            <path d="M41 21.5 Q44.5 15.8 51.5 15.8" stroke="#fff6dc" stroke-width="2.2" fill="none" stroke-linecap="round" opacity="0.85"/>
+            <path d="M41.6 26 Q42.2 23.4 43.6 22" stroke="#fff6dc" stroke-width="1" fill="none" stroke-linecap="round" opacity="0.55"/>
+            <rect x="20" y="10" width="5" height="30" fill="#ffffff" opacity="0.35" transform="skewX(-22)">
+              <animate attributeName="x" values="20;20;80;80" keyTimes="0;0.6;0.85;1" calcMode="spline"
+                       keySplines="0 0 1 1;0.4 0 0.6 1;0 0 1 1" dur="6s" repeatCount="indefinite"/>
+            </rect>
+          </g>
+          <path d="M38.6 24.5 Q39.6 14.6 51 14.2 Q62.6 14.6 63.4 24.6 Q62.8 33.6 51 34.2 Q39.4 33.6 38.6 24.5 Z" fill="none" stroke="#3c4060" stroke-opacity="0.5" stroke-width="0.7"/>
+          <path d="M37.4 14.6 Q41.6 8.8 48.6 7.8" stroke="#ffffff" stroke-width="1.8" fill="none" stroke-linecap="round" opacity="0.9"/>
+          <!-- helmet lamps -->
+          <rect x="33.2" y="18.6" width="3.2" height="5.4" rx="1.2" fill="url(#asMetal)"/>
+          <rect x="33.8" y="19.4" width="2" height="1.8" rx="0.6" fill="#e9fbff"><animate attributeName="opacity" values="1;0.6;1" dur="3s" repeatCount="indefinite"/></rect>
         </g>
-        <ellipse cx="45.5" cy="20.5" rx="4" ry="2.6" fill="#ffffff" opacity="0.75"/>
       </g>
     </symbol>
   </svg>
