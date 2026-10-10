@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hen Studio</title>
+  <link rel="stylesheet" href="src/styles/studio.css">
+</head>
+<body>
+  <header class="top">
+    <h1>Hen Studio</h1>
+    <span class="state" id="state" aria-live="polite">Loading…</span>
+  </header>
+
+  <main class="layout">
+    <section class="stage-card" aria-label="Preview">
+      <div class="stage bg-neutral" id="stage">
+        <div class="stage-inner" id="stageInner">
+          <svg class="overlay ref" id="refOverlay" aria-hidden="true"></svg>
+          <div id="henMount"></div>
+          <svg class="overlay guides" id="guides" aria-hidden="true"></svg>
+          <svg class="overlay debug" id="debug" aria-hidden="true"></svg>
+        </div>
+      </div>
+      <div class="stage-bar">
+        <div class="seg" role="group" aria-label="Background">
+          <button type="button" data-bg="neutral" class="on">Neutral</button>
+          <button type="button" data-bg="checker">Transparent</button>
+          <button type="button" data-bg="dark">Dark</button>
+        </div>
+        <label class="chk"><input type="checkbox" id="optGround" checked> Ground guide</label>
+        <label class="chk"><input type="checkbox" id="optDebug"> Rig debug</label>
+        <label class="chk"><input type="checkbox" id="optRef"> Reference overlay</label>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <div class="block">
+        <h2>Animation</h2>
+        <div class="clips" id="clips" role="group" aria-label="Animation clips"></div>
+        <p class="hint">Idle, Walk and Run loop and cross-fade. The others play once on top, and can be replayed.</p>
+      </div>
+
+      <div class="block">
+        <h2>Playback</h2>
+        <div class="row">
+          <button type="button" id="btnPlay" class="primary">Pause</button>
+          <button type="button" id="btnRestart">Restart clip</button>
+          <button type="button" id="btnReset">Reset to neutral</button>
+        </div>
+        <label class="chk"><input type="checkbox" id="optTravel"> Walk / run across the stage</label>
+        <div class="slider"><label for="sSpeed">Global speed</label><input type="range" id="sSpeed" min="0.1" max="2" step="0.05" value="1"><output for="sSpeed">1.00×</output></div>
+        <div class="slider"><label for="sScale">Preview scale</label><input type="range" id="sScale" min="0.2" max="1" step="0.05" value="0.45"><output for="sScale">45%</output></div>
+      </div>
+
+      <div class="block">
+        <h2>Tuning</h2>
+        <div class="slider"><label for="sWalk">Walk-cycle speed</label><input type="range" id="sWalk" min="0.5" max="1.6" step="0.05" value="1"><output for="sWalk">1.00×</output></div>
+        <div class="slider"><label for="sBob">Body bob</label><input type="range" id="sBob" min="0" max="2" step="0.05" value="1"><output for="sBob">1.00×</output></div>
+        <div class="slider"><label for="sHead">Head motion</label><input type="range" id="sHead" min="0" max="2" step="0.05" value="1"><output for="sHead">1.00×</output></div>
+        <div class="slider"><label for="sFlap">Wing amplitude</label><input type="range" id="sFlap" min="0" max="1.5" step="0.05" value="1"><output for="sFlap">1.00×</output></div>
+      </div>
+
+      <div class="block">
+        <h2>Export</h2>
+        <div class="field"><label for="eClip">Clip</label><select id="eClip"></select></div>
+        <div class="field"><label for="eFps">Frame rate</label>
+          <select id="eFps"><option>12</option><option selected>24</option><option>30</option><option>60</option></select></div>
+        <div class="field"><label for="eWidth">Frame width</label>
+          <select id="eWidth"><option>128</option><option selected>256</option><option>384</option><option>512</option></select></div>
+        <label class="chk"><input type="checkbox" id="eShadow" checked> Include ground shadow</label>
+        <div class="col">
+          <button type="button" id="xSheet">Sprite sheet (PNG + JSON)</button>
+          <button type="button" id="xFrames">PNG frames (ZIP)</button>
+          <button type="button" id="xSvg">Animated SVG</button>
+        </div>
+        <p class="hint" id="exportMsg">Exports use the tuning above and render the hen alone on a transparent canvas. For video, see the README.</p>
+      </div>
+    </aside>
+  </main>
+
+  <script type="module" src="src/ui/studio.js"></script>
+</body>
+</html>

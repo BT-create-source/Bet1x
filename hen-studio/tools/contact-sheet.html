@@ -1,0 +1,63 @@
+<!doctype html>
+<!--
+  Contact sheet: evenly spaced frames of one clip side by side, with the ground line drawn through
+  every cell. The quickest way to judge foot contact, drift and loop seams at a glance. Uses the
+  same renderer as the exports. Open via the local server: /hen-studio/tools/contact-sheet.html
+-->
+<html lang="en"><head><meta charset="utf-8"><title>Hen contact sheet</title>
+<style>
+  body { margin: 0; font: 14px system-ui, sans-serif; background: #e9ecf0; color: #1f2329; }
+  .bar { display: flex; gap: 10px; align-items: center; padding: 12px 16px; }
+  img { display: block; max-width: 100%; margin: 0 16px 16px; border: 1px solid #c9ced6; }
+</style></head>
+<body>
+<div class="bar">
+  <label for="clip">Clip</label><select id="clip"></select>
+  <label for="n">Frames</label><select id="n"><option>6</option><option selected>12</option><option>18</option><option>24</option></select>
+  <button type="button" id="go">Render</button>
+  <span id="msg"></span>
+</div>
+<img id="out" alt="Contact sheet of the selected clip">
+<script type="module">
+  import { loadHenSvg } from '../src/rig/rig.js';
+  import { evaluateClip } from '../src/animation/controller.js';
+  import { CLIPS } from '../src/animation/clips.js';
+  import { FRAME_BOX, poseToSvgString, svgToCanvas, frameHeightFor } from '../src/export/render.js';
+  import { GROUND_Y } from '../src/rig/skeleton.js';
+
+  const tpl = await loadHenSvg('../src/character/hen.svg');
+
+  window.sheet = async (id, n = 12, cols = 6, w = 240) => {
+    const h = frameHeightFor(w);
+    const out = document.createElement('canvas');
+    out.width = cols * w; out.height = Math.ceil(n / cols) * h;
+    const ctx = out.getContext('2d');
+    ctx.fillStyle = '#f4f4f6'; ctx.fillRect(0, 0, out.width, out.height);
+    const dur = CLIPS[id].duration;
+    for (let i = 0; i < n; i++) {
+      // Loops: n frames over [0, dur) so the last cell leads into the first. One-shots: both ends.
+      const t = CLIPS[id].loop ? (i / n) * dur : (i / (n - 1)) * dur;
+      const c = await svgToCanvas(poseToSvgString(tpl, evaluateClip(id, t), { width: w, height: h }), w, h);
+      const x = (i % cols) * w, y = Math.floor(i / cols) * h;
+      ctx.drawImage(c, x, y);
+      const gy = y + ((GROUND_Y - FRAME_BOX.y) / FRAME_BOX.h) * h;
+      ctx.strokeStyle = 'rgba(0,120,255,0.6)'; ctx.beginPath(); ctx.moveTo(x, gy); ctx.lineTo(x + w, gy); ctx.stroke();
+      ctx.fillStyle = '#333'; ctx.font = '12px sans-serif'; ctx.fillText(`${id} ${t.toFixed(2)}s`, x + 6, y + 14);
+      ctx.strokeStyle = '#bbb'; ctx.strokeRect(x, y, w, h);
+    }
+    return out.toDataURL('image/png');
+  };
+
+  const sel = document.getElementById('clip');
+  for (const [id, c] of Object.entries(CLIPS)) sel.add(new Option(c.label, id));
+  sel.value = 'walk';
+  document.getElementById('go').onclick = async () => {
+    const msg = document.getElementById('msg');
+    msg.textContent = 'Rendering…';
+    document.getElementById('out').src = await window.sheet(sel.value, parseInt(document.getElementById('n').value, 10));
+    msg.textContent = '';
+  };
+  document.getElementById('go').click();
+  window.ready = true;
+</script>
+</body></html>
