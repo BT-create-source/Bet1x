@@ -571,7 +571,8 @@ function sm_standings($seasonId) {
  * Pure: the chance team A wins before a ball is bowled, or null when there is nothing sound to go on.
  *   - both teams ICC-ranked in the same list (internationals): logistic in the rating gap, 40 rating
  *     points = 1 in log-odds (269 v 229 ~ 73%), capped 25-75% because T20 is volatile;
- *   - else both in the season's standings with 2+ games: win rate and net run rate, capped 35-65%.
+ *   - else both in the season's standings: win rate and net run rate, capped 35-65% (40-60% under 2 games);
+ *   - else an even match (0.5).
  */
 function sm_prematch_prob($teamA, $teamB, $format, array $rankings, array $standings) {
     $list = ['ODI' => 'ODI', 'TEST' => 'TEST'][strtoupper((string) $format)] ?? 'T20I';
@@ -580,12 +581,16 @@ function sm_prematch_prob($teamA, $teamB, $format, array $rankings, array $stand
         if ($ra !== null && $rb !== null && $ra > 0 && $rb > 0) return max(0.25, min(0.75, 1 / (1 + exp(-($ra - $rb) / 40))));
     }
     $a = $standings[(int) $teamA] ?? null; $b = $standings[(int) $teamB] ?? null;
-    if ($a && $b && (int) $a['played'] >= 2 && (int) $b['played'] >= 2) {
+    if ($a && $b && (int) $a['played'] >= 1 && (int) $b['played'] >= 1) {
         $wr = function ($r) { $p = max(1, (int) $r['played'] - (int) ($r['noresult'] ?? 0)); return ((int) $r['won'] + 0.5 * (int) ($r['draw'] ?? 0)) / $p; };
         $x = 2.0 * ($wr($a) - $wr($b)) + 0.25 * ((float) ($a['netto_run_rate'] ?? 0) - (float) ($b['netto_run_rate'] ?? 0));
-        return max(0.35, min(0.65, 1 / (1 + exp(-$x))));
+        // A table with only a game or two each says less: the cap tightens until both have played twice.
+        $cap = ((int) $a['played'] >= 2 && (int) $b['played'] >= 2) ? 0.65 : 0.60;
+        return max(1 - $cap, min($cap, 1 / (1 + exp(-$x))));
     }
-    return null;
+    // Nothing to go on: an even match (both ~1.96 after margin), so every fixture can be bet pre-match;
+    // live pricing takes over from the first ball.
+    return 0.5;
 }
 
 /**
