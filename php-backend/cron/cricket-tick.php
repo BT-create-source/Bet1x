@@ -94,7 +94,7 @@ $work = function () use (&$summary, $fantasyOn) {
 };
 
 try {
-    with_named_lock('cricket_tick', 5, function () use (&$ran, $work, &$summary, $once) {
+    with_named_lock('cricket_tick', 5, function () use (&$ran, $work, &$summary, $once, $fantasyOn) {
         $ran = true;
         $work();
         // Sportmonks: poll every few seconds for the rest of this minute — one /livescores call carries
@@ -103,10 +103,23 @@ try {
         if (cricket_source_mode() === 'sportmonks') {
             $every = max(2, (int) env_get('SPORTMONKS_POLL_SECONDS', 4));
             $until = microtime(true) + ($once ? 0 : 52);
+            // Pre-match extras, cheap and throttled: Match Odds prices from rankings / standings every 10
+            // minutes; Your 11 credits from career form (25 uncached player lookups a run at most).
+            try {
+                $lp = state_get('sm_prices_at');
+                if (!is_array($lp) || now_ms() - (int) ($lp['ms'] ?? 0) > 600000) {
+                    state_set('sm_prices_at', ['ms' => now_ms()]);
+                    $summary['prematch_priced'] = sm_sync_prematch_prices();
+                }
+                if ($fantasyOn) $summary['credits_repriced'] = sm_reprice_credits(25);
+            } catch (Throwable $e) { $summary['errors'][] = 'sportmonks extras: ' . $e->getMessage(); }
             do {
                 $t0 = microtime(true);
                 $p = sm_poll_once();
                 $summary['pumps']++;
+                // Playing XI and toss ~30 minutes before the start (fixtures not yet in /livescores).
+                try { $summary['prematch_reads'] = ($summary['prematch_reads'] ?? 0) + sm_poll_prematch(); }
+                catch (Throwable $e) { $summary['errors'][] = 'sportmonks prematch: ' . $e->getMessage(); }
                 if (!$p['ok']) { $summary['errors'][] = 'sportmonks: ' . $p['error']; }
                 elseif (cricket_enabled()) {
                     foreach (all('SELECT "match_key" FROM "cricket_match_feed" WHERE "match_key" LIKE ? AND "status" IN (?,?)', ['sm\_%', 'live', 'innings_break']) as $m) {

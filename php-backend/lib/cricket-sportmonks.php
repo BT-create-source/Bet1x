@@ -28,7 +28,7 @@
 
 require_once __DIR__ . '/cricket-feed.php';
 
-const SM_LIVE_INCLUDE = 'localteam,visitorteam,lineup,balls.score,runs,venue,league';
+const SM_LIVE_INCLUDE = 'localteam,visitorteam,lineup,balls.score,runs,venue,league,manofmatch';
 
 function sm_conf() {
     return [
@@ -98,8 +98,10 @@ function sm_status($status, $live = false, $note = '', $noResult = null) {
         || preg_match('/no result|abandon|cancel/i', (string) $note))) return 'abandoned';
     if ($s === 'finished' || strpos($s, 'finish') !== false) return 'completed';
     if (strpos($s, 'innings break') !== false || $s === 'break') return 'innings_break';
+    // Only the status string decides. Sportmonks' "live" flag means live COVERAGE is available — it is
+    // already true on fixtures days before they start — so it must never make a match count as in play.
     if (strpos($s, 'innings') !== false || strpos($s, 'stump') !== false || strpos($s, 'int.') !== false
-        || strpos($s, 'tea') !== false || strpos($s, 'lunch') !== false || strpos($s, 'dinner') !== false || $live) return 'live';
+        || strpos($s, 'tea') !== false || strpos($s, 'lunch') !== false || strpos($s, 'dinner') !== false) return 'live';
     return 'not_started';
 }
 
@@ -137,7 +139,7 @@ function sm_normalise_fixture(array $f) {
         'start_ms'   => $start ? $start * 1000 : null,
         'status'     => sm_status($f['status'] ?? '', !empty($f['live']), $f['note'] ?? '', $f['draw_noresult'] ?? null),
         'teams'      => ['a' => $a, 'b' => $b],
-        'venue'      => (string) cricket_pick($f, ['venue.name'], ''),
+        'venue'      => trim((string) cricket_pick($f, ['venue.name'], '') . (cricket_pick($f, ['venue.city'], '') ? ', ' . cricket_pick($f, ['venue.city'], '') : ''), ', '),
         // The squad endpoint is per team per SEASON, so the season id stands in for Roanuz's tournament key.
         'tournament_key'  => (string) ($f['season_id'] ?? ''),
         'tournament_name' => (string) ($league['name'] ?? ''),
@@ -303,7 +305,9 @@ function sm_snapshot(array $f) {
         'teams' => $fx['teams'], 'squad' => $squad, 'players' => $players, 'toss' => $toss,
         'venue' => $fx['venue'],
         'play' => ['innings_order' => $order, 'target' => count($order) >= 2 ? $target : null,
-                   'result' => in_array($status, ['completed', 'abandoned'], true) ? ['msg' => (string) ($f['note'] ?? ''), 'winner' => $winner] : null],
+                   'result' => in_array($status, ['completed', 'abandoned'], true)
+                       ? ['msg' => trim((string) ($f['note'] ?? '') . (!empty($f['manofmatch']['fullname']) ? ' · Player of the Match: ' . $f['manofmatch']['fullname'] : '')), 'winner' => $winner]
+                       : null],
         'related_balls' => $related,
         // Every snapshot from this connector lists the match's complete ball set, so a stored ball it
         // no longer lists was deleted by the provider (a wrong entry) and must go.
@@ -366,6 +370,11 @@ function sm_poll_once($nowMs = null) {
         $seen[$snap['key']] = true;
         $r = cricket_feed_ingest($snap, 'poll', $nowMs);
         if (!empty($r['ok'])) $ingested++;
+        // Once per match: anyone in the named XI missing from the Your 11 list is added.
+        if (!empty($snap['squad']['a']['playing_xi']) && !state_get('sm_xi_' . $snap['key'])) {
+            sm_fantasy_add_xi_players($snap);
+            state_set('sm_xi_' . $snap['key'], ['ms' => now_ms()]);
+        }
     }
     $finished = 0;
     $following = all('SELECT "match_key" FROM "cricket_match_feed" WHERE "match_key" LIKE ? AND "status" IN (?,?)', ['sm\_%', 'live', 'innings_break']);
@@ -375,4 +384,235 @@ function sm_poll_once($nowMs = null) {
         if ($one['ok']) { cricket_feed_ingest($one['snapshot'], 'poll', $nowMs); $finished++; }
     }
     return ['ok' => true, 'error' => null, 'live' => count($seen), 'ingested' => $ingested, 'finished' => $finished];
+}
+
+// =================================================================================================
+// What else Sportmonks gives us, used the way the established sites use it
+// =================================================================================================
+
+/**
+ * The playing XI and the toss arrive ~30 minutes before the start, while the fixture is still "NS" and
+ * not yet in /livescores. Every fixture due within 75 minutes (or overdue up to 3 hours: delayed starts)
+ * is read in full every 2 minutes, so Your 11 shows Playing / Not playing before its deadline, as Dream11
+ * does. Returns how many fixtures were read.
+ */
+function sm_poll_prematch($nowMs = null) {
+    $now = $nowMs ?? now_ms();
+    $rows = all('SELECT "match_key" FROM "cricket_match_feed" WHERE "match_key" LIKE ? AND "status" = ? AND "start_time" BETWEEN ? AND ?',
+                ['sm\_%', 'not_started', ms_to_sql($now - 3 * 3600000), ms_to_sql($now + 75 * 60000)]);
+    $n = 0;
+    foreach ($rows as $r) {
+        $k = 'sm_prematch_' . $r['match_key'];
+        $last = state_get($k);
+        if (is_array($last) && $now - (int) ($last['ms'] ?? 0) < 120000) continue;
+        state_set($k, ['ms' => $now]);
+        $one = sm_match_snapshot($r['match_key']);
+        if (!$one['ok']) continue;
+        cricket_feed_ingest($one['snapshot'], 'poll', $now);
+        sm_fantasy_add_xi_players($one['snapshot']);
+        $n++;
+    }
+    return $n;
+}
+
+/**
+ * A named XI can include someone missing from the season squad (a late call-up or a debutant). Add them
+ * to the Your 11 player list, priced like everyone else, so every player who takes the field can be
+ * picked and scores. Returns how many were added.
+ */
+function sm_fantasy_add_xi_players(array $snap) {
+    if (!function_exists('fantasy_upsert_player') || !function_exists('fantasy_feed_credits')) return 0;
+    $m = one('SELECT "id","format" FROM "fantasy_matches" WHERE "feed_key" = ?', [(string) ($snap['key'] ?? '')]);
+    if (!$m) return 0;
+    $known = array_flip(array_column(all('SELECT "external_key" FROM "fantasy_players" WHERE "match_id" = ?', [(int) $m['id']]), 'external_key'));
+    $added = 0;
+    foreach (['a', 'b'] as $s) {
+        foreach ((array) ($snap['squad'][$s]['playing_xi'] ?? []) as $k) {
+            if (isset($known[$k])) continue;
+            $p = $snap['players'][$k]['player'] ?? ['name' => $k, 'seasonal_role' => ''];
+            $role = cricket_role($p['seasonal_role'] ?? '');
+            fantasy_upsert_player((int) $m['id'], [
+                'external_key' => $k, 'name' => $p['name'], 'full_name' => $p['name'], 'team_name' => $snap['teams'][$s]['name'], 'role' => $role,
+                'credits' => fantasy_feed_credits($k, $role, sm_player_skill((int) preg_replace('/^smp_/', '', $k), $m['format']), $m['format']),
+            ]);
+            $added++;
+        }
+    }
+    if ($added) log_info('sportmonks: added XI players missing from the squad', ['match' => $snap['key'], 'added' => $added]);
+    return $added;
+}
+
+/**
+ * A player's form as the "skill" fantasy_feed_credits() prices from, out of Sportmonks career figures
+ * for the format (T20 = domestic T20 + T20I; ODI = ODI + List A; Test = Test + first class): expected
+ * Dream11 points per match from runs, boundaries, strike rate, wickets and economy, mapped so the skill
+ * gives the same credits as the points-history formula (6 + points/12): ~30 points -> 8.5, ~50 -> 10.
+ * Fewer than 5 matches -> null (role default). Cached 14 days per player; failures are not cached.
+ */
+function sm_player_skill($playerId, $format = 'T20') {
+    $playerId = (int) $playerId;
+    if ($playerId <= 0) return null;
+    $fmt = sm_skill_format($format);
+    $ck = 'sm_skill_' . $playerId . '_' . $fmt;
+    $c = state_get($ck);
+    if (is_array($c) && now_ms() - (int) ($c['ms'] ?? 0) < 14 * 86400000) return $c['skill'];
+    $res = sm_get('/players/' . $playerId, ['include' => 'career']);
+    if (!$res['ok']) return null;
+    $skill = sm_skill_from_career((array) cricket_pick($res['data'], ['data.career'], []), $fmt);
+    state_set($ck, ['ms' => now_ms(), 'skill' => $skill]);
+    return $skill;
+}
+
+function sm_skill_format($format) {
+    $f = strtoupper((string) $format);
+    return $f === 'ODI' ? 'ODI' : ($f === 'TEST' ? 'TEST' : 'T20');
+}
+
+/** Pure: skill from career rows (see sm_player_skill). */
+function sm_skill_from_career(array $career, $fmt = 'T20') {
+    $want = ['T20' => ['t20', 't20i'], 'ODI' => ['odi', 'list a', 'list-a'], 'TEST' => ['test', 'test/5day', '4day', 'first class']][$fmt] ?? ['t20', 't20i'];
+    $bm = 0; $runs = 0; $balls = 0; $fours = 0; $sixes = 0; $wm = 0; $wk = 0; $overs = 0.0; $conceded = 0;
+    foreach (sm_list($career) as $row) {
+        if (!in_array(strtolower((string) ($row['type'] ?? '')), $want, true)) continue;
+        $b = (array) ($row['batting'] ?? []); $w = (array) ($row['bowling'] ?? []);
+        $bm += (int) ($b['matches'] ?? 0); $runs += (int) ($b['runs_scored'] ?? 0); $balls += (int) ($b['balls_faced'] ?? 0);
+        $fours += (int) ($b['four_x'] ?? 0); $sixes += (int) ($b['six_x'] ?? 0);
+        $wm += (int) ($w['matches'] ?? 0); $wk += (int) ($w['wickets'] ?? 0);
+        $ov = (float) ($w['overs'] ?? 0); $overs += floor($ov) + round(($ov - floor($ov)) * 10) / 6; $conceded += (int) ($w['runs'] ?? 0);
+    }
+    $m = max($bm, $wm);
+    if ($m < 5) return null;
+    $pts = 4 + 3;                                                   // in the XI + an average share of fielding points
+    $pts += ($runs + $fours + 2 * $sixes) / $m;                     // runs and boundary bonuses
+    if ($balls > 0 && $runs / $m >= 10) $pts += max(-4, min(6, (100 * $runs / $balls - 130) / 8));   // strike rate
+    $pts += 28 * $wk / $m;                                          // wickets, incl. an average bowled/lbw bonus
+    if ($overs > 0 && $overs / $m >= 2) $pts += max(-4, min(4, (8.5 - $conceded / $overs) * 1.5));   // economy
+    // credits = 5.5 + 5*skill (fantasy_feed_credits) should equal 6 + pts/12 (the history formula).
+    return round((0.5 + $pts / 12) / 5, 4);
+}
+
+/**
+ * Re-price the credits of upcoming Your 11 fixtures from career form, before anyone has built a team on
+ * them (a price never changes under an existing team). At most $budget uncached player lookups per call,
+ * so a long fixture list is priced over a few runs. Returns players re-priced.
+ */
+function sm_reprice_credits($budget = 120) {
+    if (!function_exists('fantasy_feed_credits')) return 0;
+    $done = 0;
+    $matches = all('SELECT m."id", m."format" FROM "fantasy_matches" m WHERE m."feed_key" LIKE ? AND m."status" = ? AND m."squads_ready" = 1 '
+                 . 'AND NOT EXISTS (SELECT 1 FROM "fantasy_user_teams" t WHERE t."match_id" = m."id") ORDER BY m."start_time" ASC', ['sm\_%', 'UPCOMING']);
+    foreach ($matches as $m) {
+        if (state_get('sm_priced_' . $m['id'])) continue;
+        $players = all('SELECT "id","external_key","role","credits" FROM "fantasy_players" WHERE "match_id" = ?', [(int) $m['id']]);
+        // 1. Every player's form, within the lookup budget. A lookup that fails (nothing cached) leaves the
+        //    whole match for the next run rather than pricing it from half the information.
+        $complete = true; $skills = [];
+        foreach ($players as $p) {
+            if (!preg_match('/^smp_(\d+)$/', $p['external_key'], $mm)) { $skills[$p['id']] = null; continue; }
+            $ck = 'sm_skill_' . (int) $mm[1] . '_' . sm_skill_format($m['format']);
+            if (!is_array(state_get($ck))) {
+                if ($budget <= 0) { $complete = false; break; }
+                $budget--;
+            }
+            $skills[$p['id']] = sm_player_skill((int) $mm[1], $m['format']);
+            if (!is_array(state_get($ck))) $complete = false;
+        }
+        if (!$complete) break;
+        // 2. Raw credits, then one shift for the whole squad so the likely XI (the 22 dearest) averages
+        //    about 9.3, so a team of the obvious stars costs more than 100 and choices have to be made, as on Dream11.
+        $raw = [];
+        foreach ($players as $p) {
+            $sk = $skills[$p['id']];
+            $raw[$p['id']] = $sk !== null ? 5.5 + 5.0 * $sk : (float) fantasy_feed_credits($p['external_key'], $p['role'], null, $m['format']);
+        }
+        $top = $raw; rsort($top); $top = array_slice($top, 0, 22);
+        $shift = $top ? max(0.0, array_sum($top) / count($top) - 9.3) : 0.0;
+        foreach ($players as $p) {
+            $c = fantasy_clamp_credits(round(($raw[$p['id']] - $shift) * 2) / 2);
+            if (abs($c - (float) $p['credits']) > 0.01) { q('UPDATE "fantasy_players" SET "credits" = ? WHERE "id" = ?', [$c, (int) $p['id']]); $done++; }
+        }
+        state_set('sm_priced_' . $m['id'], ['ms' => now_ms(), 'shift' => round($shift, 2)]);
+    }
+    return $done;
+}
+
+/** ICC team rankings (team id -> ["T20I|men" => rating, ...]), cached 12 hours. */
+function sm_rankings() {
+    $c = state_get('sm_rankings');
+    if (is_array($c) && now_ms() - (int) ($c['ms'] ?? 0) < 12 * 3600000) return (array) $c['by_team'];
+    $res = sm_get('/team-rankings');
+    if (!$res['ok']) return is_array($c) ? (array) $c['by_team'] : [];
+    $by = [];
+    foreach (sm_list($res['data']['data']) as $list) {
+        $type = strtoupper((string) ($list['type'] ?? '')) . '|' . strtolower((string) ($list['gender'] ?? ''));
+        foreach (sm_list($list['team'] ?? []) as $t) {
+            $r = cricket_pick($t, ['ranking.rating'], null);
+            if ($r !== null && !empty($t['id'])) $by[(int) $t['id']][$type] = (float) $r;
+        }
+    }
+    state_set('sm_rankings', ['ms' => now_ms(), 'by_team' => $by]);
+    return $by;
+}
+
+/** A season's standings (team id -> row), cached 30 minutes. */
+function sm_standings($seasonId) {
+    $seasonId = (int) $seasonId;
+    if ($seasonId <= 0) return [];
+    $c = state_get('sm_standings_' . $seasonId);
+    if (is_array($c) && now_ms() - (int) ($c['ms'] ?? 0) < 1800000) return (array) $c['by_team'];
+    $res = sm_get('/standings/season/' . $seasonId);
+    $by = [];
+    if ($res['ok']) foreach (sm_list($res['data']['data']) as $row) if (!empty($row['team_id'])) $by[(int) $row['team_id']] = $row;
+    state_set('sm_standings_' . $seasonId, ['ms' => now_ms(), 'by_team' => $by]);
+    return $by;
+}
+
+/**
+ * Pure: the chance team A wins before a ball is bowled, or null when there is nothing sound to go on.
+ *   - both teams ICC-ranked in the same list (internationals): logistic in the rating gap, 40 rating
+ *     points = 1 in log-odds (269 v 229 ~ 73%), capped 25-75% because T20 is volatile;
+ *   - else both in the season's standings with 2+ games: win rate and net run rate, capped 35-65%.
+ */
+function sm_prematch_prob($teamA, $teamB, $format, array $rankings, array $standings) {
+    $list = ['ODI' => 'ODI', 'TEST' => 'TEST'][strtoupper((string) $format)] ?? 'T20I';
+    foreach (['men', 'women'] as $g) {
+        $ra = $rankings[(int) $teamA][$list . '|' . $g] ?? null; $rb = $rankings[(int) $teamB][$list . '|' . $g] ?? null;
+        if ($ra !== null && $rb !== null && $ra > 0 && $rb > 0) return max(0.25, min(0.75, 1 / (1 + exp(-($ra - $rb) / 40))));
+    }
+    $a = $standings[(int) $teamA] ?? null; $b = $standings[(int) $teamB] ?? null;
+    if ($a && $b && (int) $a['played'] >= 2 && (int) $b['played'] >= 2) {
+        $wr = function ($r) { $p = max(1, (int) $r['played'] - (int) ($r['noresult'] ?? 0)); return ((int) $r['won'] + 0.5 * (int) ($r['draw'] ?? 0)) / $p; };
+        $x = 2.0 * ($wr($a) - $wr($b)) + 0.25 * ((float) ($a['netto_run_rate'] ?? 0) - (float) ($b['netto_run_rate'] ?? 0));
+        return max(0.35, min(0.65, 1 / (1 + exp(-$x))));
+    }
+    return null;
+}
+
+/**
+ * Give every upcoming Sportmonks fixture a pre-match favourite price from rankings / standings, so Match
+ * Odds and Bookmaker open before the toss instead of waiting for the first ball. Never touches a price an
+ * operator set, and never re-prices once play has started. Returns fixtures priced.
+ */
+function sm_sync_prematch_prices($nowMs = null) {
+    if (!function_exists('mx_settings_save')) return 0;
+    $now = $nowMs ?? now_ms();
+    $fx = sm_fixtures($now);
+    if (!$fx['ok']) return 0;
+    $rankings = sm_rankings();
+    $n = 0;
+    foreach ($fx['fixtures'] as $f) {
+        if ($f['status'] !== 'not_started' || !$f['start_ms'] || $f['start_ms'] <= $now) continue;
+        $row = one('SELECT "source","fav_side","fav_price" FROM "mx_match_settings" WHERE "match_key" = ?', [$f['key']]);
+        if ($row && $row['source'] === 'operator') continue;
+        $ta = (int) preg_replace('/^smt_/', '', $f['teams']['a']['key']); $tb = (int) preg_replace('/^smt_/', '', $f['teams']['b']['key']);
+        $p = sm_prematch_prob($ta, $tb, $f['format'], $rankings, sm_standings($f['tournament_key']));
+        if ($p === null) continue;
+        $fav = $p >= 0.5 ? 'a' : 'b';
+        $price = round(1 / max($p, 1 - $p), 2);
+        if ($row && $row['fav_side'] === $fav && abs((float) $row['fav_price'] - $price) < 0.015) continue;
+        cricket_feed_placeholder($f);
+        mx_settings_save($f['key'], $fav, $price, 'sportmonks');
+        $n++;
+    }
+    return $n;
 }
