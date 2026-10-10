@@ -165,6 +165,79 @@
     tick(t, d) { tone(t, { type: 'triangle', f0: 1800, dur: 0.04, peak: 0.05, dest: d }); },
   };
 
+  // --- background music --------------------------------------------------------------------------------
+  // A gentle, cheerful loop in C major at 96 bpm: a soft marimba melody over a plucky bass, warm chord
+  // pads and a whisper of shaker. Eight bars (C Am F G | C Am F-G C), scheduled a little ahead of time
+  // on the audio clock so it never drifts. It starts with the first click or key press, fades out when
+  // the site is muted or the tab is hidden, and fades back in after.
+  const BPM = 96, EIGHTH = 60 / BPM / 2, MUSIC_VOL = 0.16;
+  const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
+  const _ = null;
+  const MELODY = [                       // one MIDI note per eighth, 8 bars
+    76, _, 79, _, 76, 74, 72, _,   72, _, 76, _, 81, _, 79, _,
+    81, _, 79, 77, 76, _, 72, _,   74, _, 76, _, 74, _, _, _,
+    76, _, 79, _, 84, _, 79, _,   81, _, 79, 76, 72, _, 76, _,
+    77, _, 81, _, 79, _, 74, _,   72, _, 76, _, 72, _, _, _,
+  ];
+  const CHORDS = [[48, 52, 55], [45, 48, 52], [41, 45, 48], [43, 47, 50],
+                  [48, 52, 55], [45, 48, 52], [41, 45, 48, 43], [48, 52, 55]];   // bar 7 turns to G halfway
+  let musicGain = null, musicTimer = null, step = 0, nextAt = 0;
+
+  function marimba(t, f, vol) {
+    const d = musicGain;
+    tone(t, { type: 'sine', f0: f, dur: 0.42, peak: vol, dest: d });
+    tone(t, { type: 'sine', f0: f * 4, dur: 0.07, peak: vol * 0.22, dest: d });          // the mallet's tick
+    tone(t, { type: 'triangle', f0: f * 2, dur: 0.18, peak: vol * 0.18, dest: d });
+  }
+  function pad(t, notes, len) {
+    notes.forEach((n) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine'; o.frequency.value = mtof(n + 12); o.detune.value = (Math.random() - 0.5) * 8;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(0.022, t + 0.35);
+      g.gain.setValueAtTime(0.022, t + len - 0.4);
+      g.gain.linearRampToValueAtTime(0.0001, t + len);
+      o.connect(g).connect(musicGain); o.start(t); o.stop(t + len + 0.05);
+    });
+  }
+  function scheduleStep(i, t) {
+    const bar = Math.floor(i / 8) % 8, e = i % 8;
+    const n = MELODY[i % MELODY.length];
+    if (n !== null) marimba(t, mtof(n), e % 2 === 0 ? 0.11 : 0.085);
+    const chord = CHORDS[bar];
+    if (e === 0) { pad(t, chord.slice(0, 3), EIGHTH * (chord.length > 3 ? 4 : 8)); }
+    if (e === 4 && chord.length > 3) pad(t, [43, 47, 50], EIGHTH * 4);
+    const root = (e >= 4 && chord.length > 3) ? chord[3] : chord[0];
+    if (e === 0 || e === 4 || e === 6) tone(t, { type: 'triangle', f0: mtof(root - 12 + (e === 6 ? 7 : 0)), dur: 0.26, peak: 0.075, dest: musicGain });
+    if (e % 2 === 1) noise(t, { dur: 0.05, peak: 0.012, f0: 7500, q: 1.2, dest: musicGain });
+  }
+  function musicLevel() {
+    if (!musicGain) return;
+    const want = (muted() || document.hidden) ? 0.0001 : MUSIC_VOL;
+    if (Math.abs(musicGain.gain.value - want) > 0.001) musicGain.gain.setTargetAtTime(want, ctx.currentTime, 0.35);
+  }
+  function startMusic() {
+    const c = audio();
+    if (!c || musicTimer) return;
+    musicGain = c.createGain();
+    musicGain.gain.value = 0.0001;
+    musicGain.connect(master);
+    nextAt = c.currentTime + 0.15; step = 0;
+    musicTimer = setInterval(() => {
+      if (c.state !== 'running') return;
+      musicLevel();
+      while (nextAt < c.currentTime + 0.25) {               // keep a quarter-second scheduled ahead
+        if (!muted() && !document.hidden) { try { scheduleStep(step, nextAt); } catch (e) { /* never break the game */ } }
+        step = (step + 1) % (MELODY.length);
+        nextAt += EIGHTH;
+      }
+    }, 60);
+  }
+  const startOnGesture = () => { unlock(); startMusic(); };
+  document.addEventListener('pointerdown', startOnGesture, { passive: true });
+  document.addEventListener('keydown', startOnGesture);
+  document.addEventListener('visibilitychange', musicLevel);
+
   window.CRSound = {
     play(name, opts = {}) {
       if (muted() || !SOUNDS[name]) return;
@@ -173,5 +246,7 @@
       if (c.state === 'suspended') c.resume().catch(() => {});
       try { SOUNDS[name](c.currentTime + (opts.delay || 0), out(opts.pan)); } catch (e) { /* never let a sound break the game */ }
     },
+    /** Start the background music now (it otherwise starts on the first click or key press). */
+    music: startMusic,
   };
 })();
