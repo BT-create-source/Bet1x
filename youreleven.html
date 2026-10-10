@@ -47,60 +47,118 @@
       padding: 16px 0 4px;
     }
 
-    /* Fixture list */
+    /* Fixture list: tournament / series header */
+    .y11-series-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 22px 0 12px;
+      padding: 10px 16px;
+      background: var(--surface, #141833);
+      border: 1px solid var(--border, #262b4a);
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .y11-series-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .y11-series-icon {
+      font-size: 15px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      flex-shrink: 0;
+    }
+
+    .y11-series-name {
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .y11-series-count {
+      font-size: 11px;
+      font-weight: 600;
+      color: #94a3b8;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 3px 10px;
+      border-radius: 6px;
+      letter-spacing: 0.02em;
+      flex-shrink: 0;
+    }
+
     .y11-fixture-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap: 14px;
-      margin-top: 10px;
+      grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+      gap: 16px;
+      margin-top: 4px;
       margin-bottom: 24px;
     }
 
     .y11-fixture-card {
-      background: linear-gradient(145deg, #151829 0%, #0f1220 100%);
-      border: 1px solid rgba(255, 255, 255, 0.09);
-      border-radius: 12px;
-      padding: 13px 15px;
+      background: var(--surface, #141833);
+      border: 1px solid var(--border, #262b4a);
+      border-radius: 14px;
+      padding: 0;
       cursor: pointer;
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
       position: relative;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
 
     .y11-fixture-card:hover {
       transform: translateY(-3px);
-      border-color: rgba(212, 175, 55, 0.5);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 12px rgba(212, 175, 55, 0.12);
+      border-color: rgba(255, 197, 61, 0.45);
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45), 0 0 14px rgba(255, 197, 61, 0.1);
     }
 
     .y11-card-top {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 11.5px;
+      font-size: 11px;
       color: var(--text-dim);
-      margin-bottom: 10px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 9px 14px;
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     }
 
     .y11-top-left {
       display: flex;
       align-items: center;
-      gap: 7px;
+      gap: 8px;
       min-width: 0;
     }
 
     .y11-format-badge {
-      font-size: 10px;
+      font-size: 9.5px;
       font-weight: 800;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
-      padding: 2px 7px;
+      padding: 2px 6px;
       border-radius: 4px;
-      background: rgba(255, 255, 255, 0.09);
-      color: #fff;
+      background: rgba(99, 102, 241, 0.12);
+      color: #818cf8;
+      border: 1px solid rgba(99, 102, 241, 0.25);
       flex-shrink: 0;
     }
 
@@ -110,12 +168,15 @@
       overflow: hidden;
       text-overflow: ellipsis;
       font-size: 11px;
+      font-weight: 500;
+      color: var(--text-dim);
     }
 
     .y11-date-txt {
-      font-size: 11.5px;
-      color: var(--text-dim);
-      font-weight: 500;
+      font-size: 11px;
+      color: #94a3b8;
+      font-weight: 600;
+      letter-spacing: 0.02em;
       flex-shrink: 0;
     }
 
@@ -123,8 +184,9 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
-      padding: 2px 0 6px;
+      gap: 8px;
+      padding: 14px 14px 12px;
+      flex: 1;
     }
 
     .y11-team-block {
@@ -141,134 +203,203 @@
     }
 
     .y11-crest-wrap {
-      width: 36px;
-      height: 36px;
-      border-radius: 8px;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
       overflow: hidden;
       flex-shrink: 0;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: var(--surface-2);
+      background: var(--surface-2, #1a2040);
+      border: 1.5px solid rgba(255, 255, 255, 0.12);
+      padding: 2px;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
     }
 
     .y11-crest {
       width: 100%;
       height: 100%;
       object-fit: cover;
+      border-radius: 50%;
     }
 
     .y11-crest-shield {
       width: 100%;
       height: 100%;
+      border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       font-family: var(--font-display);
       font-weight: 800;
       font-size: 11.5px;
-      letter-spacing: 0.03em;
+      letter-spacing: 0.04em;
       border: 1.5px solid;
-      border-radius: 8px;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+    }
+
+    .y11-crest-fallback {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 11.5px;
+      color: #fff;
+      background: var(--surface-2, #1a2040);
     }
 
     .y11-team-info {
       min-width: 0;
+      overflow: hidden;
     }
 
     .y11-team-code {
       font-family: var(--font-display);
-      font-size: 15px;
+      font-size: 15.5px;
       font-weight: 800;
-      color: #fff;
+      color: #ffffff;
       line-height: 1.2;
+      letter-spacing: 0.02em;
     }
 
     .y11-team-fullname {
-      font-size: 10.5px;
+      font-size: 11px;
+      font-weight: 500;
       color: var(--text-dim);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 100px;
+      max-width: 105px;
+      margin-top: 2px;
     }
 
     .y11-match-center {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 4px;
+      gap: 5px;
       flex-shrink: 0;
       padding: 0 4px;
+      min-width: 96px;
     }
 
     .y11-vs-badge {
-      font-size: 10px;
+      font-size: 9.5px;
       font-weight: 800;
-      color: rgba(255, 255, 255, 0.4);
+      color: rgba(255, 255, 255, 0.45);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 1px 6px;
+      border-radius: 4px;
       letter-spacing: 0.06em;
     }
 
     .y11-countdown {
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 10.5px;
       font-weight: 700;
-      padding: 3px 9px;
-      border-radius: 14px;
-      background: rgba(34, 197, 94, 0.15);
-      color: #4ade80;
-      border: 1px solid rgba(34, 197, 94, 0.25);
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(46, 212, 122, 0.1);
+      color: var(--green, #2ed47a);
+      border: 1px solid rgba(46, 212, 122, 0.22);
       white-space: nowrap;
+      letter-spacing: 0.01em;
     }
 
     .y11-countdown.is-soon {
-      background: rgba(239, 68, 68, 0.18);
-      color: #f87171;
-      border-color: rgba(239, 68, 68, 0.35);
+      background: rgba(255, 75, 110, 0.12);
+      color: var(--red, #ff4b6e);
+      border-color: rgba(255, 75, 110, 0.3);
     }
 
     .y11-countdown.is-locked {
-      background: rgba(255, 255, 255, 0.06);
-      color: var(--text-dim);
+      background: rgba(255, 255, 255, 0.04);
+      color: #64748b;
       border-color: transparent;
     }
 
     .y11-card-footer {
-      margin-top: 10px;
-      padding-top: 8px;
-      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 8px 14px;
+      background: rgba(0, 0, 0, 0.18);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
 
     .y11-contest-badge-txt {
-      font-size: 11.5px;
-      color: #94a3b8;
-      display: flex;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-dim);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .y11-contest-badge-txt .y11-badge-ico {
+      font-size: 12px;
+    }
+
+    .y11-contest-tag-pill {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #cbd5e1;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+
+    .y11-tagp.lineups {
+      display: inline-flex;
       align-items: center;
       gap: 5px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--green, #2ed47a);
+    }
+
+    .y11-live-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--green, #2ed47a);
+      box-shadow: 0 0 6px var(--green, #2ed47a);
+      animation: y11-pulse 2s infinite;
+    }
+
+    @keyframes y11-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
     }
 
     .y11-action-btn {
       font-size: 11.5px;
       font-weight: 700;
-      color: #fbbf24;
-      display: flex;
+      color: var(--gold, #ffc53d);
+      display: inline-flex;
       align-items: center;
-      gap: 3px;
-      background: rgba(251, 191, 36, 0.1);
-      padding: 3px 9px;
+      gap: 4px;
+      background: rgba(255, 197, 61, 0.1);
+      padding: 4px 11px;
       border-radius: 6px;
-      border: 1px solid rgba(251, 191, 36, 0.2);
-      transition: all 0.15s ease;
+      border: 1px solid rgba(255, 197, 61, 0.28);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     .y11-fixture-card:hover .y11-action-btn {
-      background: rgba(251, 191, 36, 0.22);
-      color: #fef08a;
-      border-color: rgba(251, 191, 36, 0.4);
+      background: var(--gold, #ffc53d);
+      color: #0b0e1d;
+      border-color: var(--gold, #ffc53d);
+      box-shadow: 0 0 12px rgba(255, 197, 61, 0.35);
+      transform: translateX(2px);
     }
 
     /* Match header */
@@ -707,89 +838,6 @@
       border-radius: var(--radius-sm);
     }
 
-    /* ---- Lobby: fixtures grouped by tournament, with a live countdown ---- */
-    .y11-series-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin: 18px 0 10px;
-      padding: 7px 12px;
-      background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 0%, transparent 100%);
-      border-left: 3px solid var(--gold);
-      border-radius: var(--radius-sm);
-    }
-
-    .y11-series-name {
-      font-family: var(--font-display);
-      font-size: 13.5px;
-      font-weight: 700;
-      color: var(--text);
-    }
-
-    .y11-series-count {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--gold-deep);
-      background: var(--gold-soft);
-      padding: 2px 8px;
-      border-radius: 10px;
-    }
-
-    .y11-crest {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      object-fit: cover;
-      background: var(--bg-soft);
-      flex: 0 0 auto;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    /* Stand-in when the source gave no crest, or the image 404s: the team's short code. */
-    .y11-crest-fallback {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      flex: 0 0 auto;
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 10px;
-      font-weight: 700;
-      color: var(--text);
-    }
-
-    .y11-vs {
-      font-size: 10.5px;
-      color: var(--text-dim);
-      font-weight: 700;
-    }
-
-    .y11-countdown {
-      display: inline-block;
-      padding: 3px 8px;
-      border-radius: 12px;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 700;
-      background: var(--green-soft);
-      color: var(--green);
-      white-space: nowrap;
-    }
-
-    /* Under half an hour to the deadline, so it reads as a deadline rather than a detail. */
-    .y11-countdown.is-soon {
-      background: var(--red-soft);
-      color: var(--red);
-    }
-
-    .y11-countdown.is-locked {
-      background: var(--bg-soft);
-      color: var(--text-dim);
-    }
-
     /* ---- Squad view ---- */
     .y11-squad-rules {
       display: flex;
@@ -1219,10 +1267,6 @@
         <div id="leaderboardBox"></div>
       </div>
     </div>
-
-    <!-- The data now comes from the Roanuz feed (lib/cricket-roanuz.php). The Standard licence requires
-         this visible credit; keep it unless the account moves to a licence that waives attribution. -->
-    <div class="y11-attribution" id="attribution">Live cricket data: Roanuz Sports (cricketapi.com)</div>
   </div>
 
   <!-- Team builder modal -->
@@ -1530,8 +1574,8 @@
           + '</div>'
           + '<div class="y11-card-footer">'
           + (m.lineups_announced
-              ? '<span class="y11-tagp lineups">✓ Lineups out</span>'
-              : '<span class="y11-contest-badge-txt">🏆 Mega · Head-to-Head · Practice</span>')
+              ? '<span class="y11-tagp lineups"><span class="y11-live-dot"></span> Lineups Out</span>'
+              : '<span class="y11-contest-badge-txt"><span class="y11-badge-ico">🏆</span> <span class="y11-contest-tag-pill">Mega</span> <span class="y11-contest-tag-pill">H2H</span></span>')
           + '<span class="y11-action-btn">Create Team &rsaquo;</span>'
           + '</div>'
           + '</div>';
@@ -1558,7 +1602,10 @@
         for (var i = 0; i < groups.length; i++) {
           var grp = groups[i];
           html += '<div class="y11-series-head">'
+            + '<div class="y11-series-left">'
+            + '<span class="y11-series-icon">🏆</span>'
             + '<span class="y11-series-name">' + esc(grp.series_name) + '</span>'
+            + '</div>'
             + '<span class="y11-series-count">' + grp.matches.length
             + (grp.matches.length === 1 ? ' match' : ' matches') + '</span>'
             + '</div>'
