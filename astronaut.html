@@ -437,6 +437,7 @@
 
   <div id="as-history" style="max-width:1240px; margin:14px auto 0; padding:0 14px; box-sizing:border-box;"></div>
   <script>initGameHistoryPanel({ mount: 'as-history', games: ['Astronaut'] });</script>
+  <script src="assets/js/astronaut-rig.js"></script>
 
   <div class="as-modal" id="asModal" role="dialog" aria-modal="true" aria-labelledby="asModalTitle">
     <div class="as-modal-card">
@@ -554,6 +555,7 @@
       renderHistory(true);
       // Drift off into space: spin, shrink and fade toward the top right.
       const el = $('asAstro');
+      if (window.AstroRig) AstroRig.setMode('lost');
       el.classList.add('lost');
       el.style.transition = 'transform 1.6s ease-in, opacity 1.6s ease-in';
       el.style.opacity = '0';
@@ -561,6 +563,7 @@
     }
 
     function announceWin(b) {
+      if (window.AstroRig) AstroRig.cheer();
       toast('You cashed out <b>' + fmtX(b.cashout_mult) + '</b> Win <b>' + fmt(b.payout) + '</b>');
       sfx(b.cashout_mult >= 10 ? 'bigWin' : 'cashout');
       if (window.ResultPopup) ResultPopup.show({ outcome: 'win', amount: b.payout, big: b.cashout_mult >= 5 });
@@ -784,6 +787,10 @@
 
     // ---- the sky --------------------------------------------------------------------------------
     const canvas = $('asCanvas'), ctx = canvas.getContext('2d'), sky = $('asSky'), astro = $('asAstro');
+    // The rigged character (assets/js/astronaut-rig.js) animates himself inside this box; the page only
+    // places the box. Without it, the static art in the box stays.
+    const rig = window.AstroRig || null;
+    if (rig) rig.mount(astro);
     let W = 0, H = 0, stars = [], trail = [], lastPos = { x: 0, y: 0 }, lastTickSec = -1;
     function resize() {
       const r = sky.getBoundingClientRect();
@@ -852,11 +859,12 @@
           ctx.beginPath(); trail.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
           ctx.strokeStyle = g; ctx.lineWidth = 3; ctx.stroke();
         }
-        const bob = Math.sin(now / 260) * 3;
+        const bob = rig ? 0 : Math.sin(now / 260) * 3;
+        if (rig) { rig.setMode('fly'); rig.setSpeed(Math.log(Math.max(1, mult)) / Math.log(20)); }
         astro.classList.remove('idle', 'lost');
         astro.style.transition = 'none';
         astro.style.opacity = '1';
-        astro.style.transform = astroTransform(pos.x, pos.y + bob, Math.sin(now / 900) * 4, 1);
+        astro.style.transform = astroTransform(pos.x, pos.y + bob, rig ? 0 : Math.sin(now / 900) * 4, 1);
         lastPos = pos;
         waitEl.classList.remove('show');
         multEl.className = 'as-mult'; multEl.textContent = fmtX(mult);
@@ -889,7 +897,8 @@
           astro.style.transition = 'none';
         }
         const p0 = flightPos(0, 1);
-        astro.style.transform = astroTransform(p0.x, p0.y + Math.sin(now / 500) * 4, -6, 0.9);
+        if (rig) rig.setMode('idle');
+        astro.style.transform = rig ? astroTransform(p0.x, p0.y, 0, 0.9) : astroTransform(p0.x, p0.y + Math.sin(now / 500) * 4, -6, 0.9);
         astro.style.opacity = '1';
         trail = [];
       }
