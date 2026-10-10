@@ -147,21 +147,21 @@
       </section>
       <style>
         .hck { margin: 4px 0 0; border-radius: 10px; overflow: hidden; background: var(--surface, #12163a); border: 1px solid rgba(255,255,255,.07); }
-        .hck-h { display: flex; justify-content: space-between; align-items: center; padding: 5px 10px; color: #fff; font-weight: 700; font-size: 13px;
+        .hck-h { display: flex; justify-content: space-between; align-items: center; padding: 7px 12px; color: #fff; font-weight: 700; font-size: 15px;
                  background: linear-gradient(90deg, #1a2050 0%, #232a66 100%); }
-        .hck-h a { color: #fff; opacity: .85; font-size: 12px; text-decoration: none; }
-        .hck-cols { display: grid; grid-template-columns: minmax(150px, 1fr) 50px 50px 50px 50px; gap: 0 2px; padding-right: 4px; }
-        .hck-head .h { text-align: center; font-size: 11px; font-weight: 800; color: var(--text-dim, #9aa3c7); padding: 1px 0; }
+        .hck-h a { color: #fff; opacity: .85; font-size: 13.5px; text-decoration: none; }
+        .hck-cols { display: grid; grid-template-columns: minmax(160px, 1fr) 58px 58px 58px 58px; gap: 0 2px; padding-right: 4px; }
+        .hck-head .h { text-align: center; font-size: 12px; font-weight: 800; color: var(--text-dim, #9aa3c7); padding: 2px 0; }
         .hck-row { border-top: 1px solid rgba(255,255,255,.07); cursor: pointer; }
         .hck-row:hover { background: rgba(255,255,255,.03); }
-        .hck-row .nm { padding: 4px 10px; font-size: 13px; line-height: 1.2; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700; color: var(--text, #fff); }
-        .hck-row .nm small { display: block; color: var(--text-dim, #9aa3c7); font-weight: 600; font-size: 11px; margin-top: 0; overflow: hidden; text-overflow: ellipsis; }
+        .hck-row .nm { padding: 6px 12px; font-size: 15px; line-height: 1.2; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700; color: var(--text, #fff); }
+        .hck-row .nm small { display: block; color: var(--text-dim, #9aa3c7); font-weight: 600; font-size: 12.5px; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; }
         .hck-row .nm small .inplay { color: var(--green, #22c55e); font-weight: 800; }
-        .hck-px { display: flex; align-items: center; justify-content: center; font-family: var(--font-mono, monospace); font-weight: 700; font-size: 12.5px; color: #fff; margin: 2px 0; border-radius: 3px; }
+        .hck-px { display: flex; align-items: center; justify-content: center; font-family: var(--font-mono, monospace); font-weight: 700; font-size: 14.5px; color: #fff; margin: 3px 0; border-radius: 4px; }
         .hck-px.b { background: #2f6fd6; } .hck-px.l { background: #d2507d; }
-        .hck-px.s { background: rgba(255,255,255,.03); color: var(--text-dim, #9aa3c7); font-size: 11px; grid-column: span 4; }
+        .hck-px.s { background: rgba(255,255,255,.03); color: var(--text-dim, #9aa3c7); font-size: 12px; grid-column: span 4; }
         @media (max-width: 760px) {
-          .hck-cols { grid-template-columns: minmax(110px, 1fr) 48px 48px; }
+          .hck-cols { grid-template-columns: minmax(110px, 1fr) 54px 54px; }
           .hck-cols .x { display: none; }
           .hck-px.s { grid-column: span 2; }
         }
@@ -185,7 +185,11 @@
             fetch('api/cricket/exchange-lobby', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
               var box = document.getElementById('homeCricket');
               if (!d || !d.success) { box.hidden = true; return; }   // games switched off (404) or an error: show nothing
-              var list = (d.live || []).map(function (m) { return [m, true]; }).concat((d.upcoming || []).map(function (m) { return [m, false]; })).slice(0, LIMIT);
+              // Live matches first, then upcoming ones that already have a price; a fixture still waiting
+              // for its first price ("Opens when play starts") is left for the full cricket page.
+              var priced = function (m) { return m.odds && m.odds.open; };
+              var list = (d.live || []).map(function (m) { return [m, true]; })
+                .concat((d.upcoming || []).filter(priced).map(function (m) { return [m, false]; })).slice(0, LIMIT);
               if (!list.length) { box.hidden = true; return; }
               document.getElementById('homeCricketRows').innerHTML = list.map(function (x) { return row(x[0], x[1]); }).join('');
               box.hidden = false;
