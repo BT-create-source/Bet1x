@@ -94,6 +94,10 @@ function bbb_config() {
     // Sportmonks balls are posted under 8s after the previous one (the scorer catching up), and those
     // must void whatever the window; measured over 298 balls, 15s voids ~20%, 20s ~25%.
     if (cricket_source_mode() === 'sportmonks') $cfg['window_seconds'] = max($cfg['window_seconds'], 15);
+    // Replaying the two 9 Oct matches: 16 of 495 balls were corrected and 10 deleted after first posting,
+    // 13 of the 16 and all 10 deletions within 90s (SIX -> WICKET came 48s later). A 20s hold settled
+    // 3 of 136 rounds on the wrong ball; 90s catches all but a rare very late review.
+    if (cricket_source_mode() === 'sportmonks') $cfg['confirm_seconds'] = max($cfg['confirm_seconds'], 90);
     return $cfg;
 }
 

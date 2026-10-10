@@ -14,6 +14,8 @@ $suites = [
     'road_your11.php'         => [],
     'road_bbb.php'            => [],
     'road_http.php'           => [],
+    'road_exchange.php'       => [],
+    'road_sportmonks_replay.php' => [],
 ];
 $ext = [];
 // Always pass these: a child PHP does not inherit the parent's -d flags (duplicates only warn, and are filtered).

@@ -20,5 +20,8 @@ Each run writes a full report to `tests/reports/`.
 | `road_bbb.php` | 50 players betting on every ball of a T20 (about 6,700 bets), bad bets, parallel races (a ₹100 wallet firing five bets, the per-ball cap, duplicate pushes settling one ball), each result checked against an independent reading of the raw ball, pools = payouts + rake, refunds, a rained-off match, and reconciliation. |
 | `road_http.php` | Both games over real HTTP on a private server (port 5099): token attacks, operator routes, other players' teams, 50 signed-in players building teams, joining and betting. Live betting needs a demo match in play on the real clock; if none is live, that part reports SKIPPED. |
 
+| `road_exchange.php` | Match betting (Match Odds, Bookmaker, Fancy, Cash Out): 50 players through a whole T20 (about 3,700 bets), bad bets, simultaneous bets from separate processes (a ₹250 wallet firing five bets, 20 players at once, a triple cash-out), the house cap, every result recomputed from the simulator's raw balls, every bet's terms and payout recomputed, "too late" voids checked against the ball times, a rained-off match refunded, and reconciliation. |
+| `road_sportmonks_replay.php` | The two real Sportmonks matches archived on 9 Oct 2026 (Pakistan v Sri Lanka, India v West Indies) replayed snapshot by snapshot with 40 players betting, under the polled-feed rules: final scores = the real ones, every Ball by Ball round = an independent reading of its ball, pools exact, Match Odds on the real winner, reconciliation. Needs the archive in `cricket_feed_raw` (skips without it). |
+
 After `road_http.php` the `road_h*` users stay (they're reset on every
 run) because their Ball by Ball bets are part of a real demo-league pool.

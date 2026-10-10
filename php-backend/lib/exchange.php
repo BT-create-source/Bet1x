@@ -448,10 +448,18 @@ function mx_process_match($matchKey, $nowMs = null) {
     $openKeys = array_column(all('SELECT DISTINCT "market_key", "market_name" FROM "mx_bets" WHERE "match_key" = ? AND "status" = ? AND "market_type" = ?',
                                  [$matchKey, 'PENDING', 'FANCY']), 'market_name', 'market_key');
     $matchOver = in_array($feed['status'], ['completed', 'abandoned'], true);
+    // A polled feed corrects balls after posting them (see bbb_config): a line settles only once every ball
+    // it counts has stood unchanged for the same hold Ball by Ball uses.
+    $holdMs = (function_exists('bbb_config') ? (int) bbb_config()['confirm_seconds'] : 0) * 1000;
     foreach ($openKeys as $key => $name) {
         if (!preg_match('/^(ms|ov)_(\d)_(\d+)$/', $key, $mm)) continue;
         [$all_, $kind, $i, $n] = $mm; $i = (int) $i; $n = (int) $n;
         $balls = $inn[$i] ?? [];
+        if ($holdMs > 0 && !$matchOver) {
+            $fresh = false;
+            foreach ($balls as $d) if ($now - (int) ($d['received_ms'] ?? 0) < $holdMs) { $fresh = true; break; }
+            if ($fresh) continue;
+        }
         $legal = 0; $runs = 0; $wk = 0; $atEnd = null; $overRuns = 0; $overDone = false;
         foreach ($balls as $d) {
             $r = (int) $d['batsman_runs'] + (int) $d['extra_runs'];
