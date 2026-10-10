@@ -14,12 +14,13 @@
  * the tail, lifts the wing, and lifts a foot's heel. Joint pivots are in src/rig/skeleton.js.
  *
  * Tunables arrive in `P`: bob (body-bob intensity), head (head-motion intensity), flap (wing
- * amplitude) and walkSpeed (cadence multiplier). All default to 1.
+ * amplitude) and walkSpeed (cadence multiplier). All default to 1. Overall exaggeration (`amp`) is
+ * applied by the controller on top of whatever a clip returns, so clips stay written at natural size.
  */
 
 import { TAU, clamp01, lerp, smoothstep, easeInOut, fract, track, blinkCurve } from './curves.js';
 
-const DEFAULTS = { bob: 1, head: 1, flap: 1, walkSpeed: 1 };
+const DEFAULTS = { bob: 1, head: 1, flap: 1, walkSpeed: 1, amp: 1 };
 
 /**
  * One foot's position over a gait cycle, phase 0..1 starting at heel contact.
@@ -249,6 +250,34 @@ function hop(t, P) {
   };
 }
 
+/**
+ * Cheer (1.25 s): a victory jump — crouch, leap with the wing beating frantically, head thrown back
+ * and beak wide open, feet kicking, a squashy landing and a second little bounce.
+ */
+function cheer(t, P) {
+  const u = t / 1.25;
+  const crouch = track([[0, 0], [0.1, 1, 'out'], [0.16, 0], [0.62, 0], [0.7, 1, 'out'], [0.78, 0], [0.9, 0.4], [1, 0]], u);
+  const air = u > 0.14 && u < 0.64 ? Math.sin(Math.PI * (u - 0.14) / 0.5) : 0;
+  const air2 = u > 0.76 && u < 0.92 ? Math.sin(Math.PI * (u - 0.76) / 0.16) * 0.3 : 0;
+  const lift = 110 * (air + air2) * P.bob;
+  const beat = (air + air2 > 0) ? Math.sin(TAU * 7 * u) : 0;
+  const joy = track([[0, 0], [0.14, 1, 'out'], [0.8, 1], [1, 0]], u);
+  return {
+    body: { ty: 12 * crouch - lift, sy: 1 - 0.07 * crouch + 0.05 * air, sx: 1 + 0.05 * crouch - 0.03 * air, rot: -6 * air },
+    legNear: { ty: -lift * 0.9, tx: 10 * Math.sin(TAU * 3 * u) * air }, legFar: { ty: -lift * 0.9, tx: -10 * Math.sin(TAU * 3 * u) * air },
+    footNear: { rot: -20 * air + 12 * Math.sin(TAU * 3 * u) * air }, footFar: { rot: -16 * air - 12 * Math.sin(TAU * 3 * u) * air },
+    wingNear: { rot: ((40 + 30 * beat) * (air + air2 * 2) + 10 * joy) * P.flap },
+    neck: { rot: -8 * joy * P.head, ty: (-14 * joy + 6 * crouch) * P.head },
+    head: { rot: (-10 * joy + 4 * Math.sin(TAU * 4 * u) * joy) * P.head },
+    beakLower: { rot: 16 * joy },
+    tail: { rot: 14 * joy + 6 * beat },
+    comb: { rot: 6 * Math.sin(TAU * 3.5 * u) * joy },
+    wattle: { rot: 10 * Math.sin(TAU * 3.5 * u + 1) * joy },
+    pupilNear: { tx: 20 * joy, ty: -24 * joy },
+    pupilFar: { tx: 8 * joy, ty: -16 * joy },
+  };
+}
+
 export const CLIPS = {
   idle:  { label: 'Idle',        kind: 'base',   loop: true,  duration: IDLE_LEN, sample: idle },
   walk:  { label: 'Walk',        kind: 'base',   loop: true,  duration: WALK.period, sample: walk },
@@ -259,6 +288,7 @@ export const CLIPS = {
   look:  { label: 'Look around', kind: 'action', loop: false, duration: 3.4,  sample: look },
   react: { label: 'React',       kind: 'action', loop: false, duration: 0.95, sample: react },
   hop:   { label: 'Hop',         kind: 'action', loop: false, duration: 0.42, sample: hop },
+  cheer: { label: 'Cheer',       kind: 'action', loop: false, duration: 1.25, sample: cheer },
 };
 
 /** Ground speed that keeps a planted foot still while the hen walks across the stage (px/s). */

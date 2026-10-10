@@ -11,7 +11,7 @@ import { createRig } from '../rig/rig.js';
  * the startle hop (comb ~y -45) and the raised wing, so nothing is ever cropped and the hen is the
  * same size in every frame of every export. In artwork units.
  */
-export const FRAME_BOX = { x: 100, y: -70, w: 1320, h: 1320 };
+export const FRAME_BOX = { x: 60, y: -190, w: 1440, h: 1440 };   // headroom for exaggerated jumps
 
 /** Serialize the artwork posed at `pose` as a self-contained SVG string. */
 export function poseToSvgString(templateSvg, pose, { box = FRAME_BOX, width, height, background = null, shadow = true } = {}) {

@@ -33,8 +33,10 @@ python -m http.server 8080
 - **Playback**: Pause/Play (or Space), Restart clip, Reset to neutral (or R). *Walk / run across the
   stage* moves the hen at exactly the speed her planted foot slides back, so the stance foot stays
   put on the ground. Otherwise she walks in place.
-- **Tuning**: global speed, walk-cycle speed, body-bob, head-motion and wing amplitude. The defaults
-  are the intended look; the sliders are for refinement.
+- **Tuning**: exaggeration, global speed, walk-cycle speed, body-bob, head-motion and wing amplitude.
+  The defaults are the natural look. **Exaggeration** scales every action's travel, rotation and
+  squash-and-stretch (loops get half the boost; blinks keep their timing; head and neck are capped at
+  1.35x so their hidden neck artwork never swings past the silhouette). Chicken Road runs it at 2.3x.
 - **Stage**: neutral, transparent (checkerboard) or dark background; ground guide; **Rig debug**
   (pivots, bones, part bounding boxes, root, ground — measured from the live transformed SVG);
   **Reference overlay** (the original image at 40% under the hen, for checking fidelity at rest).
@@ -111,6 +113,7 @@ ground.
 | Wing flap | one-shot | 1.2 s | Two beats about the shoulder, body lifts on each down-stroke, tail and head react. |
 | Look around | one-shot | 3.4 s | Back over the shoulder, then forward and down, pupils leading, a blink at the turn. |
 | React | one-shot | 0.95 s | Flinch, small hop with head thrown back, pupils contract, wing flick, tail cocked, settle with overshoot. |
+| Cheer | one-shot | 1.25 s | Victory jump: crouch, leap with the wing beating frantically, head thrown back and beak wide open, feet kicking, squashy landing and a second little bounce. |
 | Hop | one-shot | 0.42 s | Crouch, spring with feet tucked, land with a squash. Vertical only: the caller supplies the sideways travel over the same 0.42 s (Chicken Road hops her into the next lane with it). |
 
 **Controller rules**: one base at a time (switching cross-fades); at most one body action at a time
@@ -123,7 +126,8 @@ of a pose. Time is real elapsed time × speed; clips are pure functions of time,
 `chickenroad.html` (repo root) uses this hen as its character through `assets/js/chicken-hen.js`,
 which imports `src/rig` and `src/animation` and loads `src/character/hen.svg`. She idles (with an
 occasional glance or peck), hops on every GO, flaps on a cash-out, celebrates the Golden Egg, and
-flinches as the car arrives. Keep this folder deployed alongside the site. If it fails to load,
+flinches as the car arrives — with exaggeration at 2.3x and a cheer jump on every cash-out. Keep
+this folder deployed alongside the site. If it fails to load,
 the game falls back to its simple built-in hen.
 
 ## Export

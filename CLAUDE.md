@@ -47,7 +47,8 @@ their own `AstronautBet` table, two panels, auto cash-out). Both are priced only
 are provably fair (seed hash shown first, seed revealed after), and are deliberately not wired to the
 bot-takeover engine. Chicken Road's character is the rigged hen from `hen-studio/` (traced from a
 reference image, animated by `hen-studio/src/animation`, driven in-game by `assets/js/chicken-hen.js`;
-see `hen-studio/README.md`), and its sounds are synthesized in `assets/js/chicken-sfx.js`.
+see `hen-studio/README.md`), its road, pavement, props, vehicles and impact effects are vector art in the same style in
+`assets/js/chicken-scene.js`, and its sounds are synthesized in `assets/js/chicken-sfx.js`.
 Pages `chickenroad.html` / `astronaut.html`; admin tab in
 `assets/js/admin-newgames.js`; migration 012; tests `php-backend/test_crash_games.php`; DEPLOY.md §14.
 

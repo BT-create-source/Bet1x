@@ -115,6 +115,7 @@ function bindSlider(id, apply, fmt = (v) => v.toFixed(2) + '×') {
 }
 bindSlider('sSpeed', (v) => { ctl.speed = v; });
 bindSlider('sScale', () => layoutStage(), (v) => Math.round(v * 100) + '%');
+bindSlider('sAmp', (v) => { ctl.params.amp = v; });
 bindSlider('sWalk', (v) => { ctl.params.walkSpeed = v; });
 bindSlider('sBob', (v) => { ctl.params.bob = v; });
 bindSlider('sHead', (v) => { ctl.params.head = v; });

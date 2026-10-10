@@ -30,7 +30,8 @@ async function init() {
   svg.style.width = '100%'; svg.style.height = '100%'; svg.style.overflow = 'visible'; svg.style.display = 'block';
   svg.querySelector('#shadow')?.remove();             // the road draws its own contact shadow
 
-  const ctl = new HenController(createRig(svg));
+  // Cranked-up for the game: big, cartoony, readable at small size. (The studio defaults are 1.)
+  const ctl = new HenController(createRig(svg), { params: { amp: 2.3, bob: 1.1, head: 1.1, flap: 1.3 } });
   let idleLife = true;
   let nextFidget = performance.now() + 4000 + Math.random() * 4000;
 
@@ -53,12 +54,12 @@ async function init() {
   window.CRHen = {
     attach(el) { el.textContent = ''; el.appendChild(svg); ctl.render(); },
     hop() { ctl.play('hop'); deferFidget(5000); },
-    cheer() { ctl.play('flap'); deferFidget(5000); },
+    cheer() { ctl.play('cheer'); deferFidget(5000); },
     celebrate() {
-      ctl.play('flap');
-      setTimeout(() => ctl.play('hop'), 1150);
-      setTimeout(() => ctl.play('flap'), 1600);
-      deferFidget(7000);
+      ctl.play('cheer');
+      setTimeout(() => ctl.play('cheer'), 1300);
+      setTimeout(() => ctl.play('flap'), 2600);
+      deferFidget(8000);
     },
     startle() { ctl.play('react'); ctl.play('blink'); deferFidget(5000); },
     setIdle(on) { idleLife = !!on; if (on) deferFidget(3000); },

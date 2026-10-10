@@ -35,20 +35,40 @@ function blendPoses(a, b, w) {
   return out;
 }
 
-/** Add a sparse additive pose into a full pose, scaled by w. */
-function addPose(into, add, w) {
+/**
+ * Add a sparse additive pose into a full pose, scaled by w. `amp` exaggerates the motion itself —
+ * translations, rotations and squash/stretch — but not eyelid closure, so a blink keeps its timing.
+ */
+// The head and neck move as one block over hidden neck artwork; pushed much further than this they
+// swing that artwork out past the silhouette, so exaggeration is capped for them.
+const AMP_CAP = { neck: 1.35, head: 1.35 };
+
+function addPose(into, add, w, amp = 1) {
   for (const id in add) {
     const o = into[id], a = add[id];
     if (!o) continue;
-    o.tx += (a.tx || 0) * w;
-    o.ty += (a.ty || 0) * w;
-    o.rot += (a.rot || 0) * w;
-    if (a.sx !== undefined) o.sx *= 1 + (a.sx - 1) * w;
-    if (a.sy !== undefined) o.sy *= 1 + (a.sy - 1) * w;
+    const k = w * (AMP_CAP[id] ? Math.min(amp, AMP_CAP[id]) : amp);
+    o.tx += (a.tx || 0) * k;
+    o.ty += (a.ty || 0) * k;
+    o.rot += (a.rot || 0) * k;
+    if (a.sx !== undefined) o.sx *= Math.max(0.35, 1 + (a.sx - 1) * k);
+    if (a.sy !== undefined) o.sy *= Math.max(0.35, 1 + (a.sy - 1) * k);
     o.close += (a.close || 0) * w;
   }
   return into;
 }
+
+/** Exaggerate a base (looping) pose about rest by `a` — milder than actions, so loops stay readable. */
+function ampBase(pose, a) {
+  if (a === 1) return pose;
+  for (const id in pose) {
+    const o = pose[id];
+    o.tx *= a; o.ty *= a; o.rot *= a;
+    o.sx = 1 + (o.sx - 1) * a; o.sy = 1 + (o.sy - 1) * a;
+  }
+  return pose;
+}
+const baseAmp = (P) => 1 + ((P.amp || 1) - 1) * 0.5;
 
 export class HenController {
   constructor(rig, opts = {}) {
@@ -147,10 +167,11 @@ export class HenController {
     } else {
       pose = blendPoses(pose, pose, 1);
     }
+    ampBase(pose, baseAmp(P));
     if (this.fading) {
-      addPose(pose, CLIPS[this.fading.id].sample(this.fading.t, P), 1 - smoothstep(0, ACTION_FADE, this.fading.f));
+      addPose(pose, CLIPS[this.fading.id].sample(this.fading.t, P), 1 - smoothstep(0, ACTION_FADE, this.fading.f), P.amp);
     }
-    if (this.action) addPose(pose, CLIPS[this.action.id].sample(this.action.t, P), 1);
+    if (this.action) addPose(pose, CLIPS[this.action.id].sample(this.action.t, P), 1, P.amp);
     for (const b of this.blinks) addPose(pose, CLIPS.blink.sample(b, P), 1);
     pose.root.tx += this.worldX;
     return pose;
@@ -166,7 +187,7 @@ export class HenController {
 export function evaluateClip(id, t, params) {
   const P = withDefaults(params);
   const clip = CLIPS[id];
-  if (clip.kind === 'base') return blendPoses(clip.sample(t, P), clip.sample(t, P), 1);
+  if (clip.kind === 'base') return ampBase(blendPoses(clip.sample(t, P), clip.sample(t, P), 1), baseAmp(P));
   const pose = blendPoses({}, {}, 1);
-  return addPose(pose, clip.sample(t, P), 1);
+  return addPose(pose, clip.sample(t, P), 1, P.amp);
 }
