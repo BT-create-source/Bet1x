@@ -22,6 +22,29 @@
     @keyframes bbPulse { 0% { box-shadow: 0 0 0 0 rgba(255,75,110,.55); } 70% { box-shadow: 0 0 0 9px rgba(255,75,110,0); } 100% { box-shadow: 0 0 0 0 rgba(255,75,110,0); } }
 
     /* ---------- lobby ---------- */
+    /* Live now: the section players come here for, so it leads the lobby and reads as live. */
+    .bb-live-sec { margin: 6px 0 18px; }
+    .bb-live-head { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: 12px; margin-bottom: 12px;
+      background: linear-gradient(90deg, rgba(255,75,110,.16), rgba(255,75,110,.03) 60%, transparent), var(--surface);
+      border: 1px solid rgba(255,75,110,.28); }
+    .bb-live-head .t { font-family: var(--font-display); font-size: 14px; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase; color: #fff; }
+    .bb-live-head .n { font-size: 11.5px; font-weight: 800; color: #fff; background: var(--red); border-radius: 999px; padding: 2px 9px; min-width: 22px; text-align: center; }
+    .bb-live-head .sub { margin-left: auto; font-size: 12px; color: var(--text-dim); }
+    .bb-card.is-live { position: relative; overflow: hidden; border-color: rgba(255,75,110,.35);
+      background: linear-gradient(180deg, rgba(255,75,110,.09), transparent 46%), var(--surface); }
+    .bb-card.is-live::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--red); box-shadow: 0 0 12px rgba(255,75,110,.7); }
+    .bb-card.is-live:hover { border-color: rgba(255,75,110,.6); }
+    .bb-card.is-live .bb-team-row .sc { font-size: 15px; font-weight: 800; color: #fff; }
+    .bb-pill.live { display: inline-flex; align-items: center; gap: 5px; }
+    .bb-pill.live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: bbPulse 1.4s infinite; }
+    .bb-card-cta { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; gap: 10px; }
+    .bb-card-cta .bet { flex-shrink: 0; font-size: 12px; font-weight: 800; color: #fff; background: var(--red); border-radius: 8px; padding: 6px 12px; box-shadow: 0 4px 12px rgba(255,75,110,.35); }
+    .bb-live-empty { display: flex; align-items: center; gap: 14px; padding: 16px 18px; border-radius: 12px; background: var(--surface); border: 1px dashed var(--border); }
+    .bb-live-empty .ic { width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; background: rgba(255,75,110,.1); color: var(--red); }
+    .bb-live-empty .ic svg { width: 22px; height: 22px; }
+    .bb-live-empty .a { font-weight: 700; color: #fff; font-size: 14px; }
+    .bb-live-empty .b { color: var(--text-dim); font-size: 12.5px; margin-top: 2px; }
+    @media (max-width: 760px) { .bb-live-head .sub { display: none; } }
     .bb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
     .bb-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px;
       cursor: pointer; transition: transform .15s, box-shadow .15s; }
@@ -231,6 +254,10 @@
 
     <!-- ===================== LOBBY ===================== -->
     <div id="viewLobby">
+      <section class="bb-live-sec">
+        <div class="bb-live-head"><span class="bb-live-dot"></span><span class="t">Live now</span><span class="n" id="liveCount">0</span><span class="sub">Bet on every ball</span></div>
+        <div class="bb-grid" id="liveGrid"></div>
+      </section>
       <div class="bb-h">Upcoming</div>
       <div class="bb-grid" id="upGrid"></div>
       <div class="bb-h">Recently finished</div>
@@ -370,22 +397,27 @@
         var s = sc[short];
         return '<div class="bb-team-row"><span>' + esc(name) + '</span><span class="sc">' + (s ? s.runs + '/' + s.wickets + ' <small>(' + s.overs + ')</small>' : '') + '</span></div>';
       }
-      var foot = kind === 'live' ? (m.toss_text ? esc(m.toss_text) : 'In play') :
+      var foot = kind === 'live' ? '<div class="bb-card-cta"><span>' + (m.toss_text ? esc(m.toss_text) : 'In play') + '</span><span class="bet">Bet now ›</span></div>' :
                  kind === 'up' ? (m.start_time_ms ? 'Starts ' + new Date(m.start_time_ms).toLocaleString('en-IN', { weekday: 'short', hour: '2-digit', minute: '2-digit' }) : 'Time TBC') :
                  esc(m.result_text || '');
       var pill = kind === 'live' ? '<span class="bb-pill live">' + (m.status === 'innings_break' ? 'Innings break' : 'Live') + '</span>' :
                  kind === 'up' ? '<span class="bb-pill up">Upcoming</span>' : '<span class="bb-pill done">' + (m.status === 'abandoned' ? 'Abandoned' : 'Finished') + '</span>';
-      return '<div class="bb-card ' + (kind === 'up' ? 'disabled' : '') + '" data-key="' + esc(m.match_key) + '" data-kind="' + kind + '">'
+      return '<div class="bb-card ' + (kind === 'up' ? 'disabled' : kind === 'live' ? 'is-live' : '') + '" data-key="' + esc(m.match_key) + '" data-kind="' + kind + '">'
         + '<div class="bb-card-top"><span>' + esc(m.format || 'T20') + '</span>' + pill + '</div>'
         + '<div class="bb-teams">' + line(m.team_a_short, m.team_a) + line(m.team_b_short, m.team_b) + '</div>'
-        + '<div class="bb-card-foot">' + foot + '</div></div>';
+        + (kind === 'live' ? foot : '<div class="bb-card-foot">' + foot + '</div>') + '</div>';
     }
     function loadLobby() {
       return api('api/cricket/bbb/matches').then(function (d) {
         var virtual = d.virtual || d.source === 'mock';
         if ($('mockNote')) $('mockNote').style.display = virtual ? '' : 'none';
         if ($('attribution')) $('attribution').style.display = virtual ? 'none' : '';
-        if ($('liveGrid')) $('liveGrid').innerHTML = d.live.length ? d.live.map(function (m) { return card(m, 'live'); }).join('') : '<div class="bb-empty">No match is live right now. Markets open as soon as play starts.</div>';
+        $('liveCount').textContent = d.live.length;
+        var next = (d.upcoming || []).filter(function (m) { return m.start_time_ms; }).sort(function (a, b) { return a.start_time_ms - b.start_time_ms; })[0];
+        var until = function (ms) { var mins = Math.max(0, Math.round((ms - Date.now()) / 60000)); return mins < 60 ? mins + 'm' : Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm'; };
+        $('liveGrid').innerHTML = d.live.length ? d.live.map(function (m) { return card(m, 'live'); }).join('')
+          : '<div class="bb-live-empty" style="grid-column:1/-1"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4M19 5a10 10 0 0 1 0 14M5 19A10 10 0 0 1 5 5"/></svg></div>'
+            + '<div><div class="a">No match in play right now</div><div class="b">' + (next ? 'Next: ' + esc(next.team_a_short) + ' v ' + esc(next.team_b_short) + ' · starts in ' + until(next.start_time_ms) + '. Ball by Ball opens at the first delivery.' : 'Ball by Ball opens at the first delivery of the next match.') + '</div></div></div>';
         $('upGrid').innerHTML = d.upcoming.length ? d.upcoming.map(function (m) { return card(m, 'up'); }).join('') : '<div class="bb-empty">No upcoming matches scheduled.</div>';
         $('doneGrid').innerHTML = d.completed.length ? d.completed.map(function (m) { return card(m, 'done'); }).join('') : '<div class="bb-empty">Nothing finished recently.</div>';
         $('sideMatches').innerHTML = d.live.map(function (m) { return '<a href="#match/' + encodeURIComponent(m.match_key) + '">' + esc(m.team_a_short) + ' v ' + esc(m.team_b_short) + ' <span class="live">LIVE</span></a>'; }).join('');
