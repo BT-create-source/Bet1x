@@ -16,6 +16,10 @@ $files = [
     'migration-010-cricket-feed-postgres.sql',
     'migration-011-cricket-exchange-postgres.sql'
 ];
+// Name files on the command line to apply only those, e.g.:
+//   php tools/run-fantasy-migrations.php migration-012-chickenroad-astronaut-postgres.sql
+$only = array_values(array_filter(array_slice($argv ?? [], 1), function ($f) { return preg_match('/^migration-\d{3}-[a-z0-9-]+\.sql$/', $f); }));
+if ($only) $files = $only;
 
 foreach ($files as $file) {
     echo "Applying $file...\n";
