@@ -348,6 +348,13 @@ function fantasy_find_match($id) {
  * A match's squad, grouped by role in team-builder tab order, with each group ordered by credits
  * descending so the players worth picking are at the top of the list.
  */
+/** A player's photo URL when the source has one we can address (Sportmonks), else null. */
+function fantasy_player_image($externalKey) {
+    // Sportmonks' CDN layout: /players/{id % 32}/{id}.png (see sm_image_url in cricket-sportmonks.php).
+    if (preg_match('/^smp_(\d+)$/', (string) $externalKey, $m)) return 'https://cdn.sportmonks.com/images/cricket/players/' . ((int) $m[1] % 32) . '/' . (int) $m[1] . '.png';
+    return null;
+}
+
 function fantasy_players_grouped($matchId) {
     $rows = all(
         'SELECT "id","name","full_name","team_name","role","credits","is_playing","is_substitute","external_key" '
@@ -371,6 +378,7 @@ function fantasy_players_grouped($matchId) {
             'is_playing' => $r['is_playing'] === null ? null : (((int) $r['is_playing']) === 1),
             'is_substitute' => ((int) ($r['is_substitute'] ?? 0)) === 1,
             'player_key' => (string) ($r['external_key'] ?? ''),
+            'image'      => fantasy_player_image((string) ($r['external_key'] ?? '')),
         ];
     }
     return $grouped;

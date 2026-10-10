@@ -105,7 +105,21 @@ function sm_status($status, $live = false, $note = '', $noResult = null) {
 
 function sm_team(array $t = null, $fallbackId = 0) {
     $id = (int) ($t['id'] ?? $fallbackId);
-    return ['key' => sm_team_key($id), 'name' => (string) ($t['name'] ?? 'Team ' . $id), 'code' => (string) ($t['code'] ?? substr((string) ($t['name'] ?? 'T'), 0, 3))];
+    $logo = (string) ($t['image_path'] ?? '');
+    if ($logo === '') $logo = sm_image_url('teams', $id);
+    elseif (strpos($logo, 'placeholder') !== false) $logo = null;   // Sportmonks has no crest: show the team code
+    return ['key' => sm_team_key($id), 'name' => (string) ($t['name'] ?? 'Team ' . $id), 'code' => (string) ($t['code'] ?? substr((string) ($t['name'] ?? 'T'), 0, 3)),
+            'logo' => $logo];
+}
+
+/**
+ * Sportmonks' CDN path for a team crest or player photo: /images/cricket/{kind}/{id % 32}/{id}.png
+ * (checked against every image_path in the 9 Oct replies). One with no photo 404s, and the pages
+ * fall back to initials / the team code.
+ */
+function sm_image_url($kind, $id) {
+    $id = (int) $id;
+    return $id > 0 ? 'https://cdn.sportmonks.com/images/cricket/' . $kind . '/' . ($id % 32) . '/' . $id . '.png' : null;
 }
 
 /** One Sportmonks fixture -> the normalised fixture roanuz_normalise_fixture() returns. */
