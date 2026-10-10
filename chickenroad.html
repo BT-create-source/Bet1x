@@ -130,11 +130,9 @@
     @keyframes crCheer { 50% { transform: translateY(-24%) rotate(-5deg); } }
     /* The rigged hen animates herself (breathing, hop, cheer); only the run-over flatten stays CSS. */
     .cr-hen.rigged:not(.squash) .body { animation: none; }
-    .cr-hen.rigged svg { filter: drop-shadow(0 4px 3px rgba(0,0,0,0.25)); }
-    .cr-hen.rigged::after {
-      content: ''; position: absolute; left: 22%; right: 22%; bottom: 1%; height: 9%; border-radius: 50%;
-      background: radial-gradient(rgba(0,0,0,0.28), transparent 70%); z-index: -1;
-    }
+    /* Depth comes from the live ground shadow inside the rigged hen (assets/js/chicken-hen.js), which
+       stays on the road and shrinks as she jumps; this is only a faint rim to lift her off the road. */
+    .cr-hen.rigged svg { filter: drop-shadow(0 2px 1.5px rgba(0,0,0,0.18)); }
     .cr-feather { position: absolute; width: 14px; height: 7px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1px #d5d6de; z-index: 6; pointer-events: none; animation: crFeather 1.1s ease-out forwards; }
     @keyframes crFeather { to { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity: 0; } }
 

@@ -28,10 +28,40 @@ async function init() {
   svg.setAttribute('preserveAspectRatio', 'xMidYMax meet');
   svg.setAttribute('aria-hidden', 'true');
   svg.style.width = '100%'; svg.style.height = '100%'; svg.style.overflow = 'visible'; svg.style.display = 'block';
-  svg.querySelector('#shadow')?.remove();             // the road draws its own contact shadow
+  svg.querySelector('#shadow')?.remove();             // replaced by the live ground shadow below
+
+  // Ground shadow, drawn in the hen's own coordinates but OUTSIDE her rig, so it stays on the road
+  // while she jumps: a soft wide shadow plus a tight dark contact patch under her feet. Each frame
+  // it shrinks and fades with her height off the ground, and follows her sideways.
+  const NS = 'http://www.w3.org/2000/svg';
+  const defs = svg.querySelector('defs') || svg.insertBefore(document.createElementNS(NS, 'defs'), svg.firstChild);
+  defs.insertAdjacentHTML('beforeend',
+    '<radialGradient id="crHenShadowSoft"><stop offset="0" stop-color="#140c08" stop-opacity="0.55"/>' +
+    '<stop offset="0.55" stop-color="#140c08" stop-opacity="0.28"/><stop offset="1" stop-color="#140c08" stop-opacity="0"/></radialGradient>' +
+    '<radialGradient id="crHenShadowCore"><stop offset="0" stop-color="#0b0604" stop-opacity="0.75"/>' +
+    '<stop offset="0.7" stop-color="#0b0604" stop-opacity="0.3"/><stop offset="1" stop-color="#0b0604" stop-opacity="0"/></radialGradient>');
+  const ground = document.createElementNS(NS, 'g');
+  ground.innerHTML =
+    '<ellipse class="soft" cx="0" cy="0" rx="420" ry="70" fill="url(#crHenShadowSoft)"/>' +
+    '<ellipse class="core" cx="0" cy="0" rx="250" ry="34" fill="url(#crHenShadowCore)"/>';
+  svg.insertBefore(ground, svg.querySelector('#root'));
+  const SHADOW_X = 700, SHADOW_Y = 1208;               // under her feet, on the ground line
+  function placeShadow(pose) {
+    // Height off the ground = how far the legs (which carry the feet) have been lifted.
+    const lift = Math.max(0, -Math.min(pose.legNear.ty, pose.legFar.ty));
+    const k = Math.max(0.45, 1 - lift / 520);           // shrinks as she rises...
+    const op = Math.max(0.25, 1 - lift / 420);          // ...and fades
+    const x = SHADOW_X + pose.root.tx + (pose.body.tx || 0) * 0.6;
+    ground.setAttribute('transform', `translate(${x.toFixed(1)} ${SHADOW_Y}) scale(${k.toFixed(3)} ${(k * 0.92 + 0.08).toFixed(3)})`);
+    ground.setAttribute('opacity', op.toFixed(3));
+    // The tight contact patch only exists while she is actually touching the ground.
+    ground.lastChild.setAttribute('opacity', Math.max(0, 1 - lift / 90).toFixed(3));
+  }
 
   // Cranked-up for the game: big, cartoony, readable at small size. (The studio defaults are 1.)
-  const ctl = new HenController(createRig(svg), { params: { amp: 2.3, bob: 1.1, head: 1.1, flap: 1.3 } });
+  const rig = createRig(svg);
+  const ctl = new HenController(rig, { params: { amp: 2.3, bob: 1.1, head: 1.1, flap: 1.3 } });
+  const render = () => { const pose = ctl.pose(); rig.apply(pose); placeShadow(pose); };
   let idleLife = true;
   let nextFidget = performance.now() + 4000 + Math.random() * 4000;
 
@@ -44,7 +74,7 @@ async function init() {
       ctl.play(Math.random() < 0.6 ? 'look' : 'peck');
       nextFidget = now + 6000 + Math.random() * 6000;
     }
-    if (svg.isConnected) { ctl.update(dt); ctl.render(); }
+    if (svg.isConnected) { ctl.update(dt); render(); }
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
@@ -52,7 +82,7 @@ async function init() {
   const deferFidget = (ms) => { nextFidget = Math.max(nextFidget, performance.now() + ms); };
 
   window.CRHen = {
-    attach(el) { el.textContent = ''; el.appendChild(svg); ctl.render(); },
+    attach(el) { el.textContent = ''; el.appendChild(svg); render(); },
     hop() { ctl.play('hop'); deferFidget(5000); },
     cheer() { ctl.play('cheer'); deferFidget(5000); },
     celebrate() {
