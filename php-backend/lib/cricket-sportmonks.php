@@ -571,8 +571,7 @@ function sm_standings($seasonId) {
  * Pure: the chance team A wins before a ball is bowled, or null when there is nothing sound to go on.
  *   - both teams ICC-ranked in the same list (internationals): logistic in the rating gap, 40 rating
  *     points = 1 in log-odds (269 v 229 ~ 73%), capped 25-75% because T20 is volatile;
- *   - else both in the season's standings with 2+ games each: win rate and net run rate, capped 35-65%;
- *   - else null: no price before play.
+ * *   - else null: no price before play.
  */
 function sm_prematch_prob($teamA, $teamB, $format, array $rankings, array $standings) {
     $list = ['ODI' => 'ODI', 'TEST' => 'TEST'][strtoupper((string) $format)] ?? 'T20I';
@@ -580,12 +579,8 @@ function sm_prematch_prob($teamA, $teamB, $format, array $rankings, array $stand
         $ra = $rankings[(int) $teamA][$list . '|' . $g] ?? null; $rb = $rankings[(int) $teamB][$list . '|' . $g] ?? null;
         if ($ra !== null && $rb !== null && $ra > 0 && $rb > 0) return max(0.25, min(0.75, 1 / (1 + exp(-($ra - $rb) / 40))));
     }
-    $a = $standings[(int) $teamA] ?? null; $b = $standings[(int) $teamB] ?? null;
-    if ($a && $b && (int) $a['played'] >= 2 && (int) $b['played'] >= 2) {
-        $wr = function ($r) { $p = max(1, (int) $r['played'] - (int) ($r['noresult'] ?? 0)); return ((int) $r['won'] + 0.5 * (int) ($r['draw'] ?? 0)) / $p; };
-        $x = 2.0 * ($wr($a) - $wr($b)) + 0.25 * ((float) ($a['netto_run_rate'] ?? 0) - (float) ($b['netto_run_rate'] ?? 0));
-        return max(0.35, min(0.65, 1 / (1 + exp(-$x))));
-    }
+    // Domestic fixtures are not priced from the league table: exchange sites leave them unpriced until
+    // play starts, and so do we. ($standings stays in the signature so callers need not change.)
     // Nothing sound to go on: no pre-match price. The match lists without markets (as exchange sites show
     // a minor fixture nobody has traded yet) and opens at the first ball, when live pricing takes over.
     return null;
