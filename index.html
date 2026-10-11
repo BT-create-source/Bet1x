@@ -142,7 +142,7 @@
            when the cricket games are switched off or nothing is scheduled. -->
       <section class="hck" id="homeCricket" hidden>
         <div class="hck-h"><span>Cricket · Match Odds</span><a href="cricket.html">View all ›</a></div>
-        <div class="hck-cols hck-head"><div></div><div class="h">1</div><div class="h x"></div><div class="h">2</div><div class="h x"></div></div>
+        <div class="hck-cols hck-head"><div></div><div></div><div class="h">1</div><div class="h"></div><div class="h">2</div><div class="h"></div></div>
         <div id="homeCricketRows"></div>
       </section>
       <style>
@@ -150,20 +150,30 @@
         .hck-h { display: flex; justify-content: space-between; align-items: center; padding: 7px 12px; color: #fff; font-weight: 700; font-size: 15px;
                  background: linear-gradient(90deg, #1a2050 0%, #232a66 100%); }
         .hck-h a { color: #fff; opacity: .85; font-size: 13.5px; text-decoration: none; }
-        .hck-cols { display: grid; grid-template-columns: minmax(160px, 1fr) 58px 58px 58px 58px; gap: 0 2px; padding-right: 4px; }
+        .hck-cols { display: grid; grid-template-columns: minmax(160px, 1fr) auto 58px 58px 58px 58px; gap: 0 2px; padding-right: 4px; align-items: stretch; }
         .hck-head .h { text-align: center; font-size: 12px; font-weight: 800; color: var(--text-dim, #9aa3c7); padding: 2px 0; }
         .hck-row { border-top: 1px solid rgba(255,255,255,.07); cursor: pointer; }
         .hck-row:hover { background: rgba(255,255,255,.03); }
-        .hck-row .nm { padding: 6px 12px; font-size: 15px; line-height: 1.2; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700; color: var(--text, #fff); }
-        .hck-row .nm small { display: block; color: var(--text-dim, #9aa3c7); font-weight: 600; font-size: 12.5px; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; }
+        /* The full match name always shows: it wraps onto a second line rather than being cut with "…". */
+        .hck-row .nm { padding: 6px 12px; font-size: 15px; line-height: 1.25; min-width: 0; white-space: normal; overflow-wrap: anywhere; font-weight: 700; color: var(--text, #fff); }
+        .hck-row .nm small { display: block; color: var(--text-dim, #9aa3c7); font-weight: 600; font-size: 12.5px; margin-top: 2px; }
+        .hck-mk { display: flex; align-items: center; gap: 4px; padding: 0 8px 0 4px; }
+        .hck-mk a { display: inline-grid; place-items: center; min-width: 24px; height: 22px; padding: 0 5px; border-radius: 5px; font: 800 11.5px/1 var(--font-display, sans-serif);
+                    font-style: italic; color: #fff; text-decoration: none; box-shadow: inset 0 -2px 0 rgba(0,0,0,.25); }
+        .hck-mk a.bm { background: linear-gradient(180deg, #3b4fa8, #26357a); }
+        .hck-mk a.f { background: linear-gradient(180deg, #1aa3a3, #0d7676); }
+        .hck-mk a.s { background: linear-gradient(180deg, #ff8a3d, #e0571a); }
+        .hck-mk a:hover { filter: brightness(1.12); }
         .hck-row .nm small .inplay { color: var(--green, #22c55e); font-weight: 800; }
         .hck-px { display: flex; align-items: center; justify-content: center; font-family: var(--font-mono, monospace); font-weight: 700; font-size: 14.5px; color: #fff; margin: 3px 0; border-radius: 4px; }
         .hck-px.b { background: #2f6fd6; } .hck-px.l { background: #d2507d; }
         .hck-px.s { background: rgba(255,255,255,.03); color: var(--text-dim, #9aa3c7); font-size: 12px; grid-column: span 4; }
+        /* Phones: no prices on the home screen — the full name and the market badges; tap for the match. */
         @media (max-width: 760px) {
-          .hck-cols { grid-template-columns: minmax(110px, 1fr) 54px 54px; }
-          .hck-cols .x { display: none; }
-          .hck-px.s { grid-column: span 2; }
+          .hck-cols { grid-template-columns: minmax(0, 1fr) auto; }
+          .hck-head { display: none; }
+          .hck-px { display: none; }
+          .hck-row .nm { font-size: 14px; }
         }
       </style>
       <script>
@@ -173,13 +183,21 @@
           function row(m, live) {
             var o = m.odds, a = o && o.runners && o.runners[0], b = o && o.runners && o.runners[1];
             var cell = function (v, cls) { return '<div class="hck-px ' + (v ? cls : 's') + '">' + (v ? esc(v) : '–') + '</div>'; };
-            var cells = (o && o.open && a && b) ? cell(a.back, 'b') + cell(a.lay, 'l x') + cell(b.back, 'b') + cell(b.lay, 'l x')
-              : '<div class="hck-px s">' + esc(o ? (o.reason || 'Suspended') : 'Not offered') + '</div>';
+            // Prices show whenever the match has them — including between balls, when the market is briefly
+            // suspended; the home screen does not show a suspension status.
+            var cells = (a && b && a.back && b.back) ? cell(a.back, 'b') + cell(a.lay, 'l') + cell(b.back, 'b') + cell(b.lay, 'l')
+              : '<div class="hck-px s">' + esc(o ? 'Opens when play starts' : 'Not offered') + '</div>';
+            var mk = m.markets || {}, key = encodeURIComponent(m.match_key);
+            var badges = '<div class="hck-mk">'
+              + (mk.bm ? '<a class="bm" href="cricket.html#match/' + key + '" title="Bookmaker">BM</a>' : '')
+              + (mk.fancy ? '<a class="f" href="cricket.html#match/' + key + '" title="Fancy">F</a>' : '')
+              + (mk.bbb ? '<a class="s" href="boundarybaazi.html#match/' + key + '" title="Ball by Ball">S</a>' : '')
+              + '</div>';
             var when = live
               ? '<span class="inplay">● In-Play</span> ' + esc((m.score || []).map(function (s) { return s.team_short + ' ' + s.runs + '/' + s.wickets + ' (' + s.overs + ')'; }).join(' · '))
               : (m.start_time_ms ? esc(new Date(m.start_time_ms).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit' })) : '');
             return '<div class="hck-cols hck-row" data-key="' + esc(m.match_key) + '"><div class="nm">' + esc(m.team_a) + ' v ' + esc(m.team_b)
-              + '<small>' + when + '</small></div>' + cells + '</div>';
+              + '<small>' + when + '</small></div>' + badges + cells + '</div>';
           }
           function load() {
             fetch('api/cricket/exchange-lobby', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
@@ -187,7 +205,7 @@
               if (!d || !d.success) { box.hidden = true; return; }   // games switched off (404) or an error: show nothing
               // Live matches first, then upcoming ones that already have a price; a fixture still waiting
               // for its first price ("Opens when play starts") is left for the full cricket page.
-              var priced = function (m) { return m.odds && m.odds.open; };
+              var priced = function (m) { var r = m.odds && m.odds.runners; return !!(r && r[0] && r[1] && r[0].back && r[1].back); };
               var list = (d.live || []).map(function (m) { return [m, true]; })
                 .concat((d.upcoming || []).filter(priced).map(function (m) { return [m, false]; })).slice(0, LIMIT);
               if (!list.length) { box.hidden = true; return; }
@@ -197,6 +215,7 @@
           }
           document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('homeCricketRows').addEventListener('click', function (e) {
+              if (e.target.closest('.hck-mk a')) return;   // a badge goes to its own page
               var r = e.target.closest('.hck-row'); if (r) location.href = 'cricket.html#match/' + encodeURIComponent(r.getAttribute('data-key'));
             });
             load(); timer = setInterval(function () { if (!document.hidden) load(); }, 5000);

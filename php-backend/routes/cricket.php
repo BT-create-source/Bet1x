@@ -305,6 +305,10 @@ function register_cricket_routes(Router $app) {
                             }, $mo['runners'])];
                         }
                         $m['fancy_count'] = count(array_filter($bk['markets'], function ($x) { return $x['type'] === 'FANCY'; }));
+                        // Which market families this match offers, for the BM / F / S badges on list pages.
+                        $bm = $bk['markets']['BM'] ?? null;
+                        $m['markets'] = ['bm' => $bm && !empty($bm['runners'][0]['back']), 'fancy' => $m['fancy_count'] > 0,
+                                         'bbb' => in_array($m['status'] ?? '', ['live', 'innings_break'], true)];
                     }
                 } catch (Throwable $e) { /* a match that cannot be priced still lists */ }
                 return $m;
