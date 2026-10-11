@@ -539,14 +539,24 @@
       if (left <= 0 && !$('suspended').classList.contains('on')) { $('suspended').classList.add('on'); updatePlaceButton(); }
     }
 
+    // The big flash shows each ball's result the moment the ball arrives (state.latest_ball). The money
+    // side — the round's settlement and the "You won" toast — follows after the confirmation hold.
+    var lastBallUid = null;
+    function flashBall(ball) {
+      if (!ball || ball.uid === lastBallUid) return;
+      var first = lastBallUid === null;
+      lastBallUid = ball.uid;
+      if (first) return;   // don't replay an old ball when the page opens
+      var k = ball.outcome;
+      var text = k === null ? (ball.runs + ' RUNS') : ({ 'W': 'WICKET!', 'EX': 'EXTRA', '4': 'FOUR!', '6': 'SIX!', '0': 'DOT BALL' }[k] || (k + ' RUN' + (k === '1' ? '' : 'S')));
+      $('flashText').textContent = text;
+      var f = $('flash'); f.classList.remove('on'); void f.offsetWidth; f.classList.add('on');
+    }
     function flashResult(round) {
       if (!round || round.id === lastSettledId) return;
       var first = lastSettledId === null;
       lastSettledId = round.id;
       if (first) return;   // don't replay an old result when the page opens
-      var text = round.void_reason ? 'VOID' : ({ 'W': 'WICKET!', 'EX': 'EXTRA', '4': 'FOUR!', '6': 'SIX!', '0': 'DOT BALL' }[round.outcome] || (round.outcome + ' RUN' + (round.outcome === '1' ? '' : 'S')));
-      $('flashText').textContent = text;
-      var f = $('flash'); f.classList.remove('on'); void f.offsetWidth; f.classList.add('on');
       var mine = state.my_last_bets || [];
       if (mine.length) {
         var won = mine.filter(function (b) { return b.status === 'WON'; }).reduce(function (s, b) { return s + b.payout; }, 0);
@@ -631,6 +641,7 @@
         lastRoundId = state.round.id;
         renderMarket();
       }
+      flashBall(state.latest_ball);
       flashResult(state.last_round);
     }
 

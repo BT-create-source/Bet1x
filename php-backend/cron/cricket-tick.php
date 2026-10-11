@@ -115,7 +115,8 @@ try {
             } catch (Throwable $e) { $summary['errors'][] = 'sportmonks extras: ' . $e->getMessage(); }
             do {
                 $t0 = microtime(true);
-                $p = sm_poll_once();
+                // Same lock as page-triggered polls (sm_poll_if_stale), so the two never double up.
+                $p = with_named_lock('sm_poll', 2, function () { return sm_poll_once(); }) ?: ['ok' => true, 'error' => null];
                 $summary['pumps']++;
                 // Playing XI and toss ~30 minutes before the start (fixtures not yet in /livescores).
                 try { $summary['prematch_reads'] = ($summary['prematch_reads'] ?? 0) + sm_poll_prematch(); }

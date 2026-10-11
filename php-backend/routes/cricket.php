@@ -41,6 +41,8 @@ if (cfg('FANTASY_LIVE')) require_once __DIR__ . '/../lib/fantasy-feed.php';
 function cricket_lazy_tick($matchKey = null) {
     try {
         cricket_mock_pump();
+        // Live data from Sportmonks: fetch now if what we hold is over 4s old (a viewer is waiting).
+        if (function_exists('sm_poll_if_stale')) sm_poll_if_stale(4000);
         if ($matchKey !== null) {
             $last = $GLOBALS['BET1X_BBB_TICKED'][$matchKey] ?? 0;
             if (now_ms() - $last > 900) {

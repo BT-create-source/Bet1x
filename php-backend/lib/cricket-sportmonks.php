@@ -348,6 +348,23 @@ function sm_result_disagreement(array $f, array $fx) {
     return null;
 }
 
+/**
+ * Poll now if the live data is older than $maxAgeMs. Called by page requests (the lazy tick) so a viewer
+ * never waits on a gap in the cron's loop (it restarts every minute and sometimes spends a few seconds on
+ * prices or squads); at most one poller at a time, and polls stay ~4s apart overall.
+ */
+function sm_poll_if_stale($maxAgeMs = 4000) {
+    if (cricket_source_mode() !== 'sportmonks') return false;
+    $last = state_get('sm_last_poll');
+    if (is_array($last) && now_ms() - (int) ($last['ms'] ?? 0) < $maxAgeMs) return false;
+    return (bool) with_named_lock('sm_poll', 0, function () use ($maxAgeMs) {
+        $last = state_get('sm_last_poll');
+        if (is_array($last) && now_ms() - (int) ($last['ms'] ?? 0) < $maxAgeMs) return false;
+        sm_poll_once();
+        return true;
+    });
+}
+
 /** One match in full by REST — resync, and the final state of a match that has left /livescores. */
 function sm_match_snapshot($matchKey) {
     $res = sm_get('/fixtures/' . sm_match_id($matchKey), ['include' => SM_LIVE_INCLUDE]);
@@ -361,6 +378,7 @@ function sm_match_snapshot($matchKey) {
  * result is recorded. Returns ['ok', 'live' => n, 'ingested' => n, 'finished' => n, 'error'].
  */
 function sm_poll_once($nowMs = null) {
+    state_set('sm_last_poll', ['ms' => now_ms()]);
     $res = sm_get('/livescores', ['include' => SM_LIVE_INCLUDE]);
     if (!$res['ok']) return ['ok' => false, 'error' => $res['error'], 'live' => 0, 'ingested' => 0, 'finished' => 0];
     $seen = []; $ingested = 0;

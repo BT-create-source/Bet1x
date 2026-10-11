@@ -552,8 +552,16 @@ function bbb_match_state($matchKey, $userId = null, $nowMs = null) {
         }, $rows);
     };
 
+    // The newest delivery, so the page can show its result the moment it is bowled; the round on it
+    // settles (money) later, after the confirmation hold.
+    $latest = null;
+    for ($i = count($deliveries) - 1; $i >= 0; $i--) {
+        if (empty($deliveries[$i]['is_super_over'])) { $latest = $deliveries[$i]; break; }
+    }
     $cfg = bbb_config();
     return [
+        'latest_ball' => $latest ? ['uid' => $latest['uid'], 'over' => $latest['over_no'] . '.' . $latest['ball_no'], 'outcome' => bbb_classify($latest),
+                                    'runs' => (int) $latest['batsman_runs'] + (int) $latest['extra_runs']] : null,
         'match'      => cricket_match_summary($feed, $board),
         'scoreboard' => $board,
         'round'      => $current ? bbb_round_public($current, $now) + ['book' => bbb_round_book($current)] : null,
