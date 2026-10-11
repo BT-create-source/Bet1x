@@ -25,22 +25,20 @@
     ctx = new AC();
     // Loud enough for laptop and phone speakers: full level in, a compressor to even it out, make-up
     // gain, then a limiter so a busy moment (crash + horn + music) can never clip.
+    // (A compressor in front squashed every sound to well under -10 dB; a hard limiter alone keeps
+    //  sounds near full loudness and still stops a crash + horn + music moment from clipping.)
     master = ctx.createGain();
-    master.gain.value = 1.0;
-    const comp = ctx.createDynamicsCompressor();
-    comp.threshold.value = -20; comp.knee.value = 8; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.2;
-    const makeup = ctx.createGain(); makeup.gain.value = 1.9;
+    master.gain.value = 1.7;
     const limit = ctx.createDynamicsCompressor();
-    limit.threshold.value = -2; limit.knee.value = 0; limit.ratio.value = 20; limit.attack.value = 0.001; limit.release.value = 0.08;
-    master.connect(comp).connect(makeup).connect(limit).connect(ctx.destination);
+    limit.threshold.value = -3; limit.knee.value = 0; limit.ratio.value = 20; limit.attack.value = 0.001; limit.release.value = 0.1;
+    master.connect(limit).connect(ctx.destination);
     noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
     const d = noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     return ctx;
   }
   const unlock = () => { const c = audio(); if (c && c.state === 'suspended') c.resume().catch(() => {}); };
-  document.addEventListener('pointerdown', unlock, { passive: true });
-  document.addEventListener('keydown', unlock);
+  ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'].forEach((ev) => document.addEventListener(ev, unlock, { passive: true }));
 
   // --- building blocks -------------------------------------------------------------------------------
   function out(pan) {
@@ -176,7 +174,7 @@
   // pads and a whisper of shaker. Eight bars (C Am F G | C Am F-G C), scheduled a little ahead of time
   // on the audio clock so it never drifts. It starts with the first click or key press, fades out when
   // the site is muted or the tab is hidden, and fades back in after.
-  const BPM = 96, EIGHTH = 60 / BPM / 2, MUSIC_VOL = 0.42;
+  const BPM = 96, EIGHTH = 60 / BPM / 2, MUSIC_VOL = 0.8;
   const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
   const _ = null;
   const MELODY = [                       // one MIDI note per eighth, 8 bars
@@ -200,8 +198,8 @@
       const o = ctx.createOscillator(), g = ctx.createGain();
       o.type = 'sine'; o.frequency.value = mtof(n + 12); o.detune.value = (Math.random() - 0.5) * 8;
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.linearRampToValueAtTime(0.022, t + 0.35);
-      g.gain.setValueAtTime(0.022, t + len - 0.4);
+      g.gain.linearRampToValueAtTime(0.035, t + 0.35);
+      g.gain.setValueAtTime(0.035, t + len - 0.4);
       g.gain.linearRampToValueAtTime(0.0001, t + len);
       o.connect(g).connect(musicGain); o.start(t); o.stop(t + len + 0.05);
     });
@@ -209,17 +207,17 @@
   function scheduleStep(i, t) {
     const bar = Math.floor(i / 8) % 8, e = i % 8;
     const n = MELODY[i % MELODY.length];
-    if (n !== null) marimba(t, mtof(n), e % 2 === 0 ? 0.11 : 0.085);
+    if (n !== null) marimba(t, mtof(n), e % 2 === 0 ? 0.2 : 0.16);
     const chord = CHORDS[bar];
     if (e === 0) { pad(t, chord.slice(0, 3), EIGHTH * (chord.length > 3 ? 4 : 8)); }
     if (e === 4 && chord.length > 3) pad(t, [43, 47, 50], EIGHTH * 4);
     const root = (e >= 4 && chord.length > 3) ? chord[3] : chord[0];
     if (e === 0 || e === 4 || e === 6) {
       const bf = mtof(root - 12 + (e === 6 ? 7 : 0));
-      tone(t, { type: 'triangle', f0: bf, dur: 0.26, peak: 0.075, dest: musicGain });
-      tone(t, { type: 'sine', f0: bf * 2, dur: 0.2, peak: 0.04, dest: musicGain });   // an octave up, for phone speakers
+      tone(t, { type: 'triangle', f0: bf, dur: 0.26, peak: 0.11, dest: musicGain });
+      tone(t, { type: 'sine', f0: bf * 2, dur: 0.2, peak: 0.07, dest: musicGain });   // an octave up, for phone speakers
     }
-    if (e % 2 === 1) noise(t, { dur: 0.05, peak: 0.012, f0: 7500, q: 1.2, dest: musicGain });
+    if (e % 2 === 1) noise(t, { dur: 0.05, peak: 0.02, f0: 7500, q: 1.2, dest: musicGain });
   }
   function musicLevel() {
     if (!musicGain) return;
@@ -243,9 +241,10 @@
       }
     }, 60);
   }
+  // Phones only allow audio after a full tap: a touch's start alone may not count, so the release and
+  // the click start it too (whichever the browser accepts first).
   const startOnGesture = () => { unlock(); startMusic(); };
-  document.addEventListener('pointerdown', startOnGesture, { passive: true });
-  document.addEventListener('keydown', startOnGesture);
+  ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'].forEach((ev) => document.addEventListener(ev, startOnGesture, { passive: true }));
   document.addEventListener('visibilitychange', musicLevel);
 
   window.CRSound = {
@@ -258,5 +257,7 @@
     },
     /** Start the background music now (it otherwise starts on the first click or key press). */
     music: startMusic,
+    /** For troubleshooting from the browser console: CRSound.status() */
+    status() { return { t: ctx ? +ctx.currentTime.toFixed(2) : null, next: +nextAt.toFixed(2), context: ctx ? ctx.state : 'none', music: !!musicTimer, musicLevel: musicGain ? +musicGain.gain.value.toFixed(3) : null, muted: muted(), step }; },
   };
 })();
