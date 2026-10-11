@@ -167,6 +167,7 @@
         .hck-row .nm small .inplay { color: var(--green, #22c55e); font-weight: 800; }
         .hck-px { display: flex; align-items: center; justify-content: center; font-family: var(--font-mono, monospace); font-weight: 700; font-size: 14.5px; color: #fff; margin: 3px 0; border-radius: 4px; }
         .hck-px.b { background: #2f6fd6; } .hck-px.l { background: #d2507d; }
+        .hck-px.e { opacity: .45; }
         .hck-px.s { background: rgba(255,255,255,.03); color: var(--text-dim, #9aa3c7); font-size: 12px; grid-column: span 4; }
         /* Phones: no prices on the home screen — the full name and the market badges; tap for the match. */
         @media (max-width: 760px) {
@@ -178,15 +179,15 @@
       </style>
       <script>
         (function () {
-          var LIMIT = 5, timer = null;
+          var LIMIT = 12, timer = null;
           function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
           function row(m, live) {
             var o = m.odds, a = o && o.runners && o.runners[0], b = o && o.runners && o.runners[1];
-            var cell = function (v, cls) { return '<div class="hck-px ' + (v ? cls : 's') + '">' + (v ? esc(v) : '–') + '</div>'; };
+            var cell = function (v, cls) { return '<div class="hck-px ' + cls + (v ? '' : ' e') + '">' + (v ? esc(v) : '–') + '</div>'; };
             // Prices show whenever the match has them — including between balls, when the market is briefly
             // suspended; the home screen does not show a suspension status.
             var cells = (a && b && a.back && b.back) ? cell(a.back, 'b') + cell(a.lay, 'l') + cell(b.back, 'b') + cell(b.lay, 'l')
-              : '<div class="hck-px s">' + esc(o ? 'Opens when play starts' : 'Not offered') + '</div>';
+              : cell(null, 'b') + cell(null, 'l') + cell(null, 'b') + cell(null, 'l');   // not priced yet: listed, with empty boxes
             // Every listed match offers all three families (Fancy lines and Ball by Ball open at the first
             // ball), so the badges show on upcoming matches too, as on established exchange sites.
             var key = encodeURIComponent(m.match_key);
@@ -207,9 +208,9 @@
               if (!d || !d.success) { box.hidden = true; return; }   // games switched off (404) or an error: show nothing
               // Live matches first, then upcoming ones that already have a price; a fixture still waiting
               // for its first price ("Opens when play starts") is left for the full cricket page.
-              var priced = function (m) { var r = m.odds && m.odds.runners; return !!(r && r[0] && r[1] && r[0].back && r[1].back); };
+              // Live first, then every upcoming match (priced or not), as exchange sites list them.
               var list = (d.live || []).map(function (m) { return [m, true]; })
-                .concat((d.upcoming || []).filter(priced).map(function (m) { return [m, false]; })).slice(0, LIMIT);
+                .concat((d.upcoming || []).map(function (m) { return [m, false]; })).slice(0, LIMIT);
               if (!list.length) { box.hidden = true; return; }
               document.getElementById('homeCricketRows').innerHTML = list.map(function (x) { return row(x[0], x[1]); }).join('');
               box.hidden = false;

@@ -570,7 +570,7 @@ function bbb_match_state($matchKey, $userId = null, $nowMs = null) {
 }
 
 /** Matches for the Ball by Ball lobby: live first, then upcoming, then just finished. */
-function bbb_list_matches($nowMs = null) {
+function bbb_list_matches($nowMs = null, $upLimit = 8) {
     $now = $nowMs ?? now_ms();
     $rows = all('SELECT * FROM "cricket_match_feed" WHERE "start_time" IS NULL OR "start_time" > ? ORDER BY "start_time" ASC',
                 [ms_to_sql($now - 12 * 3600000)]);
@@ -592,7 +592,7 @@ function bbb_list_matches($nowMs = null) {
         $known = [];
         foreach (array_merge($live, $upcoming, $done) as $m) $known[$m['match_key']] = true;
         try {
-            foreach (all('SELECT * FROM "fantasy_matches" WHERE "status" = ? AND "start_time" > ? AND "feed_key" IS NOT NULL ORDER BY "start_time" ASC LIMIT 8',
+            foreach (all('SELECT * FROM "fantasy_matches" WHERE "status" = ? AND "start_time" > ? AND "feed_key" IS NOT NULL ORDER BY "start_time" ASC LIMIT ' . max(1, min(50, (int) $upLimit)),
                          ['UPCOMING', ms_to_sql($now)]) as $fm) {
                 $fk = $fm['feed_key'] ?: preg_replace('/^(rz|mock):/', '', (string) $fm['external_key']);
                 if (isset($known[$fk])) continue;
@@ -606,7 +606,7 @@ function bbb_list_matches($nowMs = null) {
         } catch (Throwable $e) { /* the lobby still works from the feed alone */ }
     }
     usort($upcoming, function ($a, $b) { return ($a['start_time_ms'] ?? 0) <=> ($b['start_time_ms'] ?? 0); });
-    return ['live' => $live, 'upcoming' => array_slice($upcoming, 0, 8), 'completed' => array_slice(array_reverse($done), 0, 6)];
+    return ['live' => $live, 'upcoming' => array_slice($upcoming, 0, max(1, (int) $upLimit)), 'completed' => array_slice(array_reverse($done), 0, 6)];
 }
 
 /** The caller's recent bets across every match. */

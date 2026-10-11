@@ -292,7 +292,7 @@ function register_cricket_routes(Router $app) {
         try {
             cricket_lazy_tick();
             if (function_exists('fantasy_lazy_feed_refresh')) fantasy_lazy_feed_refresh();
-            $lists = bbb_list_matches();
+            $lists = bbb_list_matches(null, 16);   // the exchange list shows the full upcoming card, like exchange sites
             $withOdds = function ($m) {
                 $m['odds'] = null;
                 try {
