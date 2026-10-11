@@ -247,6 +247,33 @@
   ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'].forEach((ev) => document.addEventListener(ev, startOnGesture, { passive: true }));
   document.addEventListener('visibilitychange', musicLevel);
 
+  // Try to start as the game opens. Browsers allow sound before a tap only for sites the visitor uses a
+  // lot; everywhere else the context stays suspended, so a small "Tap to play sound" button appears and
+  // disappears as soon as sound is running (any tap anywhere also starts it).
+  function soundPrompt() {
+    if (document.getElementById('crSoundPrompt')) return;
+    const b = document.createElement('button');
+    b.id = 'crSoundPrompt'; b.type = 'button';
+    b.textContent = '\u{1F50A} Tap to play sound';
+    b.style.cssText = 'position:fixed;left:50%;bottom:86px;transform:translateX(-50%);z-index:9999;border:0;border-radius:999px;'
+      + 'padding:10px 18px;font:700 14px Poppins,sans-serif;color:#fff;background:linear-gradient(180deg,#4fd35d,#2a9c38);'
+      + 'box-shadow:0 6px 18px rgba(0,0,0,.35);cursor:pointer';
+    b.addEventListener('click', () => { startOnGesture(); });
+    document.body.appendChild(b);
+    const watch = setInterval(() => {
+      if (ctx && ctx.state === 'running') { b.remove(); clearInterval(watch); }
+    }, 250);
+  }
+  function autostart() {
+    if (muted()) return;                 // a visitor who muted the site gets no prompt either
+    startMusic();
+    const c = audio();
+    if (!c) return;
+    if (c.state === 'suspended') c.resume().catch(() => {});
+    setTimeout(() => { if (ctx && ctx.state !== 'running') soundPrompt(); }, 400);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', autostart); else autostart();
+
   window.CRSound = {
     play(name, opts = {}) {
       if (muted() || !SOUNDS[name]) return;
