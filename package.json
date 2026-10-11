@@ -28,9 +28,16 @@
     "docker:build": "docker compose build",
     "docker:up": "docker compose up -d",
     "docker:logs": "docker compose logs -f app",
-    "test:load": "node backend/test_load.js"
+    "test:load": "node backend/test_load.js",
+    "test:ui": "playwright test",
+    "test:ui:report": "playwright show-report e2e-report",
+    "test:ui:live": "playwright test e2e/pages.spec.js",
+    "test:seed": "php -d extension=pdo_pgsql php-backend/tools/e2e-seed.php"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.64.0"
+  }
 }

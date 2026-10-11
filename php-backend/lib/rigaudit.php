@@ -25,7 +25,9 @@ const RIG_AUDIT_MAX_ENTRIES = 5000;
  * $d keys: game, instance, round, configured_pct, rigged, eligible, live, targeted, house_profit, note
  */
 function rig_record($d) {
-    try {
+    // Inside a game's transaction (Aviator's tick), so the write goes through db_best_effort: a failed
+    // audit insert must never abort the round's transaction.
+    db_best_effort(function () use ($d) {
         if (!$d || empty($d['game'])) return;
         q('INSERT INTO "RigAudit"
              ("ts","game","instance","round","configured_pct","rigged","eligible","live","targeted","house_profit","note")
@@ -43,9 +45,7 @@ function rig_record($d) {
             isset($d['note']) && $d['note'] !== null ? mb_substr((string)$d['note'], 0, 200) : null,
         ]);
         if (mt_rand(1, 50) === 1) rig_trim();
-    } catch (Throwable $e) {
-        // Audit must never break a round. Swallowing here is the whole point.
-    }
+    });
 }
 
 /** Keep the table to the same 5,000-entry cap the ring buffer had. */

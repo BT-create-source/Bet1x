@@ -232,8 +232,11 @@ $saved = state_get('mx_config');
 mx_config_save(['user_max_liability_market' => 1000]);
 $r = mx_place_bet($users[1], $KEY, ['market_key' => 'MO', 'side' => 'LAY', 'selection' => 'a', 'stake' => 5000]);
 check(!$r['ok'] && strpos($r['error'], 'exposure') !== false, 'a bet that takes a player past their exposure cap is refused');
-mx_config_save(['user_max_liability_market' => 100000, 'house_max_loss_market' => 300]);
-$r = mx_place_bet($users[1], $KEY, ['market_key' => 'MO', 'side' => 'BACK', 'selection' => 'b', 'stake' => 1000]);
+// The house's loss on this bet is stake x (odds - 1) less the 100 already staked on team a. Team b can be
+// the favourite (odds near 1.05) in a random simulated match, so the stake and cap are chosen to exceed
+// the cap at ANY price: 5000 x 0.05 - 100 = 150 > 50.
+mx_config_save(['user_max_liability_market' => 100000, 'house_max_loss_market' => 50]);
+$r = mx_place_bet($users[1], $KEY, ['market_key' => 'MO', 'side' => 'BACK', 'selection' => 'b', 'stake' => 5000]);
 check(!$r['ok'] && strpos($r['error'], 'limit') !== false, 'a bet that would take the house past its worst-case loss cap is refused');
 state_set('mx_config', is_array($saved) ? $saved : mx_config_defaults());
 

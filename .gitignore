@@ -59,3 +59,7 @@ desktop.ini
 *.orig
 *.orig-backup
 *.tmp
+
+# Browser test output (Playwright)
+e2e-report/
+test-results/

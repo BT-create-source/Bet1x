@@ -124,6 +124,26 @@ function affected($sql, $params = []) {
  * Rethrows whatever the closure threw after rolling back, because several routes inspect the
  * message (`'User not found.'`, `'Insufficient wallet balance.'`) to decide their status code.
  */
+/**
+ * Run a statement whose failure must not matter (an audit row, a diagnostic) — safely even inside a
+ * transaction. In PostgreSQL one failed statement aborts the whole transaction, so a plain try/catch
+ * around it would still break everything after it (every later query: "current transaction is
+ * aborted"). A savepoint confines the failure to this statement. Returns $fn()'s result, or null.
+ */
+function db_best_effort(callable $fn) {
+    $pdo = db();
+    $inTx = $pdo && $pdo->inTransaction();
+    try {
+        if ($inTx) $pdo->exec('SAVEPOINT best_effort');
+        $r = $fn();
+        if ($inTx) $pdo->exec('RELEASE SAVEPOINT best_effort');
+        return $r;
+    } catch (Throwable $e) {
+        if ($inTx) { try { $pdo->exec('ROLLBACK TO SAVEPOINT best_effort'); } catch (Throwable $ignored) {} }
+        return null;
+    }
+}
+
 function tx(callable $fn) {
     $pdo = db_or_throw();
     // Nested calls reuse the outer transaction rather than failing on a second begin.

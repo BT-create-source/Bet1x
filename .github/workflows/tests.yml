@@ -1,0 +1,135 @@
+# Runs on every push and pull request: the PHP backend test suites and the browser tests (desktop + phone)
+# against a fresh database built from php-backend/sql. Nothing here touches the live site or real money.
+# The long road / stress suites run nightly and on demand (Actions -> Tests -> Run workflow).
+# See TESTING.md.
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 21 * * *'          # 03:00 IST, the full stress run
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_ENV: development
+  DB_HOST: 127.0.0.1
+  DB_PORT: '5432'
+  DB_NAME: bet1x_test
+  DB_USER: postgres
+  DB_PASS: postgres
+  DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/bet1x_test
+  APP_SECRET: ci-only-secret-not-used-anywhere-else-0123456789abcdef
+  CRICKET_ENABLED: 'true'
+  CRICKET_SOURCE: mock
+  FANTASY_ENABLED: 'true'
+  FANTASY_SOURCE: feed
+  PGPASSWORD: postgres
+
+jobs:
+  backend:
+    name: Backend tests (money, cricket, games)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: postgres, POSTGRES_DB: bet1x_test }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with: { php-version: '8.3', extensions: 'pdo_pgsql, pgsql, curl, zip, mbstring', coverage: none }
+      - name: Build the database (schema + every migration)
+        run: |
+          psql -h 127.0.0.1 -U postgres -d bet1x_test -v ON_ERROR_STOP=1 -q -f php-backend/sql/schema-postgres.sql
+          for f in php-backend/sql/migration-0*-postgres.sql; do psql -h 127.0.0.1 -U postgres -d bet1x_test -v ON_ERROR_STOP=1 -q -f "$f"; done
+      - name: Run the backend suites
+        run: |
+          fail=0
+          for t in php-backend/tests/test_production_guard.php php-backend/tests/test_sportmonks.php \
+                   php-backend/tests/test_criclive.php php-backend/tests/test_virtual_rng.php \
+                   php-backend/test_bbb.php php-backend/test_exchange.php php-backend/test_your11_feed.php \
+                   php-backend/test_fantasy.php php-backend/test_fantasy_money.php php-backend/test_fantasy_scoring.php \
+                   php-backend/test_fantasy_settle.php php-backend/test_fantasy_parity.php php-backend/test_crash_games.php; do
+            [ -f "$t" ] || continue
+            echo "::group::$t"
+            if php "$t"; then echo "PASS $t"; else echo "::error::FAILED $t"; fail=1; fi
+            echo "::endgroup::"
+          done
+          exit $fail
+
+  browser:
+    name: Browser tests (every page, desktop + phone)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: postgres, POSTGRES_DB: bet1x_test }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with: { php-version: '8.3', extensions: 'pdo_pgsql, pgsql, curl, zip, mbstring', coverage: none }
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: npm }
+      - name: Build the database and the test account
+        run: |
+          psql -h 127.0.0.1 -U postgres -d bet1x_test -v ON_ERROR_STOP=1 -q -f php-backend/sql/schema-postgres.sql
+          for f in php-backend/sql/migration-0*-postgres.sql; do psql -h 127.0.0.1 -U postgres -d bet1x_test -v ON_ERROR_STOP=1 -q -f "$f"; done
+          php php-backend/tools/e2e-seed.php
+      - name: Install Playwright
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Run the browser tests
+        env:
+          CI: 'true'
+          PHP_CLI_SERVER_WORKERS: '8'
+        run: npx playwright test
+      - name: Keep the report (open index.html inside it)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-test-report
+          path: e2e-report/
+          retention-days: 14
+
+  stress:
+    name: Stress / road tests (nightly)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: postgres, POSTGRES_DB: bet1x_test }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with: { php-version: '8.3', extensions: 'pdo_pgsql, pgsql, curl, zip, mbstring', coverage: none }
+      - name: Build the database
+        run: |
+          psql -h 127.0.0.1 -U postgres -d bet1x_test -v ON_ERROR_STOP=1 -q -f php-backend/sql/schema-postgres.sql
+          for f in php-backend/sql/migration-0*-postgres.sql; do psql -h 127.0.0.1 -U postgres -d bet1x_test -v ON_ERROR_STOP=1 -q -f "$f"; done
+      - name: Run the road tests
+        run: php php-backend/tests/run_all.php
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stress-test-reports
+          path: php-backend/tests/reports/
+          retention-days: 14

@@ -98,10 +98,8 @@ function bot_takeover_state_fresh() {
     $out = [];
     foreach ($keys as $k) {
         $out[$k] = ['enabled' => false, 'profit_pct' => 90];
-        try {
-            $stored = state_get('bot_takeover_' . $k);
-            if (is_array($stored)) $out[$k] = array_merge($out[$k], $stored);
-        } catch (Throwable $e) {}
+        $stored = db_best_effort(function () use ($k) { return state_get('bot_takeover_' . $k); });
+        if (is_array($stored)) $out[$k] = array_merge($out[$k], $stored);
     }
     return $out;
 }
@@ -246,11 +244,7 @@ function build_bot_rig_bag($pct) {
 
 function bot_rig_bag_load($ledgerKey) {
     if (isset($GLOBALS['BET1X_RIG_BAGS'][$ledgerKey])) return $GLOBALS['BET1X_RIG_BAGS'][$ledgerKey];
-    try {
-        $stored = state_get('bot_rig_bag_' . $ledgerKey);
-    } catch (Throwable $e) {
-        $stored = null;
-    }
+    $stored = db_best_effort(function () use ($ledgerKey) { return state_get('bot_rig_bag_' . $ledgerKey); });
     $bag = (is_array($stored) && isset($stored['queue']) && is_array($stored['queue'])) ? $stored : null;
     $GLOBALS['BET1X_RIG_BAGS'][$ledgerKey] = $bag;
     return $bag;
@@ -258,7 +252,7 @@ function bot_rig_bag_load($ledgerKey) {
 
 function bot_rig_bag_save($ledgerKey, $bag) {
     $GLOBALS['BET1X_RIG_BAGS'][$ledgerKey] = $bag;
-    try { state_set('bot_rig_bag_' . $ledgerKey, $bag); } catch (Throwable $e) { /* best effort */ }
+    db_best_effort(function () use ($ledgerKey, $bag) { state_set('bot_rig_bag_' . $ledgerKey, $bag); });
 }
 
 /**
@@ -330,18 +324,20 @@ function should_bot_rig_this_round($gameKey, $ledgerKey = null) {
 // -------------------------------------------------------------------------------------------------
 
 function live_presence_touch($game, $kind, $subject) {
-    try {
+    // Diagnostic only: never break a request (or the transaction it may run in) over it.
+    db_best_effort(function () use ($game, $kind, $subject) {
         q('INSERT INTO "LivePresence" ("game","kind","subject","last_seen") VALUES (?,?,?,?)
            ON CONFLICT ("game","kind","subject") DO UPDATE SET "last_seen" = EXCLUDED."last_seen"',
           [$game, $kind, (string)$subject, now_ms()]);
-    } catch (Throwable $e) { /* presence is diagnostic; never break a request over it */ }
+    });
 }
 
 function live_presence_list($game, $kind, $ttlMs) {
-    try {
-        $rows = all('SELECT "subject" FROM "LivePresence" WHERE "game" = ? AND "kind" = ? AND "last_seen" >= ?',
-                    [$game, $kind, now_ms() - $ttlMs]);
-    } catch (Throwable $e) { return []; }
+    $rows = db_best_effort(function () use ($game, $kind, $ttlMs) {
+        return all('SELECT "subject" FROM "LivePresence" WHERE "game" = ? AND "kind" = ? AND "last_seen" >= ?',
+                   [$game, $kind, now_ms() - $ttlMs]);
+    });
+    if (!is_array($rows)) return [];
     $out = [];
     foreach ($rows as $r) $out[] = $r['subject'];
     return $out;
@@ -403,7 +399,7 @@ function live_presence_sweep() {
 
 function bot_targeted_load($gameKey) {
     if (isset($GLOBALS['BET1X_TARGETED'][$gameKey])) return $GLOBALS['BET1X_TARGETED'][$gameKey];
-    try { $stored = state_get('bot_targeted_' . $gameKey); } catch (Throwable $e) { $stored = null; }
+    $stored = db_best_effort(function () use ($gameKey) { return state_get('bot_targeted_' . $gameKey); });
     $rec = (is_array($stored) && isset($stored['list']) && is_array($stored['list']))
         ? $stored : ['list' => [], 'at' => 0];
     $GLOBALS['BET1X_TARGETED'][$gameKey] = $rec;
@@ -413,7 +409,7 @@ function bot_targeted_load($gameKey) {
 function bot_targeted_save($gameKey, $list) {
     $rec = ['list' => array_values($list), 'at' => now_ms()];
     $GLOBALS['BET1X_TARGETED'][$gameKey] = $rec;
-    try { state_set('bot_targeted_' . $gameKey, $rec); } catch (Throwable $e) {}
+    db_best_effort(function () use ($gameKey, $rec) { state_set('bot_targeted_' . $gameKey, $rec); });
     return $rec;
 }
 
