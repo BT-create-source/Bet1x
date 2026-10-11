@@ -187,11 +187,13 @@
             // suspended; the home screen does not show a suspension status.
             var cells = (a && b && a.back && b.back) ? cell(a.back, 'b') + cell(a.lay, 'l') + cell(b.back, 'b') + cell(b.lay, 'l')
               : '<div class="hck-px s">' + esc(o ? 'Opens when play starts' : 'Not offered') + '</div>';
-            var mk = m.markets || {}, key = encodeURIComponent(m.match_key);
+            // Every listed match offers all three families (Fancy lines and Ball by Ball open at the first
+            // ball), so the badges show on upcoming matches too, as on established exchange sites.
+            var key = encodeURIComponent(m.match_key);
             var badges = '<div class="hck-mk">'
-              + (mk.bm ? '<a class="bm" href="cricket.html#match/' + key + '" title="Bookmaker">BM</a>' : '')
-              + (mk.fancy ? '<a class="f" href="cricket.html#match/' + key + '" title="Fancy">F</a>' : '')
-              + (mk.bbb ? '<a class="s" href="boundarybaazi.html#match/' + key + '" title="Ball by Ball">S</a>' : '')
+              + '<a class="bm" href="cricket.html#match/' + key + '" title="Bookmaker">BM</a>'
+              + '<a class="f" href="cricket.html#match/' + key + '" title="Fancy' + (live ? '' : ' — opens when play starts') + '">F</a>'
+              + '<a class="s" href="boundarybaazi.html#match/' + key + '" title="Ball by Ball' + (live ? '' : ' — opens at the first ball') + '">S</a>'
               + '</div>';
             var when = live
               ? '<span class="inplay">● In-Play</span> ' + esc((m.score || []).map(function (s) { return s.team_short + ' ' + s.runs + '/' + s.wickets + ' (' + s.overs + ')'; }).join(' · '))
