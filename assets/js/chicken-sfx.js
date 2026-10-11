@@ -23,11 +23,16 @@
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
     ctx = new AC();
+    // Loud enough for laptop and phone speakers: full level in, a compressor to even it out, make-up
+    // gain, then a limiter so a busy moment (crash + horn + music) can never clip.
     master = ctx.createGain();
-    master.gain.value = 0.55;
-    const comp = ctx.createDynamicsCompressor();       // keeps a busy moment (crash + horn) from clipping
-    comp.threshold.value = -14; comp.ratio.value = 4;
-    master.connect(comp).connect(ctx.destination);
+    master.gain.value = 1.0;
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -20; comp.knee.value = 8; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.2;
+    const makeup = ctx.createGain(); makeup.gain.value = 1.9;
+    const limit = ctx.createDynamicsCompressor();
+    limit.threshold.value = -2; limit.knee.value = 0; limit.ratio.value = 20; limit.attack.value = 0.001; limit.release.value = 0.08;
+    master.connect(comp).connect(makeup).connect(limit).connect(ctx.destination);
     noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
     const d = noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -121,18 +126,19 @@
     },
     /** A car going past: a swelling, falling band of road noise. */
     whoosh(t, d) {
-      noise(t, { dur: 0.55, peak: 0.07, attack: 0.18, f0: 380, f1: 1500, q: 1.4, dest: d });
-      tone(t, { type: 'sawtooth', f0: 95, f1: 70, dur: 0.5, peak: 0.018, attack: 0.15, dest: d });
+      // Brighter band than a real car's rumble so small speakers reproduce it.
+      noise(t, { dur: 0.6, peak: 0.24, attack: 0.16, f0: 520, f1: 2300, q: 1.1, dest: d });
+      tone(t, { type: 'sawtooth', f0: 150, f1: 95, dur: 0.5, peak: 0.045, attack: 0.14, dest: d });
     },
     /** Two detuned blasts of a car horn. */
     horn(t, d) {
-      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1800; lp.connect(d);
-      for (const f of [415, 523]) tone(t, { type: 'square', f0: f, dur: 0.34, peak: 0.07, attack: 0.01, dest: lp });
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2800; lp.connect(d);
+      for (const f of [415, 523]) tone(t, { type: 'square', f0: f, dur: 0.34, peak: 0.17, attack: 0.01, dest: lp });
     },
     /** Tyres locking up. */
     screech(t, d) {
-      noise(t, { dur: 0.42, peak: 0.13, attack: 0.02, f0: 3600, f1: 2200, q: 14, dest: d });
-      tone(t, { type: 'sawtooth', f0: 1900, f1: 1300, dur: 0.4, peak: 0.02, attack: 0.02, dest: d });
+      noise(t, { dur: 0.42, peak: 0.26, attack: 0.02, f0: 3600, f1: 2200, q: 14, dest: d });
+      tone(t, { type: 'sawtooth', f0: 1900, f1: 1300, dur: 0.4, peak: 0.04, attack: 0.02, dest: d });
     },
     /** The hit: a deep thump with a crunch on top. */
     crash(t, d) {
@@ -170,7 +176,7 @@
   // pads and a whisper of shaker. Eight bars (C Am F G | C Am F-G C), scheduled a little ahead of time
   // on the audio clock so it never drifts. It starts with the first click or key press, fades out when
   // the site is muted or the tab is hidden, and fades back in after.
-  const BPM = 96, EIGHTH = 60 / BPM / 2, MUSIC_VOL = 0.16;
+  const BPM = 96, EIGHTH = 60 / BPM / 2, MUSIC_VOL = 0.42;
   const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
   const _ = null;
   const MELODY = [                       // one MIDI note per eighth, 8 bars
@@ -208,7 +214,11 @@
     if (e === 0) { pad(t, chord.slice(0, 3), EIGHTH * (chord.length > 3 ? 4 : 8)); }
     if (e === 4 && chord.length > 3) pad(t, [43, 47, 50], EIGHTH * 4);
     const root = (e >= 4 && chord.length > 3) ? chord[3] : chord[0];
-    if (e === 0 || e === 4 || e === 6) tone(t, { type: 'triangle', f0: mtof(root - 12 + (e === 6 ? 7 : 0)), dur: 0.26, peak: 0.075, dest: musicGain });
+    if (e === 0 || e === 4 || e === 6) {
+      const bf = mtof(root - 12 + (e === 6 ? 7 : 0));
+      tone(t, { type: 'triangle', f0: bf, dur: 0.26, peak: 0.075, dest: musicGain });
+      tone(t, { type: 'sine', f0: bf * 2, dur: 0.2, peak: 0.04, dest: musicGain });   // an octave up, for phone speakers
+    }
     if (e % 2 === 1) noise(t, { dur: 0.05, peak: 0.012, f0: 7500, q: 1.2, dest: musicGain });
   }
   function musicLevel() {
