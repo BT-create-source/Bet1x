@@ -167,7 +167,6 @@
         .hck-row .nm small .inplay { color: var(--green, #22c55e); font-weight: 800; }
         .hck-px { display: flex; align-items: center; justify-content: center; font-family: var(--font-mono, monospace); font-weight: 700; font-size: 14.5px; color: #fff; margin: 3px 0; border-radius: 4px; }
         .hck-px.b { background: #2f6fd6; } .hck-px.l { background: #d2507d; }
-        .hck-px.e { opacity: .45; }
         .hck-px.s { background: rgba(255,255,255,.03); color: var(--text-dim, #9aa3c7); font-size: 12px; grid-column: span 4; }
         /* Phones: no prices on the home screen — the full name and the market badges; tap for the match. */
         @media (max-width: 760px) {
@@ -192,11 +191,10 @@
             var priced = !!(a && b && a.back && b.back && (live || (o && o.open)));
             var cells = priced ? cell(a.back, 'b') + cell(a.lay, 'l') + cell(b.back, 'b') + cell(b.lay, 'l')
               : cell(null, 'b') + cell(null, 'l') + cell(null, 'b') + cell(null, 'l');   // not priced yet: listed, with empty boxes
-            // Badges only where the match's markets are actually set up (a live match, or one with real
-            // pre-match prices), as exchange sites do; a minor fixture nobody has priced yet lists with no
-            // badges and 0 prices until play starts.
+            // BM / F / S on every listed match, priced or not, as exchange sites show them on fixtures still
+            // at 0 too (Fancy and Ball by Ball open at the first ball); unpriced matches show plain 0 boxes.
             var key = encodeURIComponent(m.match_key);
-            var badges = !(live || priced) ? '<div class="hck-mk"></div>' : '<div class="hck-mk">'
+            var badges = '<div class="hck-mk">'
               + '<a class="bm" href="cricket.html#match/' + key + '" title="Bookmaker">BM</a>'
               + '<a class="f" href="cricket.html#match/' + key + '" title="Fancy' + (live ? '' : ' — opens when play starts') + '">F</a>'
               + '<a class="s" href="boundarybaazi.html#match/' + key + '" title="Ball by Ball' + (live ? '' : ' — opens at the first ball') + '">S</a>'
