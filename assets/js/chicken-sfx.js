@@ -170,54 +170,54 @@
   };
 
   // --- background music --------------------------------------------------------------------------------
-  // A gentle, cheerful loop in C major at 96 bpm: a soft marimba melody over a plucky bass, warm chord
-  // pads and a whisper of shaker. Eight bars (C Am F G | C Am F-G C), scheduled a little ahead of time
-  // on the audio clock so it never drifts. It starts with the first click or key press, fades out when
-  // the site is muted or the tab is hidden, and fades back in after.
-  const BPM = 96, EIGHTH = 60 / BPM / 2, MUSIC_VOL = 0.8;
+  // An original, bouncy 8-bit tune in the spirit of classic platformer music (not any real game's theme):
+  // a square-wave lead with a short echo, a hopping octave bass on triangle, and chiptune drums, 8 bars
+  // in C major at 150 bpm, scheduled on the audio clock. It starts with the first tap/click, fades out
+  // when the site is muted or the tab is hidden, and fades back in after.
+  const BPM = 150, EIGHTH = 60 / BPM / 2, MUSIC_VOL = 0.8;
   const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
   const _ = null;
-  const MELODY = [                       // one MIDI note per eighth, 8 bars
-    76, _, 79, _, 76, 74, 72, _,   72, _, 76, _, 81, _, 79, _,
-    81, _, 79, 77, 76, _, 72, _,   74, _, 76, _, 74, _, _, _,
-    76, _, 79, _, 84, _, 79, _,   81, _, 79, 76, 72, _, 76, _,
-    77, _, 81, _, 79, _, 74, _,   72, _, 76, _, 72, _, _, _,
+  const MELODY = [                       // one MIDI note per eighth, 8 bars (C Dm F G | C Am F-G C)
+    72, _, 76, 79, _, 76, 72, _,   74, _, 77, 81, _, 79, _, _,
+    81, _, 79, 77, 81, _, 84, _,   83, _, 81, 79, _, 74, _, _,
+    72, 76, 79, 84, _, 83, 79, _,   81, _, 84, 81, 76, _, _, _,
+    77, 81, 84, _, 79, 83, 86, _,   84, _, 79, 76, 72, _, _, _,
   ];
-  const CHORDS = [[48, 52, 55], [45, 48, 52], [41, 45, 48], [43, 47, 50],
-                  [48, 52, 55], [45, 48, 52], [41, 45, 48, 43], [48, 52, 55]];   // bar 7 turns to G halfway
+  const ROOTS = [36, 38, 41, 43, 36, 45, 41, 36];      // bass root per bar (bar 7 turns to G halfway)
   let musicGain = null, musicTimer = null, step = 0, nextAt = 0;
 
-  function marimba(t, f, vol) {
-    const d = musicGain;
-    tone(t, { type: 'sine', f0: f, dur: 0.42, peak: vol, dest: d });
-    tone(t, { type: 'sine', f0: f * 4, dur: 0.07, peak: vol * 0.22, dest: d });          // the mallet's tick
-    tone(t, { type: 'triangle', f0: f * 2, dur: 0.18, peak: vol * 0.18, dest: d });
+  /** The lead: a 25% pulse wave (the classic console tone), short and punchy. */
+  function pulse(t, f, vol, dur) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    const w = ctx.createPeriodicWave(...pulseWave());
+    o.setPeriodicWave(w); o.frequency.setValueAtTime(f, t);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(vol, t + 0.006);
+    g.gain.setValueAtTime(vol * 0.8, t + dur * 0.6);
+    g.gain.linearRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(musicGain); o.start(t); o.stop(t + dur + 0.02);
   }
-  function pad(t, notes, len) {
-    notes.forEach((n) => {
-      const o = ctx.createOscillator(), g = ctx.createGain();
-      o.type = 'sine'; o.frequency.value = mtof(n + 12); o.detune.value = (Math.random() - 0.5) * 8;
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.linearRampToValueAtTime(0.035, t + 0.35);
-      g.gain.setValueAtTime(0.035, t + len - 0.4);
-      g.gain.linearRampToValueAtTime(0.0001, t + len);
-      o.connect(g).connect(musicGain); o.start(t); o.stop(t + len + 0.05);
-    });
+  let _pw = null;
+  function pulseWave() {                 // Fourier series of a 25% duty pulse, built once
+    if (_pw) return _pw;
+    const n = 32, re = new Float32Array(n), im = new Float32Array(n);
+    for (let k = 1; k < n; k++) im[k] = (2 / (k * Math.PI)) * Math.sin(k * Math.PI * 0.25);
+    return (_pw = [re, im]);
   }
   function scheduleStep(i, t) {
     const bar = Math.floor(i / 8) % 8, e = i % 8;
     const n = MELODY[i % MELODY.length];
-    if (n !== null) marimba(t, mtof(n), e % 2 === 0 ? 0.2 : 0.16);
-    const chord = CHORDS[bar];
-    if (e === 0) { pad(t, chord.slice(0, 3), EIGHTH * (chord.length > 3 ? 4 : 8)); }
-    if (e === 4 && chord.length > 3) pad(t, [43, 47, 50], EIGHTH * 4);
-    const root = (e >= 4 && chord.length > 3) ? chord[3] : chord[0];
-    if (e === 0 || e === 4 || e === 6) {
-      const bf = mtof(root - 12 + (e === 6 ? 7 : 0));
-      tone(t, { type: 'triangle', f0: bf, dur: 0.26, peak: 0.11, dest: musicGain });
-      tone(t, { type: 'sine', f0: bf * 2, dur: 0.2, peak: 0.07, dest: musicGain });   // an octave up, for phone speakers
+    if (n !== null) {
+      pulse(t, mtof(n), e % 2 === 0 ? 0.075 : 0.06, EIGHTH * 0.9);
+      pulse(t + EIGHTH * 0.75, mtof(n), 0.022, EIGHTH * 0.6);     // a soft echo, for that console shimmer
     }
-    if (e % 2 === 1) noise(t, { dur: 0.05, peak: 0.02, f0: 7500, q: 1.2, dest: musicGain });
+    // Hopping bass: root, octave, root, octave...
+    const root = (bar === 6 && e >= 4) ? 43 : ROOTS[bar];
+    tone(t, { type: 'triangle', f0: mtof(root + (e % 2 ? 12 : 0)), dur: EIGHTH * 0.85, peak: 0.2, attack: 0.004, dest: musicGain });
+    // Drums: kick on 1 and 3, snare on 2 and 4, hats on the off-beats.
+    if (e === 0 || e === 4) tone(t, { type: 'sine', f0: 150, f1: 45, dur: 0.12, peak: 0.32, glide: 0.1, dest: musicGain });
+    if (e === 2 || e === 6) noise(t, { dur: 0.09, peak: 0.08, f0: 1800, q: 0.7, dest: musicGain });
+    if (e % 2 === 1) noise(t, { dur: 0.035, peak: 0.03, f0: 8000, q: 1.5, dest: musicGain });
   }
   function musicLevel() {
     if (!musicGain) return;

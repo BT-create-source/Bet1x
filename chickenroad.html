@@ -218,7 +218,16 @@
     }
     @media (max-width: 600px) {
       .cr-wrap { padding: 0 8px; }
-      .cr-controls { grid-template-columns: 1fr; padding: 10px; }
+      /* Phones: the bet amount and the Play / GO / Cash out buttons side by side right under the road,
+         so placing a bet never needs a scroll; difficulty goes on the row below. */
+      .cr-controls { grid-template-columns: 1fr 1fr; gap: 8px; padding: 8px; }
+      .cr-controls > .cr-box:first-child { grid-column: 1; grid-row: 1; }
+      .cr-controls > .cr-actions { grid-column: 2; grid-row: 1; align-self: stretch; }
+      .cr-controls > .cr-box:nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
+      .cr-actions .cr-btn { font-size: 19px; padding: 10px 6px; }
+      .cr-actions .cr-btn small { font-size: 10.5px; }
+      .cr-actions .cr-btn-cash { font-size: 14px; }
+      .cr-actions .cr-btn-cash small { font-size: 13px; }
       .cr-logo { font-size: 15px; }
       .cr-logo svg { width: 24px; height: 24px; }
       .cr-hide-sm { display: none !important; }
