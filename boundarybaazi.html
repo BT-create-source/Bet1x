@@ -452,7 +452,8 @@
         c += bat(cur.striker, true) + bat(cur.non_striker, false);
         if (cur.bowler) c += '<div style="grid-column:1/-1;"><span class="lbl">Bowling</span> <span class="who">' + esc(cur.bowler.name) + '</span><span class="fig">' + cur.bowler.overs + '-' + cur.bowler.maidens + '-' + cur.bowler.runs + '-' + cur.bowler.wickets + '</span></div>';
         $('stCrease').innerHTML = c;
-        $('stOver').innerHTML = '<span class="lbl">This over</span>' + (sb.this_over || []).map(function (t) { return '<span class="bb-ball ' + ballClass(t) + '">' + esc(t) + '</span>'; }).join('');
+        // Newest ball first (the feed lists the over in bowling order), matching Recent Result.
+        $('stOver').innerHTML = '<span class="lbl">This over</span>' + (sb.this_over || []).slice().reverse().map(function (t) { return '<span class="bb-ball ' + ballClass(t) + '">' + esc(t) + '</span>'; }).join('');
       }
       var st = m.stalled ? 'Live data interrupted — markets are paused and open bets are refunded.' :
                m.status === 'completed' ? (m.result_text || 'Match finished') :
