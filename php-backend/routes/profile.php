@@ -36,6 +36,8 @@ function profile_classify_txn($details) {
     if (stripos($details, 'Mines Cash Out') === 0) return ['game' => 'Mines', 'kind' => 'win'];
     if (stripos($details, 'Chicken Road Bet') === 0)      return ['game' => 'Chicken Road', 'kind' => 'bet'];
     if (stripos($details, 'Chicken Road Cash Out') === 0) return ['game' => 'Chicken Road', 'kind' => 'win'];
+    if (stripos($details, 'Tower Rush Bet') === 0)        return ['game' => 'Tower Rush', 'kind' => 'bet'];
+    if (stripos($details, 'Tower Rush Cash Out') === 0)   return ['game' => 'Tower Rush', 'kind' => 'win'];
     // Astronaut is deliberately absent: a player can hold two bets in one round, which the
     // bet-then-win pairing below cannot untangle. Its rounds come from AstronautBet instead —
     // see profile_astronaut_rounds().
