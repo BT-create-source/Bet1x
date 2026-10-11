@@ -9,6 +9,7 @@
   <script src="assets/js/ui-common.js"></script>
   <script src="assets/js/sound-fx.js"></script>
   <script src="assets/js/tower-sfx.js"></script>
+  <script src="assets/js/tower-art.js"></script>
   <script src="assets/js/tower-scene.js"></script>
   <style>
     /* ==========================================================================================
@@ -64,11 +65,14 @@
     .tr-floors b { font-size: 15px; color: var(--hz); margin-left: 4px; }
 
     /* the big multiplier that pops at each landing */
-    .tr-pop { position: absolute; left: 50%; top: 0; transform: translate(-50%, -50%); pointer-events: none;
-      font: 900 54px/1 'Baloo 2', 'Poppins', sans-serif; letter-spacing: 1px; color: #ffe14d;
-      -webkit-text-stroke: 3px #2a1a14; paint-order: stroke fill; text-shadow: 0 5px 0 rgba(42,26,20,.55); opacity: 0; }
-    .tr-pop.dn { color: #ffffff; }
-    .tr-pop.zero { color: #e8352e; -webkit-text-stroke: 3px #fff; font-size: 84px; text-shadow: 0 6px 0 rgba(120, 10, 10, .45); }
+    .tr-pop { position: absolute; left: 50%; top: 0; transform: translate(-50%, -50%); pointer-events: none; opacity: 0;
+      font: 900 56px/1.1 'Baloo 2', 'Poppins', sans-serif; letter-spacing: 1px;
+      background: linear-gradient(180deg, #fff3b0 0%, #ffd34d 38%, #f3a514 70%, #c97a06 100%); -webkit-background-clip: text; background-clip: text;
+      color: transparent; -webkit-text-stroke: 1.2px rgba(120, 66, 0, .55);
+      filter: drop-shadow(0 3px 2px rgba(60, 30, 0, .45)) drop-shadow(0 0 10px rgba(255, 220, 120, .35)); }
+    .tr-pop.dn { background-image: linear-gradient(180deg, #ffffff 0%, #eef2f6 45%, #b9c3cf 100%); -webkit-text-stroke: 1.2px rgba(60, 70, 90, .5); }
+    .tr-pop.zero { font-size: 92px; background-image: linear-gradient(180deg, #ff7a7f 0%, #ee3346 45%, #b3122a 100%); -webkit-text-stroke: 1.5px rgba(90, 0, 10, .5);
+      filter: drop-shadow(0 4px 3px rgba(80, 0, 10, .45)); }
     .tr-pop.go { animation: trPop 1.25s cubic-bezier(.2,1.4,.4,1) forwards; }
     .tr-pop.zero.go { animation: trPopZero 1.6s cubic-bezier(.2,1.6,.4,1) forwards; }
     @keyframes trPop { 0% { opacity: 0; transform: translate(-50%, -20%) scale(.3); } 18% { opacity: 1; transform: translate(-50%, -60%) scale(1.15); }
@@ -419,20 +423,11 @@
     }
 
     // OOPS: the banner over the deck with the builder's tools flying past
-    const TOOLS = [
-      // hammer
-      '<g><rect x="-4" y="-30" width="8" height="46" rx="3" fill="#c98a4b" stroke="#2a1a14" stroke-width="2.4"/><rect x="-16" y="-38" width="32" height="13" rx="3" fill="#9aa2b3" stroke="#2a1a14" stroke-width="2.4"/></g>',
-      // wrench
-      '<g><path d="M-4 16 L-4 -18 A10 10 0 1 1 4 -18 L4 16 Z" fill="#c6ccd8" stroke="#2a1a14" stroke-width="2.4"/><circle cx="0" cy="-24" r="4" fill="#1b4252"/></g>',
-      // plank
-      '<g><rect x="-34" y="-8" width="68" height="16" rx="3" fill="#cf7a3b" stroke="#2a1a14" stroke-width="2.4"/><circle cx="-24" cy="0" r="2" fill="#2a1a14"/><circle cx="24" cy="0" r="2" fill="#2a1a14"/></g>',
-      // brick
-      '<g><rect x="-18" y="-10" width="36" height="20" rx="2" fill="#c8513a" stroke="#2a1a14" stroke-width="2.4"/><path d="M-18 0H18M0 -10V0" stroke="#8f3020" stroke-width="1.6"/></g>',
-      // gear
-      '<g><circle r="14" fill="#9aa2b3" stroke="#2a1a14" stroke-width="2.4" stroke-dasharray="6 3"/><circle r="5" fill="#1b4252" stroke="#2a1a14" stroke-width="2"/></g>',
-      // screw
-      '<g><rect x="-3" y="-14" width="6" height="26" fill="#e3b341" stroke="#2a1a14" stroke-width="2"/><rect x="-8" y="-18" width="16" height="6" rx="2" fill="#e3b341" stroke="#2a1a14" stroke-width="2"/></g>',
-    ];
+    // painted by assets/js/tower-art.js, drawn at roughly twice their scene size on the banner
+    const TOOLS = ['tool_hammer', 'tool_wrench', 'tool_plank', 'tool_brick', 'tool_gear'].map((n) => {
+      const a = TowerArt.get(n);
+      return `<image href="${a.url}" x="${-a.w}" y="${-a.h}" width="${a.w * 2}" height="${a.h * 2}"/>`;
+    });
     async function oops() {
       const g = $('trDebris');
       g.innerHTML = '';

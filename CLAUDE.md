@@ -57,8 +57,10 @@ BUILD; each floor's multiplier (0.45–1.6, rarely 2/3/5, or x0 = collapse) mult
 The x0 chance comes from the operator RTP so every floor's expected factor is exactly RTP; all floors
 are fixed at the first BUILD from a provably-fair seed. One tower per player (`TowerRushSession`), and
 every BUILD names the tower it means (`start`+`after_round`, or `round_ref`+`floors`) so a double-click
-can never take a second stake. Art and animation (crane, four house skins, street, puffs, collapse) are
-vector in the Chicken Road style in `assets/js/tower-scene.js`; sounds in `assets/js/tower-sfx.js`.
+can never take a second stake. All artwork (four houses, the street with the Wine Store, hook, smoke,
+coins, OOPS tools) is painted procedurally at load by `assets/js/tower-art.js` — textured and lit,
+semi-realistic like the original, no image files — and animated by `assets/js/tower-scene.js`;
+sounds in `assets/js/tower-sfx.js`.
 Page `towerrush.html`; admin card in `assets/js/admin-newgames.js`; migration 013; tests
 `php-backend/test_towerrush.php`; DEPLOY.md §15.
 
