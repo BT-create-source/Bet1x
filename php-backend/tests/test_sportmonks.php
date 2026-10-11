@@ -145,13 +145,13 @@ $p = sm_prematch_prob(10, 43, 'T20', $rk, []);
 check($p > 0.65 && $p < 0.75, sprintf('India (269) v West Indies (234): India %.0f%%', 100 * $p));
 check(abs(sm_prematch_prob(10, 43, 'T20', $rk, []) + sm_prematch_prob(43, 10, 'T20', $rk, []) - 1) < 1e-9, 'symmetric: swapping the teams gives the complement');
 check(sm_prematch_prob(300, 301, 'T20', $rk, []) <= 0.75, 'a huge gap is capped at 75% (T20 is volatile)');
-check(sm_prematch_prob(10, 300, 'T20', $rk, []) === 0.5, 'a men\'s side and a women\'s side are never compared on rating (falls back to even)');
+check(sm_prematch_prob(10, 300, 'T20', $rk, []) === null, 'a men\'s side and a women\'s side are never compared on rating (no price)');
 $st = [];
 foreach (fx('standings-1849.json') as $r) $st[(int) $r['team_id']] = $r;
 $ids = array_keys($st);
 $p = sm_prematch_prob($ids[0], end($ids), 'T20', [], $st);
 check($p !== null && $p > 0.5 && $p <= 0.65, sprintf('domestic: table-topper v bottom side from the real CSA standings %.0f%% (capped 65%%)', 100 * $p));
-check(sm_prematch_prob(999998, 999999, 'T20', $rk, $st) === 0.5, 'no information at all: an even match, so the fixture can still be bet pre-match');
+check(sm_prematch_prob(999998, 999999, 'T20', $rk, $st) === null, 'no information at all: no pre-match price (the match lists without markets until play starts)');
 
 echo "\ntest_sportmonks: $pass passed, $fail failed\n";
 exit($fail ? 1 : 0);

@@ -571,8 +571,8 @@ function sm_standings($seasonId) {
  * Pure: the chance team A wins before a ball is bowled, or null when there is nothing sound to go on.
  *   - both teams ICC-ranked in the same list (internationals): logistic in the rating gap, 40 rating
  *     points = 1 in log-odds (269 v 229 ~ 73%), capped 25-75% because T20 is volatile;
- *   - else both in the season's standings: win rate and net run rate, capped 35-65% (40-60% under 2 games);
- *   - else an even match (0.5).
+ *   - else both in the season's standings with 2+ games each: win rate and net run rate, capped 35-65%;
+ *   - else null: no price before play.
  */
 function sm_prematch_prob($teamA, $teamB, $format, array $rankings, array $standings) {
     $list = ['ODI' => 'ODI', 'TEST' => 'TEST'][strtoupper((string) $format)] ?? 'T20I';
@@ -581,16 +581,14 @@ function sm_prematch_prob($teamA, $teamB, $format, array $rankings, array $stand
         if ($ra !== null && $rb !== null && $ra > 0 && $rb > 0) return max(0.25, min(0.75, 1 / (1 + exp(-($ra - $rb) / 40))));
     }
     $a = $standings[(int) $teamA] ?? null; $b = $standings[(int) $teamB] ?? null;
-    if ($a && $b && (int) $a['played'] >= 1 && (int) $b['played'] >= 1) {
+    if ($a && $b && (int) $a['played'] >= 2 && (int) $b['played'] >= 2) {
         $wr = function ($r) { $p = max(1, (int) $r['played'] - (int) ($r['noresult'] ?? 0)); return ((int) $r['won'] + 0.5 * (int) ($r['draw'] ?? 0)) / $p; };
         $x = 2.0 * ($wr($a) - $wr($b)) + 0.25 * ((float) ($a['netto_run_rate'] ?? 0) - (float) ($b['netto_run_rate'] ?? 0));
-        // A table with only a game or two each says less: the cap tightens until both have played twice.
-        $cap = ((int) $a['played'] >= 2 && (int) $b['played'] >= 2) ? 0.65 : 0.60;
-        return max(1 - $cap, min($cap, 1 / (1 + exp(-$x))));
+        return max(0.35, min(0.65, 1 / (1 + exp(-$x))));
     }
-    // Nothing to go on: an even match (both ~1.96 after margin), so every fixture can be bet pre-match;
-    // live pricing takes over from the first ball.
-    return 0.5;
+    // Nothing sound to go on: no pre-match price. The match lists without markets (as exchange sites show
+    // a minor fixture nobody has traded yet) and opens at the first ball, when live pricing takes over.
+    return null;
 }
 
 /**
@@ -611,7 +609,11 @@ function sm_sync_prematch_prices($nowMs = null) {
         if ($row && $row['source'] === 'operator') continue;
         $ta = (int) preg_replace('/^smt_/', '', $f['teams']['a']['key']); $tb = (int) preg_replace('/^smt_/', '', $f['teams']['b']['key']);
         $p = sm_prematch_prob($ta, $tb, $f['format'], $rankings, sm_standings($f['tournament_key']));
-        if ($p === null) continue;
+        if ($p === null) {
+            // No sound basis (any more): withdraw a price this sync set earlier (e.g. the old even price).
+            if ($row && $row['source'] === 'sportmonks') q('DELETE FROM "mx_match_settings" WHERE "match_key" = ? AND "source" = ?', [$f['key'], 'sportmonks']);
+            continue;
+        }
         $fav = $p >= 0.5 ? 'a' : 'b';
         $price = round(1 / max($p, 1 - $p), 2);
         if ($row && $row['fav_side'] === $fav && abs((float) $row['fav_price'] - $price) < 0.015) continue;

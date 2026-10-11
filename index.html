@@ -183,15 +183,17 @@
           function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
           function row(m, live) {
             var o = m.odds, a = o && o.runners && o.runners[0], b = o && o.runners && o.runners[1];
-            var cell = function (v, cls) { return '<div class="hck-px ' + cls + (v ? '' : ' e') + '">' + (v ? esc(v) : '–') + '</div>'; };
+            var cell = function (v, cls) { return '<div class="hck-px ' + cls + (v ? '' : ' e') + '">' + (v ? esc(v) : '0') + '</div>'; };
             // Prices show whenever the match has them — including between balls, when the market is briefly
             // suspended; the home screen does not show a suspension status.
-            var cells = (a && b && a.back && b.back) ? cell(a.back, 'b') + cell(a.lay, 'l') + cell(b.back, 'b') + cell(b.lay, 'l')
+            var priced = !!(a && b && a.back && b.back);
+            var cells = priced ? cell(a.back, 'b') + cell(a.lay, 'l') + cell(b.back, 'b') + cell(b.lay, 'l')
               : cell(null, 'b') + cell(null, 'l') + cell(null, 'b') + cell(null, 'l');   // not priced yet: listed, with empty boxes
-            // Every listed match offers all three families (Fancy lines and Ball by Ball open at the first
-            // ball), so the badges show on upcoming matches too, as on established exchange sites.
+            // Badges only where the match's markets are actually set up (a live match, or one with real
+            // pre-match prices), as exchange sites do; a minor fixture nobody has priced yet lists with no
+            // badges and 0 prices until play starts.
             var key = encodeURIComponent(m.match_key);
-            var badges = '<div class="hck-mk">'
+            var badges = !(live || priced) ? '<div class="hck-mk"></div>' : '<div class="hck-mk">'
               + '<a class="bm" href="cricket.html#match/' + key + '" title="Bookmaker">BM</a>'
               + '<a class="f" href="cricket.html#match/' + key + '" title="Fancy' + (live ? '' : ' — opens when play starts') + '">F</a>'
               + '<a class="s" href="boundarybaazi.html#match/' + key + '" title="Ball by Ball' + (live ? '' : ' — opens at the first ball') + '">S</a>'
