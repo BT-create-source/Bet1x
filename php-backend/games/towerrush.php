@@ -252,5 +252,6 @@ function tr_public_config($config) {
         'min_bet'  => $config['min_bet'],
         'max_bet'  => $config['max_bet'],
         'factors'  => $table,
+        'weights'  => tr_factor_table(),   // exact, for the page's fairness check
     ];
 }

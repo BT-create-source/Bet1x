@@ -52,6 +52,16 @@ see `hen-studio/README.md`), its road, pavement, props, vehicles and impact effe
 Pages `chickenroad.html` / `astronaut.html`; admin tab in
 `assets/js/admin-newgames.js`; migration 012; tests `php-backend/test_crash_games.php`; DEPLOY.md §14.
 
+**Tower Rush** (PHP only): `games/towerrush.php` + `routes/towerrush.php`. A crane drops a block per
+BUILD; each floor's multiplier (0.45–1.6, rarely 2/3/5, or x0 = collapse) multiplies into the cash-out.
+The x0 chance comes from the operator RTP so every floor's expected factor is exactly RTP; all floors
+are fixed at the first BUILD from a provably-fair seed. One tower per player (`TowerRushSession`), and
+every BUILD names the tower it means (`start`+`after_round`, or `round_ref`+`floors`) so a double-click
+can never take a second stake. Art and animation (crane, four house skins, street, puffs, collapse) are
+vector in the Chicken Road style in `assets/js/tower-scene.js`; sounds in `assets/js/tower-sfx.js`.
+Page `towerrush.html`; admin card in `assets/js/admin-newgames.js`; migration 013; tests
+`php-backend/test_towerrush.php`; DEPLOY.md §15.
+
 The `README.md` describes an earlier "pitch demo, no backend" mode (pure HTML/CSS/JS with localStorage);
 the repo has since grown a real backend, so treat the README's "no backend" framing as historical/optional
 rather than how the app currently runs.
