@@ -569,15 +569,17 @@ function sm_standings($seasonId) {
 
 /**
  * Pure: the chance team A wins before a ball is bowled, or null when there is nothing sound to go on.
- *   - both teams ICC-ranked in the same list (internationals): logistic in the rating gap, 40 rating
- *     points = 1 in log-odds (269 v 229 ~ 73%), capped 25-75% because T20 is volatile;
+ *   - both teams ICC-ranked in the same list (internationals): logistic in the rating gap, 27 rating
+ *     points = 1 in log-odds (calibrated to market prices), capped 12-88%;
  * *   - else null: no price before play.
  */
 function sm_prematch_prob($teamA, $teamB, $format, array $rankings, array $standings) {
     $list = ['ODI' => 'ODI', 'TEST' => 'TEST'][strtoupper((string) $format)] ?? 'T20I';
     foreach (['men', 'women'] as $g) {
         $ra = $rankings[(int) $teamA][$list . '|' . $g] ?? null; $rb = $rankings[(int) $teamB][$list . '|' . $g] ?? null;
-        if ($ra !== null && $rb !== null && $ra > 0 && $rb > 0) return max(0.25, min(0.75, 1 / (1 + exp(-($ra - $rb) / 40))));
+        // 27 rating points = 1 in log-odds, calibrated to the betting market on 11 Oct 2026 (India 269 v
+        // West Indies 234 traded 1.29, Pakistan 240 v Sri Lanka 220 traded 1.43; this gives 1.27 / 1.47).
+        if ($ra !== null && $rb !== null && $ra > 0 && $rb > 0) return max(0.12, min(0.88, 1 / (1 + exp(-($ra - $rb) / 27))));
     }
     // Domestic fixtures are not priced from the league table: exchange sites leave them unpriced until
     // play starts, and so do we. ($standings stays in the signature so callers need not change.)

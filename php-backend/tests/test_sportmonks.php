@@ -142,9 +142,10 @@ check(fantasy_feed_credits('x', 'BAT', $tail, 'T20') >= 6 && fantasy_feed_credit
 echo "== Pre-match price from rankings / standings ==\n";
 $rk = [10 => ['T20I|men' => 269], 43 => ['T20I|men' => 234], 300 => ['T20I|women' => 291], 301 => ['T20I|women' => 180]];
 $p = sm_prematch_prob(10, 43, 'T20', $rk, []);
-check($p > 0.65 && $p < 0.75, sprintf('India (269) v West Indies (234): India %.0f%%', 100 * $p));
+check(abs(1 / $p - 1.29) < 0.05, sprintf('India (269) v West Indies (234): India %.2f, the market traded 1.29', 1 / $p));
+check(abs(1 / sm_prematch_prob(1, 39, 'T20', [1 => ['T20I|men' => 240], 39 => ['T20I|men' => 220]], []) - 1.43) < 0.06, 'Pakistan (240) v Sri Lanka (220): close to the market price 1.43');
 check(abs(sm_prematch_prob(10, 43, 'T20', $rk, []) + sm_prematch_prob(43, 10, 'T20', $rk, []) - 1) < 1e-9, 'symmetric: swapping the teams gives the complement');
-check(sm_prematch_prob(300, 301, 'T20', $rk, []) <= 0.75, 'a huge gap is capped at 75% (T20 is volatile)');
+check(sm_prematch_prob(300, 301, 'T20', $rk, []) <= 0.88, 'a huge gap is capped at 88%');
 check(sm_prematch_prob(10, 300, 'T20', $rk, []) === null, 'a men\'s side and a women\'s side are never compared on rating (no price)');
 $st = [];
 foreach (fx('standings-1849.json') as $r) $st[(int) $r['team_id']] = $r;
