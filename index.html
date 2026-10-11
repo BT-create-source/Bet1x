@@ -186,7 +186,10 @@
             var cell = function (v, cls) { return '<div class="hck-px ' + cls + (v ? '' : ' e') + '">' + (v ? esc(v) : '0') + '</div>'; };
             // Prices show whenever the match has them — including between balls, when the market is briefly
             // suspended; the home screen does not show a suspension status.
-            var priced = !!(a && b && a.back && b.back);
+            // Priced = the match really has prices: a live match (its prices show between balls too), or an
+            // upcoming one whose pre-match market is OPEN. An unpriced fixture still carries the engine's
+            // placeholder numbers with the market closed ("Opens when play starts") — those do not count.
+            var priced = !!(a && b && a.back && b.back && (live || (o && o.open)));
             var cells = priced ? cell(a.back, 'b') + cell(a.lay, 'l') + cell(b.back, 'b') + cell(b.lay, 'l')
               : cell(null, 'b') + cell(null, 'l') + cell(null, 'b') + cell(null, 'l');   // not priced yet: listed, with empty boxes
             // Badges only where the match's markets are actually set up (a live match, or one with real
