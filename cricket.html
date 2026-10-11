@@ -156,7 +156,8 @@
         + '<div class="ck-banner-mid">' + team(m.team_a_short, m.team_a, false) + '<div class="ck-vs">' + esc(m.format) + '<br>VS</div>' + team(m.team_b_short, m.team_b, true) + '</div>'
         + '<div class="ck-banner-bot"><span>' + info.join(' &nbsp;·&nbsp; ') + '</span>'
         + (page.pricing.fav_price ? '<span style="opacity:.75">Pre-match: ' + esc(page.pricing.fav_side === 'a' ? m.team_a_short : m.team_b_short) + ' fav @' + page.pricing.fav_price + '</span>' : '') + '</div>';
-      $('recent').innerHTML = '<b>Recent Result</b>' + ((sb.last_balls || []).length ? sb.last_balls.map(function (x) { return '<span class="ck-ball ' + ballCls(x.token) + '">' + esc(x.token) + '</span>'; }).join('') : '<span style="color:#8f98c4;font-size:12px;">No balls yet</span>');
+      // Newest ball first (the feed lists them oldest first), so the latest result is always in view.
+      $('recent').innerHTML = '<b>Recent Result</b>' + ((sb.last_balls || []).length ? sb.last_balls.slice().reverse().map(function (x) { return '<span class="ck-ball ' + ballCls(x.token) + '">' + esc(x.token) + '</span>'; }).join('') : '<span style="color:#8f98c4;font-size:12px;">No balls yet</span>');
       $('bbbPromo').href = 'boundarybaazi.html#match/' + encodeURIComponent(key);
     }
 
