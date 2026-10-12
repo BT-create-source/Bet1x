@@ -29,6 +29,14 @@ async function init() {
   svg.setAttribute('aria-hidden', 'true');
   svg.style.width = '100%'; svg.style.height = '100%'; svg.style.overflow = 'visible'; svg.style.display = 'block';
   svg.querySelector('#shadow')?.remove();             // replaced by the live ground shadow below
+  // Performance: the traced art softens a few shading layers with a Gaussian blur filter. The rig moves
+  // her parts every frame, so every frame re-ran those blurs — the main cause of the game's lag on phones
+  // and ordinary laptops. Without the filter the layers stay, slightly softened by opacity instead.
+  svg.querySelectorAll('[filter]').forEach((el) => {
+    el.removeAttribute('filter');
+    const o = parseFloat(el.getAttribute('opacity') || '1');
+    el.setAttribute('opacity', String(Math.round(o * 0.8 * 100) / 100));
+  });
 
   // Ground shadow, drawn in the hen's own coordinates but OUTSIDE her rig, so it stays on the road
   // while she jumps: a soft wide shadow plus a tight dark contact patch under her feet. Each frame

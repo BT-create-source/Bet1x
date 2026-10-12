@@ -311,7 +311,9 @@
     .cr-coin svg { filter: none !important; }
     .cr-coin { transform-origin: 50% 50%; }
     .cr-lane.passed .cr-coin { animation: crCoinShine 2.6s ease-in-out infinite; }
-    @keyframes crCoinShine { 0%, 80%, 100% { filter: brightness(1); } 88% { filter: brightness(1.25) drop-shadow(0 0 8px rgba(255,210,61,0.9)); } }
+    /* A gentle pulse in scale, which the compositor animates for free (a filter animation repainted every
+       passed lane's coin on every frame and lagged the game). */
+    @keyframes crCoinShine { 0%, 80%, 100% { transform: scale(1); } 88% { transform: scale(1.1); } }
     .cr-tag { border: calc(var(--L) * 0.018) solid ${INK} !important; box-shadow: 0 4px 0 ${INK}, inset 0 2px 0 rgba(255,255,255,0.25) !important;
       background: linear-gradient(180deg, #3d5089, #26355f) !important; text-shadow: 0 2px 0 ${INK}; }
     .cr-tag::before { border-bottom-color: ${INK} !important; top: -9px !important; }

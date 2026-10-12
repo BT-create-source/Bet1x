@@ -62,7 +62,7 @@
     .cr-lamp { position: absolute; left: 34%; top: 0; width: 10px; height: 30%; background: linear-gradient(90deg, #72747c, #9a9ca4, #72747c); border-radius: 0 0 4px 4px; }
     .cr-lamp::before { content: ''; position: absolute; left: -9px; bottom: -12px; width: 28px; height: 28px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #a5a7ae, #6b6d74); }
     .cr-lamp::after { content: ''; position: absolute; left: 0; top: 4px; width: calc(var(--L) * 0.5); height: 9px; background: #8a8c94; border-radius: 0 6px 6px 0; }
-    .cr-egg { position: absolute; left: 50%; top: var(--row); width: calc(var(--L) * 0.5); height: calc(var(--L) * 0.62); transform: translate(-50%, -60%); filter: drop-shadow(0 0 16px rgba(255,197,61,0.8)); animation: crEggGlow 2.2s ease-in-out infinite; }
+    .cr-egg { position: absolute; left: 50%; top: var(--row); width: calc(var(--L) * 0.5); height: calc(var(--L) * 0.62); transform: translate(-50%, -60%); filter: drop-shadow(0 0 16px rgba(255,197,61,0.8)); }   /* static glow: an animated filter repainted every frame */
     @keyframes crEggGlow { 50% { filter: drop-shadow(0 0 30px rgba(255,197,61,1)); } }
 
     .cr-lane { position: absolute; top: 0; height: 100%; width: var(--L); }
@@ -132,7 +132,7 @@
     .cr-hen.rigged:not(.squash) .body { animation: none; }
     /* Depth comes from the live ground shadow inside the rigged hen (assets/js/chicken-hen.js), which
        stays on the road and shrinks as she jumps; this is only a faint rim to lift her off the road. */
-    .cr-hen.rigged svg { filter: drop-shadow(0 2px 1.5px rgba(0,0,0,0.18)); }
+    .cr-hen.rigged svg { filter: none; }   /* she animates every frame: no filter (it lagged); the ground shadow does the job */
     .cr-feather { position: absolute; width: 14px; height: 7px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1px #d5d6de; z-index: 6; pointer-events: none; animation: crFeather 1.1s ease-out forwards; }
     @keyframes crFeather { to { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity: 0; } }
 
