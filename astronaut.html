@@ -70,7 +70,7 @@
       position: absolute; left: 0; top: 0; width: 86px; height: 86px; margin: -43px 0 0 -43px;
       will-change: transform; z-index: 3; pointer-events: none;
     }
-    .as-astro svg { width: 100%; height: 100%; display: block; overflow: visible; filter: drop-shadow(0 0 14px rgba(143,211,255,0.22)) drop-shadow(0 10px 18px rgba(4,2,16,0.45)); }
+    .as-astro svg { width: 100%; height: 100%; display: block; overflow: visible; }   /* no CSS filters: they re-render every frame and caused the lag */
     .as-astro .flame { transform-origin: 50% 0; animation: asFlame 0.12s ease-in-out infinite alternate; }
     @keyframes asFlame { from { transform: scaleY(0.8); opacity: 0.85; } to { transform: scaleY(1.15); opacity: 1; } }
     .as-astro.idle .flame { display: none; }
@@ -90,7 +90,6 @@
     .as-bar { width: 240px; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.12); overflow: hidden; }
     .as-bar i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #a56bff, #ff5bd2); transform-origin: left; }
     .as-wait .s { font: 600 12px var(--font-mono); color: #9aa0c4; }
-    .as-hash { position: absolute; left: 12px; bottom: 10px; z-index: 4; font: 500 10px var(--font-mono); color: rgba(237,239,250,0.45); }
     .as-round { position: absolute; right: 12px; top: 10px; z-index: 4; font: 600 11px var(--font-mono); color: rgba(237,239,250,0.6); }
 
     .as-toasts { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 6; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; }
@@ -132,6 +131,7 @@
     .as-btn .l0 { font: 600 11px var(--font-body); letter-spacing: 0; opacity: 0.8; }
     .as-btn.bet { background: linear-gradient(180deg, #3ee68b, #1fa85d); color: #062313; box-shadow: 0 6px 18px rgba(46,212,122,0.25); }
     .as-btn.cancel { background: linear-gradient(180deg, #ff6b86, #d93356); color: #fff; box-shadow: 0 6px 18px rgba(255,75,110,0.25); }
+    .as-btn.done { background: #2a2f4a; color: #c8cde6; box-shadow: none; opacity: 1; }
     .as-btn.cash { background: linear-gradient(180deg, #ffd768, #f0a91c); color: #2e1d00; box-shadow: 0 6px 18px rgba(255,197,61,0.3); }
     .as-auto { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
     .as-panel.auto-tab .as-auto { display: flex; }
@@ -428,7 +428,6 @@
         </div>
         <div class="as-toasts" id="asToasts"></div>
         <div class="as-round" id="asRound"></div>
-        <div class="as-hash" id="asHash"></div>
       </div>
 
       <div class="as-panels" id="asPanels"></div>
@@ -538,7 +537,6 @@
       renderPanels();
       renderSide();
       $('asRound').textContent = 'Round #' + st.round_id;
-      $('asHash').textContent = st.phase === 'crashed' ? 'Seed ' + st.server_seed.slice(0, 20) + '…' : 'Hash ' + st.seed_hash.slice(0, 20) + '…';
     }
 
     function onCrash() {
@@ -594,6 +592,7 @@
         if (data.ok) {
           P.queued = false;
           sfx('betPlace');
+          toast('Bet placed: <b>' + fmt(data.amount) + '</b>');
           setBalance(data.balance);
           if (S && S.round_id === data.round_id && !myBet(P.p)) {
             S.my_bets.push({ panel: P.p, amount: data.amount, status: 'pending', auto_cashout: data.auto_cashout, cashout_mult: null, payout: 0 });
@@ -707,20 +706,22 @@
       panels.forEach((P) => {
         const b = myBet(P.p);
         const pending = b && b.status === 'pending';
-        let cls = 'bet', l0 = '', l1 = 'BET', l2 = fmt(P.amount);
+        // The same states, words and order as Vimaan's bet button.
+        let cls = 'bet', l0 = '', l1 = 'Place Bet', l2 = fmt(P.amount), done = false;
         if (pending && S.phase === 'flying') {
-          cls = 'cash'; l1 = 'CASH OUT'; l2 = fmt(Math.round(b.amount * mult * 100) / 100);
+          cls = 'cash'; l1 = 'Cash Out'; l2 = fmt(Math.round(b.amount * mult * 100) / 100);
         } else if (pending) {
-          cls = 'cancel'; l0 = 'Waiting for take-off'; l1 = 'CANCEL'; l2 = fmt(b.amount);
+          cls = 'cancel'; l1 = 'Cancel Bet'; l2 = 'Waiting...';
         } else if (P.queued) {
-          cls = 'cancel'; l0 = 'Waiting for next round'; l1 = 'CANCEL'; l2 = fmt(P.amount);
-        } else if (S.phase !== 'betting') {
-          l0 = 'Next round';
+          cls = 'cancel'; l1 = 'Cancel Bet'; l2 = 'Waiting for next round';
+        } else if (b && b.status === 'won' && S.phase !== 'betting') {
+          l1 = 'Cashed Out'; l2 = '+' + fmt(b.payout); done = true;
+        } else if (b && b.status === 'lost' && S.phase === 'crashed') {
+          l1 = 'Busted'; l2 = 'Lost ' + fmt(b.amount); done = true;
         }
-        if (b && b.status === 'won' && !P.queued) l0 = 'Won ' + fmt(b.payout) + ' @ ' + fmtX(b.cashout_mult);
-        P.btn.className = 'as-btn ' + cls;
+        P.btn.className = 'as-btn ' + cls + (done ? ' done' : '');
         P.btn.innerHTML = (l0 ? '<span class="l0">' + l0 + '</span>' : '') + '<span class="l1">' + l1 + '</span><span class="l2">' + l2 + '</span>';
-        P.btn.disabled = P.sending;
+        P.btn.disabled = P.sending || done;
         const locked = pending || P.queued;
         P.el.classList.toggle('armed', !!(pending && S.phase !== 'flying') || P.queued);
         P.el.classList.toggle('live', !!(pending && S.phase === 'flying'));
@@ -818,8 +819,9 @@
     }
     /** Where the astronaut is after t seconds of flight: a curve that eases toward the upper right. */
     function flightPos(t, mult) {
-      const x = W * (0.08 + 0.70 * (t / (t + 7)));
-      const y = H * (0.86 - 0.62 * (1 - 1 / (1 + Math.log(mult) * 1.3)));
+      // The flight starts at the graph's origin (bottom-left), where the astronaut waits before take-off.
+      const x = W * (0.05 + 0.73 * (t / (t + 7)));
+      const y = H * (0.9 - 0.66 * (1 - 1 / (1 + Math.log(mult) * 1.3)));
       return { x, y };
     }
     function astroTransform(x, y, rot, scale) {
@@ -848,7 +850,11 @@
         const start = S.phase === 'flying' ? S.phase_start : S.phase_start + S.betting_ms;
         const t = Math.max(0, (serverNow() - start) / 1000);
         const pos = flightPos(t, mult);
-        if (!trail.length || Math.hypot(pos.x - trail[trail.length - 1].x, pos.y - trail[trail.length - 1].y) > 3) trail.push(pos);
+        // The whole curve from take-off, recomputed every frame, so it always starts at the origin —
+        // even for a player who opened the page mid-flight (as Vimaan draws it).
+        trail = [];
+        const steps = Math.max(2, Math.min(90, Math.ceil(t * 6)));
+        for (let k = 0; k <= steps; k++) { const tk = t * k / steps; trail.push(flightPos(tk, Math.exp(S.growth * tk))); }
         if (trail.length > 1) {
           const g = ctx.createLinearGradient(trail[0].x, 0, pos.x, 0);
           g.addColorStop(0, 'rgba(165,107,255,0)'); g.addColorStop(1, 'rgba(255,91,210,0.9)');

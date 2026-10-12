@@ -67,6 +67,38 @@ test.describe('Chicken Road', () => {
 });
 
 test.describe('Astronaut', () => {
+  test('bets work exactly like Vimaan: Place Bet -> Cancel Bet -> Cash Out -> Cashed Out', async ({ page }) => {
+    test.setTimeout(120_000);
+    const watch = watchErrors(page);
+    await login(page);
+    await page.goto('/astronaut.html');
+    const btn = page.locator('.as-panel .as-btn').first();
+    // Wait for a countdown (betting phase), then bet.
+    await expect(page.locator('#asWait')).toHaveClass(/show/, { timeout: 40_000 });
+    await expect(btn).toContainText('Place Bet');
+    await btn.click();
+    await expect(btn).toContainText('Cancel Bet');
+    await expect(btn).toContainText('Waiting...');
+    // Take-off: the same button becomes Cash Out; cash out and it reads Cashed Out with the payout.
+    await expect(btn).toContainText('Cash Out', { timeout: 20_000 });
+    await btn.click();
+    await expect(btn).toContainText(/Cashed Out|Busted/, { timeout: 10_000 });
+    watch.expectClean();
+  });
+
+  test('no seed hash on the game screen; the astronaut waits at the origin', async ({ page }) => {
+    await page.goto('/astronaut.html');
+    await expect(page.locator('#asHash')).toHaveCount(0);
+    await expect(page.locator('.as-sky')).not.toContainText(/Hash [0-9a-f]{6}/);
+    await expect(page.locator('#asWait')).toHaveClass(/show/, { timeout: 40_000 });
+    await page.waitForTimeout(400);
+    const sky = await page.locator('.as-sky').boundingBox();
+    const a = await page.locator('#asAstro').boundingBox();
+    const cx = a.x + a.width / 2 - sky.x, cy = a.y + a.height / 2 - sky.y;
+    expect(cx / sky.width, 'astronaut should wait at the left edge (origin)').toBeLessThan(0.15);
+    expect(cy / sky.height, 'astronaut should wait at the bottom (origin)').toBeGreaterThan(0.75);
+  });
+
   test('the animated character is drawn and the round runs', async ({ page }, testInfo) => {
     const watch = watchErrors(page);
     await login(page);
