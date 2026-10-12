@@ -96,6 +96,7 @@ jobs:
         env:
           CI: 'true'
           PHP_CLI_SERVER_WORKERS: '8'
+          PHP_EXT_FLAGS: ''
         run: npx playwright test
       - name: Keep the report (open index.html inside it)
         if: always()
