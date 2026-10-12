@@ -34,6 +34,29 @@ test.describe('Chicken Road', () => {
     watch.expectClean();
   });
 
+  test('after a cash-out the hen goes back to the starting point', async ({ page }) => {
+    await login(page);
+    await page.goto('/chickenroad.html');
+    await finishChickenRound(page);
+    const startX = (await page.locator('.cr-hen').boundingBox()).x;
+    // Play until a lane is crossed safely and cash-out is offered (a run-over ends the round: try again).
+    let cashed = false;
+    for (let attempt = 0; attempt < 6 && !cashed; attempt++) {
+      await page.locator('#crAmount').fill('10');
+      await page.locator('#crPlayBtn').click();
+      await expect(page.locator('#crActiveRow')).toBeVisible({ timeout: 15_000 });
+      await page.locator('#crGoBtn').click();
+      await page.waitForTimeout(1500);
+      const cash = page.locator('#crCashBtn');
+      if (await cash.isVisible() && await cash.isEnabled()) { await cash.click(); cashed = true; }
+      else await finishChickenRound(page);
+    }
+    test.skip(!cashed, 'the hen was run over on every try — no cash-out to check');
+    await page.waitForTimeout(3500);                         // celebration, then the walk home
+    const endX = (await page.locator('.cr-hen').boundingBox()).x;
+    expect(Math.abs(endX - startX), 'the hen should be back where she started').toBeLessThan(12);
+  });
+
   test('sound: music is set up and a tap starts it', async ({ page }) => {
     await page.goto('/chickenroad.html');
     await page.mouse.click(10, 10);

@@ -539,8 +539,30 @@
     function henAt() {
       if (!state || state.status === 'idle') return 0;
       if (state.status === 'busted') return state.fire_lane;
-      if (state.status === 'cashed' && state.step === lanes.length) return lanes.length + 1;
+      if (state.status === 'cashed') return 0;   // after a cash-out she is back at the start
       return state.step;
+    }
+
+    /**
+     * After a cash-out: the hen hops back across to the starting pavement, the camera following her,
+     * ready for the next round (instead of staying on the lane where the player cashed out).
+     */
+    function returnHome() {
+      if (!hen || henPos === 0) return;
+      const ms = Math.min(1400, 450 + henPos * 90);
+      const ease = 'cubic-bezier(.45,0,.25,1)';
+      hen.style.transition = 'transform ' + ms + 'ms ' + ease;
+      tag.style.transition = 'left ' + ms + 'ms ' + ease;
+      track.style.transition = 'transform ' + ms + 'ms ' + ease;
+      henPos = 0;
+      const x = posX(0, lanes.length);
+      hen.style.transform = 'translateX(' + x + 'px)';
+      tag.style.left = x + 'px';
+      setCamera(0, true);
+      // Little hops on the way back, so she walks home rather than sliding.
+      const hops = Math.max(1, Math.round(ms / 420));
+      for (let i = 0; i < hops; i++) setTimeout(() => henDo('hop'), i * 420);
+      setTimeout(() => { hen.style.transition = ''; tag.style.transition = ''; track.style.transition = ''; paintLanes(); }, ms + 60);
     }
 
     // ---- traffic -------------------------------------------------------------------------------
@@ -915,6 +937,7 @@
         hen.classList.add('cheer');
         showBanner('win', 'x' + fmtX(state.multiplier), 'WIN ' + fmt(data.payout), 2400);
         finishRound();
+        setTimeout(returnHome, 1300);   // celebrate where she cashed out, then back to the start
       } catch (e) {
         setMsg('Cannot reach the server. Please try again.', true);
       } finally {
