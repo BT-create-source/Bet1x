@@ -419,7 +419,7 @@
         <div class="as-astro idle" id="asAstro"><svg viewBox="0 0 100 100"><use href="#asAstronaut"/></svg></div>
         <div class="as-center">
           <div class="as-wait" id="asWait">
-            <div class="t">PLACE YOUR BETS</div>
+            <div class="t" id="asWaitT">PLACE YOUR BETS</div>
             <div class="as-bar"><i id="asBarFill"></i></div>
             <div class="s" id="asWaitS"></div>
           </div>
@@ -534,6 +534,7 @@
 
       if (newRound || lastRound === null) renderHistory(lastRound !== null);
       lastRound = st.round_id; lastPhase = st.phase;
+      $('asWaitT').textContent = config && !config.enabled ? 'ASTRONAUT IS CLOSED RIGHT NOW' : 'PLACE YOUR BETS';
       renderPanels();
       renderSide();
       $('asRound').textContent = 'Round #' + st.round_id;
@@ -598,11 +599,9 @@
             S.my_bets.push({ panel: P.p, amount: data.amount, status: 'pending', auto_cashout: data.auto_cashout, cashout_mult: null, payout: 0 });
           }
         } else {
-          if (/closed/i.test(data.error || '') ) { P.queued = true; }
-          else {
-            toast(escapeHtml(data.error || 'Bet failed.'), true);
-            if (automatic) { P.autoBet = false; P.queued = false; }
-          }
+          toast(escapeHtml(data.error || 'Bet failed.'), true);
+          if (automatic && !/closed/i.test(data.error || '')) { P.autoBet = false; }
+          P.queued = false;
         }
       } catch (e) {
         toast('Cannot reach the server.', true);
@@ -693,9 +692,10 @@
         P.btn.onclick = () => {
           const b = myBet(P.p);
           if (b && b.status === 'pending') { if (S.phase === 'flying') cashOut(P); else cancelBet(P); return; }
-          if (P.queued) { cancelBet(P); return; }
-          if (S && S.phase === 'betting') placeBet(P, false);
-          else { if (!signedIn) { if (window.openAuthModal) openAuthModal('login'); return; } P.queued = true; sfx('betPlace'); renderPanels(); }
+          if (P.queued) { P.queued = false; renderPanels(); return; }
+          // Bets are taken only in the countdown before take-off, and only while the game is open.
+          if (config && !config.enabled) return;
+          if (S && S.phase === 'betting' && localPhase() === 'betting') placeBet(P, false);
         };
       });
     }
@@ -712,12 +712,14 @@
           cls = 'cash'; l1 = 'Cash Out'; l2 = fmt(Math.round(b.amount * mult * 100) / 100);
         } else if (pending) {
           cls = 'cancel'; l1 = 'Cancel Bet'; l2 = 'Waiting...';
-        } else if (P.queued) {
-          cls = 'cancel'; l1 = 'Cancel Bet'; l2 = 'Waiting for next round';
         } else if (b && b.status === 'won' && S.phase !== 'betting') {
           l1 = 'Cashed Out'; l2 = '+' + fmt(b.payout); done = true;
         } else if (b && b.status === 'lost' && S.phase === 'crashed') {
           l1 = 'Busted'; l2 = 'Lost ' + fmt(b.amount); done = true;
+        } else if (config && !config.enabled) {
+          l1 = 'Place Bet'; l2 = 'Game closed'; done = true;
+        } else if (S.phase !== 'betting' || localPhase() !== 'betting') {
+          l1 = 'Place Bet'; l2 = 'Wait for next round'; done = true;   // only in the countdown before take-off
         }
         P.btn.className = 'as-btn ' + cls + (done ? ' done' : '');
         P.btn.innerHTML = (l0 ? '<span class="l0">' + l0 + '</span>' : '') + '<span class="l1">' + l1 + '</span><span class="l2">' + l2 + '</span>';

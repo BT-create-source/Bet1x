@@ -516,8 +516,10 @@
     }
 
     /** Lane classes from the round state. */
+    let boardReset = true;   // false only between a cash-out and the hen getting back home
     function paintLanes() {
-      const st = state || { status: 'idle', step: 0 };
+      let st = state || { status: 'idle', step: 0 };
+      if (st.status === 'cashed' && boardReset) st = { status: 'idle', step: 0 };   // after a cash-out: a fresh board
       const live = st.status === 'active';
       const N = lanes.length;
       stage.classList.toggle('idle', st.status === 'idle');
@@ -547,8 +549,10 @@
      * After a cash-out: the hen hops back across to the starting pavement, the camera following her,
      * ready for the next round (instead of staying on the lane where the player cashed out).
      */
+    let homeRun = 0;   // bumped when a new round starts: a pending walk-home / reset is then dropped
     function returnHome() {
-      if (!hen || henPos === 0) return;
+      if (!hen || henPos === 0 || !state || state.status !== 'cashed') return;
+      const run = ++homeRun;
       const ms = Math.min(1400, 450 + henPos * 90);
       const ease = 'cubic-bezier(.45,0,.25,1)';
       hen.style.transition = 'transform ' + ms + 'ms ' + ease;
@@ -561,8 +565,16 @@
       setCamera(0, true);
       // Little hops on the way back, so she walks home rather than sliding.
       const hops = Math.max(1, Math.round(ms / 420));
-      for (let i = 0; i < hops; i++) setTimeout(() => henDo('hop'), i * 420);
-      setTimeout(() => { hen.style.transition = ''; tag.style.transition = ''; track.style.transition = ''; paintLanes(); }, ms + 60);
+      for (let i = 0; i < hops; i++) setTimeout(() => { if (run === homeRun) henDo('hop'); }, i * 420);
+      setTimeout(() => {
+        if (run !== homeRun) return;            // a new round already started: leave its road alone
+        hen.style.transition = ''; tag.style.transition = ''; track.style.transition = '';
+        // Home: the game resets to a fresh road, ready for the next bet.
+        boardReset = true;
+        if (window.CRHen) window.CRHen.reset();
+        buildRoad(state && state.difficulty ? state.difficulty : difficulty);
+        render(false);
+      }, ms + 60);
     }
 
     // ---- traffic -------------------------------------------------------------------------------
@@ -833,6 +845,9 @@
       const amount = readAmount();
       if (amount < config.min_bet || amount > config.max_bet) { setMsg('Bet must be between ₹' + config.min_bet + ' and ₹' + config.max_bet + '.', true); return; }
       busy = true; renderControls(); setMsg('');
+      homeRun++;          // cancel a walk-home / board reset still pending from the last cash-out
+      boardReset = true;
+      hen.style.transition = ''; tag.style.transition = ''; track.style.transition = '';
       try {
         const data = await api('start', { bet_amount: amount, difficulty });
         if (!data.ok) { setMsg(data.error, true); return; }
@@ -855,9 +870,20 @@
     async function step() {
       if (busy || !state || state.status !== 'active') return;
       busy = true; renderControls(); setMsg('');
+      const from = state.step;
+      const guess = Math.min(from + 1, lanes.length);
       try {
-        const data = await api('step', {});
+        // The hop starts the instant GO is pressed; the server decides the lane in parallel, so the
+        // button never waits on the network. If a car was due, it hits her as she lands.
+        clearLaneAtRow(guess);
+        placeHen(guess, true);
+        henDo('hop');
+        tag.hidden = true;
+        snd('hop', undefined, 'go');
+        snd('cluck', { delay: 0.05 });
+        const [data] = await Promise.all([api('step', {}), sleep(430)]);
         if (!data.ok) {
+          placeHen(from, true);                 // she hops back; nothing happened on the server
           setMsg(data.error, true);
           if (data._status === 409 || data._status === 400) await refresh();
           return;
@@ -865,14 +891,7 @@
         const prev = state;
         state = data.state;
         const target = data.outcome === 'fire' ? state.fire_lane : Math.min(state.step, lanes.length);
-        if (data.outcome !== 'fire') clearLaneAtRow(target);
-        // Hop first; the coin behind her and the barrier over her lane both land with her.
-        placeHen(target, true);
-        henDo('hop');
-        tag.hidden = true;
-        snd('hop', undefined, 'go');
-        snd('cluck', { delay: 0.05 });
-        await sleep(430);
+        if (target !== guess) { placeHen(target, true); await sleep(200); }
         snd('land');
         FX.dust(track, posX(target, lanes.length), D.row + D.hen * 0.32, D.L);
         if (data.outcome !== 'fire') {
@@ -912,6 +931,7 @@
           sfx('gemReveal');
         }
       } catch (e) {
+        if (state && state.status === 'active') placeHen(from, true);
         setMsg('Cannot reach the server. Please try again.', true);
       } finally {
         busy = false; renderControls();
@@ -924,6 +944,7 @@
       try {
         const data = await api('cashout', {});
         if (!data.ok) { setMsg(data.error, true); await refresh(); return; }
+        boardReset = false;      // keep the crossed lanes on show while she celebrates and walks home
         state = data.state;
         paintLanes();
         setBalance(state.balance);
@@ -937,7 +958,8 @@
         hen.classList.add('cheer');
         showBanner('win', 'x' + fmtX(state.multiplier), 'WIN ' + fmt(data.payout), 2400);
         finishRound();
-        setTimeout(returnHome, 1300);   // celebrate where she cashed out, then back to the start
+        const cashedRun = homeRun;
+        setTimeout(() => { if (cashedRun === homeRun) returnHome(); }, 1300);   // celebrate, then back to the start
       } catch (e) {
         setMsg('Cannot reach the server. Please try again.', true);
       } finally {
