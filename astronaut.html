@@ -534,7 +534,6 @@
 
       if (newRound || lastRound === null) renderHistory(lastRound !== null);
       lastRound = st.round_id; lastPhase = st.phase;
-      $('asWaitT').textContent = config && !config.enabled ? 'ASTRONAUT IS CLOSED RIGHT NOW' : 'PLACE YOUR BETS';
       renderPanels();
       renderSide();
       $('asRound').textContent = 'Round #' + st.round_id;
@@ -694,7 +693,6 @@
           if (b && b.status === 'pending') { if (S.phase === 'flying') cashOut(P); else cancelBet(P); return; }
           if (P.queued) { P.queued = false; renderPanels(); return; }
           // Bets are taken only in the countdown before take-off, and only while the game is open.
-          if (config && !config.enabled) return;
           if (S && S.phase === 'betting' && localPhase() === 'betting') placeBet(P, false);
         };
       });
@@ -716,8 +714,6 @@
           l1 = 'Cashed Out'; l2 = '+' + fmt(b.payout); done = true;
         } else if (b && b.status === 'lost' && S.phase === 'crashed') {
           l1 = 'Busted'; l2 = 'Lost ' + fmt(b.amount); done = true;
-        } else if (config && !config.enabled) {
-          l1 = 'Place Bet'; l2 = 'Game closed'; done = true;
         } else if (S.phase !== 'betting' || localPhase() !== 'betting') {
           l1 = 'Place Bet'; l2 = 'Wait for next round'; done = true;   // only in the countdown before take-off
         }

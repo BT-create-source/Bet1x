@@ -65,7 +65,7 @@ function astro_config_default() {
 function astro_config_get() {
     try { $stored = state_get('astronaut_config'); } catch (Throwable $e) { $stored = null; }
     $c = array_merge(astro_config_default(), is_array($stored) ? $stored : []);
-    $c['enabled'] = (bool) $c['enabled'];
+    $c['enabled'] = true;   // Astronaut is always open: no on/off switch (an old saved 'off' is ignored)
     foreach (['rtp', 'max_multiplier', 'max_win', 'min_bet', 'max_bet'] as $k) $c[$k] = (float) $c[$k];
     return $c;
 }

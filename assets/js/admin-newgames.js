@@ -43,7 +43,8 @@
     return '<div class="card" data-game="' + g.key + '" style="padding:16px; border:1px solid var(--border); border-radius:12px; background:var(--surface);">' +
       '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">' +
         '<h4 style="margin:0; font-size:15px;">' + esc(g.title) + ' <a href="' + g.page + '" target="_blank" rel="noopener" style="font-size:11px; color:var(--gold); margin-left:6px;">open ↗</a></h4>' +
-        '<label style="display:flex; gap:6px; align-items:center; font-size:12px; cursor:pointer;"><input type="checkbox" data-k="enabled"> Open for play</label>' +
+        // Astronaut is always open (no on/off switch); Chicken Road keeps its switch.
+        (g.key === 'astronaut' ? '' : '<label style="display:flex; gap:6px; align-items:center; font-size:12px; cursor:pointer;"><input type="checkbox" data-k="enabled"> Open for play</label>') +
       '</div>' + rows +
       '<button type="button" class="btn btn-gold btn-block" data-save style="color:#000; font-weight:700;">Save ' + esc(g.title) + ' settings</button>' +
       '<div data-msg style="font-size:12px; margin-top:8px; min-height:16px;"></div>' +
@@ -57,7 +58,8 @@
   }
 
   function fill(card, g, cfg) {
-    card.querySelector('[data-k="enabled"]').checked = !!cfg.enabled;
+    var en = card.querySelector('[data-k="enabled"]');
+    if (en) en.checked = !!cfg.enabled;
     g.fields.forEach(function (f) {
       var v = cfg[f.k];
       card.querySelector('[data-k="' + f.k + '"]').value = f.pct ? (Math.round(v * 1000) / 10) : v;
@@ -72,7 +74,8 @@
   }
 
   function save(card, g) {
-    var body = { enabled: card.querySelector('[data-k="enabled"]').checked };
+    var en = card.querySelector('[data-k="enabled"]');
+    var body = en ? { enabled: en.checked } : {};
     g.fields.forEach(function (f) { body[f.k] = parseFloat(card.querySelector('[data-k="' + f.k + '"]').value); });
     fetch('api/admin/' + g.key + '/config', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
