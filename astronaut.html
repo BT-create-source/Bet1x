@@ -817,12 +817,16 @@
     }
     /** Where the astronaut is after t seconds of flight: a curve that eases toward the upper right. */
     function flightPos(t, mult) {
-      // The flight starts at the graph's origin (bottom-left), where the astronaut waits before take-off.
-      const x = W * (0.05 + 0.73 * (t / (t + 7)));
-      const y = H * (0.9 - 0.66 * (1 - 1 / (1 + Math.log(mult) * 1.3)));
+      // The curve starts at the exact bottom-left corner of the sky (the graph's origin).
+      const x = W * (0.78 * (t / (t + 7)));
+      const y = H * (1 - 0.74 * (1 - 1 / (1 + Math.log(mult) * 1.3)));
       return { x, y };
     }
+    // The astronaut rides the tip of the curve with his jet on it: his body sits up and to the right of
+    // the point, so at the origin he is fully in view rather than cut by the corner.
     function astroTransform(x, y, rot, scale) {
+      const box = astro ? astro.offsetWidth : 86;
+      x += box * 0.34; y -= box * 0.4;
       return 'translate(' + x + 'px,' + y + 'px) rotate(' + (rot || 0) + 'deg) scale(' + (scale || 1) + ')';
     }
 
