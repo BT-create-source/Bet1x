@@ -629,7 +629,9 @@
       P.sending = true;
       // Instant feedback while the server confirms the multiplier.
       P.btn.className = 'as-btn cash';
-      P.btn.innerHTML = '<span class="l1">Cashing out…</span><span class="l2">' + fmtX(currentMult()) + '</span>';
+      // Frozen at the moment of the press: the value no longer climbs while the server confirms.
+      const pb = myBet(P.p), m = currentMult();
+      P.btn.innerHTML = '<span class="l1">Cashing out…</span><span class="l2">' + (pb ? fmt(Math.round(pb.amount * m * 100) / 100) : fmtX(m)) + '</span>';
       P.btnHtml = null;
       try {
         const data = await api('cashout', { panel: P.p });
@@ -897,7 +899,7 @@
         lastTickSec = -1;
         if (S.phase === 'flying') panels.forEach((P) => {   // live cash-out amounts
           const b = myBet(P.p);
-          if (b && b.status === 'pending' && P.btn) { const l2 = P.btn.querySelector('.l2'); if (l2) l2.textContent = fmt(Math.round(b.amount * mult * 100) / 100); }
+          if (b && b.status === 'pending' && P.btn && !P.sending) { const l2 = P.btn.querySelector('.l2'); if (l2) l2.textContent = fmt(Math.round(b.amount * mult * 100) / 100); }
         });
       } else if (phase === 'crashed' && S) {
         if (trail.length > 1) {
