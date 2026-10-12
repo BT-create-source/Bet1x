@@ -626,7 +626,11 @@
 
     async function cashOut(P) {
       if (P.sending) return;
-      P.sending = true; renderPanels();
+      P.sending = true;
+      // Instant feedback while the server confirms the multiplier.
+      P.btn.className = 'as-btn cash';
+      P.btn.innerHTML = '<span class="l1">Cashing out…</span><span class="l2">' + fmtX(currentMult()) + '</span>';
+      P.btnHtml = null;
       try {
         const data = await api('cashout', { panel: P.p });
         if (data.ok) {
@@ -688,13 +692,17 @@
           if (config && v > config.max_multiplier) v = config.max_multiplier;
           P.autoCashValue = Math.floor(v * 100) / 100; P.autoInput.value = P.autoCashValue.toFixed(2);
         });
-        P.btn.onclick = () => {
+        // Act on the press itself (pointerdown), not the release: a cash-out must fire the instant the
+        // player touches the button. The click that follows is ignored.
+        const act = () => {
           const b = myBet(P.p);
-          if (b && b.status === 'pending') { if (S.phase === 'flying') cashOut(P); else cancelBet(P); return; }
+          if (b && b.status === 'pending') { if (S.phase === 'flying' || localPhase() === 'flying') cashOut(P); else cancelBet(P); return; }
           if (P.queued) { P.queued = false; renderPanels(); return; }
           // Bets are taken only in the countdown before take-off, and only while the game is open.
           if (S && S.phase === 'betting' && localPhase() === 'betting') placeBet(P, false);
         };
+        P.btn.addEventListener('pointerdown', (e) => { if (e.button === 0 && !P.btn.disabled) { P.pressedAt = Date.now(); act(); } });
+        P.btn.onclick = () => { if (Date.now() - (P.pressedAt || 0) > 700) act(); };   // keyboard / assistive clicks
       });
     }
 
@@ -718,7 +726,16 @@
           l1 = 'Place Bet'; l2 = 'Wait for next round'; done = true;   // only in the countdown before take-off
         }
         P.btn.className = 'as-btn ' + cls + (done ? ' done' : '');
-        P.btn.innerHTML = (l0 ? '<span class="l0">' + l0 + '</span>' : '') + '<span class="l1">' + l1 + '</span><span class="l2">' + l2 + '</span>';
+        // Rebuild the button only when its wording changes: replacing it under the player's finger made
+        // the browser drop clicks (felt like a laggy Cash Out). The live amount is updated in place.
+        if (P.sending && pending && S.phase === 'flying') return;          // 'Cashing out…' stays until confirmed
+        const label = cls + '|' + l0 + '|' + l1 + '|' + (cls === 'cash' ? '' : l2);
+        if (P.btnHtml !== label) {
+          P.btn.innerHTML = (l0 ? '<span class="l0">' + l0 + '</span>' : '') + '<span class="l1">' + l1 + '</span><span class="l2">' + l2 + '</span>';
+          P.btnHtml = label;
+        } else if (cls === 'cash') {
+          const el2 = P.btn.querySelector('.l2'); if (el2) el2.textContent = l2;
+        }
         P.btn.disabled = P.sending || done;
         const locked = pending || P.queued;
         P.el.classList.toggle('armed', !!(pending && S.phase !== 'flying') || P.queued);
