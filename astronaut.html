@@ -142,9 +142,6 @@
     .as-switch input:checked + i { background: var(--green-soft); border-color: var(--green); }
     .as-switch input:checked + i::after { transform: translateX(14px); background: var(--green); }
     .as-switch input:disabled + i { opacity: 0.5; }
-    .as-autocash { display: flex; align-items: center; gap: 6px; }
-    .as-autocash input { width: 64px; background: var(--bg-soft); border: 1px solid var(--border); border-radius: var(--radius-pill); color: var(--text); font: 700 13px var(--font-mono); text-align: center; padding: 5px 4px; outline: none; }
-    .as-autocash input:disabled { opacity: 0.5; }
 
     /* bets sidebar */
     .as-side { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; display: flex; flex-direction: column; max-height: 760px; }
@@ -452,7 +449,6 @@
       <h3>Auto</h3>
       <ul>
         <li><b>Auto bet</b> places the same bet at the start of every round until you switch it off.</li>
-        <li><b>Auto cash out</b> cashes out automatically the moment your multiplier is reached, even if you close the page.</li>
       </ul>
       <p style="color:var(--text-dim); font-size:13px;" id="asRulesFoot"></p>
       <h3>Provably fair</h3>
@@ -478,7 +474,7 @@
     let sideTab = 'all';
     const announced = new Set();    // round:panel results already toasted
     const panels = [1, 2].map((p) => ({
-      p, amount: 10, tab: 'bet', autoBet: false, autoCash: false, autoCashValue: 2.0, queued: false, sending: false,
+      p, amount: 10, tab: 'bet', autoBet: false, queued: false, sending: false,
     }));
 
     // ---- server ----------------------------------------------------------------------------------
@@ -587,7 +583,6 @@
       P.sending = true; renderPanels();
       try {
         const body = { panel: P.p, amount: P.amount };
-        if (P.autoCash) body.auto_cashout = P.autoCashValue;
         const data = await api('bet', body);
         if (data.ok) {
           P.queued = false;
@@ -662,14 +657,11 @@
           '</div>' +
           '<div class="as-auto">' +
             '<label class="as-switch"><input type="checkbox" data-k="autoBet"><i></i>Auto bet</label>' +
-            '<div class="as-autocash"><label class="as-switch"><input type="checkbox" data-k="autoCash"><i></i>Auto cash out</label>' +
-            '<input type="text" inputmode="decimal" value="' + P.autoCashValue.toFixed(2) + '" aria-label="Auto cash-out multiplier, panel ' + P.p + '"></div>' +
           '</div>';
         box.appendChild(el);
         P.el = el;
         P.input = el.querySelector('.as-amount input');
         P.btn = el.querySelector('.as-btn');
-        P.autoInput = el.querySelector('.as-autocash input[type="text"]');
 
         el.querySelectorAll('.as-tab').forEach((t) => t.onclick = () => {
           P.tab = t.dataset.t;
@@ -687,12 +679,6 @@
           sfx(cb.checked ? 'toggleOn' : 'toggleOff');
           if (cb.dataset.k === 'autoBet' && cb.checked && S && S.phase === 'betting' && !myBet(P.p)) placeBet(P, true);
           renderPanels();
-        });
-        P.autoInput.addEventListener('change', () => {
-          let v = parseFloat(P.autoInput.value);
-          if (!Number.isFinite(v) || v < 1.01) v = 1.01;
-          if (config && v > config.max_multiplier) v = config.max_multiplier;
-          P.autoCashValue = Math.floor(v * 100) / 100; P.autoInput.value = P.autoCashValue.toFixed(2);
         });
         // Act on the press itself (pointerdown), not the release: a cash-out must fire the instant the
         // player touches the button. The click that follows is ignored.
@@ -744,9 +730,6 @@
         P.el.classList.toggle('live', !!(pending && S.phase === 'flying'));
         P.el.querySelectorAll('.as-amount button, .as-amount input, .as-chip').forEach((x) => { x.disabled = locked; });
         P.el.querySelector('[data-k="autoBet"]').checked = P.autoBet;
-        P.el.querySelector('[data-k="autoCash"]').checked = P.autoCash;
-        P.el.querySelector('[data-k="autoCash"]').disabled = locked;
-        P.autoInput.disabled = locked || !P.autoCash;
       });
     }
 
