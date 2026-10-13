@@ -4,21 +4,21 @@
  *
  *   const scene = new TowerScene(svgElement);
  *   scene.restore(count)          rebuild a tower already in progress (page reload)
- *   await scene.drop(result)      let go of the hanging block NOW; `result` is a promise of
- *                                 { collapse } (or { cancel: true }); resolves when it has settled
+ *   await scene.drop({ collapse, factor })  drop the hanging block; resolves when it has settled /
+ *                                 fallen, with { perfect } (a dead-centre landing)
  *   await scene.clear()           knock the tower down and bring the camera back to the street
  *   scene.burst()                 coins fountain from the top of the tower (cash-out)
  *
  * Coordinates: the SVG's viewBox is 400 units wide and as tall as the box's aspect demands. The
  * world (street and tower) scrolls under a sky that deepens as the tower climbs and a fixed crane.
  *
- * PHYSICS. The block hangs from the hook as a damped pendulum driven by the crane trolley, which
- * sways over the top of the tower, so the load lags, overshoots and springs back like a real one, and
- * the hook bobs on its stretchy cable (fixed 240 Hz steps). BUILD lets go at that instant: the block
- * falls ballistically with the speed and spin it had and lands where it lands, never steered. The
- * trolley's travel is kept so that every release comes down on the tower (often off-centre). The
- * server's answer arrives during the fall: a safe floor stays where it landed and the tower sways; a
- * collapse slips sideways off the edge, tips over the corner of the floor below and falls away.
+ * PHYSICS. The block hangs from the hook as a damped pendulum driven by the crane trolley, so the
+ * load lags, overshoots and springs back like a real one, and the hook bobs on its stretchy cable
+ * (fixed 240 Hz steps). It is let go and falls ballistically with the speed and spin it had: it lands
+ * where it lands, never steered. The server has already decided the floor, so the release is timed
+ * to the first moment of the swing whose natural fall lands as that result deserves: the bigger the
+ * multiplier the closer to dead centre (x2 and up: a perfect landing); a collapse lands with its
+ * centre past the edge, tips over the corner of the floor below and falls away.
  */
 (function () {
   'use strict';
@@ -33,8 +33,7 @@
   const art = (n) => window.TowerArt.get(n);
 
   // the trolley's travel and the pendulum hanging from it
-  const TROLLEY_P = 2.6;                 // the trolley's period (s); its travel adapts to the drop height:
-  const SWAY_LIMIT = 26;                 // how far (units) a release may land from the tower's middle
+  const TROLLEY_A = 82, TROLLEY_P = 2.8; // the trolley's travel (units) and period (s)
   const W0SQ = 27;                       // pendulum stiffness g/L (rad/s^2): ~1.2 s natural period
   const DAMP = 0.7;                      // swing damping (1/s)
   const GRAV = 3000;                     // free-fall gravity (units/s^2)
@@ -72,7 +71,7 @@
       this.pend = { th: 0, om: 0, by: 0, bv: 0 };   // hanging block: swing angle (rad, + = right) and rate; hook bob (units, + = down)
       this.sway = { a: 0, v: 0 };             // the tower's sway after an impact (degrees, deg/s)
       this.craneX = W / 2;                    // the trolley sways about this point, which follows the tower top
-      this.trolleyA = 10;                     // ...by this much, eased toward swayTarget()
+      this.pending = null;                    // a drop waiting for its release moment
       this.skyKey = '';
       this.build();
       this.resize();
@@ -117,7 +116,7 @@
       this.hang.innerHTML = `<path d="M0 0 L${-half} ${SLING} M0 0 L${half} ${SLING}" fill="none" stroke="#2e2a28" stroke-width="1.3" stroke-linecap="round"/>`
         + `<g class="blk" transform="translate(0 ${SLING + k.h})">${imgB(skin)}</g>`;
       this.hangArrive = performance.now();
-      this.pend.th = 0; this.pend.om = (Math.random() - 0.5) * 0.25;  // a little jolt as it is hooked on
+      this.pend.th = 0; this.pend.om = (Math.random() - 0.5) * 0.8;   // a little jolt as it is hooked on
       this.pend.bv += 110;                                             // and its weight pulls the cable down
     }
 
@@ -136,7 +135,7 @@
     // ---- the crane and the pendulum ------------------------------------------------------------
     trolley(t) {
       const w = 2 * Math.PI / TROLLEY_P;
-      const A = this.trolleyA;
+      const A = TROLLEY_A;
       return { x: this.craneX + A * Math.sin(w * t), v: A * w * Math.cos(w * t), a: -A * w * w * Math.sin(w * t) };
     }
     /** One physics step of the pendulum: driven by the trolley's acceleration, damped. */
@@ -150,17 +149,6 @@
       const bacc = -BOB_K * (p.by - rest) - BOB_C * p.bv + BOB_DRIVE * Math.sin(2 * Math.PI * t / BOB_P)
         + (this.hidden ? 0 : 0.8 * L * p.om * p.om);
       p.bv += bacc * STEP; p.by += p.bv * STEP;
-    }
-    /**
-     * How far the trolley may travel. A release lands about where the block is plus how far its sideways
-     * speed carries it during the fall, so the longer the drop the smaller the sway: every release must
-     * come down on the tower. With the tower up (the camera keeps the drop short) the sway is widest.
-     */
-    swayTarget() {
-      const k = art(this.hangSkin);
-      const d = Math.max(40, (this.ground + this.camTarget + this.towerTop()) - (HOOK.y + 9 + SLING + k.h));
-      const tf = Math.sqrt(2 * d / GRAV);
-      return Math.max(6, Math.min(46, SWAY_LIMIT / (1 + 2 * Math.PI / TROLLEY_P * tf)));
     }
     /** The block's bottom centre on screen and its velocity, for pendulum state p at time t. */
     blockKin(p, t) {
@@ -210,8 +198,8 @@
         const sw = this.sway;
         sw.v += (-70 * sw.a - 5 * sw.v) * STEP; sw.a += sw.v * STEP;
         // the crane eases over the top of the tower (a little toward the middle, so the tower never wanders off)
-        this.craneX += (this.towerX * 0.7 + (W / 2) * 0.3 - this.craneX) * Math.min(1, STEP * 1.5);
-        this.trolleyA += (this.swayTarget() - this.trolleyA) * Math.min(1, STEP * 1.2);
+        this.craneX += (this.towerX * 0.5 + (W / 2) * 0.5 - this.craneX) * Math.min(1, STEP * 1.5);
+        if (this.pending && this.simT >= this.pending.at) { const pd = this.pending; this.pending = null; this.release(pd); }
       }
       const lift = (1 - ease.out(Math.min(1, (now - this.hangArrive) / 500))) * 140;
       const tr = this.trolley(this.simT);
@@ -312,40 +300,77 @@
     }
 
     /**
-     * BUILD: let go of the hanging block this instant. It falls freely from where it is, with the speed
-     * and spin it had. `result` (a promise of { collapse } or { cancel: true }) is the server's answer,
-     * which normally arrives during the fall; if not, the block waits where it landed until it does.
+     * How far from the middle of the floor below (as a fraction of its half-width) a floor with this
+     * multiplier lands: the bigger the multiplier, the closer to dead centre.
      */
-    drop(result) {
+    static band(factor) {
+      if (factor >= 2) return [0, 0.07];          // perfect
+      if (factor > 1) return [0.1, 0.22];         // x1.35, x1.6
+      if (factor === 1) return [0.24, 0.36];
+      if (factor >= 0.8) return [0.38, 0.5];      // x0.8, x0.85
+      return [0.52, 0.66];                        // x0.45, x0.7: well off-centre, but it holds
+    }
+
+    /**
+     * Drop the hanging block for a floor the server has decided. The swing is simulated ahead with the
+     * same fixed steps the screen uses, to find the first moment whose free fall naturally lands where
+     * that result belongs; the block is let go exactly then and is never steered afterwards.
+     */
+    drop({ collapse, factor }) {
       return new Promise((resolve) => {
-        let answer = null;
-        Promise.resolve(result).then((r) => { answer = r || { cancel: true }; }, () => { answer = { cancel: true }; });
-        const skin = this.hangSkin, k = art(skin);
-        const b = this.blockKin(this.pend, this.simT);
-        const bl = this.below();
-        this.hidden = true;
-        this.pend.bv -= 120;                                             // unloaded, the hook springs up
-        const g = svgEl('g', {}, `<g class="blk">${imgB(skin)}</g>`);
-        this.fxLayer.appendChild(g);
-        let x = b.x, y = b.y, vx = b.vx, vy = b.vy, landed = false;
-        let rot = -this.pend.th * 180 / Math.PI, spin = -this.pend.om * 180 / Math.PI;   // degrees, deg/s
-        const draw = () => g.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${rot.toFixed(2)} 0 ${(-k.h / 2).toFixed(1)})`);
-        draw();
-        this.physics((dt) => {
-          const landY = this.ground + this.cam + this.towerTop();
-          if (!landed) {
-            vy += GRAV * dt; x += vx * dt; y += vy * dt;
-            rot += spin * dt; spin *= Math.pow(0.5, dt);
-            if (y < landY) { draw(); return false; }
-            landed = true; y = landY; rot *= 0.3; draw();
-            this.puffs(x, landY, false);
-          } else { y = landY; draw(); }
-          if (!answer) return false;                                     // landed before the answer: wait on the tower
-          if (answer.cancel) { g.remove(); this.poof(x, landY - k.h / 2); this.nextBlock().then(resolve); }
-          else if (!answer.collapse) this.land(g, skin, x, vx, rot, bl, landY, resolve);
-          else this.slideOff(g, k, x, vx, rot, bl, resolve);
+        const k = art(this.hangSkin), bl = this.below();
+        const landY = this.ground + this.camTarget + this.towerTop();
+        const half = Math.min(bl.w, k.w) / 2;
+        const drift = bl.x - W / 2;                                         // keep the tower near the middle
+        const [b0, b1] = collapse ? [0, 0] : TowerScene.band(factor);
+        const lo = bl.w * 0.5 + k.w * 0.1, hi = bl.w * 0.5 + k.w * 0.4;     // collapse: centre past the edge
+        const fits = (o) => {
+          if (collapse) return Math.abs(o) > lo && Math.abs(o) < hi;
+          const f = Math.abs(o) / half;
+          if (f < b0 || f > b1) return false;
+          if (b1 > 0.1 && drift > 24 && o > 0) return false;                // drifted right: land on the left
+          if (b1 > 0.1 && drift < -24 && o < 0) return false;
           return true;
-        });
+        };
+        const want = collapse ? (lo + hi) / 2 : half * (b0 + b1) / 2;
+        const p = Object.assign({}, this.pend);
+        let t = this.simT, best = this.simT, bestScore = Infinity;
+        for (let i = 0; i < 240 * 5; i++) {
+          const o = this.landingX(this.blockKin(p, t), landY) - bl.x;
+          if (fits(o)) { best = t; break; }
+          const score = Math.abs(Math.abs(o) - want);
+          if (score < bestScore) { bestScore = score; best = t; }
+          this.stepPend(p, t); t += STEP;
+        }
+        this.pending = { at: best, collapse, resolve, perfect: !collapse && b1 <= 0.07 };
+      });
+    }
+
+    /** Let go: the block falls freely from where it is, with the speed and spin it had. */
+    release({ collapse, resolve, perfect }) {
+      const skin = this.hangSkin, k = art(skin);
+      const b = this.blockKin(this.pend, this.simT);
+      const bl = this.below();
+      this.hidden = true;
+      this.pend.bv -= 120;                                               // unloaded, the hook springs up
+      if (this.onRelease) this.onRelease();
+      const g = svgEl('g', {}, `<g class="blk">${imgB(skin)}</g>`);
+      this.fxLayer.appendChild(g);
+      let x = b.x, y = b.y, vx = b.vx, vy = b.vy;
+      let rot = -this.pend.th * 180 / Math.PI, spin = -this.pend.om * 180 / Math.PI;   // degrees, deg/s
+      const draw = () => g.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${rot.toFixed(2)} 0 ${(-k.h / 2).toFixed(1)})`);
+      draw();
+      const done = () => resolve({ perfect });
+      this.physics((dt) => {
+        const landY = this.ground + this.cam + this.towerTop();
+        vy += GRAV * dt; x += vx * dt; y += vy * dt;
+        rot += spin * dt; spin *= Math.pow(0.5, dt);
+        if (y < landY) { draw(); return false; }
+        y = landY;
+        this.puffs(x, landY, collapse);
+        if (!collapse) this.land(g, skin, x, vx, rot, bl, landY, done);
+        else this.topple(g, k, x, rot, bl, landY, done);
+        return true;
       });
     }
 
@@ -358,31 +383,11 @@
       this.nextBlock().then(resolve);
     }
 
-    /** A collapse: the block slips sideways along the floor below until its centre passes the edge. */
-    slideOff(g, k, x, vx, rot, bl, resolve) {
-      const off = x - bl.x;
-      const side = Math.abs(off) > 3 ? Math.sign(off) : (Math.sign(vx) || (Math.random() < 0.5 ? -1 : 1));
-      const edgeX = bl.x + side * bl.w / 2;
-      let v = side * Math.max(70, Math.abs(vx) * 0.8), tilt = 0;
-      this.sway.v -= side * 25;                                    // the kick of the slip rocks the tower back
-      this.physics((dt) => {
-        const landY = this.ground + this.cam + this.towerTop();
-        v += side * 260 * dt;                                       // it gathers speed as it slides
-        x += v * dt;
-        tilt += (side * 6 - tilt) * Math.min(1, dt * 6);          // leaning out as it goes
-        g.setAttribute('transform', `translate(${x.toFixed(1)} ${landY.toFixed(1)}) rotate(${(rot + tilt).toFixed(2)} 0 ${(-k.h / 2).toFixed(1)})`);
-        if ((x - edgeX) * side < k.w * 0.06) return false;
-        this.topple(g, k, x, rot + tilt, bl, landY, resolve);
-        return true;
-      });
-    }
-
-    /** ...and tips over the corner of the floor below, then falls away. */
+    /** A collapse: it landed with its centre past the edge, tips over the corner below and falls away. */
     topple(g, k, x, rot, bl, landY, resolve) {
       const side = x >= bl.x ? 1 : -1;
       const edgeX = bl.x + side * bl.w / 2;
       const ex = edgeX - x;                                     // the pivot, in the block's own frame
-      this.puffs(edgeX, landY, true);
       this.sway.v += side * 40;
       let r = rot * Math.PI / 180 * 0.5, w = side * 0.8;          // tipping angle (rad) and its rate
       let sx = 0, fy = 0, fvx = 0, fvy = 0, free = false, alpha = 1;
