@@ -103,7 +103,7 @@
     .cr-barrier {
       position: absolute; left: 50%; top: calc(var(--row) - var(--hole) * 1.02); width: calc(var(--L) * 0.84); height: calc(var(--L) * 0.36);
       margin-left: calc(var(--L) * -0.42); transform: translateY(-50%) translateY(-140%); opacity: 0; z-index: 3;
-      transition: transform 0.38s cubic-bezier(.3,1.5,.5,1), opacity 0.15s;
+      transition: transform 0.18s cubic-bezier(.3,1.4,.5,1), opacity 0.08s;
     }
     .cr-barrier svg { width: 100%; height: 100%; display: block; }
     .cr-lane.passed .cr-barrier, .cr-lane.current .cr-barrier { opacity: 1; transform: translateY(-50%); }
@@ -586,7 +586,7 @@
       return VEHICLES[0];
     }
     /** A lane is closed to traffic once its barrier is down (every lane up to the hen's). */
-    const HOP_MS = 430, HOLD_MS = 800;   // GO -> landing, landing -> barrier (or the car): fixed every step
+    const HOP_MS = 430;   // GO -> landing; the barrier (or the car) comes the moment she lands
     let pendingLane = null;   // the lane she is hopping into while the server decides: closed to traffic at once
     function laneBlocked(n) {
       if (pendingLane !== null && n === pendingLane) return true;
@@ -642,7 +642,8 @@
           const last = Math.min(lanes.length, Math.ceil((shift + D.w - D.kerb) / D.L));
           const open = [];
           for (let n = first; n <= last; n++) {
-            if (laneBlocked(n)) continue;
+            if (n === pendingLane) continue;                                                    // she is hopping in
+            if (laneBlocked(n) && cars.filter((c) => c.n === n && !c.dead && c.stopped).length >= 2) continue;
             if (crash && crash.n === n) continue;
             if (state && state.status === 'busted' && n === state.fire_lane) continue;          // leave the scene of the accident
             if (state && state.status === 'active' && busy && n === state.step + 1) continue;   // the lane she is hopping into
@@ -668,6 +669,10 @@
             stopLine[c.n] = Math.min(line, ny) - D.L * 0.08;
             if (ny + c.h < -D.L) { removeCar(c); continue; }            // a queue longer than the screen
           } else c.stopped = false;
+          if (c !== (crash && crash.car) && (c.n === henPos || c.n === pendingLane)
+              && ny + c.h > D.row - D.hen * 0.55 && ny < D.row + D.hen * 0.5 && c.y < D.row - D.hen * 0.55) {
+            removeCar(c); continue;                                     // never drive into her
+          }
           c.y = ny;
           c.el.style.transform = 'translateY(' + c.y + 'px)';
           if (crash && crash.car === c && !crash.done && c.y + c.h >= D.row - D.hen * 0.25) { crash.done = true; crash.resolve(); }
@@ -697,12 +702,12 @@
       henDo('startle');
       // Timed to reach her at `at` (the moment a barrier would otherwise have dropped), never slower
       // than a fast car's dash.
-      const secs = Math.max(0.3, ((at || 0) - performance.now()) / 1000);
+      const secs = Math.max(0.2, ((at || 0) - performance.now()) / 1000);
       return new Promise((resolve) => {
         const v = VEHICLES[Math.floor(Math.random() * VEHICLES.length)];
         const h = D.L * 0.56 * v.vbH / v.vbW;
         const dist = (D.row - D.hen * 0.25) + 4;                            // its bonnet from just off-screen to her
-        const car = spawnCar(n, { vehicle: v, speed: Math.min(D.h * 4, Math.max(D.h * 1.2, dist / secs)) });
+        const car = spawnCar(n, { vehicle: v, speed: Math.min(D.h * 5, Math.max(D.h * 1.2, dist / secs)) });
         car.el.classList.add('hit');
         crash = { n, car, done: false, resolve };
       });
@@ -900,10 +905,9 @@
       const from = state.step;
       const guess = Math.min(from + 1, lanes.length);
       try {
-        // The hop starts the instant GO is pressed; the server decides the lane in parallel. Every step
-        // then keeps the same rhythm: she lands HOP_MS after GO, and exactly HOLD_MS after landing either
-        // the barrier drops or the car reaches her. Only a server slower than that can delay it.
-        const t0 = performance.now(), landAt = t0 + HOP_MS, resolveAt = landAt + HOLD_MS;
+        // The hop starts the instant GO is pressed; the server decides the lane in parallel (it answers
+        // within the hop on a normal connection). The barrier drops, or the car hits, as she lands.
+        const t0 = performance.now(), resolveAt = t0 + HOP_MS;
         pendingLane = guess;
         clearLaneFor(guess, resolveAt);
         placeHen(guess, true);
@@ -929,7 +933,6 @@
         const target = data.outcome === 'fire' ? state.fire_lane : Math.min(state.step, lanes.length);
         if (target !== guess) { placeHen(target, true); await sleep(200); }
         if (data.outcome !== 'fire') {
-          await sleep(resolveAt - performance.now());       // the fixed pause, then the barrier at once
           pendingLane = null;
           paintLanes();
           snd('barrier');
