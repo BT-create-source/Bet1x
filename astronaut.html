@@ -938,7 +938,7 @@
       const hm = await hex(await crypto.subtle.sign('HMAC', key, enc.encode('astronaut:' + h.round_id)));
       const u = parseInt(hm.slice(0, 13), 16) / Math.pow(16, 13);
       let crash = Math.floor(100 * config.rtp / (1 - u)) / 100;
-      crash = Math.max(1, Math.min(config.max_multiplier, crash));
+      crash = Math.max(1, Math.min(config.max_multiplier, 100, crash));
       const ok = Math.abs(crash - h.crash) < 0.005;
       box.innerHTML = 'Round #' + h.round_id + '<br>Seed: ' + escapeHtml(h.server_seed) + '<br>Hash: ' + escapeHtml(h.seed_hash) +
         ' <span class="' + (hashOk ? 'ok' : 'bad') + '">' + (hashOk ? '✓ matches' : '✗ mismatch') + '</span><br>Crash from the seed: ' +

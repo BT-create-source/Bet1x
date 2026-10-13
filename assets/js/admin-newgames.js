@@ -26,7 +26,7 @@
         { k: 'rtp', label: 'Return to player (%)', pct: true, step: '0.1', hint: '90–99. Applies from the next round.' },
         { k: 'min_bet', label: 'Minimum bet (₹)', step: '1' },
         { k: 'max_bet', label: 'Maximum bet (₹)', step: '1' },
-        { k: 'max_multiplier', label: 'Highest possible crash (x)', step: '1' },
+        { k: 'max_multiplier', label: 'Highest possible crash (x)', step: '1', hint: '80–100. The astronaut never flies past 100x.' },
         { k: 'max_win', label: 'Maximum win per bet (₹)', step: '1', hint: 'A bet reaching this is cashed out automatically.' },
       ],
     },

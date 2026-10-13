@@ -28,7 +28,8 @@
  * countdown and the seed itself is revealed after the crash. The crash point is
  *
  *   u     = HMAC-SHA256(server_seed, "astronaut:" . round_id), first 13 hex digits / 16^13
- *   crash = floor(100 * RTP / (1 - u)) / 100, at least 1.00, at most the operator's cap
+ *   crash = floor(100 * RTP / (1 - u)) / 100, at least 1.00, at most the operator's cap (80-100x,
+ *   and never above 100x)
  *
  * so P(crash >= m) = RTP / m for every two-decimal m: cashing out at ANY target returns RTP on
  * average, and a round ends at 1.00 (nobody can win) about (1 - RTP/1.01) of the time — exactly the
@@ -44,6 +45,10 @@ const ASTRO_STATE_KEY   = 'astronaut_runtime';
 const ASTRO_BETTING_MS  = 7000;    // countdown in which bets are accepted
 const ASTRO_CRASHED_MS  = 3000;    // the "lost in space" pause before the next countdown
 const ASTRO_BET_CUTOFF_MS = 250;   // bets are refused in the last instant of the countdown
+// The astronaut never flies past 100x, whatever is stored or sent: a hard ceiling in the code. The
+// operator may set the top anywhere from 80x to 100x.
+const ASTRO_MAX_MULTIPLIER = 100.0;
+const ASTRO_MIN_TOP        = 80.0;
 const ASTRO_GROWTH      = 0.075;   // multiplier = e^(0.075 t): 2x at ~9.2s, 10x at ~31s
 const ASTRO_HISTORY_LEN = 40;
 
@@ -55,7 +60,7 @@ function astro_config_default() {
     return [
         'enabled'        => true,
         'rtp'            => 0.97,
-        'max_multiplier' => 10000.0,   // the highest the astronaut can ever fly
+        'max_multiplier' => ASTRO_MAX_MULTIPLIER,   // the highest the astronaut can ever fly (80-100x)
         'max_win'        => 1000000.0, // a single bet is auto-cashed out on reaching this payout
         'min_bet'        => (float) cfg('MIN_BET'),
         'max_bet'        => min((float) cfg('MAX_BET'), 10000.0),
@@ -67,6 +72,8 @@ function astro_config_get() {
     $c = array_merge(astro_config_default(), is_array($stored) ? $stored : []);
     $c['enabled'] = true;   // Astronaut is always open: no on/off switch (an old saved 'off' is ignored)
     foreach (['rtp', 'max_multiplier', 'max_win', 'min_bet', 'max_bet'] as $k) $c[$k] = (float) $c[$k];
+    // An older saved top (e.g. 5x or 10,000x) is pulled into the 80-100x band.
+    $c['max_multiplier'] = max(ASTRO_MIN_TOP, min(ASTRO_MAX_MULTIPLIER, $c['max_multiplier']));
     return $c;
 }
 
@@ -81,8 +88,8 @@ function astro_config_update(array $patch) {
     }
     if ($c['rtp'] > 1.5) $c['rtp'] = $c['rtp'] / 100;
     if ($c['rtp'] < 0.90 || $c['rtp'] > 0.99) return ['ok' => false, 'error' => 'RTP must be between 90% and 99%.'];
-    if ($c['max_multiplier'] < 2 || $c['max_multiplier'] > 1000000) {
-        return ['ok' => false, 'error' => 'Maximum multiplier must be between 2x and 1,000,000x.'];
+    if ($c['max_multiplier'] < ASTRO_MIN_TOP || $c['max_multiplier'] > ASTRO_MAX_MULTIPLIER) {
+        return ['ok' => false, 'error' => 'Maximum multiplier must be between 80x and 100x.'];
     }
     if ($c['min_bet'] <= 0) return ['ok' => false, 'error' => 'Minimum bet must be positive.'];
     if ($c['max_bet'] < $c['min_bet']) return ['ok' => false, 'error' => 'Maximum bet must be at least the minimum bet.'];
@@ -116,7 +123,7 @@ function astro_crash_point($serverSeed, $roundId, $rtp, $cap) {
     $h = hash_hmac('sha256', 'astronaut:' . (int) $roundId, (string) $serverSeed);
     $u = hexdec(substr($h, 0, 13)) / pow(16, 13);
     $crash = floor(100 * $rtp / (1 - $u)) / 100;
-    return max(1.00, min((float) $cap, $crash));
+    return max(1.00, min((float) $cap, ASTRO_MAX_MULTIPLIER, $crash));
 }
 
 /** The instant (ms) the current flight ends. */
@@ -156,6 +163,8 @@ function astro_load($forUpdate = false) {
         if ($forUpdate) $state = state_get_for_update(ASTRO_STATE_KEY);
     }
     if (!isset($state['history']) || !is_array($state['history'])) $state['history'] = [];
+    // A round drawn before the 100x ceiling existed is held to it too.
+    if (isset($state['crash_point']) && (float) $state['crash_point'] > ASTRO_MAX_MULTIPLIER) $state['crash_point'] = ASTRO_MAX_MULTIPLIER;
     return $state;
 }
 

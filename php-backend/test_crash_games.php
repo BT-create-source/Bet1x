@@ -100,6 +100,8 @@ foreach ($ge as $m => $cnt) {
 check(abs($instant / $N - (1 - 0.97 / 1.01)) < 0.004, sprintf('instant 1.00x crashes %.2f%% of rounds (expected %.2f%%)', 100 * $instant / $N, 100 * (1 - 0.97 / 1.01)));
 check(astro_crash_point('x', 7, 0.97, 10000) === astro_crash_point('x', 7, 0.97, 10000), 'the crash point is a pure function of seed and round');
 check(astro_crash_point('x', 7, 0.97, 3) <= 3, 'the operator cap holds');
+$top = 0; for ($i = 0; $i < 20000; $i++) $top = max($top, astro_crash_point('t' . $i, 1, 0.99, 1e9));
+check($top <= 100 && $top >= 100, "the astronaut never flies past 100x, even with a huge cap passed in (top seen {$top}x)");
 check(near(astro_multiplier_at(log(2) / ASTRO_GROWTH), 2.0, 1e-9) && astro_ms_to(1.0) === 0, 'curve and its inverse agree');
 
 // =================================================================================================
