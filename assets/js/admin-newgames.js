@@ -1,10 +1,10 @@
 /**
- * Admin console: operator settings for Chicken Road and Astronaut.
+ * Admin console: operator settings for Chicken Road, Astronaut and Tower Rush.
  *
  * Kept in its own file so admin.html carries only a tab button, an empty panel and this include.
- * Both games are priced purely by their RTP setting (Chicken Road's ladders and Astronaut's crash
- * distribution are derived from it on the server); this panel edits that and the table limits.
- * Talks to GET/POST /api/admin/chickenroad/config and /api/admin/astronaut/config; the shared fetch
+ * Each game is priced purely by its RTP setting (Chicken Road's ladders, Astronaut's crash
+ * distribution and Tower Rush's collapse chance are derived from it on the server); this panel edits
+ * that and the table limits. Talks to GET/POST /api/admin/{chickenroad,astronaut,towerrush}/config; the shared fetch
  * interceptor attaches the operator token because admin.html sets BET1X_ADMIN_CONSOLE.
  */
 (function () {
@@ -28,6 +28,15 @@
         { k: 'max_bet', label: 'Maximum bet (₹)', step: '1' },
         { k: 'max_multiplier', label: 'Highest possible crash (x)', step: '1' },
         { k: 'max_win', label: 'Maximum win per bet (₹)', step: '1', hint: 'A bet reaching this is cashed out automatically.' },
+      ],
+    },
+    {
+      key: 'towerrush', title: 'Tower Rush', page: 'towerrush.html',
+      fields: [
+        { k: 'rtp', label: 'Return to player per floor (%)', pct: true, step: '0.1', hint: '90–99. Sets the x0 (collapse) chance; the floor multipliers stay as in the original. Applies to new towers.' },
+        { k: 'min_bet', label: 'Minimum bet (₹)', step: '1' },
+        { k: 'max_bet', label: 'Maximum bet (₹)', step: '1' },
+        { k: 'max_win', label: 'Maximum win per tower (₹)', step: '1', hint: 'A tower reaching this is cashed out automatically.' },
       ],
     },
   ];
@@ -91,8 +100,8 @@
     if (!panel) return;
     if (!rendered) {
       panel.innerHTML =
-        '<h3 style="margin-bottom:8px; font-size:16px;">Chicken Road &amp; Astronaut</h3>' +
-        '<p style="font-size:12.5px; color:var(--text-dim); margin-bottom:16px;">Both games are priced entirely by their return-to-player ' +
+        '<h3 style="margin-bottom:8px; font-size:16px;">Chicken Road, Astronaut &amp; Tower Rush</h3>' +
+        '<p style="font-size:12.5px; color:var(--text-dim); margin-bottom:16px;">These games are priced entirely by their return-to-player ' +
         'setting, and every round is provably fair from a server seed revealed to the player afterwards. House profit for each ' +
         'appears in the platform stats alongside the other games.</p>' +
         '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:16px;">' +

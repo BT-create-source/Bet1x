@@ -42,6 +42,8 @@ function classify_gameplay_transaction($details) {
     // A cancelled bet is the stake handed back, so it nets against its wager like a win would.
     if (strpos($details, 'Astronaut Bet Cancelled') === 0)    return ['game' => 'astronaut', 'kind' => 'win'];
     if (strpos($details, 'Astronaut Cash Out') === 0)         return ['game' => 'astronaut', 'kind' => 'win'];
+    if (strpos($details, 'Tower Rush Bet') === 0)             return ['game' => 'towerrush', 'kind' => 'wager'];
+    if (strpos($details, 'Tower Rush Cash Out') === 0)        return ['game' => 'towerrush', 'kind' => 'win'];
     return null;
 }
 
@@ -53,6 +55,7 @@ function game_labels() {
         'mines'       => 'Mines',
         'chickenroad' => 'Chicken Road',
         'astronaut'   => 'Astronaut',
+        'towerrush'   => 'Tower Rush',
     ];
 }
 

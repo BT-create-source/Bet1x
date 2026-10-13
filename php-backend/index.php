@@ -65,6 +65,7 @@ require_once __DIR__ . '/games/teenpatti.php';
 require_once __DIR__ . '/games/mines.php';
 require_once __DIR__ . '/games/chickenroad.php';
 require_once __DIR__ . '/games/astronaut.php';
+require_once __DIR__ . '/games/towerrush.php';
 
 require_once __DIR__ . '/routes/auth.php';
 require_once __DIR__ . '/routes/otp.php';
@@ -83,6 +84,7 @@ require_once __DIR__ . '/routes/teenpatti.php';
 require_once __DIR__ . '/routes/mines.php';
 require_once __DIR__ . '/routes/chickenroad.php';
 require_once __DIR__ . '/routes/astronaut.php';
+require_once __DIR__ . '/routes/towerrush.php';
 require_once __DIR__ . '/routes/legacy.php';
 
 // -------------------------------------------------------------------------------------------------
@@ -146,6 +148,7 @@ try {
         // 10b. Chicken Road and Astronaut — new paths only, nothing above can shadow them
         register_chickenroad_routes($app);
         register_astronaut_routes($app);
+        register_towerrush_routes($app);
         // 11. The PHP-shaped legacy endpoints
         register_legacy_routes($app);
         // 11b. "Your Eleven" fantasy cricket. An additive module that is mounted only when it is

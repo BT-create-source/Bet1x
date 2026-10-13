@@ -701,3 +701,25 @@ each page re-checks the last round in the browser. Neither game is wired to the 
 
 Checks: `php -d extension=pdo_pgsql -d extension=curl php-backend/test_crash_games.php` (maths, the
 HTTP API on four servers at once, races, wallet reconciliation; about a minute, real clock).
+
+## 15. Tower Rush — `towerrush.html`
+
+A house game, live as soon as its table exists. Nothing to add to `.env`, no cron line.
+
+1. Run `sql/migration-013-towerrush-postgres.sql` once (additive; safe to re-run). It creates
+   `TowerRushSession` (one tower per player).
+2. Admin console → **Chicken Road, Astronaut & Tower Rush** tab: open/close the game, RTP per floor
+   (90–99%, default 97%), bet limits and the per-tower maximum win (reached = auto cash-out).
+
+How it prices: a crane drops a block per BUILD; each floor carries a multiplier and the floors
+**multiply**, so the cash-out (bet × product, floored to the paisa) can rise or fall from floor to floor,
+as in the original. The non-zero multipliers are 0.45, 0.7, 0.8, 0.85, 1, 1.35, 1.6 (most floors) and
+2, 3, 5 (rarely), weighted to match the footage; an x0 floor collapses the tower. The x0 chance is set
+from the RTP so every floor's expected multiplier is exactly the RTP (13.3% collapse at 97%) — the RTP
+setting moves the collapse chance, never the multipliers. Provably fair: every floor is fixed at the
+first BUILD from a seed whose hash is shown first and which is revealed when the tower ends; the page
+re-derives the last tower in the browser. Every BUILD names the tower it means, so a double-click can
+never pay for a second tower. Not wired to the bot-takeover engine.
+
+Checks: `php -d extension=pdo_pgsql -d extension=curl php-backend/test_towerrush.php` (maths, the HTTP
+API on four servers at once, races, wallet reconciliation; under a minute).
