@@ -203,12 +203,17 @@
       this.hang.style.display = this.hidden ? 'none' : '';
       this.towerLayer.setAttribute('transform', `rotate(${this.sway.a.toFixed(3)} ${W / 2} ${-BASE_H})`);
 
-      this.anims = this.anims.filter((an) => {
+      // Animations may start new ones while they run (a landing starts the puffs and the next block):
+      // those land in a fresh list and are kept, not lost when this frame's list is rebuilt.
+      const running = this.anims;
+      this.anims = [];
+      const kept = running.filter((an) => {
         const t = Math.min(1, (now - an.start) / an.dur);
         if (an.step(t, now) === true) return false;            // a physics animation that has finished
         if (t >= 1) { if (an.done) an.done(); return false; }
         return true;
       });
+      this.anims = kept.concat(this.anims);
       requestAnimationFrame(this.loop);
     }
 
