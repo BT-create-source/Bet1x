@@ -23,7 +23,7 @@
   'use strict';
   const NS = 'http://www.w3.org/2000/svg';
   const W = 400;                         // viewBox width
-  const STREET = 104;                    // distance from the bottom of the view to street level, at rest
+  const STREET = 26;                     // distance from the bottom of the view to street level, at rest (just the kerb, as in the original)
   const BASE_H = 104;                    // the Wine Store the tower stands on
   const BASE_W = 118;                    // ...and its width (tower-art.js)
   const HOOK = { x: 200, y: 41 };        // the hook's tip, where the slings meet (crane space)
@@ -232,7 +232,7 @@
       // keep the top of the tower a clear gap below the lowest the hanging block reaches (sagging and
       // bobbing on its cable), with the top floor still in view; never lift the street off the bottom
       const hangBottom = HOOK.y + BOB_SAG + 14 + SLING + art(this.hangSkin).h;
-      const gap = Math.max(60, Math.min(150, this.H * 0.2));
+      const gap = Math.max(60, Math.min(170, this.H * 0.24));     // ~a quarter of the view, as in the original
       const want = Math.min(this.H - 80, hangBottom + gap);
       const topScreenAtRest = this.ground + this.towerTop();
       this.camTarget = Math.max(0, want - topScreenAtRest);
