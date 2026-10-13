@@ -106,6 +106,9 @@
       transition: transform 0.18s cubic-bezier(.3,1.4,.5,1), opacity 0.08s;
     }
     .cr-barrier svg { width: 100%; height: 100%; display: block; }
+    /* the car that runs her over smashes the barrier out of its way */
+    .cr-lane.smash .cr-barrier { animation: crSmash 0.55s cubic-bezier(.2,.7,.3,1) forwards; }
+    @keyframes crSmash { 0% { opacity: 1; transform: translateY(-50%); } 100% { opacity: 0; transform: translate(140%, -180%) rotate(75deg); } }
     .cr-lane.passed .cr-barrier, .cr-lane.current .cr-barrier { opacity: 1; transform: translateY(-50%); }
 
     /* vehicles */
@@ -532,6 +535,7 @@
         el.classList.toggle('current', onLane || (live && n === st.step));
         el.classList.toggle('next', (live && n === st.step + 1) || (st.status !== 'active' && n === 1 && !hit && st.status === 'idle'));
         el.classList.toggle('hit', hit);
+        if (!hit) el.classList.remove('smash');
       });
       // The tag rides under the hen while she is on a lane with a multiplier to show.
       const showTag = (live || st.status === 'cashed') && st.step > 0 && henPos >= 1 && henPos <= N;
@@ -615,6 +619,11 @@
       car.el.classList.add('gone');
       setTimeout(() => car.el.remove(), 400);
     }
+    /** Send a car down lane n that brakes and stops at its barrier, so every new barrier visibly holds traffic. */
+    function queueCar(n) {
+      if (cars.some((c) => c.n === n && !c.dead && c.y < D.row - D.hen)) return;     // one is already coming
+      spawnCar(n, { speed: D.h * (1.1 + Math.random() * 0.4) });
+    }
     function clearTraffic() { cars.forEach((c) => c.el.remove()); cars = []; crash = null; }
     /**
      * The hen is hopping into lane n and the barrier (or the car) comes at time `until`. Any car in that
@@ -665,7 +674,9 @@
           } else if (laneBlocked(c.n) && c.y + c.h <= barrierTop + 2) {
             const line = stopLine[c.n] !== undefined ? stopLine[c.n] : barrierTop - 4;
             const stopAt = line - c.h;
-            if (ny > stopAt) { ny = stopAt; c.stopped = true; }
+            // Brake into the stop over the last stretch instead of halting dead.
+            if (stopAt - c.y < c.speed * 0.3) ny = c.y + Math.max(0, stopAt - c.y) * Math.min(1, dt * 9);
+            if (ny >= stopAt - 0.5) { ny = Math.min(ny, stopAt); c.stopped = true; }
             stopLine[c.n] = Math.min(line, ny) - D.L * 0.08;
             if (ny + c.h < -D.L) { removeCar(c); continue; }            // a queue longer than the screen
           } else c.stopped = false;
@@ -675,6 +686,10 @@
           }
           c.y = ny;
           c.el.style.transform = 'translateY(' + c.y + 'px)';
+          if (crash && crash.car === c && !crash.smashed && c.y + c.h >= barrierTop) {
+            crash.smashed = true;
+            const le = lanes[c.n - 1]; if (le) le.classList.add('smash');
+          }
           if (crash && crash.car === c && !crash.done && c.y + c.h >= D.row - D.hen * 0.25) { crash.done = true; crash.resolve(); }
           // A whoosh as a car passes the hen's row in a lane near her, panned to its side.
           if (!c.passed && c.y + c.h * 0.5 >= D.row) {
@@ -919,9 +934,15 @@
         await sleep(HOP_MS);
         snd('land');
         FX.dust(track, posX(guess, lanes.length), D.row + D.hen * 0.32, D.L);
+        // The barrier drops the moment she lands, without waiting for the server. If the server then says
+        // a car was due, that car smashes through it (see the frame loop) and runs her over.
+        if (lanes[guess - 1]) lanes[guess - 1].classList.add('current');
+        snd('barrier');
+        queueCar(guess);
         const data = await req;
         if (!data.ok) {
           pendingLane = null;
+          paintLanes();
           placeHen(from, true);                 // she hops back; nothing happened on the server
           setMsg(data.error, true);
           if (data._status === 409 || data._status === 400) await refresh();
@@ -935,14 +956,13 @@
         if (data.outcome !== 'fire') {
           pendingLane = null;
           paintLanes();
-          snd('barrier');
           snd('coin', { delay: 0.12 }, 'gemReveal');
           if (target > 1) FX.sparkle(track, laneX(target - 1), D.row, D.L);
         }
         if (data.outcome === 'fire') {
           pendingLane = null;
-          paintLanes();
           await runOver(target, resolveAt);
+          paintLanes();
           snd('crash', undefined, 'crash');
           snd('squawk', { delay: 0.03 });
           FX.bonk(track, posX(target, lanes.length), D.row - D.hen * 0.55, D.L, stage);
@@ -983,6 +1003,7 @@
         }
       } catch (e) {
         pendingLane = null;
+        paintLanes();
         if (state && state.status === 'active') placeHen(from, true);
         setMsg('Cannot reach the server. Please try again.', true);
       } finally {
