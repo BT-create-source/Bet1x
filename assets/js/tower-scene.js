@@ -37,6 +37,10 @@
   const DAMP = 0.7;                      // swing damping (1/s)
   const GRAV = 1500;                     // free-fall gravity (units/s^2)
   const STEP = 1 / 240;                  // physics step (s)
+  // the cable stretches under the load: the hook bobs on it like a spring
+  const BOB_K = 60, BOB_C = 2.6;         // stiffness (1/s^2) and damping (1/s): ~0.8 s bounce
+  const BOB_SAG = 9;                     // how far a block's weight stretches the cable (units)
+  const BOB_DRIVE = 230, BOB_P = 1.7;    // the winch's slow breathing (units/s^2, s): ~5 units up and down
 
   // sky colours at street level and high above it (the original deepens to blue as you climb)
   const SKY_LOW = [[0, [111, 183, 201]], [0.7, [146, 205, 214]], [1, [196, 232, 226]]];
@@ -63,7 +67,7 @@
       this.towerX = W / 2;
       this.anims = [];
       this.simT = 0; this.acc = 0; this.lastNow = performance.now();
-      this.pend = { th: 0, om: 0 };           // the hanging block: angle (rad, + = swung right) and its rate
+      this.pend = { th: 0, om: 0, by: 0, bv: 0 };   // hanging block: swing angle (rad, + = right) and rate; hook bob (units, + = down)
       this.sway = { a: 0, v: 0 };             // the tower's sway after an impact (degrees, deg/s)
       this.pending = null;                    // a drop waiting for its release moment
       this.skyKey = '';
@@ -111,6 +115,7 @@
         + `<g class="blk" transform="translate(0 ${SLING + k.h})">${imgB(skin)}</g>`;
       this.hangArrive = performance.now();
       this.pend.th = 0; this.pend.om = (Math.random() - 0.5) * 0.8;   // a little jolt as it is hooked on
+      this.pend.bv += 110;                                             // and its weight pulls the cable down
     }
 
     resize() {
@@ -119,6 +124,7 @@
       this.H = Math.round(W * r.height / r.width);
       this.svg.setAttribute('viewBox', `0 0 ${W} ${this.H}`);
       this.sky.setAttribute('height', this.H);
+      if (this.floors) { this.aimCamera(); if (!this.floors.length) this.cam = this.camTarget; }
     }
 
     get ground() { return this.H - STREET; }                 // street level on screen at cam = 0
@@ -134,14 +140,20 @@
       const L = SLING + art(this.hangSkin).h * 0.55;
       const acc = -W0SQ * Math.sin(p.th) - (this.trolley(t).a / L) * Math.cos(p.th) - DAMP * p.om;
       p.om += acc * STEP; p.th += p.om * STEP;
+      // the hook on its stretchy cable: sags under the load, breathes with the winch, and the swing's
+      // pull (strongest at the bottom of each swing) tugs it down twice per swing
+      const rest = this.hidden ? 0 : BOB_SAG;
+      const bacc = -BOB_K * (p.by - rest) - BOB_C * p.bv + BOB_DRIVE * Math.sin(2 * Math.PI * t / BOB_P)
+        + (this.hidden ? 0 : 0.8 * L * p.om * p.om);
+      p.bv += bacc * STEP; p.by += p.bv * STEP;
     }
     /** The block's bottom centre on screen and its velocity, for pendulum state p at time t. */
     blockKin(p, t) {
       const Lb = SLING + art(this.hangSkin).h;
       const tr = this.trolley(t);
       return {
-        x: tr.x + Lb * Math.sin(p.th), y: HOOK.y + Lb * Math.cos(p.th),
-        vx: tr.v + Lb * Math.cos(p.th) * p.om, vy: -Lb * Math.sin(p.th) * p.om,
+        x: tr.x + Lb * Math.sin(p.th), y: HOOK.y + p.by + Lb * Math.cos(p.th),
+        vx: tr.v + Lb * Math.cos(p.th) * p.om, vy: p.bv - Lb * Math.sin(p.th) * p.om,
       };
     }
     /** The surface the next block lands on: its centre x and width (the Wine Store for the first). */
@@ -186,7 +198,7 @@
       }
       const lift = (1 - ease.out(Math.min(1, (now - this.hangArrive) / 500))) * 140;
       const tr = this.trolley(this.simT);
-      this.craneG.setAttribute('transform', `translate(${(tr.x - W / 2).toFixed(2)} ${(-lift).toFixed(2)})`);
+      this.craneG.setAttribute('transform', `translate(${(tr.x - W / 2).toFixed(2)} ${(this.pend.by - lift).toFixed(2)})`);
       this.hang.setAttribute('transform', `translate(${HOOK.x} ${HOOK.y}) rotate(${(-this.pend.th * 180 / Math.PI).toFixed(2)})`);
       this.hang.style.display = this.hidden ? 'none' : '';
       this.towerLayer.setAttribute('transform', `rotate(${this.sway.a.toFixed(3)} ${W / 2} ${-BASE_H})`);
@@ -212,9 +224,13 @@
     }
 
     aimCamera() {
-      // keep the top of the tower around 60% down the view, never below the street's rest position
+      // keep the top of the tower a clear gap below the lowest the hanging block reaches (sagging and
+      // bobbing on its cable), with the top floor still in view; never lift the street off the bottom
+      const hangBottom = HOOK.y + BOB_SAG + 14 + SLING + art(this.hangSkin).h;
+      const gap = Math.max(60, Math.min(150, this.H * 0.2));
+      const want = Math.min(this.H - 80, hangBottom + gap);
       const topScreenAtRest = this.ground + this.towerTop();
-      this.camTarget = Math.max(0, this.H * 0.6 - topScreenAtRest);
+      this.camTarget = Math.max(0, want - topScreenAtRest);
     }
 
     /** Rebuild a tower already in progress (page reload), with no animation. */
@@ -293,7 +309,7 @@
           if (drift < -24 && o < -3) return false;
           return true;
         };
-        const p = { th: this.pend.th, om: this.pend.om };
+        const p = Object.assign({}, this.pend);
         let t = this.simT, best = this.simT, bestScore = Infinity;
         for (let i = 0; i < 240 * 4; i++) {
           if (i % 2 === 0) {
@@ -314,6 +330,7 @@
       const b = this.blockKin(this.pend, this.simT);
       const bl = this.below();
       this.hidden = true;
+      this.pend.bv -= 120;                                               // unloaded, the hook springs up
       const g = svgEl('g', {}, `<g class="blk">${imgB(skin)}</g>`);
       this.fxLayer.appendChild(g);
       let x = b.x, y = b.y, vx = b.vx, vy = b.vy;
@@ -375,6 +392,7 @@
     nextBlock() {
       this.setHanging(this.pickSkin(this.hangSkin));
       this.hidden = false;
+      this.aimCamera();
       return this.anim(260, () => {});
     }
 

@@ -10,7 +10,7 @@
   <script src="assets/js/sound-fx.js"></script>
   <script src="assets/js/tower-sfx.js"></script>
   <script src="assets/js/tower-art.js"></script>
-  <script src="assets/js/tower-scene.js?v=20261013p"></script>
+  <script src="assets/js/tower-scene.js?v=20261013q"></script>
   <style>
     /* ==========================================================================================
        Tower Rush. The game frame is portrait like the original (crane, sky and street above a
@@ -158,11 +158,37 @@
     .tr-verify { font: 12px/1.6 'JetBrains Mono', monospace; color: var(--text-dim); word-break: break-all; }
     .tr-verify .ok { color: var(--green, #3dbb4a); font-weight: 700; }
     .tr-verify .bad { color: #ff6b6b; font-weight: 700; }
-    @media (max-width: 900px) { .tr-wrap { flex-direction: column; align-items: center; } .tr-side { max-width: 470px; width: 100%; } }
-    @media (max-width: 600px) { .tr-stage { height: clamp(330px, calc(100vh - 470px), 600px); } }
+    /* ---- layout: the play area takes the full height, the bet and BUILD controls sit on the right -- */
+    .tr-game { max-width: 640px; display: grid; grid-template-columns: minmax(0, 1fr) 210px; grid-template-rows: auto 1fr; }
+    .tr-bar { grid-column: 1 / -1; }
+    .tr-stage { grid-column: 1; grid-row: 2; height: clamp(460px, calc(100vh - 250px), 920px); }
+    .tr-deck { grid-column: 2; grid-row: 2; display: flex; flex-direction: column; justify-content: center; gap: 12px;
+      padding: 14px 12px; border-top: 0; border-left: 6px solid transparent;
+      border-image: repeating-linear-gradient(-45deg, var(--hz) 0 12px, var(--hz-ink) 12px 24px) 6; }
+    .tr-deck .tr-row { flex-wrap: wrap; }
+    .tr-deck .tr-row + .tr-row { margin-top: 0; flex-direction: column; }
+    .tr-deck .tr-amount { flex: 1 1 100%; order: -1; }
+    .tr-deck .tr-pill { flex: 1; padding: 0 8px; }
+    .tr-deck .tr-btn { flex: 0 0 auto; height: 96px; }
+    .tr-game:fullscreen { display: grid; }
+    .tr-game:fullscreen .tr-stage { height: 100%; }
+    @media (max-width: 900px) { .tr-wrap { flex-direction: column; align-items: center; } .tr-side { max-width: 760px; width: 100%; } }
+    @media (max-width: 600px) {
+      .tr-game { grid-template-columns: minmax(0, 1fr) 132px; }
+      .tr-stage { height: clamp(440px, calc(100svh - 170px), 860px); }
+      .tr-deck { padding: 10px 8px; gap: 10px; }
+      .tr-deck .tr-amount { flex-wrap: wrap; height: auto; padding: 6px 4px; gap: 4px; }
+      .tr-deck .tr-amount .val { order: -1; flex: 1 1 100%; }
+      .tr-deck .tr-amount button { flex: 1; height: 30px; border-radius: 8px; }
+      .tr-oops .word { font-size: 28px; letter-spacing: 1px; }
+      .tr-deck .tr-pill { height: 38px; font-size: 12px; }
+      .tr-deck .tr-btn { height: 84px; font-size: 18px; }
+      .tr-cash { font-size: 14px; }
+    }
     @media (max-width: 420px) {
       .tr-wrap { padding: 0 8px; } .tr-hide-sm { display: none; }
-      .tr-btn { height: 56px; font-size: 19px; } .tr-pop { font-size: 44px; } .tr-pop.zero { font-size: 70px; }
+      .tr-pop { font-size: 44px; } .tr-pop.zero { font-size: 70px; }
+      .tr-build span { padding: 4px 8px; }
     }
 
     /* ---- rules modal (small screens use it instead of the side panel) ------------------------ */
