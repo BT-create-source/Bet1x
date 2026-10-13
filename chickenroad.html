@@ -519,7 +519,7 @@
     let boardReset = true;   // false only between a cash-out and the hen getting back home
     function paintLanes() {
       let st = state || { status: 'idle', step: 0 };
-      if (st.status === 'cashed' && boardReset) st = { status: 'idle', step: 0 };   // after a cash-out: a fresh board
+      if ((st.status === 'cashed' || st.status === 'busted') && boardReset) st = { status: 'idle', step: 0 };   // a fresh board once she is home
       const live = st.status === 'active';
       const N = lanes.length;
       stage.classList.toggle('idle', st.status === 'idle');
@@ -540,7 +540,7 @@
 
     function henAt() {
       if (!state || state.status === 'idle') return 0;
-      if (state.status === 'busted') return state.fire_lane;
+      if (state.status === 'busted') return boardReset ? 0 : state.fire_lane;   // after the crash she flies home
       if (state.status === 'cashed') return 0;   // after a cash-out she is back at the start
       return state.step;
     }
@@ -551,7 +551,7 @@
      */
     let homeRun = 0;   // bumped when a new round starts: a pending walk-home / reset is then dropped
     function returnHome() {
-      if (!hen || henPos === 0 || !state || state.status !== 'cashed') return;
+      if (!hen || henPos === 0 || !state || (state.status !== 'cashed' && state.status !== 'busted')) return;
       const run = ++homeRun;
       const ms = Math.min(1400, 450 + henPos * 90);
       const ease = 'cubic-bezier(.45,0,.25,1)';
@@ -589,6 +589,7 @@
     function laneBlocked(n) {
       if (pendingLane !== null && n === pendingLane) return true;
       const st = state || { status: 'idle', step: 0 };
+      if ((st.status === 'cashed' || st.status === 'busted') && boardReset) return false;   // fresh board: road open
       if (st.status === 'active' || st.status === 'cashed') return n <= st.step;
       if (st.status === 'busted') return n < st.fire_lane;
       return false;
@@ -742,7 +743,7 @@
     function render(animate) {
       placeHen(henAt(), animate);
       paintLanes();
-      hen.classList.toggle('squash', !!(state && state.status === 'busted'));
+      hen.classList.toggle('squash', !!(state && state.status === 'busted' && !boardReset));
       renderControls();
     }
 
@@ -902,6 +903,7 @@
         }
         const prev = state;
         state = data.state;
+        if (data.outcome === 'fire') boardReset = false;   // keep the scene until she flies home
         const target = data.outcome === 'fire' ? state.fire_lane : Math.min(state.step, lanes.length);
         if (target !== guess) { placeHen(target, true); await sleep(200); }
         snd('land');
@@ -922,6 +924,15 @@
           hen.classList.add('squash'); feathers();
           showBanner('lose', 'Run over!', 'Lost ' + fmt(prev.bet_amount), 2200);
           finishRound();
+          // Flattened for a moment, then she pops back up and flies home, as after a cash-out.
+          const crashRun = homeRun;
+          setTimeout(() => {
+            if (crashRun !== homeRun || !state || state.status !== 'busted') return;
+            hen.classList.remove('squash');
+            if (window.CRHen) window.CRHen.reset();
+            henDo('hop');
+            setTimeout(() => { if (crashRun === homeRun) returnHome(); }, 350);
+          }, 1500);
         } else if (data.outcome === 'golden_egg' || data.outcome === 'max_win') {
           if (data.outcome === 'golden_egg') {
             await sleep(150);
