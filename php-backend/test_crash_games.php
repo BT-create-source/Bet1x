@@ -62,7 +62,7 @@ foreach (cr_difficulties() as $k => $d) {
 check($monotone, 'every ladder strictly rises lane by lane');
 check($rtpOk, 'cashing out at ANY lane never returns more than the RTP (exactly the RTP where no floor applies)');
 check($chanceOk, 'every lane has a real chance of a car, strictly between 0 and 1');
-check(near(cr_hit_chance('easy', 2, $RTP), 0.06) && near(cr_hit_chance('easy', 30, $RTP), 1 - 12.08 / 23.24), 'Easy: no lane is safer than 6%; steeper lanes keep their own risk');
+check(near(cr_hit_chance('easy', 2, $RTP), 0.08) && near(cr_hit_chance('easy', 30, $RTP), 1 - 12.08 / 23.24), 'Easy: no lane is safer than 8%; steeper lanes keep their own risk');
 check(cr_fail_step('abc', 'hard', $RTP) === cr_fail_step('abc', 'hard', $RTP), 'the hit lane is a pure function of the seed');
 
 $N = $QUICK ? 20000 : 120000;

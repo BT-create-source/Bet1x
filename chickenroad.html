@@ -938,7 +938,7 @@
         // a car was due, that car smashes through it (see the frame loop) and runs her over.
         if (lanes[guess - 1]) lanes[guess - 1].classList.add('current');
         snd('barrier');
-        queueCar(guess);
+        if (Math.random() < 0.45) queueCar(guess);   // often, not on every barrier
         const data = await req;
         if (!data.ok) {
           pendingLane = null;

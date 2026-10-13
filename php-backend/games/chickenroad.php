@@ -31,8 +31,8 @@
  * Easy's ladder rises so slowly that the derived chance is only 2-3% on most lanes, which made the
  * mode feel risk-free. Each mode therefore has a floor ('min_risk'): a lane is never safer than that.
  * Where the floor applies, P(survive n) * M(n) falls below RTP (the house keeps a little more on
- * Easy); it never rises above it. With Easy's 6% floor, about 73% of hens reach lane 5 and 54% lane
- * 10 (were 83% / 67%).
+ * Easy); it never rises above it. With Easy's 8% floor, about 66% of hens reach lane 5 and 43% lane
+ * 10 (83% / 67% with no floor).
  *
  * =================================================================================================
  * FAIRNESS
@@ -57,7 +57,7 @@ function cr_difficulties() {
     static $d = null;
     if ($d !== null) return $d;
     $d = [
-        'easy' => ['label' => 'Easy', 'min_risk' => 0.06, 'ladder' => [
+        'easy' => ['label' => 'Easy', 'min_risk' => 0.08, 'ladder' => [
             1.01, 1.03, 1.06, 1.10, 1.15, 1.19, 1.24, 1.30, 1.35, 1.42, 1.48, 1.56, 1.65, 1.75, 1.85,
             1.98, 2.12, 2.28, 2.47, 2.70, 2.96, 3.28, 3.70, 4.11, 4.64, 5.39, 6.50, 8.36, 12.08, 23.24,
         ]],
