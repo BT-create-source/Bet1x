@@ -52,14 +52,17 @@ foreach (cr_difficulties() as $k => $d) {
     $lad = cr_ladder($k);
     foreach ($lad as $i => $m) {
         if ($i > 0 && $m <= $lad[$i - 1]) $monotone = false;
-        if (abs(cr_survival($k, $i + 1, $RTP) * $m - $RTP) > 1e-9) $rtpOk = false;
+        $ret = cr_survival($k, $i + 1, $RTP) * $m;
+        if ($ret > $RTP + 1e-9) $rtpOk = false;                                   // never above RTP
+        if (empty($d['min_risk']) && abs($ret - $RTP) > 1e-9) $rtpOk = false;    // exact without a floor
         $h = cr_hit_chance($k, $i + 1, $RTP);
         if ($h <= 0 || $h >= 1) $chanceOk = false;
     }
 }
 check($monotone, 'every ladder strictly rises lane by lane');
-check($rtpOk, 'cashing out at ANY lane of ANY difficulty returns exactly the RTP');
+check($rtpOk, 'cashing out at ANY lane never returns more than the RTP (exactly the RTP where no floor applies)');
 check($chanceOk, 'every lane has a real chance of a car, strictly between 0 and 1');
+check(near(cr_hit_chance('easy', 2, $RTP), 0.06) && near(cr_hit_chance('easy', 30, $RTP), 1 - 12.08 / 23.24), 'Easy: no lane is safer than 6%; steeper lanes keep their own risk');
 check(cr_fail_step('abc', 'hard', $RTP) === cr_fail_step('abc', 'hard', $RTP), 'the hit lane is a pure function of the seed');
 
 $N = $QUICK ? 20000 : 120000;

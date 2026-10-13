@@ -112,6 +112,7 @@
     .cr-car { position: absolute; left: 50%; top: 0; z-index: 4; will-change: transform; transition: opacity 0.35s; }
     .cr-car svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 6px 4px rgba(0,0,0,0.35)); }
     .cr-car.gone { opacity: 0; }
+    .cr-car.hit { z-index: 7; }   /* the car that runs her over is drawn over her, not under */
 
     /* hen */
     .cr-hen {
@@ -585,6 +586,7 @@
       return VEHICLES[0];
     }
     /** A lane is closed to traffic once its barrier is down (every lane up to the hen's). */
+    const HOP_MS = 430, HOLD_MS = 800;   // GO -> landing, landing -> barrier (or the car): fixed every step
     let pendingLane = null;   // the lane she is hopping into while the server decides: closed to traffic at once
     function laneBlocked(n) {
       if (pendingLane !== null && n === pendingLane) return true;
@@ -614,14 +616,18 @@
       setTimeout(() => car.el.remove(), 400);
     }
     function clearTraffic() { cars.forEach((c) => c.el.remove()); cars = []; crash = null; }
-    /** Before the hen lands on lane n, clear anything that would sit on top of her. */
-    function clearLaneAtRow(n) {
+    /**
+     * The hen is hopping into lane n and the barrier (or the car) comes at time `until`. Any car in that
+     * lane that would reach the barrier line before then, or is already on her spot, is taken off; the
+     * rest are far enough up the road to meet the barrier and queue behind it.
+     */
+    function clearLaneFor(n, until) {
       const barrierTop = D.row - D.hole * 1.02 - D.L * 0.18;
+      const secs = Math.max(0, (until - performance.now()) / 1000) + 0.15;
       cars.forEach((c) => {
         if (c.n !== n || c.dead) return;
-        const top = c.y, bottom = c.y + c.h;
-        // Anything already past the barrier line and not yet clear of her would drive through her.
-        if (bottom > barrierTop && top < D.row + D.hen * 0.6) removeCar(c);
+        if (c.y > D.row + D.hen * 0.6) return;                                // already past her
+        if (c.y + c.h + c.speed * secs > barrierTop - 4) removeCar(c);
       });
     }
 
@@ -652,7 +658,10 @@
         const order = cars.filter((c) => !c.dead).sort((a, b) => b.y - a.y);   // front of each queue first
         for (const c of order) {
           let ny = c.y + c.speed * dt;
-          if (c !== (crash && crash.car) && laneBlocked(c.n) && c.y + c.h <= barrierTop + 2) {
+          if (crash && crash.car === c) {
+            const stopAt = D.row + D.hen * 0.3 - c.h;                     // she is under its bonnet: it stops on her
+            if (ny > stopAt) ny = stopAt;
+          } else if (laneBlocked(c.n) && c.y + c.h <= barrierTop + 2) {
             const line = stopLine[c.n] !== undefined ? stopLine[c.n] : barrierTop - 4;
             const stopAt = line - c.h;
             if (ny > stopAt) { ny = stopAt; c.stopped = true; }
@@ -681,13 +690,20 @@
      * Send a car down lane n to hit the hen; resolves at the moment of impact. She sees it coming:
      * a horn and a squeal of tyres, and she flinches just before it reaches her.
      */
-    function runOver(n) {
+    function runOver(n, at) {
       cars.forEach((c) => { if (c.n === n) removeCar(c); });
       snd('horn');
       snd('screech', { delay: 0.12 });
       henDo('startle');
+      // Timed to reach her at `at` (the moment a barrier would otherwise have dropped), never slower
+      // than a fast car's dash.
+      const secs = Math.max(0.3, ((at || 0) - performance.now()) / 1000);
       return new Promise((resolve) => {
-        const car = spawnCar(n, { vehicle: VEHICLES[Math.floor(Math.random() * VEHICLES.length)], speed: D.h * 2.6 });
+        const v = VEHICLES[Math.floor(Math.random() * VEHICLES.length)];
+        const h = D.L * 0.56 * v.vbH / v.vbW;
+        const dist = (D.row - D.hen * 0.25) + 4;                            // its bonnet from just off-screen to her
+        const car = spawnCar(n, { vehicle: v, speed: Math.min(D.h * 4, Math.max(D.h * 1.2, dist / secs)) });
+        car.el.classList.add('hit');
         crash = { n, car, done: false, resolve };
       });
     }
@@ -884,18 +900,24 @@
       const from = state.step;
       const guess = Math.min(from + 1, lanes.length);
       try {
-        // The hop starts the instant GO is pressed; the server decides the lane in parallel, so the
-        // button never waits on the network. If a car was due, it hits her as she lands.
+        // The hop starts the instant GO is pressed; the server decides the lane in parallel. Every step
+        // then keeps the same rhythm: she lands HOP_MS after GO, and exactly HOLD_MS after landing either
+        // the barrier drops or the car reaches her. Only a server slower than that can delay it.
+        const t0 = performance.now(), landAt = t0 + HOP_MS, resolveAt = landAt + HOLD_MS;
         pendingLane = guess;
-        clearLaneAtRow(guess);
+        clearLaneFor(guess, resolveAt);
         placeHen(guess, true);
         henDo('hop');
         tag.hidden = true;
         snd('hop', undefined, 'go');
         snd('cluck', { delay: 0.05 });
-        const [data] = await Promise.all([api('step', {}), sleep(430)]);
-        pendingLane = null;                    // from here the server's state decides which lanes are closed
+        const req = api('step', {});
+        await sleep(HOP_MS);
+        snd('land');
+        FX.dust(track, posX(guess, lanes.length), D.row + D.hen * 0.32, D.L);
+        const data = await req;
         if (!data.ok) {
+          pendingLane = null;
           placeHen(from, true);                 // she hops back; nothing happened on the server
           setMsg(data.error, true);
           if (data._status === 409 || data._status === 400) await refresh();
@@ -906,17 +928,18 @@
         if (data.outcome === 'fire') boardReset = false;   // keep the scene until she flies home
         const target = data.outcome === 'fire' ? state.fire_lane : Math.min(state.step, lanes.length);
         if (target !== guess) { placeHen(target, true); await sleep(200); }
-        snd('land');
-        FX.dust(track, posX(target, lanes.length), D.row + D.hen * 0.32, D.L);
         if (data.outcome !== 'fire') {
+          await sleep(resolveAt - performance.now());       // the fixed pause, then the barrier at once
+          pendingLane = null;
           paintLanes();
-          snd('barrier', { delay: 0.04 });
-          snd('coin', { delay: 0.16 }, 'gemReveal');
+          snd('barrier');
+          snd('coin', { delay: 0.12 }, 'gemReveal');
           if (target > 1) FX.sparkle(track, laneX(target - 1), D.row, D.L);
         }
         if (data.outcome === 'fire') {
+          pendingLane = null;
           paintLanes();
-          await runOver(target);
+          await runOver(target, resolveAt);
           snd('crash', undefined, 'crash');
           snd('squawk', { delay: 0.03 });
           FX.bonk(track, posX(target, lanes.length), D.row - D.hen * 0.55, D.L, stage);
@@ -928,6 +951,8 @@
           const crashRun = homeRun;
           setTimeout(() => {
             if (crashRun !== homeRun || !state || state.status !== 'busted') return;
+            if (crash && crash.car) removeCar(crash.car);
+            crash = null;
             hen.classList.remove('squash');
             if (window.CRHen) window.CRHen.reset();
             henDo('hop');
@@ -1062,7 +1087,7 @@
       for (let n = 1; n <= info.lanes; n++) {
         const u = parseInt(hex(await crypto.subtle.sign('HMAC', key, enc.encode('lane:' + n))).slice(0, 13), 16) / Math.pow(16, 13);
         const prev = n === 1 ? config.rtp : info.ladder[n - 2];
-        if (u < 1 - prev / info.ladder[n - 1]) { hitLane = n; break; }
+        if (u < Math.max(info.min_risk || 0, 1 - prev / info.ladder[n - 1])) { hitLane = n; break; }
       }
       const ok = r.status === 'busted' ? hitLane === r.fire_lane : (hitLane === 0 || hitLane > r.step);
       box.innerHTML =

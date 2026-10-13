@@ -28,6 +28,12 @@
  * risk, never the displayed multipliers. It must stay below the smallest first lane (1.01x), which
  * the 90-99% bound guarantees.
  *
+ * Easy's ladder rises so slowly that the derived chance is only 2-3% on most lanes, which made the
+ * mode feel risk-free. Each mode therefore has a floor ('min_risk'): a lane is never safer than that.
+ * Where the floor applies, P(survive n) * M(n) falls below RTP (the house keeps a little more on
+ * Easy); it never rises above it. With Easy's 6% floor, about 73% of hens reach lane 5 and 54% lane
+ * 10 (were 83% / 67%).
+ *
  * =================================================================================================
  * FAIRNESS
  * =================================================================================================
@@ -36,7 +42,7 @@
  * before the first step. Lane n is hit when
  *
  *   u(n) = HMAC-SHA256(server_seed, "lane:" . n), first 13 hex digits / 16^13
- *   u(n) < 1 - M(n-1) / M(n)
+ *   u(n) < max(min_risk, 1 - M(n-1) / M(n))
  *
  * The seed is revealed when the road ends, so the player can recompute every lane and check the
  * hash. Nothing after the bet (not the player's timing, not an operator) can move the car.
@@ -51,7 +57,7 @@ function cr_difficulties() {
     static $d = null;
     if ($d !== null) return $d;
     $d = [
-        'easy' => ['label' => 'Easy', 'ladder' => [
+        'easy' => ['label' => 'Easy', 'min_risk' => 0.06, 'ladder' => [
             1.01, 1.03, 1.06, 1.10, 1.15, 1.19, 1.24, 1.30, 1.35, 1.42, 1.48, 1.56, 1.65, 1.75, 1.85,
             1.98, 2.12, 2.28, 2.47, 2.70, 2.96, 3.28, 3.70, 4.11, 4.64, 5.39, 6.50, 8.36, 12.08, 23.24,
         ]],
@@ -145,16 +151,18 @@ function cr_ladder($difficulty, $rtp = null) {
     return $d ? array_map('floatval', $d['ladder']) : [];
 }
 
-/** Chance of surviving the first $n lanes: RTP / M(n). */
+/** Chance of surviving the first $n lanes: RTP / M(n), lower where the mode's floor applies. */
 function cr_survival($difficulty, $n, $rtp) {
-    if ($n <= 0) return 1.0;
-    return $rtp / cr_multiplier($difficulty, $n);
+    $p = 1.0;
+    for ($i = 1; $i <= $n; $i++) $p *= 1 - cr_hit_chance($difficulty, $i, $rtp);
+    return $p;
 }
 
-/** Chance that lane $n is hit, given the hen reached it. */
+/** Chance that lane $n is hit, given the hen reached it: from the ladder, never below the mode's floor. */
 function cr_hit_chance($difficulty, $n, $rtp) {
     $prev = $n <= 1 ? $rtp : cr_multiplier($difficulty, $n - 1);
-    return 1 - $prev / cr_multiplier($difficulty, $n);
+    $floor = (float) (cr_difficulties()[$difficulty]['min_risk'] ?? 0);
+    return max($floor, 1 - $prev / cr_multiplier($difficulty, $n));
 }
 
 /** u(n) in [0,1) for lane n, derived from the round's seed — see the FAIRNESS note above. */
@@ -296,6 +304,7 @@ function cr_public_config($config) {
             'key'        => $key,
             'label'      => $d['label'],
             'lanes'      => count($d['ladder']),
+            'min_risk'   => (float) ($d['min_risk'] ?? 0),
             'ladder'     => cr_ladder($key),
             'lane1_risk' => round(cr_hit_chance($key, 1, $config['rtp']), 4),
         ];
