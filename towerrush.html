@@ -10,7 +10,7 @@
   <script src="assets/js/sound-fx.js"></script>
   <script src="assets/js/tower-sfx.js"></script>
   <script src="assets/js/tower-art.js"></script>
-  <script src="assets/js/tower-scene.js?v=20261013t"></script>
+  <script src="assets/js/tower-scene.js?v=20261014a"></script>
   <style>
     /* ==========================================================================================
        Tower Rush. The game frame is portrait like the original (crane, sky and street above a
@@ -502,8 +502,14 @@
       if (!active && balance !== null && bet > balance) { setMsg('Insufficient balance for this bet.', true); return; }
       busy = true; setMsg(''); render();
       const body = active ? { round_ref: state.round_ref, floors: state.floors } : { start: true, bet_amount: bet, after_round: lastRef };
-      const data = await api('build', body);
+      // The block is let go the instant BUILD is pressed; the server's answer arrives while it falls.
+      const req = api('build', body).catch(() => ({ ok: false, error: 'Cannot reach the server. Please try again.' }));
+      snd('release');
+      setTimeout(() => snd('whoosh'), 60);
+      const dropped = scene.drop(req.then((d) => (d && d.ok ? { collapse: d.outcome === 'collapse' } : { cancel: true })));
+      const data = await req;
       if (!data.ok) {
+        await dropped;
         setMsg(data.error || 'Something went wrong.', true);
         busy = false;
         if (data._status === 409) await load(false); else render();
@@ -512,9 +518,7 @@
       state = data.state;
       setBalance(state.balance);
       const collapse = data.outcome === 'collapse';
-      snd('release');
-      setTimeout(() => snd('whoosh'), 60);
-      await scene.drop({ collapse });
+      await dropped;
       const f = data.factor;
       if (collapse) {
         snd('crumble');
