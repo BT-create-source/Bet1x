@@ -585,7 +585,9 @@
       return VEHICLES[0];
     }
     /** A lane is closed to traffic once its barrier is down (every lane up to the hen's). */
+    let pendingLane = null;   // the lane she is hopping into while the server decides: closed to traffic at once
     function laneBlocked(n) {
+      if (pendingLane !== null && n === pendingLane) return true;
       const st = state || { status: 'idle', step: 0 };
       if (st.status === 'active' || st.status === 'cashed') return n <= st.step;
       if (st.status === 'busted') return n < st.fire_lane;
@@ -613,10 +615,12 @@
     function clearTraffic() { cars.forEach((c) => c.el.remove()); cars = []; crash = null; }
     /** Before the hen lands on lane n, clear anything that would sit on top of her. */
     function clearLaneAtRow(n) {
+      const barrierTop = D.row - D.hole * 1.02 - D.L * 0.18;
       cars.forEach((c) => {
         if (c.n !== n || c.dead) return;
         const top = c.y, bottom = c.y + c.h;
-        if (bottom > D.row - D.hen && top < D.row + D.hen * 0.6) removeCar(c);
+        // Anything already past the barrier line and not yet clear of her would drive through her.
+        if (bottom > barrierTop && top < D.row + D.hen * 0.6) removeCar(c);
       });
     }
 
@@ -641,13 +645,19 @@
           if (open.length) spawnCar(open[Math.floor(Math.random() * open.length)]);
         }
         const barrierTop = D.row - D.hole * 1.02 - D.L * 0.18;
-        for (const c of cars) {
-          if (c.dead) continue;
+        // Barricaded lanes: traffic stops behind the barrier and queues there, bumper to bumper, until the
+        // road reopens (round over), then drives on. stopLine[n] is where the next car in lane n must stop.
+        const stopLine = {};
+        const order = cars.filter((c) => !c.dead).sort((a, b) => b.y - a.y);   // front of each queue first
+        for (const c of order) {
           let ny = c.y + c.speed * dt;
           if (c !== (crash && crash.car) && laneBlocked(c.n) && c.y + c.h <= barrierTop + 2) {
-            const stopAt = barrierTop - c.h - 4;
-            if (ny > stopAt) { ny = stopAt; if (!c.stopped) { c.stopped = true; setTimeout(() => removeCar(c), 700); } }
-          }
+            const line = stopLine[c.n] !== undefined ? stopLine[c.n] : barrierTop - 4;
+            const stopAt = line - c.h;
+            if (ny > stopAt) { ny = stopAt; c.stopped = true; }
+            stopLine[c.n] = Math.min(line, ny) - D.L * 0.08;
+            if (ny + c.h < -D.L) { removeCar(c); continue; }            // a queue longer than the screen
+          } else c.stopped = false;
           c.y = ny;
           c.el.style.transform = 'translateY(' + c.y + 'px)';
           if (crash && crash.car === c && !crash.done && c.y + c.h >= D.row - D.hen * 0.25) { crash.done = true; crash.resolve(); }
@@ -875,6 +885,7 @@
       try {
         // The hop starts the instant GO is pressed; the server decides the lane in parallel, so the
         // button never waits on the network. If a car was due, it hits her as she lands.
+        pendingLane = guess;
         clearLaneAtRow(guess);
         placeHen(guess, true);
         henDo('hop');
@@ -882,6 +893,7 @@
         snd('hop', undefined, 'go');
         snd('cluck', { delay: 0.05 });
         const [data] = await Promise.all([api('step', {}), sleep(430)]);
+        pendingLane = null;                    // from here the server's state decides which lanes are closed
         if (!data.ok) {
           placeHen(from, true);                 // she hops back; nothing happened on the server
           setMsg(data.error, true);
@@ -931,6 +943,7 @@
           sfx('gemReveal');
         }
       } catch (e) {
+        pendingLane = null;
         if (state && state.status === 'active') placeHen(from, true);
         setMsg('Cannot reach the server. Please try again.', true);
       } finally {
