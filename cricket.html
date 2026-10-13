@@ -107,10 +107,13 @@
     function ballCls(t) { return t === 'W' ? 'bW' : /Wd|Nb/.test(t) ? 'bX' : t === '4' ? 'b4' : t === '6' ? 'b6' : ''; }
 
     // ------------------------------------------------------------------ lobby
+    // "Ball running" is never shown as a status: the prices stay on screen as plain numbers (the
+    // market is still closed to bets for those seconds; a clear overlay just stops clicks).
+    function ballRunning(reason) { return /ball running/i.test(reason || ''); }
     function lobbyRow(m, live) {
       var o = m.odds, a = o && o.runners[0], b = o && o.runners[1];
       var cell = function (v, cls) { return v ? '<div class="ck-lob-px ' + cls + '">' + v + '</div>' : '<div class="ck-lob-px s">–</div>'; };
-      var cells = (o && o.open) ? cell(a.back, 'b') + cell(a.lay, 'l x') + cell(b.back, 'b') + cell(b.lay, 'l x')
+      var cells = (o && (o.open || ballRunning(o.reason))) ? cell(a.back, 'b') + cell(a.lay, 'l x') + cell(b.back, 'b') + cell(b.lay, 'l x')
         : '<div class="ck-lob-px s" style="grid-column: span 4;">' + esc(o ? (o.reason || 'Suspended') : 'Not offered') + '</div>';
       var when = live ? '<span class="inplay">● In-Play</span> ' + esc((m.score || []).map(function (s) { return s.team_short + ' ' + s.runs + '/' + s.wickets + ' (' + s.overs + ')'; }).join(' · '))
         : (m.start_time_ms ? new Date(m.start_time_ms).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
@@ -150,7 +153,7 @@
       if (sb.chase) info.push('Need <b>' + sb.chase.need + '</b> off <b>' + sb.chase.balls_left + '</b>' + (sb.chase.rrr !== null ? ' · RRR <b>' + sb.chase.rrr + '</b>' : ''));
       if (m.toss_text) info.push(esc(m.toss_text));
       if (m.result_text) info.push('<b>' + esc(m.result_text) + '</b>');
-      var open = g.open;
+      var open = g.open || ballRunning(g.reason);
       $('banner').innerHTML = '<div class="ck-banner-top"><span class="state ' + (open ? 'open' : 'susp') + '">' + (open ? 'OPEN' : esc((g.reason || 'Suspended').toUpperCase())) + '</span>'
         + '<span>' + (m.start_time_ms ? 'Game time ' + new Date(m.start_time_ms).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '') + '</span></div>'
         + '<div class="ck-banner-mid">' + team(m.team_a_short, m.team_a, false) + '<div class="ck-vs">' + esc(m.format) + '<br>VS</div>' + team(m.team_b_short, m.team_b, true) + '</div>'
@@ -191,7 +194,7 @@
             + '<div class="ck-px l2 dim"><b>&nbsp;</b><span>&nbsp;</span></div><div class="ck-px l3 dim"><b>&nbsp;</b><span>&nbsp;</span></div>';
         }
         h += '<div class="ck-grid ck-row"><div class="nm">' + esc(r.name) + posHtml + '</div>' + cells
-          + (m.open ? '' : '<div class="ck-susp">' + esc(m.reason || 'Suspended') + '</div>') + '</div>';
+          + (m.open ? '' : ballRunning(m.reason) ? '<div class="ck-susp quiet"></div>' : '<div class="ck-susp">' + esc(m.reason || 'Suspended') + '</div>') + '</div>';
       });
       return h + '</div>';
     }
@@ -208,7 +211,7 @@
           + '<button class="ck-fbook" data-book="' + esc(f.key) + '">Book</button>'
           + pxFancy('l1', f, 'NO', f.no_line, f.no_rate) + pxFancy('b1', f, 'YES', f.yes_line, f.yes_rate)
           + '<div class="ck-fmm">' + kfmt(f.min) + ' – ' + kfmt(f.max) + '</div>'
-          + (f.open ? '' : '<div class="ck-fsusp">' + esc(f.reason || 'Suspended') + '</div>') + '</div>';
+          + (f.open ? '' : ballRunning(f.reason) ? '<div class="ck-fsusp quiet"></div>' : '<div class="ck-fsusp">' + esc(f.reason || 'Suspended') + '</div>') + '</div>';
       });
       return h + '</div>';
     }

@@ -124,6 +124,9 @@
 .ck-susp { position: absolute; top: 0; bottom: 0; right: 0; width: 384px; display: flex; align-items: center; justify-content: center; background: rgba(10, 12, 30, .72);
   color: #ffb4c4; font-weight: 800; letter-spacing: .08em; font-size: 12.5px; text-transform: uppercase; z-index: 2; }
 
+/* ball running: no text, no dimming, the numbers show as normal (the clear layer only stops clicks) */
+.ck-susp.quiet, .ck-fsusp.quiet { background: transparent; }
+
 /* fancy */
 .ck-ftabs { display: flex; gap: 4px; padding: 6px; background: var(--ck-bar); flex-wrap: wrap; }
 .ck-ftabs button { background: transparent; color: #dfe4ff; border: none; padding: 5px 14px; border-radius: 6px; font-weight: 700; font-size: 12.5px; cursor: pointer; }
