@@ -18,6 +18,9 @@
       display: grid; grid-template-columns: 300px 1fr; gap: 12px; align-items: start;
     }
     .as-main { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+    /* full-screen game page (game-shell): the game starts at the top, its first panel leaves room for the menu */
+    body.gs-on .as-wrap { margin-top: 12px; }
+    @media (max-width: 900px) { body.gs-on .as-wrap { margin-top: 56px; } }
 
     .as-topbar { display: flex; align-items: center; gap: 10px; justify-content: space-between; flex-wrap: wrap; }
     .as-title { display: flex; align-items: center; gap: 10px; }
@@ -184,6 +187,7 @@
       .as-title h1 { font-size: 19px; }
     }
   </style>
+  <link rel="stylesheet" href="assets/css/game-shell.css?v=20261014a">
 </head>
 
 <body class="exchange-theme">
@@ -955,6 +959,7 @@
     poll();
   })();
   </script>
+  <script src="assets/js/game-shell.js?v=20261014a" data-game=".as-main" data-stage=".as-sky" data-min="240" defer></script>
 </body>
 
 </html>

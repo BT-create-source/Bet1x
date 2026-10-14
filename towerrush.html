@@ -177,6 +177,10 @@
     .tr-bar { grid-column: 1 / -1; }
     .tr-stage { grid-column: 1; grid-row: 2; height: clamp(460px, calc(100vh - 240px), 920px); }
     .tr-results { top: 21%; }
+    /* full-screen game page (game-shell): the game starts at the very top, the bar leaves room for the menu */
+    body.gs-on .tr-wrap { margin-top: 0; }
+    body.gs-on .tr-bar { padding-left: 58px; }
+    body.gs-on .tr-game { max-width: calc(clamp(360px, calc((100vh - 50px) * 0.66), 640px) + 210px); }
     .tr-deck { grid-column: 2; grid-row: 2; display: flex; flex-direction: column; justify-content: center; gap: 12px;
       padding: 14px 12px; border-top: 0; border-left: 6px solid transparent;
       border-image: repeating-linear-gradient(-45deg, var(--hz) 0 12px, var(--hz-ink) 12px 24px) 6; }
@@ -191,20 +195,17 @@
     .tr-game:fullscreen .tr-stage { height: 100%; }
     @media (max-width: 900px) { .tr-wrap { flex-direction: column; align-items: center; } }
     @media (max-width: 600px) {
-      .tr-wrap { margin-top: 8px; }
-      .tr-game { grid-template-columns: minmax(0, 1fr) 132px; max-width: none; }
-      /* on phones the page scrolls the game to the top of the screen, so it fills the display */
-      /* about 1.7 times as tall as it is wide: a taller box would only push the hanging block far above the tower */
-      .tr-stage { height: clamp(380px, min(calc((100vw - 156px) * 1.7), calc(100svh - 100px)), 620px); }
-      .tr-deck { padding: 10px 8px; gap: 10px; }
-      .tr-deck .tr-amount { flex-wrap: wrap; height: auto; padding: 6px 4px; gap: 4px; }
-      .tr-deck .tr-amount .val { order: -1; flex: 1 1 100%; }
-      .tr-deck .tr-amount button { flex: 1; height: 30px; border-radius: 8px; }
-      .tr-oops .word { font-size: 28px; letter-spacing: 1px; }
-      .tr-deck .tr-pill { height: 38px; font-size: 12px; }
-      .tr-deck .tr-btn { height: 84px; font-size: 17px; letter-spacing: 1px; width: 100%; min-width: 0; box-sizing: border-box; }
-      .tr-cash { font-size: 14px; }
-      .tr-cash small { font-size: 12px; }
+      /* phones: the game on top, the bet row and BUILD / CASHOUT in a deck below it */
+      .tr-wrap { margin-top: 0; padding: 0; }
+      .tr-game { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto; max-width: none !important; border-radius: 0; border: 0; }
+      .tr-deck { grid-column: 1; grid-row: 3; justify-content: flex-start; gap: 8px; padding: 8px 10px 10px;
+        border-left: 0; border-top: 6px solid transparent; }
+      .tr-deck .tr-row { flex-wrap: nowrap; }
+      .tr-deck .tr-row + .tr-row { flex-direction: row; }
+      .tr-deck .tr-amount { flex: 1 1 auto; order: 0; }
+      .tr-deck .tr-pill { flex: 0 0 auto; padding: 0 12px; }
+      .tr-deck .tr-btn { flex: 1 1 0; height: 58px; font-size: 19px; }
+      .tr-cash { font-size: 15px; }
     }
     @media (max-width: 420px) {
       .tr-wrap { padding: 0 8px; } .tr-hide-sm { display: none; }
@@ -221,6 +222,7 @@
     .tr-modal-card li, .tr-modal-card p { font-size: 13.5px; color: #c6c9d3; line-height: 1.55; }
     .tr-modal-close { position: absolute; right: 10px; top: 8px; width: 32px; height: 32px; border: 0; border-radius: 8px; background: #2e323c; color: #fff; font-size: 20px; cursor: pointer; }
   </style>
+  <link rel="stylesheet" href="assets/css/game-shell.css?v=20261014a">
 </head>
 
 <body class="exchange-theme">
@@ -661,14 +663,6 @@
     // swing creak, now and then, while a block hangs
     setInterval(() => { if (!busy && !document.hidden && Math.random() < 0.35) snd('creak'); }, 2300);
 
-    // On phones, bring the game to the top of the screen (past the site header) so it fills the display.
-    function fitPhone() {
-      if (window.innerWidth > 600) return;
-      const top = $('trGame').getBoundingClientRect().top + window.scrollY - 4;
-      if (Math.abs(window.scrollY - top) > 2) window.scrollTo({ top, behavior: 'instant' });
-    }
-    if (document.readyState === 'complete') setTimeout(fitPhone, 50); else window.addEventListener('load', () => setTimeout(fitPhone, 50));
-
     // ---- menu / fullscreen ---------------------------------------------------------------------
     $('trMenuBtn').onclick = () => {
       $('trModalBody').innerHTML = document.querySelector('.tr-side').innerHTML;
@@ -721,6 +715,7 @@
     setInterval(() => { if (!busy && !document.hidden && state && state.status !== 'active') api('state').then((d) => { if (d.ok && d.state) setBalance(d.state.balance); }); }, 20000);
   })();
   </script>
+  <script src="assets/js/game-shell.js?v=20261014a" data-game=".tr-game" data-stage=".tr-stage" data-min="320" defer></script>
 </body>
 
 </html>

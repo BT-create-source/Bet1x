@@ -1,0 +1,43 @@
+/* =================================================================================================
+   Game shell — full-screen game pages (see assets/js/game-shell.js). The game takes the whole first
+   screen: no site header, games strip or winners ticker; a hamburger at the top left opens a drawer
+   with Home, the games and the player's account.
+   ================================================================================================= */
+body.gs-on .navbar.exchange-header,
+body.gs-on .sub-navbar,
+body.gs-on #bet1x-win-ticker,
+body.gs-on footer { display: none !important; }
+body.gs-on { padding-bottom: 0 !important; }
+
+/* the hamburger */
+.gs-burger {
+  position: fixed; top: 8px; left: 8px; z-index: 2100; width: 40px; height: 40px; border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.18); background: rgba(16, 18, 30, .78); backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px); display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; cursor: pointer; padding: 0; box-shadow: 0 4px 14px rgba(0,0,0,.35);
+}
+.gs-burger span { display: block; width: 18px; height: 2px; border-radius: 2px; background: #fff; transition: transform .2s, opacity .2s; }
+body.gs-open .gs-burger span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+body.gs-open .gs-burger span:nth-child(2) { opacity: 0; }
+body.gs-open .gs-burger span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+
+/* the drawer */
+.gs-scrim { position: fixed; inset: 0; z-index: 2150; background: rgba(4, 6, 14, .6); opacity: 0; pointer-events: none; transition: opacity .2s; }
+body.gs-open .gs-scrim { opacity: 1; pointer-events: auto; }
+.gs-drawer {
+  position: fixed; top: 0; bottom: 0; left: 0; z-index: 2200; width: min(300px, 84vw); overflow-y: auto;
+  background: #11142a; border-right: 1px solid rgba(255,255,255,.08); box-shadow: 8px 0 30px rgba(0,0,0,.45);
+  transform: translateX(-102%); transition: transform .25s cubic-bezier(.2,.9,.3,1); padding: 0 0 20px;
+  font-family: 'Poppins', var(--font-body, sans-serif);
+}
+body.gs-open .gs-drawer { transform: none; }
+.gs-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 14px 10px 16px; border-bottom: 1px solid rgba(255,255,255,.07); }
+.gs-logo { font: 800 22px 'Poppins', sans-serif; color: var(--red, #ff3b5c); text-decoration: none; letter-spacing: .3px; }
+.gs-close { width: 34px; height: 34px; border-radius: 8px; border: 0; background: rgba(255,255,255,.08); color: #fff; font-size: 22px; line-height: 1; cursor: pointer; }
+.gs-account { padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,.07); }
+.gs-account #headerAuthArea .header-user-info, .gs-account #headerAuthArea .header-guest-wrap { justify-content: flex-start !important; }
+.gs-account #headerAuthArea .header-welcome-text { display: none; }
+.gs-links { display: flex; flex-direction: column; padding: 8px 8px 0; }
+.gs-link { display: block; padding: 11px 12px; border-radius: 9px; color: #d9dcef; text-decoration: none; font-weight: 600; font-size: 14.5px; }
+.gs-link:hover { background: rgba(255,255,255,.06); color: #fff; }
+.gs-link.active { background: rgba(255, 59, 92, .16); color: #fff; box-shadow: inset 3px 0 0 var(--red, #ff3b5c); }

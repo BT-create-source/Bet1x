@@ -13,7 +13,10 @@
      ancestor along with it, since nothing here actually needed the flex layout (no descendant uses
      flex:1 or margin-top:auto to pin the footer). */
   body { margin: 0; min-height: 100vh; }
+  /* full-screen game page (game-shell): leave room at the top for the menu button */
+  body.gs-on .container.section-tight { padding-top: 56px; }
 </style>
+  <link rel="stylesheet" href="assets/css/game-shell.css?v=20261014a">
 </head>
 <body class="exchange-theme">
 
@@ -1334,5 +1337,6 @@ window.addEventListener('pagehide', () => {
   }
 });
 </script>
+  <script src="assets/js/game-shell.js?v=20261014a" data-game=".aviator-wrapper" data-stage=".aviator-stage" data-min="220" defer></script>
 </body>
 </html>

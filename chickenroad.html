@@ -20,6 +20,10 @@
        the page around it keeps the site theme.
        ========================================================================================== */
     .cr-wrap { max-width: 1180px; margin: 16px auto 0; padding: 0 14px; box-sizing: border-box; }
+    /* full-screen game page (game-shell): the game starts at the very top, the bar leaves room for the menu */
+    body.gs-on .cr-wrap { margin-top: 0; }
+    body.gs-on .cr-bar { padding-left: 58px; }
+    @media (max-width: 600px) { body.gs-on .cr-wrap { padding: 0; } body.gs-on .cr-game { border-radius: 0; border: 0; } }
     .cr-game {
       --chrome: #2a292e; --chrome-2: #36353b; --chrome-3: #424148; --ink: #f4f4f6; --ink-dim: #a9a8b0;
       --go: #3dbb4a; --go-2: #2b9a39; --cash: #f7c21a; --cash-2: #e0a20a; --navy: #2c3a63;
@@ -240,6 +244,7 @@
       .cr-bal { min-width: 0; }
     }
   </style>
+  <link rel="stylesheet" href="assets/css/game-shell.css?v=20261014a">
 </head>
 
 <body class="exchange-theme">
@@ -412,12 +417,15 @@
     function computeDims() {
       const w = stage.clientWidth || 1000;
       const fs = document.fullscreenElement === game;
+      // the full-screen game page (game-shell) sets the stage's height itself, like browser full screen
+      const fill = fs || document.body.classList.contains('gs-on');
       const small = w < 600;
-      const h = fs ? stage.clientHeight || window.innerHeight - 260 : (small ? 300 : 440);
-      const L = Math.round(h * (small ? 0.36 : 0.35));
+      const h = fill ? stage.clientHeight || window.innerHeight - 260 : (small ? 300 : 440);
+      // a tall stage must not zoom the road in: lanes are never wider than a share of the screen width
+      const L = Math.round(Math.min(h * (small ? 0.36 : 0.35), w * (small ? 0.34 : 0.2)));
       const d = { w, h, L, kerb: Math.round(L * 1.2), fin: Math.round(L * 1.4), hole: Math.round(L * 0.7), hen: Math.round(L * 0.95), row: Math.round(h * 0.6) };
       const s = stage.style;
-      if (!fs) s.setProperty('--h', h + 'px');
+      if (!fill) s.setProperty('--h', h + 'px');
       s.setProperty('--L', L + 'px'); s.setProperty('--kerb', d.kerb + 'px'); s.setProperty('--fin', d.fin + 'px');
       s.setProperty('--hole', d.hole + 'px'); s.setProperty('--hen', d.hen + 'px'); s.setProperty('--row', d.row + 'px');
       s.setProperty('--mfs', Math.round(L * 0.155) + 'px');
@@ -1127,6 +1135,7 @@
     load();
   })();
   </script>
+  <script src="assets/js/game-shell.js?v=20261014a" data-game=".cr-game" data-stage=".cr-stage" data-min="280" defer></script>
 </body>
 
 </html>
