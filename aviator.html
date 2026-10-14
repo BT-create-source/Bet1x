@@ -19,6 +19,12 @@
   body.gs-on .aviator-wrapper { position: relative; }
   body.gs-on #topRoundLabel { position: absolute; top: 12px; right: 18px; z-index: 6; margin: 0; pointer-events: none; }
   body.gs-on .gs-burger { top: 16px; left: 16px; }
+  .av-balance { display: none; }
+  body.gs-on .av-balance:not([hidden]) {
+    display: inline-flex; align-items: center; position: absolute; top: 8px; left: 58px; z-index: 6; height: 40px; box-sizing: border-box;
+    font: 700 14px var(--font-mono, monospace); color: var(--green, #22c55e); background: rgba(16, 20, 40, .82);
+    border: 1px solid rgba(255,255,255,.12); border-radius: 999px; padding: 0 16px; backdrop-filter: blur(4px);
+  }
 
   /* ---- the Place Bet / Cancel / Cash Out button: a proper rounded game button ---- */
   .console-right { display: flex; min-width: 150px; }
@@ -95,6 +101,8 @@
         <!-- Populated dynamically -->
       </div>
       <div class="aviator-round-label" id="topRoundLabel">Round: #—</div>
+      <!-- the player's balance on the flight area, beside the menu button (like Astronaut); kept live by ui-common.js -->
+      <span class="av-balance" id="avBalance" data-wallet-chip hidden></span>
 
       <!-- Center: Stage / Canvas Area -->
       <div class="aviator-stage">
@@ -1377,5 +1385,15 @@ window.addEventListener('pagehide', () => {
 });
 </script>
   <script src="assets/js/game-shell.js?v=20261014k" data-game=".aviator-wrapper" data-stage=".aviator-stage" data-until=".aviator-grid-controls" data-min="220" defer></script>
+<script>
+  // the balance pill on the flight area: only for a signed-in player
+  (function () {
+    var el = document.getElementById('avBalance');
+    if (el && typeof getCurrentUser === 'function' && getCurrentUser() && getCurrentUser().username) {
+      el.hidden = false;
+      if (typeof renderWalletChips === 'function') renderWalletChips();
+    }
+  })();
+</script>
 </body>
 </html>
