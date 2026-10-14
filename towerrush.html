@@ -194,7 +194,8 @@
       .tr-wrap { margin-top: 8px; }
       .tr-game { grid-template-columns: minmax(0, 1fr) 132px; max-width: none; }
       /* on phones the page scrolls the game to the top of the screen, so it fills the display */
-      .tr-stage { height: clamp(440px, calc(100svh - 100px), 900px); }
+      /* about 1.7 times as tall as it is wide: a taller box would only push the hanging block far above the tower */
+      .tr-stage { height: clamp(380px, min(calc((100vw - 156px) * 1.7), calc(100svh - 100px)), 620px); }
       .tr-deck { padding: 10px 8px; gap: 10px; }
       .tr-deck .tr-amount { flex-wrap: wrap; height: auto; padding: 6px 4px; gap: 4px; }
       .tr-deck .tr-amount .val { order: -1; flex: 1 1 100%; }
