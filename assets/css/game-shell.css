@@ -8,6 +8,10 @@ body.gs-on .sub-navbar,
 body.gs-on #bet1x-win-ticker,
 body.gs-on footer { display: none !important; }
 body.gs-on { padding-bottom: 0 !important; }
+/* menu-only pages (data-mode="nav"): the header stays, the games strip goes */
+body.gs-nav .sub-navbar { display: none !important; }
+body.gs-nav .mobile-hamburger-btn { display: none !important; }   /* the home page's own menu button: this one replaces it */
+.gs-logo-wrap { display: inline-flex; align-items: center; gap: 10px; }
 
 /* the hamburger */
 .gs-burger {
@@ -17,6 +21,8 @@ body.gs-on { padding-bottom: 0 !important; }
   gap: 4px; cursor: pointer; padding: 0; box-shadow: 0 4px 14px rgba(0,0,0,.35);
 }
 .gs-burger span { display: block; width: 18px; height: 2px; border-radius: 2px; background: #fff; transition: transform .2s, opacity .2s; }
+/* in the header, beside the logo */
+.gs-burger.gs-inline { position: static; width: 38px; height: 38px; flex: 0 0 auto; box-shadow: none; background: rgba(255,255,255,.06); }
 body.gs-open .gs-burger span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
 body.gs-open .gs-burger span:nth-child(2) { opacity: 0; }
 body.gs-open .gs-burger span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }

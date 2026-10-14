@@ -18,6 +18,10 @@
  *               game block after it, e.g. a fairness bar, sits just below the first screen)
  *   data-min    the smallest the stretching part may get, in px (default 300)
  *   data-max    the largest it may get, in px (default none)
+ *
+ * Every other player page uses it in menu-only mode, data-mode="nav": the page and its header stay as
+ * they are, the scrolling games strip is hidden, and the hamburger sits in the header beside the logo:
+ *   <script src="assets/js/game-shell.js" data-mode="nav" defer></script>
  */
 (function () {
   'use strict';
@@ -28,6 +32,7 @@
     until: me && me.dataset.until,
     min: Number(me && me.dataset.min) || 300,
     max: Number(me && me.dataset.max) || Infinity,
+    nav: !!(me && me.dataset.mode === 'nav'),
   };
   const GAMES = [
     ['index.html', 'Home'],
@@ -46,8 +51,8 @@
     ['youreleven.html', 'Your 11'],
   ];
 
-  document.documentElement.classList.add('gs-on');
-  document.body.classList.add('gs-on');
+  if (cfg.nav) document.body.classList.add('gs-nav');
+  else { document.documentElement.classList.add('gs-on'); document.body.classList.add('gs-on'); }
 
   // ---- hamburger + drawer ----------------------------------------------------------------------
   const here = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
@@ -67,11 +72,22 @@
     + '<div class="gs-account"></div>'
     + '<div class="gs-links">' + GAMES.map(([href, name]) =>
       `<a href="${href}" class="gs-link${href === here ? ' active' : ''}">${name}</a>`).join('') + '</div>';
-  document.body.append(btn, scrim, drawer);
+  document.body.append(scrim, drawer);
+  const logo = cfg.nav && document.querySelector('.exchange-header .exchange-logo-box');
+  if (logo) {
+    // beside the logo, the two kept together so a header that spreads its items apart keeps them side by side
+    btn.classList.add('gs-inline');
+    const wrap = document.createElement('span');
+    wrap.className = 'gs-logo-wrap';
+    logo.parentNode.insertBefore(wrap, logo);
+    wrap.append(btn, logo);
+  }
+  else document.body.append(btn);
 
-  // the header's account area (balance, deposit, log in / out) moves into the drawer
-  const auth = document.getElementById('headerAuthArea');
+  // full-screen pages: the header's account area (balance, deposit, log in / out) moves into the drawer
+  const auth = !cfg.nav && document.getElementById('headerAuthArea');
   if (auth) drawer.querySelector('.gs-account').appendChild(auth);
+  else drawer.querySelector('.gs-account').remove();
 
   const open = (yes) => {
     document.body.classList.toggle('gs-open', yes);
