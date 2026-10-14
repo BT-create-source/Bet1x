@@ -19,6 +19,29 @@
   body.gs-on .aviator-wrapper { position: relative; }
   body.gs-on #topRoundLabel { position: absolute; top: 12px; right: 18px; z-index: 6; margin: 0; pointer-events: none; }
   body.gs-on .gs-burger { top: 16px; left: 16px; }
+
+  /* ---- the Place Bet / Cancel / Cash Out button: a proper rounded game button ---- */
+  .console-right { display: flex; min-width: 150px; }
+  .big-bet-btn {
+    flex: 1; width: 100%; min-height: 76px; border: 0; border-radius: 16px; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 8px 14px;
+    font-family: 'Poppins', var(--font-body, sans-serif); color: #fff; letter-spacing: .3px;
+    box-shadow: 0 6px 18px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.28), inset 0 -3px 0 rgba(0,0,0,.18);
+    transition: transform .08s ease, filter .15s ease, box-shadow .15s ease;
+  }
+  .big-bet-btn .label { font-size: 18px; font-weight: 800; line-height: 1.1; text-transform: none; }
+  .big-bet-btn .sub-label { font-size: 13px; font-weight: 600; opacity: .9; line-height: 1.2; }
+  .big-bet-btn:hover:not(:disabled) { filter: brightness(1.08); }
+  .big-bet-btn:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 3px 10px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.2); }
+  .big-bet-btn:disabled { filter: grayscale(.5) brightness(.75); cursor: not-allowed; }
+  .big-bet-btn.bet { background: linear-gradient(180deg, #ff5a76 0%, #e8244a 55%, #c4143a 100%); }
+  .big-bet-btn.cancel { background: linear-gradient(180deg, #4a3040 0%, #3a2232 100%); border: 1.5px solid #ff5a76; }
+  .big-bet-btn.cashout { background: linear-gradient(180deg, #ffc24a 0%, #f59e0b 55%, #d97706 100%); color: #1f1300; }
+  .big-bet-btn.cashout .sub-label { opacity: 1; font-weight: 800; }
+  @media (max-width: 480px) {
+    .console-right { min-width: 0; }
+    .big-bet-btn { border-radius: 14px; }
+  }
   /* full-screen page: no live-bets column and no multiplier strip; the game takes the whole width */
   body.gs-on .live-bets-card, body.gs-on #multHistory { display: none !important; }
   body.gs-on .aviator-layout-grid { display: block; }
