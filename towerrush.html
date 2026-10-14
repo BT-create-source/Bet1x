@@ -237,7 +237,7 @@
     .tr-modal-card li, .tr-modal-card p { font-size: 13.5px; color: #c6c9d3; line-height: 1.55; }
     .tr-modal-close { position: absolute; right: 10px; top: 8px; width: 32px; height: 32px; border: 0; border-radius: 8px; background: #2e323c; color: #fff; font-size: 20px; cursor: pointer; }
   </style>
-  <link rel="stylesheet" href="assets/css/game-shell.css?v=20261014f">
+  <link rel="stylesheet" href="assets/css/game-shell.css?v=20261014h">
 </head>
 
 <body class="exchange-theme">
@@ -730,7 +730,7 @@
     setInterval(() => { if (!busy && !document.hidden && state && state.status !== 'active') api('state').then((d) => { if (d.ok && d.state) setBalance(d.state.balance); }); }, 20000);
   })();
   </script>
-  <script src="assets/js/game-shell.js?v=20261014f" data-game=".tr-game" data-stage=".tr-stage" data-min="320" defer></script>
+  <script src="assets/js/game-shell.js?v=20261014h" data-game=".tr-game" data-stage=".tr-stage" data-min="320" defer></script>
 </body>
 
 </html>

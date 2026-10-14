@@ -34,22 +34,33 @@
     max: Number(me && me.dataset.max) || Infinity,
     nav: !!(me && me.dataset.mode === 'nav'),
   };
-  const GAMES = [
-    ['index.html', 'Home'],
-    ['aviator.html', 'Vimaan'],
-    ['astronaut.html', 'Astronaut'],
-    ['chickenroad.html', 'Chicken Road'],
-    ['towerrush.html', 'Tower Rush'],
-    ['mining.html', 'Mines'],
-    ['teenpatti.html', 'Teen Patti'],
-    ['win.html', 'Sapre'],
-    ['win1.html', 'Becone'],
-    ['win2.html', 'Emred'],
-    ['win3.html', 'VIP'],
-    ['cricket.html', 'Cricket'],
-    ['boundarybaazi.html', 'Ball by Ball'],
-    ['youreleven.html', 'Your 11'],
+  // The drawer, laid out like a sportsbook / casino menu: sections of game cards with their covers.
+  const SECTIONS = [
+    ['Crash Games', [
+      ['aviator.html', 'Vimaan', 'assets/game_vimaan.jpg', 'HOT'],
+      ['astronaut.html', 'Astronaut', 'assets/game_astronaut.jpg', 'NEW'],
+    ]],
+    ['Casino', [
+      ['chickenroad.html', 'Chicken Road', 'assets/game_chickenroad.webp', 'HOT'],
+      ['towerrush.html', 'Tower Rush', 'assets/game_towerrush.webp', 'NEW'],
+      ['mining.html', 'Mines', 'assets/game_mines.jpg', ''],
+      ['teenpatti.html', 'Teen Patti', 'assets/game_teenpatti.jpg', ''],
+    ]],
+    ['Colour Prediction', [
+      ['win.html', 'Sapre', 'assets/game_sapre.jpg', ''],
+      ['win1.html', 'Becone', 'assets/game_becone.jpg', ''],
+      ['win2.html', 'Emred', 'assets/game_emred.jpg', ''],
+      ['win3.html', 'VIP', 'assets/game_vip.jpg', ''],
+    ]],
+    ['Sports', [
+      ['cricket.html', 'Cricket', '', 'LIVE'],
+      ['boundarybaazi.html', 'Ball by Ball', 'assets/game_boundary.jpg', 'LIVE'],
+      ['youreleven.html', 'Your 11', 'assets/game_youreleven.jpg', ''],
+    ]],
   ];
+  const ICON_HOME = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>';
+  // Cricket has no cover picture: a styled card (pitch-green, the game's name and what it offers)
+  const ICON_CRICKET = '<span class="gs-cric"><b>CRICKET</b><i>Match Odds &middot; Fancy</i></span>';
 
   if (cfg.nav) document.body.classList.add('gs-nav');
   else { document.documentElement.classList.add('gs-on'); document.body.classList.add('gs-on'); }
@@ -67,11 +78,16 @@
   const drawer = document.createElement('nav');
   drawer.className = 'gs-drawer';
   drawer.setAttribute('aria-label', 'Games');
-  drawer.innerHTML = '<div class="gs-head"><a href="index.html" class="gs-logo">Bet1x</a>'
+  const card = ([href, name, img, tag]) => `<a href="${href}" class="gs-card${href === here ? ' active' : ''}">`
+    + `<span class="gs-thumb">${img ? `<img src="${img}" alt="" loading="lazy">` : ICON_CRICKET}`
+    + `${tag ? `<em class="gs-tag gs-tag-${tag.toLowerCase()}">${tag}</em>` : ''}</span>`
+    + `<span class="gs-name">${name}</span></a>`;
+  drawer.innerHTML = '<div class="gs-head"><a href="index.html" class="gs-logo"><img src="assets/logo-icon.png" alt=""><span>Bet<b>1x</b></span></a>'
     + '<button type="button" class="gs-close" aria-label="Close menu">&times;</button></div>'
     + '<div class="gs-account"></div>'
-    + '<div class="gs-links">' + GAMES.map(([href, name]) =>
-      `<a href="${href}" class="gs-link${href === here ? ' active' : ''}">${name}</a>`).join('') + '</div>';
+    + '<div class="gs-cash"><a href="cashier.html" class="gs-dep">Deposit</a><a href="cashier.html?tab=withdraw" class="gs-wd">Withdraw</a></div>'
+    + `<a href="index.html" class="gs-home${here === 'index.html' ? ' active' : ''}">${ICON_HOME}<span>Home</span></a>`
+    + SECTIONS.map(([title, games]) => `<div class="gs-sec"><div class="gs-sec-h">${title}</div><div class="gs-grid">${games.map(card).join('')}</div></div>`).join('');
   document.body.append(scrim, drawer);
   const logo = cfg.nav && document.querySelector('.exchange-header .exchange-logo-box');
   if (logo) {

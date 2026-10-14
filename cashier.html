@@ -328,7 +328,7 @@
       100% { transform: rotate(0deg); }
     }
   </style>
-  <link rel="stylesheet" href="assets/css/game-shell.css?v=20261014f">
+  <link rel="stylesheet" href="assets/css/game-shell.css?v=20261014h">
 </head>
 <body class="exchange-theme">
 
@@ -1112,6 +1112,12 @@
       });
     }
   </script>
-  <script src="assets/js/game-shell.js?v=20261014f" data-mode="nav" defer></script>
+  <script src="assets/js/game-shell.js?v=20261014h" data-mode="nav" defer></script>
+  <script>
+    // cashier.html?tab=withdraw (the menu's Withdraw button) opens straight on the Withdraw tab
+    window.addEventListener('load', function () {
+      try { if (new URLSearchParams(location.search).get('tab') === 'withdraw' && typeof switchCashierTab === 'function') switchCashierTab('withdraw'); } catch (e) {}
+    });
+  </script>
 </body>
 </html>
