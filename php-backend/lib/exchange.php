@@ -8,9 +8,9 @@
  * Prices come from lib/odds-engine.php. Every bet is struck against the house, so this module is as
  * much about limiting what the house can lose as about taking bets:
  *
- *   - markets are OPEN only between deliveries (for window_seconds after a ball is recorded) and are
- *     SUSPENDED while a ball is in play, for wicket_suspend_seconds after a wicket, when the feed
- *     stalls, or when an operator suspends the match;
+ *   - markets stay OPEN through every ball (there is no "ball running" suspension) and are SUSPENDED
+ *     only for wicket_suspend_seconds after a wicket, when the feed stalls, or when an operator
+ *     suspends the match;
  *   - a bet is struck at the CURRENT price, and refused ("odds changed") if that is worse for the
  *     player than the price they saw;
  *   - per-bet stake limits, a per-player liability cap per market, and a cap on the house's worst-case
@@ -40,7 +40,7 @@ function mx_config_defaults() {
         'min_stake' => 100, 'max_stake_mo' => 25000, 'max_stake_bm' => 50000, 'max_stake_fancy' => 25000,
         'user_max_liability_market' => 100000,
         'house_max_loss_market' => 200000,
-        'window_seconds' => 20,           // betting stays open this long after each delivery
+        'window_seconds' => 20,           // unused: markets no longer suspend for a ball running
         'ball_guard_seconds' => 4,        // bets this close before a ball are void
         'wicket_suspend_seconds' => 25,   // extra pause after a wicket, while the market reprices
     ];
@@ -169,8 +169,9 @@ function mx_gate(array $feed, array $st, array $settings, array $deliveries, $no
     if (!empty($last['is_wicket']) && $since < ((int) $cfg['wicket_suspend_seconds']) * 1000) {
         return ['open' => false, 'reason' => 'Wicket — reopening shortly'];
     }
-    if ($since <= ((int) $cfg['window_seconds']) * 1000) return ['open' => true, 'reason' => 'Open'];
-    return ['open' => false, 'reason' => 'Ball running'];
+    // No "ball running" suspension: betting stays open while the ball is in play. A bet that lands
+    // on a ball already bowled is still voided by the late-bet guard in mx_process_match().
+    return ['open' => true, 'reason' => 'Open'];
 }
 
 function mx_team_name(array $feed, $side) { return $side === 'a' ? $feed['team_a'] : $feed['team_b']; }
@@ -431,7 +432,10 @@ function mx_process_match($matchKey, $nowMs = null) {
             $t = sql_to_ms($b['created_at']);
             foreach ($deliveries as $d) {
                 $lo = (int) $d['first_seen_ms'] - $guard;
-                $hi = max((int) $d['first_seen_ms'], (int) ($d['received_ms'] ?? $d['first_seen_ms']));
+                // received_ms is the row's last update, so a later correction to the ball (a fielder, a
+                // batter key) moves it forward. Cap it: a correction minutes later must not void every
+                // bet struck since — bets the players have often already lost.
+                $hi = max((int) $d['first_seen_ms'], min((int) ($d['received_ms'] ?? $d['first_seen_ms']), (int) $d['first_seen_ms'] + 60000));
                 if ($t >= $lo && $t <= $hi) {
                     if (mx_void_bet((int) $b['id'], 'struck while a ball was being bowled')) $sum['voided_late']++;
                     break;

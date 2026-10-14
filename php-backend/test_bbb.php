@@ -59,7 +59,7 @@ check(near(array_sum($a['payouts']), $a['paid']), 'payouts sum to exactly what i
 check($a['payouts'][1] >= 2 * $a['payouts'][2] - 0.02, 'payouts are in proportion to stake');
 check(!isset($a['payouts'][3]) && !isset($a['payouts'][4]), 'losers are paid nothing');
 $b = bbb_allocate($bets, '6', 10);
-check($b['mode'] === 'refund_no_winner' && near($b['rake'], 0) && near(array_sum($b['payouts']), 483.33), 'nobody on the winner: every stake refunded, no rake');
+check($b['mode'] === 'no_winner' && !$b['payouts'] && near($b['paid'], 0) && near($b['rake'], 483.33), 'nobody on the winner: every bet lost, nothing refunded, the pool stays with the house');
 $c = bbb_allocate([['id' => 1, 'outcome' => '1', 'stake' => 100, 'created_at' => '1'], ['id' => 2, 'outcome' => '1', 'stake' => 200, 'created_at' => '2']], '1', 10);
 check(near($c['payouts'][1], 100) && near($c['payouts'][2], 200) && near($c['rake'], 0), 'everyone on the winner: stakes back, the house takes nothing');
 $d = bbb_allocate([['id' => 1, 'outcome' => '1', 'stake' => 100, 'created_at' => '1'], ['id' => 2, 'outcome' => '0', 'stake' => 5, 'created_at' => '2']], '1', 10);
@@ -144,12 +144,16 @@ check($rejectedLate > 0, 'bets on a closed market are refused');
 
 // Markets must line up with deliveries: each settled market's outcome is its delivery's outcome.
 $deliveries = cricket_match_deliveries($KEY);
-$byPos = []; $cnt = [];
-foreach ($deliveries as $d) { $idx = $cnt[$d['innings']] ?? 0; $byPos[$d['innings'] . ':' . $idx] = $d; $cnt[$d['innings']] = $idx + 1; }
+$byBall = []; $lg = []; $at = [];
+foreach ($deliveries as $d) {
+    $i = (int) $d['innings']; $s = $lg[$i] ?? 0; $a = $at[$i] ?? 0;
+    $byBall[$i . ':' . $s . ':' . $a] = $d;
+    if ($d['is_legal']) { $lg[$i] = $s + 1; $at[$i] = 0; } else $at[$i] = $a + 1;
+}
 $mismatch = 0;
 foreach ($rounds as $r) {
     if ($r['status'] !== 'SETTLED') continue;
-    $d = $byPos[$r['innings'] . ':' . $r['delivery_idx']] ?? null;
+    $d = $byBall[$r['innings'] . ':' . $r['slot'] . ':' . $r['attempt']] ?? null;
     if (!$d || bbb_classify($d) !== $r['outcome'] || $d['uid'] !== $r['result_ball_uid']) $mismatch++;
     if ($d && !$d['is_legal']) $wideMarkets++;
 }

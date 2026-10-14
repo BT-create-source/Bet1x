@@ -252,11 +252,11 @@ cricket_feed_ingest(cricket_mock_snapshot($KEY, $nextTs + 2000), 'mock', $nextTs
 $st = $rl['ok'] ? one('SELECT "status","void_reason" FROM "mx_bets" WHERE "id" = ?', [$rl['bet_id']]) : null;
 check(!$bookL['markets']['MO']['open'] || ($st && $st['status'] === 'VOID'), 'a bet struck half a second before a ball is voided and refunded (or the market was already suspended)');
 
-// Ball running: once the window has passed, the market suspends.
+// No ball-running suspension: long after the last ball the market is still open.
 $cfgNow = mx_config();
 at($nextTs + 2000 + ($cfgNow['window_seconds'] + 1) * 1000);
 $b2 = mx_markets($KEY, $nextTs + 2000 + ($cfgNow['window_seconds'] + 1) * 1000);
-check(!$b2['markets']['MO']['open'] && $b2['markets']['MO']['reason'] === 'Ball running', 'after the betting window the markets show BALL RUNNING');
+check($b2['markets']['MO']['open'], 'markets stay open while a ball is running');
 
 // Abandoned: everything void.
 putenv('CRICKET_MOCK_ABANDON_EVERY=1');

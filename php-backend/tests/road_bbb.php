@@ -118,11 +118,15 @@ road_check(in_array($ra['status'], ['SETTLED', 'VOID'], true) && road_near($ra['
 road_section('3. Every market against an independent reading of its ball');
 $final = cricket_mock_snapshot($KEY, $sim['ended_ms'] + 200000);
 $order = $final['play']['innings_order'];
-$byPos = []; $cnt = [];
-foreach ($final['related_balls'] as $b) { $i = array_search($b['innings'], $order, true) + 1; $idx = $cnt[$i] ?? 0; $byPos[$i . ':' . $idx] = $b; $cnt[$i] = $idx + 1; }
+$byBall = []; $lg = []; $at = [];
+foreach ($final['related_balls'] as $b) {
+    $i = array_search($b['innings'], $order, true) + 1; $s = $lg[$i] ?? 0; $a = $at[$i] ?? 0;
+    $byBall[$i . ':' . $s . ':' . $a] = $b;
+    if (in_array($b['ball_type'] ?? 'normal', ['wide', 'no_ball'], true)) $at[$i] = $a + 1; else { $lg[$i] = $s + 1; $at[$i] = 0; }
+}
 $wrong = []; $voidOk = true; $poolOk = true; $rakeOk = true; $minOk = true; $noWinnerOk = true; $rakeTotal = 0.0;
 foreach ($rounds as $r) {
-    $raw = $byPos[$r['innings'] . ':' . $r['delivery_idx']] ?? null;
+    $raw = $byBall[$r['innings'] . ':' . $r['slot'] . ':' . $r['attempt']] ?? null;
     $bets = all('SELECT * FROM "bbb_bets" WHERE "round_id" = ?', [(int) $r['id']]);
     $pool = array_sum(array_map(function ($b) { return (float) $b['stake']; }, $bets));
     $paid = array_sum(array_map(function ($b) { return (float) $b['payout']; }, $bets));
@@ -130,11 +134,11 @@ foreach ($rounds as $r) {
         $want = $raw ? oracle_bbb_outcome($raw) : null;
         if ($want !== $r['outcome']) $wrong[] = "round {$r['id']} {$r['label']}: settled " . $r['outcome'] . ', the ball says ' . json_encode($want);
         if (!road_near($pool, $paid + (float) $r['rake_taken'])) $poolOk = false;
-        if ((float) $r['rake_taken'] > $pool * (float) $r['rake_pct'] / 100 + 0.01) $rakeOk = false;
         $rakeTotal += (float) $r['rake_taken'];
         $winners = array_filter($bets, function ($b) use ($r) { return $b['outcome'] === $r['outcome']; });
+        if ($winners && (float) $r['rake_taken'] > $pool * (float) $r['rake_pct'] / 100 + 0.01) $rakeOk = false;
         foreach ($winners as $w) if ((float) $w['payout'] + 0.001 < (float) $w['stake']) $minOk = false;
-        if ($bets && !$winners) foreach ($bets as $b) if ($b['status'] !== 'REFUNDED' || !road_near($b['payout'], $b['stake'])) $noWinnerOk = false;
+        if ($bets && !$winners) foreach ($bets as $b) if ($b['status'] !== 'LOST' || (float) $b['payout'] != 0) $noWinnerOk = false;
     } elseif ($r['status'] === 'VOID') {
         foreach ($bets as $b) if ($b['status'] !== 'REFUNDED' || !road_near($b['payout'], $b['stake'])) $voidOk = false;
         if ($raw && oracle_bbb_outcome($raw) !== null && !in_array($r['void_reason'], ['ball_before_close', 'feed_stalled', 'match_ended', 'match_abandoned'], true)) $wrong[] = "round {$r['id']} void as {$r['void_reason']} but its ball is listed";
@@ -142,9 +146,9 @@ foreach ($rounds as $r) {
 }
 road_check(!$wrong, "every settled market's result equals the independent reading of its ball (" . count($rounds) . ' markets)', $wrong ? array_slice($wrong, 0, 6) : null);
 road_check($poolOk, 'every settled pool: payouts + house rake = stakes, to the paisa');
-road_check($rakeOk, 'the house never took more than its rake percentage of any pool');
+road_check($rakeOk, 'the house never took more than its rake percentage of any pool that had winners');
 road_check($minOk, 'no winning bet was ever paid back less than its stake');
-road_check($noWinnerOk, 'when nobody picked the result, every stake was refunded in full');
+road_check($noWinnerOk, 'when nobody picked the result, every bet lost and nothing was refunded');
 road_check($voidOk, 'every voided market refunded every stake in full');
 road_check((int) scalar('SELECT COUNT(*) FROM "bbb_bets" b JOIN "bbb_rounds" r ON r."id" = b."round_id" WHERE r."match_key" = ? AND b."status" = ?', [$KEY, 'PENDING'], 0) === 0, 'no bet is left pending');
 

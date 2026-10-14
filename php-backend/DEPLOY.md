@@ -502,6 +502,13 @@ with no data cost at all.
   no house position. Betting closes a fixed window after the previous ball; a market whose ball
   arrived inside the window plus the latency guard is **voided and refunded**, as is everything open
   when the feed stalls (90 s), the match is abandoned, or the ball is unlisted (5 runs, super over).
+  If nobody picked the result, every bet on that ball **loses** and the pool stays with the house —
+  a lost bet is never refunded; refunds are only for the void cases above.
+  Each market is the ball its label names (legal balls before it + which re-bowl), never "the Nth
+  entry in the feed's list", so a feed correction (a wide re-posted as a legal four, a withdrawn
+  entry) cannot move a 19.4 bet onto 19.5. A re-bowl that a correction shows never happened is
+  voided and refunded. Schema: `sql/migration-014-bbb-slot-postgres.sql` (also applied
+  automatically on first use).
 
 ### Tests
 
@@ -543,7 +550,7 @@ until the first ball, and in-play prices start from evenly matched.
 | `min_stake`, `max_stake_mo/bm/fancy` | 100, 25k/50k/25k | per-bet limits |
 | `user_max_liability_market` | 100,000 | most one player can have at risk on one market |
 | `house_max_loss_market` | 200,000 | bets that would push the house's worst case past this are refused |
-| `window_seconds` | 20 | betting stays open this long after each ball, then BALL RUNNING |
+| `window_seconds` | 20 | no longer used — markets stay open while a ball is running |
 | `ball_guard_seconds` | 4 | bets struck this close before a ball (or before we heard of it) are voided |
 | `wicket_suspend_seconds` | 25 | extra suspension after a wicket |
 

@@ -96,10 +96,11 @@ foreach ($MATCHES as $src => $real) {
 
     // Ball by Ball: every settled round against an independent reading of its ball in the final snapshot.
     $order = array_flip($last['play']['innings_order'] ?? []);
-    $byInn = [];
+    $byBall = []; $lg = []; $at = [];
     foreach ($last['related_balls'] as $b) {
-        $inn = ($order[$b['innings']] ?? 0) + 1;
-        $byInn[$inn][] = $b;
+        $inn = ($order[$b['innings']] ?? 0) + 1; $s = $lg[$inn] ?? 0; $a = $at[$inn] ?? 0;
+        $byBall[$inn . ':' . $s . ':' . $a] = $b;
+        if (in_array($b['ball_type'] ?? 'normal', ['wide', 'no_ball'], true)) $at[$inn] = $a + 1; else { $lg[$inn] = $s + 1; $at[$inn] = 0; }
     }
     $bad = []; $stat = [];
     foreach (all('SELECT * FROM "bbb_rounds" WHERE "match_key" = ?', [$K]) as $r) {
@@ -108,15 +109,15 @@ foreach ($MATCHES as $src => $real) {
         $paid = (float) scalar('SELECT COALESCE(SUM("payout"),0) FROM "bbb_bets" WHERE "round_id" = ?', [(int) $r['id']], 0);
         if ($r['status'] === 'VOID') { if (!road_near($paid, $pool)) $bad[] = "void round {$r['id']} refunded $paid of $pool"; continue; }
         if ($r['status'] !== 'SETTLED') { $bad[] = "round {$r['id']} left {$r['status']}"; continue; }
-        $b = $byInn[(int) $r['innings']][(int) $r['delivery_idx']] ?? null;
+        $b = $byBall[(int) $r['innings'] . ':' . $r['slot'] . ':' . $r['attempt']] ?? null;
         if (!$b) { $bad[] = "round {$r['id']}: no such ball"; continue; }
         $type = $b['ball_type']; $runs = (int) $b['team_score']['runs'];
         $expect = in_array($type, ['wide', 'no_ball'], true) ? 'EX' : (!empty($b['team_score']['is_wicket']) ? 'W' : (string) $runs);
         if ($expect !== (string) $r['outcome']) $bad[] = "round {$r['id']} ({$r['label']}): settled {$r['outcome']}, ball says $expect";
         $winners = (float) scalar('SELECT COALESCE(SUM("stake"),0) FROM "bbb_bets" WHERE "round_id" = ? AND "outcome" = ?', [(int) $r['id'], (string) $r['outcome']], 0);
-        // Pool rules: nobody on the winner -> full refund; else winners share pool less rake, never below their stake.
+        // Pool rules: nobody on the winner -> every bet lost, nothing paid; else winners share pool less rake, never below their stake.
         if ($pool > 0) {
-            if ($winners == 0.0) { if (!road_near($paid, $pool)) $bad[] = "round {$r['id']}: nobody won but refunded $paid of $pool"; }
+            if ($winners == 0.0) { if ($paid > 0.001) $bad[] = "round {$r['id']}: nobody won but $paid was paid out"; }
             else {
                 $net = round($pool * (1 - (float) $r['rake_pct'] / 100), 2);
                 if ($paid > $pool + 0.01 || $paid + 0.02 < min($net, $pool) && $paid + 0.02 < $winners) $bad[] = "round {$r['id']}: paid $paid of pool $pool (net $net, winners staked $winners)";

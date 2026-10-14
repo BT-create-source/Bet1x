@@ -17,8 +17,9 @@
  * no house position on any outcome, so there is no ball the house would prefer and nothing to rig —
  * the live multipliers on screen are simply each outcome's share of the pool.
  *
- * Two edge cases are decided in the player's favour, as a fair tote does:
- *   - nobody backed the winning outcome: every stake is refunded in full, rake waived;
+ * Two edge cases:
+ *   - nobody backed the winning outcome: every bet on the market LOST, and the pool stays with the
+ *     house (a losing bet is never refunded — refunds are only for the void cases below);
  *   - the pool is so one-sided that a winner's share would be below their stake: winners get their
  *     stake back, and the house keeps only what the losers staked.
  *
@@ -148,7 +149,7 @@ function bbb_floor2($n) { return floor(((float) $n) * 100 + 1e-7) / 100; }
  * Split a settled pool. Pure, so the money arithmetic is tested without a database.
  *
  * $bets: [['id', 'outcome', 'stake', 'created_at'], ...]
- * Returns ['mode' => 'paid'|'refund_no_winner'|'empty', 'pool', 'rake', 'paid', 'payouts' => [id => amount]].
+ * Returns ['mode' => 'paid'|'no_winner'|'empty', 'pool', 'rake', 'paid', 'payouts' => [id => amount]].
  */
 function bbb_allocate(array $bets, $outcome, $rakePct) {
     $pool = 0.0;
@@ -161,10 +162,9 @@ function bbb_allocate(array $bets, $outcome, $rakePct) {
     foreach ($winners as $w) $winStake += (float) $w['stake'];
     $winStake = round($winStake, 2);
 
+    // Nobody picked the outcome: every bet lost, nothing is paid, the pool stays with the house.
     if (!$winners || $winStake <= 0) {
-        $payouts = [];
-        foreach ($bets as $b) $payouts[$b['id']] = round((float) $b['stake'], 2);
-        return ['mode' => 'refund_no_winner', 'pool' => $pool, 'rake' => 0.0, 'paid' => $pool, 'payouts' => $payouts];
+        return ['mode' => 'no_winner', 'pool' => $pool, 'rake' => $pool, 'paid' => 0.0, 'payouts' => []];
     }
 
     $distributable = round($pool * (1 - ((float) $rakePct) / 100), 2);
@@ -216,12 +216,16 @@ function bbb_next_delivery(array $feed, array $deliveries) {
     $maxBalls = bbb_innings_balls($format);
     $inningsCount = strtoupper((string) $format) === 'TEST' ? 4 : 2;
 
-    if (!$byInnings) return ['innings' => 1, 'idx' => 0, 'over_no' => 0, 'ball_no' => 1];
+    if (!$byInnings) return ['innings' => 1, 'idx' => 0, 'slot' => 0, 'attempt' => 0, 'over_no' => 0, 'ball_no' => 1];
 
     $cur = max(array_keys($byInnings));
     $balls = $byInnings[$cur];
-    $legal = 0; $wkts = 0; $runs = 0;
-    foreach ($balls as $b) { if ($b['is_legal']) $legal++; if ($b['is_wicket']) $wkts++; $runs += cricket_ball_total($b); }
+    $legal = 0; $wkts = 0; $runs = 0; $attempt = 0;
+    foreach ($balls as $b) {
+        if ($b['is_legal']) { $legal++; $attempt = 0; } else $attempt++;
+        if ($b['is_wicket']) $wkts++;
+        $runs += cricket_ball_total($b);
+    }
 
     $target = null;
     if ($cur === 2 && isset($byInnings[1])) {
@@ -234,13 +238,52 @@ function bbb_next_delivery(array $feed, array $deliveries) {
     $inningsOver = $wkts >= 10 || ($maxBalls !== null && $legal >= $maxBalls) || ($cur === $inningsCount && $target !== null && $runs >= $target);
     if ($inningsOver) {
         if ($cur >= $inningsCount) return null;
-        return ['innings' => $cur + 1, 'idx' => 0, 'over_no' => 0, 'ball_no' => 1];
+        return ['innings' => $cur + 1, 'idx' => 0, 'slot' => 0, 'attempt' => 0, 'over_no' => 0, 'ball_no' => 1];
     }
 
     // The label comes from the count of legal balls, not from the feed's over.ball numbering, which
     // providers disagree on for wides. A wide or no-ball is re-bowled, so the next delivery carries
     // the same label as the one it replaces — which is exactly what counting legal balls gives.
-    return ['innings' => $cur, 'idx' => count($balls), 'over_no' => intdiv($legal, 6), 'ball_no' => ($legal % 6) + 1];
+    // slot + attempt name the ball itself (19.4's re-bowl after a wide = slot 117, attempt 1), and are
+    // what the market settles on; idx is only where it happens to sit in the feed's list right now.
+    return ['innings' => $cur, 'idx' => count($balls), 'slot' => $legal, 'attempt' => $attempt,
+            'over_no' => intdiv($legal, 6), 'ball_no' => ($legal % 6) + 1];
+}
+
+/**
+ * Index deliveries by the ball they are: "innings:slot:attempt" => delivery, where slot is the legal
+ * balls bowled before it in the innings and attempt the wides/no-balls already bowled in that slot.
+ * Also returns, per "innings:slot", the attempt at which that slot's legal ball came, so a market on
+ * a re-bowl that never happened (the "wide" was corrected to a legal ball) can be recognised.
+ */
+function bbb_index_by_ball(array $deliveries) {
+    $byBall = []; $closedAt = []; $legal = []; $attempt = [];
+    foreach ($deliveries as $d) {
+        if (!empty($d['is_super_over'])) continue;
+        $i = (int) $d['innings'];
+        $s = $legal[$i] ?? 0; $a = $attempt[$i] ?? 0;
+        $byBall[$i . ':' . $s . ':' . $a] = $d;
+        if ($d['is_legal']) { $closedAt[$i . ':' . $s] = ['attempt' => $a, 'delivery' => $d]; $legal[$i] = $s + 1; $attempt[$i] = 0; }
+        else $attempt[$i] = $a + 1;
+    }
+    return ['by_ball' => $byBall, 'closed_at' => $closedAt];
+}
+
+/**
+ * Markets are keyed by slot + attempt (sql/migration-014). Applied here as well, once, so a deploy
+ * that has not run the migration yet still works. Additive and idempotent.
+ */
+function bbb_ensure_schema() {
+    static $done = false;
+    if ($done) return;
+    if ((int) state_get('bbb_schema_version') < 14) {
+        q('ALTER TABLE "bbb_rounds" ADD COLUMN IF NOT EXISTS "slot" INTEGER');
+        q('ALTER TABLE "bbb_rounds" ADD COLUMN IF NOT EXISTS "attempt" INTEGER');
+        q('ALTER TABLE "bbb_rounds" DROP CONSTRAINT IF EXISTS "bbb_rounds_one_per_delivery"');
+        q('CREATE UNIQUE INDEX IF NOT EXISTS "bbb_rounds_one_per_ball" ON "bbb_rounds" ("match_key", "innings", "slot", "attempt")');
+        state_set('bbb_schema_version', 14);
+    }
+    $done = true;
 }
 
 function bbb_label(array $next, array $feed) {
@@ -268,9 +311,11 @@ function bbb_process_match($matchKey, $nowMs = null) {
     $feed = cricket_match_feed_row($matchKey);
     if (!$feed) return ['ok' => false, 'error' => 'unknown match'];
     $cfg = bbb_config();
+    bbb_ensure_schema();
     $deliveries = cricket_match_deliveries($matchKey);
+    $ix = bbb_index_by_ball($deliveries);
 
-    // Index deliveries by (innings, position within innings).
+    // Position within the innings: only for markets opened before migration 014 (slot NULL).
     $pos = [];
     $count = [];
     foreach ($deliveries as $d) {
@@ -287,9 +332,21 @@ function bbb_process_match($matchKey, $nowMs = null) {
     $pending = all('SELECT * FROM "bbb_rounds" WHERE "match_key" = ? AND "status" IN (?, ?) ORDER BY "id" ASC',
                    [$matchKey, 'OPEN', 'SUSPENDED']);
     foreach ($pending as $r) {
-        $k = $r['innings'] . ':' . $r['delivery_idx'];
-        if (!isset($pos[$k])) continue;
-        $d = $pos[$k];
+        if ($r['slot'] === null) {
+            $d = $pos[$r['innings'] . ':' . $r['delivery_idx']] ?? null;
+        } else {
+            // The market is the ball its label names, wherever the feed's corrections have moved it.
+            $d = $ix['by_ball'][$r['innings'] . ':' . $r['slot'] . ':' . $r['attempt']] ?? null;
+            $closed = $ix['closed_at'][$r['innings'] . ':' . $r['slot']] ?? null;
+            if (!$d && $closed && (int) $closed['attempt'] < (int) $r['attempt']) {
+                // A re-bowl that never happened: the wide/no-ball before it was corrected to a legal
+                // ball. A feed glitch, so the market is voided, once that correction has stood.
+                if ($now - (int) $closed['delivery']['received_ms'] < ((int) $cfg['confirm_seconds']) * 1000) continue;
+                if (bbb_void_round((int) $r['id'], 'ball_withdrawn')['ok']) $summary['voided']++;
+                continue;
+            }
+        }
+        if (!$d) continue;
         // Not yet: the ball changed (or arrived) too recently to be trusted. A later pass settles it.
         if ($now - (int) $d['received_ms'] < ((int) $cfg['confirm_seconds']) * 1000) continue;
         $closesMs = sql_to_ms($r['closes_at']);
@@ -332,8 +389,8 @@ function bbb_process_match($matchKey, $nowMs = null) {
     $next = bbb_next_delivery($feed, $deliveries);
     if ($next === null) return ['ok' => true] + $summary;
 
-    $exists = one('SELECT "id" FROM "bbb_rounds" WHERE "match_key" = ? AND "innings" = ? AND "delivery_idx" = ?',
-                  [$matchKey, $next['innings'], $next['idx']]);
+    $exists = one('SELECT "id" FROM "bbb_rounds" WHERE "match_key" = ? AND "innings" = ? AND "slot" = ? AND "attempt" = ?',
+                  [$matchKey, $next['innings'], $next['slot'], $next['attempt']]);
     // The window runs from when the previous ball was BOWLED, not from when we got round to opening the
     // market. If that leaves too little time (the update arrived late), the market is not opened at all
     // rather than opened only to be voided when the next ball lands inside its window.
@@ -345,10 +402,10 @@ function bbb_process_match($matchKey, $nowMs = null) {
     }
     if (!$exists) {
         $opened = affected(
-            'INSERT INTO "bbb_rounds" ("match_key","innings","delivery_idx","over_no","ball_no","label","status",'
-            . '"rake_pct","opened_at","closes_at") VALUES (?,?,?,?,?,?,?,?,?,?) '
-            . 'ON CONFLICT ("match_key","innings","delivery_idx") DO NOTHING',
-            [$matchKey, $next['innings'], $next['idx'], $next['over_no'], $next['ball_no'], bbb_label($next, $feed),
+            'INSERT INTO "bbb_rounds" ("match_key","innings","delivery_idx","slot","attempt","over_no","ball_no","label","status",'
+            . '"rake_pct","opened_at","closes_at") VALUES (?,?,?,?,?,?,?,?,?,?,?,?) '
+            . 'ON CONFLICT ("match_key","innings","slot","attempt") DO NOTHING',
+            [$matchKey, $next['innings'], $next['idx'], $next['slot'], $next['attempt'], $next['over_no'], $next['ball_no'], bbb_label($next, $feed),
              'OPEN', (float) $cfg['rake_pct'], ms_to_sql($now), ms_to_sql($closesMs)]
         );
         $summary['opened'] += $opened;
@@ -373,12 +430,7 @@ function bbb_settle_round($roundId, $outcome, array $delivery) {
 
         foreach ($bets as $b) {
             $pay = $alloc['payouts'][$b['id']] ?? 0.0;
-            if ($alloc['mode'] === 'refund_no_winner') {
-                credit_wallet((int) $b['user_id'], $pay);
-                insert_transaction(new_record_id('BBBR'), (string) $b['username'], 'Deposit', $pay,
-                    'Ball by Ball Refund — ' . $r['label'] . ' (no one picked ' . ($labels[$outcome] ?? $outcome) . ')', 'Completed');
-                q('UPDATE "bbb_bets" SET "status" = ?, "payout" = ?, "settled_at" = ? WHERE "id" = ?', ['REFUNDED', $pay, $nowSql, $b['id']]);
-            } elseif ($pay > 0) {
+            if ($pay > 0) {
                 credit_wallet((int) $b['user_id'], $pay);
                 insert_transaction(new_record_id('BBBW'), (string) $b['username'], 'Deposit', $pay,
                     'Ball by Ball Win — ' . $r['label'] . ' · ' . ($labels[$outcome] ?? $outcome), 'Completed');
@@ -422,6 +474,7 @@ function bbb_void_reason_text($reason) {
     $map = [
         'ball_before_close'   => 'the ball was bowled before betting could be confirmed closed',
         'outcome_not_offered' => 'the ball produced a result this market does not list',
+        'ball_withdrawn'      => 'the data feed corrected the ball before it, so this ball was never bowled',
         'feed_stalled'        => 'live data was interrupted',
         'match_abandoned'     => 'the match was abandoned',
         'match_ended'         => 'the match ended',
