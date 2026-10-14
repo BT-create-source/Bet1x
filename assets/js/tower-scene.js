@@ -33,8 +33,8 @@
   const art = (n) => window.TowerArt.get(n);
 
   // the trolley's travel and the pendulum hanging from it
-  const TROLLEY_A = 82, TROLLEY_P = 2.8; // the trolley's travel (units) and period (s)
-  const W0SQ = 27;                       // pendulum stiffness g/L (rad/s^2): ~1.2 s natural period
+  const TROLLEY_A = 75, TROLLEY_P = 1.6; // the trolley's travel (units) and period (s): a brisk swing, so the right release moment comes round fast
+  const W0SQ = 75;                       // pendulum stiffness g/L (rad/s^2): ~0.7 s natural period, well clear of the trolley's (no runaway swing)
   const DAMP = 0.7;                      // swing damping (1/s)
   const GRAV = 3000;                     // free-fall gravity (units/s^2)
   const STEP = 1 / 240;                  // physics step (s)
@@ -328,8 +328,8 @@
           if (collapse) return Math.abs(o) > lo && Math.abs(o) < hi;
           const f = Math.abs(o) / half;
           if (f < b0 || f > b1) return false;
-          if (b1 > 0.1 && drift > 24 && o > 0) return false;                // drifted right: land on the left
-          if (b1 > 0.1 && drift < -24 && o < 0) return false;
+          if (b1 > 0.1 && drift > 40 && o > 0) return false;                // drifted right: land on the left
+          if (b1 > 0.1 && drift < -40 && o < 0) return false;
           return true;
         };
         const want = collapse ? (lo + hi) / 2 : half * (b0 + b1) / 2;
