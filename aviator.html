@@ -1222,7 +1222,7 @@ function drawFlightCanvas(mult) {
   const hoverOffsetX = (Math.cos(flightTime * 1.5) * 4) * hoverFactor;
 
   // Responsive plane sizing (bigger on phones than before: it read too small there)
-  const planeScale = width < 600 ? 1.25 : Math.max(0.95, Math.min(1.15, width / 500));
+  const planeScale = width < 600 ? 1.0 : Math.max(0.95, Math.min(1.15, width / 500));
   const planeSize = 92 * planeScale;
 
   const currentX = Math.min(width - (planeSize * 0.60), Math.max(startX, baseX + hoverOffsetX));
