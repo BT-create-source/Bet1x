@@ -21,9 +21,16 @@
        ========================================================================================== */
     .cr-wrap { max-width: 1180px; margin: 16px auto 0; padding: 0 14px; box-sizing: border-box; }
     /* full-screen game page (game-shell): the game starts at the very top, the bar leaves room for the menu */
-    body.gs-on .cr-wrap { margin-top: 0; }
-    body.gs-on .cr-bar { padding-left: 58px; }
-    @media (max-width: 600px) { body.gs-on .cr-wrap { padding: 0; } body.gs-on .cr-game { border-radius: 0; border: 0; } }
+    /* like Vimaan and Astronaut: full width, the road starts at the very top; the title bar goes, its
+       buttons float on the road's top-right and the menu button sits on its top-left */
+    body.gs-on .cr-wrap { max-width: none; margin: 0; padding: 0; }
+    body.gs-on .cr-game { position: relative; border-radius: 0; border: 0; }
+    body.gs-on .cr-bar { position: absolute; top: 0; left: 0; right: 0; z-index: 7; background: transparent; padding: 0 10px 0 64px; height: 58px; pointer-events: none; }
+    body.gs-on .cr-bar > * { pointer-events: auto; }
+    body.gs-on .cr-logo { display: none; }
+    body.gs-on .cr-bar { justify-content: flex-end; }
+    body.gs-on .cr-live { left: 64px !important; top: 62px !important; }
+    body.gs-on .gs-burger { top: 10px; left: 10px; }
     .cr-game {
       --chrome: #2a292e; --chrome-2: #36353b; --chrome-3: #424148; --ink: #f4f4f6; --ink-dim: #a9a8b0;
       --go: #3dbb4a; --go-2: #2b9a39; --cash: #f7c21a; --cash-2: #e0a20a; --navy: #2c3a63;
@@ -1135,7 +1142,7 @@
     load();
   })();
   </script>
-  <script src="assets/js/game-shell.js?v=20261014b" data-game=".cr-game" data-stage=".cr-stage" data-min="280" defer></script>
+  <script src="assets/js/game-shell.js?v=20261014d" data-game=".cr-game" data-stage=".cr-stage" data-min="280" defer></script>
 </body>
 
 </html>

@@ -178,8 +178,21 @@
     .tr-stage { grid-column: 1; grid-row: 2; height: clamp(460px, calc(100vh - 240px), 920px); }
     .tr-results { top: 21%; }
     /* full-screen game page (game-shell): the game starts at the very top, the bar leaves room for the menu */
+    /* like Vimaan and Astronaut: the sky starts at the very top; the title bar goes, its balance and
+       full-screen buttons float on the sky's top-right (left of the ... menu), the menu button on its top-left */
     body.gs-on .tr-wrap { margin-top: 0; }
-    body.gs-on .tr-bar { padding-left: 58px; }
+    body.gs-on .tr-bar { position: absolute; top: 0; left: 0; right: 210px; z-index: 7; background: transparent; padding: 0 56px 0 64px; height: 56px; pointer-events: none; }
+    body.gs-on .tr-bar > * { pointer-events: auto; }
+    body.gs-on .tr-logo { display: none; }
+    body.gs-on .tr-bar { justify-content: flex-end; }
+    body.gs-on .tr-game { position: relative; }
+    body.gs-on .tr-stage, body.gs-on .tr-deck { grid-row: 1; }
+    body.gs-on .tr-floors { left: 64px; top: 12px; }
+    body.gs-on .gs-burger { top: 10px; left: 10px; }
+    @media (max-width: 600px) {
+      body.gs-on .tr-bar { right: 0; }
+      body.gs-on .tr-deck { grid-row: 2; }
+    }
     body.gs-on .tr-wrap { max-width: none; padding: 0; }
     body.gs-on .tr-game { max-width: none; border-radius: 0; border: 0; }
     .tr-deck { grid-column: 2; grid-row: 2; display: flex; flex-direction: column; justify-content: center; gap: 12px;
@@ -717,7 +730,7 @@
     setInterval(() => { if (!busy && !document.hidden && state && state.status !== 'active') api('state').then((d) => { if (d.ok && d.state) setBalance(d.state.balance); }); }, 20000);
   })();
   </script>
-  <script src="assets/js/game-shell.js?v=20261014b" data-game=".tr-game" data-stage=".tr-stage" data-min="320" defer></script>
+  <script src="assets/js/game-shell.js?v=20261014d" data-game=".tr-game" data-stage=".tr-stage" data-min="320" defer></script>
 </body>
 
 </html>
