@@ -3900,3 +3900,27 @@ body.exchange-theme .footer {
 @media (prefers-reduced-motion: reduce) {
   .auth-pending-spinner { animation-duration: 2.4s; }
 }
+
+/* ---- Phones: the signed-in header on ONE line (logo, avatar, balance, deposit, logout icon).
+   It used to wrap onto three lines; the username and the word "Logout" are dropped here (the
+   profile avatar and the drawer still lead to the account). ---- */
+@media (max-width: 600px) {
+  .navbar.exchange-header, body.exchange-theme .navbar.exchange-header { padding: 8px 10px !important; gap: 6px !important; flex-wrap: nowrap !important; min-height: 0 !important; }
+  body.exchange-theme .exchange-logo-box { font-size: 19px !important; gap: 6px !important; flex-shrink: 0; padding: 0 !important; }
+  .gs-logo-wrap { flex-shrink: 0; }
+  body.exchange-theme .exchange-logo-box::before { width: 26px !important; height: 26px !important; }
+  #headerAuthArea { flex: 0 1 auto; min-width: 0; }
+  .header-user-info { flex-wrap: nowrap !important; gap: 6px !important; justify-content: flex-end !important; }
+  .header-user-info > span:not(.wallet-chip) { display: none !important; }       /* "Welcome, <name>" */
+  .header-profile-avatar { width: 26px !important; height: 26px !important; min-width: 26px !important; }
+  #headerAuthArea .wallet-chip { padding: 5px 8px !important; font-size: 11.5px !important; white-space: nowrap; }
+  .header-deposit-btn { padding: 6px 9px !important; font-size: 11.5px !important; white-space: nowrap; }
+  .header-logout-link { font-size: 0 !important; border-left: 0 !important; padding: 0 2px !important; line-height: 1; }
+  .header-logout-link::after { content: '\238B'; font-size: 17px; font-weight: 700; color: var(--red); }
+  .gs-logo-wrap { gap: 8px !important; }
+  .gs-burger.gs-inline { width: 34px !important; height: 34px !important; }
+}
+@media (max-width: 430px) {
+  body.exchange-theme .exchange-logo-box { font-size: 0 !important; gap: 0 !important; }   /* just the logo mark: room for the balance */
+  body.exchange-theme .exchange-logo-box::before { width: 30px !important; height: 30px !important; }
+}

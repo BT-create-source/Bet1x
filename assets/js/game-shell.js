@@ -65,8 +65,8 @@
   const ICON_CRICKET = '<span class="gs-cric"><b>CRICKET</b><i>Match Odds &middot; Fancy</i></span>';
 
   if (cfg.nav) document.body.classList.add('gs-nav');
-  if (!cfg.burger) return;                                        // no menu button on this page
   else { document.documentElement.classList.add('gs-on'); document.body.classList.add('gs-on'); }
+  if (!cfg.burger) return;                                        // no menu button on this page
 
   // ---- hamburger + drawer ----------------------------------------------------------------------
   const here = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
