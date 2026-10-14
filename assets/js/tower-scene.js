@@ -94,6 +94,14 @@
       s.appendChild(this.sky);
       this.world = svgEl('g');
       const st = art('street');
+      // On a wide screen the view is wider than the 400-unit street, so the street continues either
+      // side: copies of it, every other one mirrored so the repeat is not obvious.
+      for (let k = -3; k <= 3; k++) {
+        if (!k) continue;
+        const x = k * st.w, flip = k % 2 !== 0, side = art('streetSide');
+        this.world.appendChild(svgEl('image', { href: side.url, x: flip ? -st.w : 0, y: -window.TowerArt.STREET_TOP, width: st.w, height: st.h,
+          transform: flip ? `translate(${x} 0) scale(-1 1)` : `translate(${x} 0)` }));
+      }
       this.world.appendChild(svgEl('image', { href: st.url, x: 0, y: -window.TowerArt.STREET_TOP, width: st.w, height: st.h }));
       this.towerLayer = svgEl('g');
       this.world.appendChild(this.towerLayer);
@@ -123,8 +131,16 @@
     resize() {
       const r = this.svg.getBoundingClientRect();
       if (!r.width) return;
-      this.H = Math.round(W * r.height / r.width);
-      this.svg.setAttribute('viewBox', `0 0 ${W} ${this.H}`);
+      // The scene is designed 400 units wide. A tall box shows it exactly that wide; a wide box keeps at
+      // least MIN_VIEW_H units of height and shows more street either side, centred on the tower.
+      const MIN_VIEW_H = 600;
+      const aspect = r.height / r.width;
+      let vw = W, h = Math.round(W * aspect);
+      if (h < MIN_VIEW_H) { h = MIN_VIEW_H; vw = Math.round(MIN_VIEW_H / aspect); }
+      this.H = h;
+      const x0 = -Math.round((vw - W) / 2);
+      this.svg.setAttribute('viewBox', `${x0} 0 ${vw} ${this.H}`);
+      this.sky.setAttribute('x', x0); this.sky.setAttribute('width', vw);
       this.sky.setAttribute('height', this.H);
       if (this.floors) { this.aimCamera(); if (!this.floors.length) this.cam = this.camTarget; }
     }

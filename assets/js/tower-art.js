@@ -760,10 +760,11 @@
   // ---------------------------------------------------------------------------------------------
   // The street (one painted backdrop, ground level at y = STREET_TOP)
   // ---------------------------------------------------------------------------------------------
-  PAINTERS.street = function () {
+  PAINTERS.street = function (side) {
     const W = 400, H = STREET_TOP + STREET_BOTTOM, G = STREET_TOP;
     const { c, ctx } = canvas(W, H);
-    // sun glow and rays behind the shop
+    // sun glow and rays behind the shop (only behind the real Wine Store)
+    if (!side) {
     ctx.save();
     ctx.translate(200, G - 52);
     for (let i = 0; i < 26; i++) {
@@ -774,6 +775,7 @@
     ctx.fillStyle = rad(ctx, 0, 0, 0, 0, 0, 180, [[0, 'rgba(255,240,190,.95)'], [0.18, 'rgba(255,214,120,.7)'], [0.45, 'rgba(255,196,110,.25)'], [1, 'rgba(255,196,110,0)']]);
     ctx.fillRect(-200, -200, 400, 220);
     ctx.restore();
+    }
 
     // far tall building, right, with a roof garden
     building(ctx, 318, G - 255, 72, 150, '#a59fbd', { cols: 2, rows: 3, winW: 9, winH: 15, winTop: 20, gapY: 30, frame: '#e9e4ef', glass: 'cool' });
@@ -812,10 +814,11 @@
     // lamp post
     lamp(ctx, 74, G);
 
-    // the Wine Store: the foundation the tower is built on
-    wineStore(ctx, 200 - 59, G - 104, 118, 104);
+    // the Wine Store: the foundation the tower is built on (the side streets have a plain block there)
+    if (!side) wineStore(ctx, 200 - 59, G - 104, 118, 104);
+    else building(ctx, 200 - 62, G - 112, 124, 112, '#b9a99a', { cols: 3, rows: 2, winW: 14, winH: 18, winTop: 18, gapY: 44, frame: '#efe7dc', glass: 'cool', parapet: true });
     // street furniture
-    chalkboard(ctx, 128, G);
+    if (!side) chalkboard(ctx, 128, G);
     crates(ctx, 270, G);
     stool(ctx, 300, G);
 
@@ -1145,6 +1148,9 @@
     ctx.globalCompositeOperation = 'destination-out'; ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
     return { c, w: 36, h: 36 };
   };
+
+  /** The street either side of the tower on a wide screen: the same street, without the Wine Store. */
+  PAINTERS.streetSide = function () { return PAINTERS.street(true); };
 
   // ---------------------------------------------------------------------------------------------
   const cache = {};

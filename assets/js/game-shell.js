@@ -14,6 +14,8 @@
  *   data-game   the element that must fill the first screen
  *   data-stage  the part of it that stretches (its height is set so the game ends at the screen's
  *               bottom edge); leave it out to only give the game a full-screen minimum height
+ *   data-until  optional: fit so THIS element's bottom meets the screen's bottom edge (anything in the
+ *               game block after it, e.g. a fairness bar, sits just below the first screen)
  *   data-min    the smallest the stretching part may get, in px (default 300)
  *   data-max    the largest it may get, in px (default none)
  */
@@ -23,6 +25,7 @@
   const cfg = {
     game: me && me.dataset.game,
     stage: me && me.dataset.stage,
+    until: me && me.dataset.until,
     min: Number(me && me.dataset.min) || 300,
     max: Number(me && me.dataset.max) || Infinity,
   };
@@ -89,7 +92,8 @@
     const avail = vh - Math.max(0, top);                          // from the game's top to the screen's bottom edge
     const stage = cfg.stage && game.querySelector(cfg.stage) || (cfg.stage && document.querySelector(cfg.stage));
     if (!stage) { game.style.minHeight = avail + 'px'; return; }
-    const gh = game.getBoundingClientRect().height;
+    const until = cfg.until && document.querySelector(cfg.until);
+    const gh = until ? until.getBoundingClientRect().bottom - game.getBoundingClientRect().top : game.getBoundingClientRect().height;
     const sh = stage.getBoundingClientRect().height;
     const want = Math.round(Math.max(cfg.min, Math.min(cfg.max, sh + (avail - gh))));
     if (Math.abs(want - lastH) < 2 && Math.abs(gh - avail) < 3) return;

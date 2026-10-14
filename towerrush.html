@@ -9,8 +9,8 @@
   <script src="assets/js/ui-common.js"></script>
   <script src="assets/js/sound-fx.js"></script>
   <script src="assets/js/tower-sfx.js"></script>
-  <script src="assets/js/tower-art.js"></script>
-  <script src="assets/js/tower-scene.js?v=20261014c"></script>
+  <script src="assets/js/tower-art.js?v=20261014f"></script>
+  <script src="assets/js/tower-scene.js?v=20261014f"></script>
   <style>
     /* ==========================================================================================
        Tower Rush. The game frame is portrait like the original (crane, sky and street above a
@@ -180,7 +180,8 @@
     /* full-screen game page (game-shell): the game starts at the very top, the bar leaves room for the menu */
     body.gs-on .tr-wrap { margin-top: 0; }
     body.gs-on .tr-bar { padding-left: 58px; }
-    body.gs-on .tr-game { max-width: calc(clamp(360px, calc((100vh - 50px) * 0.66), 640px) + 210px); }
+    body.gs-on .tr-wrap { max-width: none; padding: 0; }
+    body.gs-on .tr-game { max-width: none; border-radius: 0; border: 0; }
     .tr-deck { grid-column: 2; grid-row: 2; display: flex; flex-direction: column; justify-content: center; gap: 12px;
       padding: 14px 12px; border-top: 0; border-left: 6px solid transparent;
       border-image: repeating-linear-gradient(-45deg, var(--hz) 0 12px, var(--hz-ink) 12px 24px) 6; }
@@ -206,6 +207,7 @@
       .tr-deck .tr-pill { flex: 0 0 auto; padding: 0 12px; }
       .tr-deck .tr-btn { flex: 1 1 0; height: 58px; font-size: 19px; }
       .tr-cash { font-size: 15px; }
+      #soundfx-toggle { bottom: 150px !important; }       /* the site's sound button, lifted off the deck */
     }
     @media (max-width: 420px) {
       .tr-wrap { padding: 0 8px; } .tr-hide-sm { display: none; }
@@ -715,7 +717,7 @@
     setInterval(() => { if (!busy && !document.hidden && state && state.status !== 'active') api('state').then((d) => { if (d.ok && d.state) setBalance(d.state.balance); }); }, 20000);
   })();
   </script>
-  <script src="assets/js/game-shell.js?v=20261014a" data-game=".tr-game" data-stage=".tr-stage" data-min="320" defer></script>
+  <script src="assets/js/game-shell.js?v=20261014b" data-game=".tr-game" data-stage=".tr-stage" data-min="320" defer></script>
 </body>
 
 </html>
