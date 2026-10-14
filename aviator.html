@@ -14,7 +14,11 @@
      flex:1 or margin-top:auto to pin the footer). */
   body { margin: 0; min-height: 100vh; }
   /* full-screen game page (game-shell): leave room at the top for the menu button */
-  body.gs-on .container.section-tight { padding: 56px 16px 0; max-width: none; }
+  body.gs-on .container.section-tight { padding: 8px 8px 0; max-width: none; }
+  /* the flight area starts at the very top; the menu button and the round number sit on it */
+  body.gs-on .aviator-wrapper { position: relative; }
+  body.gs-on #topRoundLabel { position: absolute; top: 12px; right: 18px; z-index: 6; margin: 0; pointer-events: none; }
+  body.gs-on .gs-burger { top: 16px; left: 16px; }
   /* full-screen page: no live-bets column and no multiplier strip; the game takes the whole width */
   body.gs-on .live-bets-card, body.gs-on #multHistory { display: none !important; }
   body.gs-on .aviator-layout-grid { display: block; }
@@ -1340,6 +1344,6 @@ window.addEventListener('pagehide', () => {
   }
 });
 </script>
-  <script src="assets/js/game-shell.js?v=20261014c" data-game=".aviator-wrapper" data-stage=".aviator-stage" data-until=".aviator-grid-controls" data-min="220" defer></script>
+  <script src="assets/js/game-shell.js?v=20261014d" data-game=".aviator-wrapper" data-stage=".aviator-stage" data-until=".aviator-grid-controls" data-min="220" defer></script>
 </body>
 </html>

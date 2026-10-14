@@ -19,8 +19,14 @@
     }
     .as-main { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
     /* full-screen game page (game-shell): the game starts at the top, its first panel leaves room for the menu */
-    body.gs-on .as-wrap { margin-top: 12px; }
-    @media (max-width: 900px) { body.gs-on .as-wrap { margin-top: 56px; } }
+    /* like Vimaan: no bets column, no multiplier strip, the full width; the space starts at the very top,
+       with the menu button, the balance and How to play sitting on it */
+    body.gs-on .as-wrap { display: block; max-width: none; margin: 0; padding: 8px 8px 0; }
+    body.gs-on .as-side, body.gs-on .as-history, body.gs-on .as-title { display: none !important; }
+    body.gs-on .as-main { position: relative; }
+    body.gs-on .as-topbar { position: absolute; top: 14px; left: 64px; z-index: 6; }
+    body.gs-on .gs-burger { top: 16px; left: 16px; }
+    @media (max-width: 600px) { body.gs-on .as-round { top: 56px; } }
 
     .as-topbar { display: flex; align-items: center; gap: 10px; justify-content: space-between; flex-wrap: wrap; }
     .as-title { display: flex; align-items: center; gap: 10px; }
@@ -959,7 +965,7 @@
     poll();
   })();
   </script>
-  <script src="assets/js/game-shell.js?v=20261014b" data-game=".as-main" data-stage=".as-sky" data-min="240" defer></script>
+  <script src="assets/js/game-shell.js?v=20261014d" data-game=".as-main" data-stage=".as-sky" data-min="240" defer></script>
 </body>
 
 </html>
