@@ -119,6 +119,14 @@
   function fit() {
     const game = cfg.game && document.querySelector(cfg.game);
     if (!game || fitting) return;
+    const stageEl = cfg.stage && (game.querySelector(cfg.stage) || document.querySelector(cfg.stage));
+    // In the browser's own full screen the game sizes itself: step aside (and drop our fixed height)
+    const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+    if (fsEl && (fsEl === game || fsEl.contains(game) || game.contains(fsEl))) {
+      if (stageEl) stageEl.style.removeProperty('height');
+      lastH = 0;
+      return;
+    }
     const vh = window.innerHeight;
     const top = game.getBoundingClientRect().top + window.scrollY;
     const avail = vh - Math.max(0, top);                          // from the game's top to the screen's bottom edge
@@ -139,6 +147,10 @@
   const refit = () => { clearTimeout(t); t = setTimeout(fit, 60); };
   window.addEventListener('resize', () => { if (!fitting) refit(); });
   window.addEventListener('orientationchange', () => setTimeout(fit, 250));
+  // entering / leaving the browser's full screen: let the game redraw for the new size
+  const onFs = () => { lastH = 0; fit(); setTimeout(() => { fit(); window.dispatchEvent(new Event('resize')); }, 120); };
+  document.addEventListener('fullscreenchange', onFs);
+  document.addEventListener('webkitfullscreenchange', onFs);
   window.addEventListener('load', () => { fit(); setTimeout(fit, 400); window.scrollTo(0, 0); });
   fit();
   // content that loads later (the game's own panels) can change the game's height: keep it fitted

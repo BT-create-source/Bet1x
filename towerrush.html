@@ -205,8 +205,9 @@
     .tr-deck .tr-btn { flex: 0 0 auto; height: 96px; }
     .tr-msg { margin-top: 0; min-height: 0; }
     .tr-msg:empty { display: none; }
-    .tr-game:fullscreen { display: grid; }
-    .tr-game:fullscreen .tr-stage { height: 100%; }
+    .tr-game:fullscreen { display: grid; height: 100vh; max-width: none !important; grid-template-rows: auto minmax(0, 1fr); }
+    .tr-game:fullscreen .tr-stage { height: 100% !important; }
+    body.gs-on .tr-game:fullscreen { grid-template-rows: minmax(0, 1fr); }
     @media (max-width: 900px) { .tr-wrap { flex-direction: column; align-items: center; } }
     @media (max-width: 600px) {
       /* phones: the game on top, the bet row and BUILD / CASHOUT in a deck below it */
@@ -237,7 +238,7 @@
     .tr-modal-card li, .tr-modal-card p { font-size: 13.5px; color: #c6c9d3; line-height: 1.55; }
     .tr-modal-close { position: absolute; right: 10px; top: 8px; width: 32px; height: 32px; border: 0; border-radius: 8px; background: #2e323c; color: #fff; font-size: 20px; cursor: pointer; }
   </style>
-  <link rel="stylesheet" href="assets/css/game-shell.css?v=20261014h">
+  <link rel="stylesheet" href="assets/css/game-shell.css?v=20261014i">
 </head>
 
 <body class="exchange-theme">
@@ -730,7 +731,7 @@
     setInterval(() => { if (!busy && !document.hidden && state && state.status !== 'active') api('state').then((d) => { if (d.ok && d.state) setBalance(d.state.balance); }); }, 20000);
   })();
   </script>
-  <script src="assets/js/game-shell.js?v=20261014h" data-game=".tr-game" data-stage=".tr-stage" data-min="320" defer></script>
+  <script src="assets/js/game-shell.js?v=20261014i" data-game=".tr-game" data-stage=".tr-stage" data-min="320" defer></script>
 </body>
 
 </html>
