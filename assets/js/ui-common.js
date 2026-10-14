@@ -503,8 +503,46 @@ function updateAuthHeaderUI() {
   renderWalletChips();
 }
 
+/** Ask before logging out: a small confirmation box in the site's style (Cancel / Log out). */
+function confirmLogout(onYes) {
+  let box = document.getElementById('bet1x-logout-confirm');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'bet1x-logout-confirm';
+    box.innerHTML = '<div class="blc-card" role="dialog" aria-modal="true" aria-labelledby="blcTitle">'
+      + '<div class="blc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v8"/><path d="M6.4 6.6a8 8 0 1 0 11.2 0"/></svg></div>'
+      + '<h3 id="blcTitle">Log out?</h3><p>You will need to log in again to play and see your balance.</p>'
+      + '<div class="blc-btns"><button type="button" class="blc-no">Cancel</button><button type="button" class="blc-yes">Log out</button></div></div>';
+    const css = document.createElement('style');
+    css.textContent = '#bet1x-logout-confirm{position:fixed;inset:0;z-index:100000;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(3,5,12,.72);backdrop-filter:blur(3px)}'
+      + '#bet1x-logout-confirm.show{display:flex}'
+      + '#bet1x-logout-confirm .blc-card{width:100%;max-width:340px;background:linear-gradient(180deg,#151a33,#0f1226);border:1px solid #262c50;border-radius:16px;padding:22px 20px 18px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.55);font-family:Poppins,sans-serif;animation:blcIn .18s ease-out}'
+      + '@keyframes blcIn{from{transform:scale(.92);opacity:0}}'
+      + '#bet1x-logout-confirm .blc-icon{width:52px;height:52px;margin:0 auto 10px;border-radius:50%;display:grid;place-items:center;color:#ff4d6a;background:rgba(255,77,106,.12);border:1px solid rgba(255,77,106,.35)}'
+      + '#bet1x-logout-confirm .blc-icon svg{width:26px;height:26px}'
+      + '#bet1x-logout-confirm h3{margin:0 0 6px;color:#fff;font-size:19px;font-weight:800}'
+      + '#bet1x-logout-confirm p{margin:0 0 18px;color:#a9aecb;font-size:13.5px;line-height:1.5}'
+      + '#bet1x-logout-confirm .blc-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px}'
+      + '#bet1x-logout-confirm button{height:44px;border-radius:10px;font:800 14px Poppins,sans-serif;cursor:pointer;border:0}'
+      + '#bet1x-logout-confirm .blc-no{background:#1c2142;color:#e3e6f5;border:1px solid #2c3260}'
+      + '#bet1x-logout-confirm .blc-yes{background:linear-gradient(180deg,#ff5a76,#d41f45);color:#fff;box-shadow:0 4px 14px rgba(212,31,69,.35)}';
+    document.head.appendChild(css);
+    document.body.appendChild(box);
+    box.addEventListener('click', (ev) => { if (ev.target === box) box.classList.remove('show'); });
+    box.querySelector('.blc-no').addEventListener('click', () => box.classList.remove('show'));
+    document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') box.classList.remove('show'); });
+  }
+  box.querySelector('.blc-yes').onclick = () => { box.classList.remove('show'); onYes(); };
+  box.classList.add('show');
+  setTimeout(() => box.querySelector('.blc-no').focus(), 30);
+}
+
 function handleHeaderLogout(e) {
   if (e) e.preventDefault();
+  confirmLogout(doHeaderLogout);
+}
+
+function doHeaderLogout() {
   const prefix = getApiPrefix();
   fetch(prefix + 'api/auth.php?action=logout').catch(() => {});
   localStorage.removeItem(CURRENT_USER_KEY);

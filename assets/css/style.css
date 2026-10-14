@@ -3915,8 +3915,12 @@ body.exchange-theme .footer {
   .header-profile-avatar { width: 26px !important; height: 26px !important; min-width: 26px !important; }
   #headerAuthArea .wallet-chip { padding: 5px 8px !important; font-size: 11.5px !important; white-space: nowrap; }
   .header-deposit-btn { padding: 6px 9px !important; font-size: 11.5px !important; white-space: nowrap; }
-  .header-logout-link { font-size: 0 !important; border-left: 0 !important; padding: 0 2px !important; line-height: 1; }
-  .header-logout-link::after { content: '\238B'; font-size: 17px; font-weight: 700; color: var(--red); }
+  /* logout: a proper tappable button with a power icon (the word is dropped to keep one line) */
+  .header-logout-link { font-size: 0 !important; border-left: 0 !important; padding: 0 !important; width: 34px; height: 34px; flex: 0 0 34px;
+    display: inline-flex !important; align-items: center; justify-content: center; border-radius: 9px;
+    border: 1px solid rgba(255, 77, 106, .55) !important; background: rgba(255, 77, 106, .1); }
+  .header-logout-link::after { content: ''; width: 18px; height: 18px;
+    background: no-repeat center / contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ff4d6a' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M12 3v8'/%3E%3Cpath d='M6.4 6.6a8 8 0 1 0 11.2 0'/%3E%3C/svg%3E"); }
   .gs-logo-wrap { gap: 8px !important; }
   .gs-burger.gs-inline { width: 34px !important; height: 34px !important; }
 }
