@@ -33,9 +33,9 @@
   const art = (n) => window.TowerArt.get(n);
 
   // the trolley's travel and the pendulum hanging from it
-  const TROLLEY_A = 75, TROLLEY_P = 1.6; // the trolley's travel (units) and period (s): a brisk swing, so the right release moment comes round fast
-  const W0SQ = 75;                       // pendulum stiffness g/L (rad/s^2): ~0.7 s natural period, well clear of the trolley's (no runaway swing)
-  const DAMP = 0.7;                      // swing damping (1/s)
+  const TROLLEY_A = 70, TROLLEY_P = 2.2; // the trolley's travel (units) and period (s): an unhurried swing
+  const W0SQ = 30;                       // pendulum stiffness g/L (rad/s^2): ~1.15 s natural period - a soft, elastic load that lags and overshoots, still clear of the trolley's period
+  const DAMP = 0.35;                     // swing damping (1/s): low, so a jolt keeps the load wobbling for a few seconds
   const GRAV = 3000;                     // free-fall gravity (units/s^2)
   const STEP = 1 / 240;                  // physics step (s)
   // the cable stretches under the load: the hook bobs on it like a spring
