@@ -22,6 +22,7 @@
  * Every other player page uses it in menu-only mode, data-mode="nav": the page and its header stay as
  * they are, the scrolling games strip is hidden, and the hamburger sits in the header beside the logo:
  *   <script src="assets/js/game-shell.js" data-mode="nav" defer></script>
+ * data-burger="off" leaves the menu button out altogether (the home page: just the logo).
  */
 (function () {
   'use strict';
@@ -33,6 +34,7 @@
     min: Number(me && me.dataset.min) || 300,
     max: Number(me && me.dataset.max) || Infinity,
     nav: !!(me && me.dataset.mode === 'nav'),
+    burger: !(me && me.dataset.burger === 'off'),
   };
   // The drawer, laid out like a sportsbook / casino menu: sections of game cards with their covers.
   const SECTIONS = [
@@ -63,6 +65,7 @@
   const ICON_CRICKET = '<span class="gs-cric"><b>CRICKET</b><i>Match Odds &middot; Fancy</i></span>';
 
   if (cfg.nav) document.body.classList.add('gs-nav');
+  if (!cfg.burger) return;                                        // no menu button on this page
   else { document.documentElement.classList.add('gs-on'); document.body.classList.add('gs-on'); }
 
   // ---- hamburger + drawer ----------------------------------------------------------------------
