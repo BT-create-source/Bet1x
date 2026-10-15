@@ -49,7 +49,10 @@
     .big-bet-btn { border-radius: 14px; }
   }
   /* full-screen page: no live-bets column and no multiplier strip; the game takes the whole width */
-  body.gs-on .live-bets-card, body.gs-on #multHistory { display: none !important; }
+  body.gs-on .live-bets-card { display: none !important; }
+  /* the past-results strip rides on the flight area, just under the menu / balance row */
+  body.gs-on #multHistory { position: absolute; top: 58px; left: 14px; right: 14px; z-index: 6; background: transparent; border: 0; padding: 0;
+    -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); }
   body.gs-on .aviator-layout-grid { display: block; }
 </style>
   <link rel="stylesheet" href="assets/css/game-shell.css?v=20261014i">

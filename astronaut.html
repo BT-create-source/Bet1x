@@ -22,11 +22,13 @@
     /* like Vimaan: no bets column, no multiplier strip, the full width; the space starts at the very top,
        with the menu button, the balance and How to play sitting on it */
     body.gs-on .as-wrap { display: block; max-width: none; margin: 0; padding: 8px 8px 0; }
-    body.gs-on .as-side, body.gs-on .as-history, body.gs-on .as-title { display: none !important; }
+    body.gs-on .as-side, body.gs-on .as-title { display: none !important; }
+    /* the past-results strip rides on the space, just under the menu / balance row */
+    body.gs-on .as-history { position: absolute; top: 62px; left: 14px; right: 14px; z-index: 6; }
     body.gs-on .as-main { position: relative; }
     body.gs-on .as-topbar { position: absolute; top: 14px; left: 64px; z-index: 6; }
     body.gs-on .gs-burger { top: 16px; left: 16px; }
-    @media (max-width: 600px) { body.gs-on .as-round { top: 56px; } }
+    @media (max-width: 600px) { body.gs-on .as-round { top: 100px; } }
 
     .as-topbar { display: flex; align-items: center; gap: 10px; justify-content: space-between; flex-wrap: wrap; }
     .as-title { display: flex; align-items: center; gap: 10px; }
