@@ -8,6 +8,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- The page lives at an unlinked, unguessable address. Keep it out of search engines, and never send
+     that address to another site (the Google Fonts requests below would otherwise carry it as Referer). -->
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="referrer" content="no-referrer">
 <title>Super Admin — Command Console</title>
 <style>
   html.superadmin-locked #dashboard { display: none !important; }
@@ -1169,7 +1173,9 @@ window.handleSuperAdminLogin = async function(e) {
       errEl.textContent = 'Server did not issue a session token. Please try again.';
       errEl.style.display = 'block';
     } else {
-      errEl.textContent = data.error || 'Invalid super administrator credentials.';
+      // The server answers a wrong password exactly as it answers an unknown request (so nobody can
+      // tell this login exists); show one plain message whatever it said.
+      errEl.textContent = 'Invalid credentials.';
       errEl.style.display = 'block';
     }
   } catch (err) {

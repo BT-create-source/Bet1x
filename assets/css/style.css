@@ -67,8 +67,8 @@
    the 2026-08-25 cream reskin (docs/NEW-DESIGN); reverted at the
    product owner's request, colors/fonts/shadows only, no markup or
    behaviour changed. Kept as an explicit body.exchange-theme block
-   (rather than deleted) so admin.html / superadmin.html /
-   parity.html, which never carry this class, are unaffected either
+   (rather than deleted) so the operator pages (admin.html,
+   parity.html), which never carry this class, are unaffected either
    way, and so a future reskin has a single place to land again.
    --green is deliberately NOT redefined here: it carries real
    win/profit-state meaning throughout the game UIs, not just brand

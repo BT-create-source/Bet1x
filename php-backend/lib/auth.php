@@ -187,7 +187,9 @@ function require_superadmin(Req $req, Res $res) {
             'role' => $req->auth['role'] ?? null,
             'user' => $req->auth['username'] ?? null,
         ]);
-        $res->status(403)->json(['error' => 'Super administrator privileges required.']);
+        // Answer exactly like an address that does not exist (the /api fallback in routes/legacy.php),
+        // so an operator probing the API cannot tell that super-admin endpoints are there at all.
+        $res->status(404)->json(['error' => 'Unknown API endpoint.']);
     }
 }
 

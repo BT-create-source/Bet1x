@@ -53,7 +53,13 @@ function register_legacy_routes(Router $app) {
             // Before this, the only brake was the general 600-requests-a-minute API limit.
             // (Player login is deliberately unlimited by product decision; this is only the two
             // operator logins.)
-            if (($action === 'login' || $action === 'superadmin_login') && rate_limit('auth', $req, $res)) return;
+            // The super-admin login must be indistinguishable from an action that does not exist: its
+            // failures answer exactly like an unknown action (below), and the same tight rate limit
+            // applies to every unrecognised action too, so hitting the limit does not single it out.
+            $knownActions = ['login', 'status', 'logout', 'stats', 'users', 'transactions', 'deposits', 'withdrawals',
+                             'get_payment_config', 'set_payment_config', 'adjust_balance', 'approve_deposit',
+                             'reject_deposit', 'approve_withdrawal', 'reject_withdrawal'];
+            if (($action === 'login' || !in_array($action, $knownActions, true)) && rate_limit('auth', $req, $res)) return;
 
             if ($action === 'login') {
                 $username = trim((string)($req->b('username') ?? ''));
@@ -83,7 +89,8 @@ function register_legacy_routes(Router $app) {
                 if (($username !== '' && strtolower($username) !== strtolower((string) cfg('SUPERADMIN_USERNAME')) && strtolower($username) !== 'admin')
                     || !verify_superadmin_password($password)) {
                     log_warn('failed superadmin login attempt', ['username' => $username, 'ip' => $req->ip]);
-                    $res->status(401)->json(['error' => 'Invalid super administrator credentials.']);
+                    if (!is_admin($req)) $res->status(401)->json(['error' => 'Unauthorized admin access.']);
+                    else                 $res->status(400)->json(['error' => 'Invalid admin action.']);
                     return;
                 }
                 $token = issue_token([

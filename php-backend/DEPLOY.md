@@ -377,7 +377,7 @@ Run these in order. Each one should behave as described.
 | 11 | Play a Mines round | Reveals work, cash-out pays, double-clicking Start takes one stake |
 | 12 | Log into `admin.html` | All six tabs load; Cricket Ops is hidden |
 | 13 | Toggle a bot percentage in admin | `/api/admin/rig-audit` shows decisions accumulating |
-| 14 | Open `superadmin.html` | Dashboard populates from the transaction ledger |
+| 14 | Open the super admin page (unlinked address — kept out of this repo; it is the only root `.html` file whose name is random hex) | Dashboard populates from the transaction ledger |
 
 **Check 3 is the important one.** Under Node those `.php` paths were only ever leaked as source
 text; now that the backend genuinely is PHP, Apache would *execute* the stale files in `api/` if the

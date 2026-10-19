@@ -114,12 +114,8 @@ $SUPERADMIN_USERNAME          = (string) env_get('SUPERADMIN_USERNAME', 'superad
 $SUPERADMIN_PASSWORD_HASH     = (string) env_get('SUPERADMIN_PASSWORD_HASH', '');
 $SUPERADMIN_PASSWORD_PLAINTEXT = (string) env_get('SUPERADMIN_PASSWORD', '');
 
-// An extra, pre-authentication secret that has to appear in the admin console's URL before the
-// super-admin entry point is rendered at all (?superadmin_key=...). It is NOT a credential and does
-// not replace SUPERADMIN_PASSWORD_HASH — the login still happens afterwards. Its only job is to keep
-// the console's existence out of the page for anyone who does not already know the URL, which means
-// it must never be shipped to the browser: the client sends its candidate value and the server
-// answers yes or no. Blank disables the whole mechanism and hides the entry point unconditionally.
+// No longer used (kept so an old .env still loads): the admin console has no entry point to the super
+// admin page any more — that page is reached only by typing its unlinked address.
 $SUPERADMIN_ACCESS_TOKEN = (string) env_get('SUPERADMIN_ACCESS_TOKEN', '');
 
 // --- Phone verification (Fast2SMS) ---------------------------------------------------------------

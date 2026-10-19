@@ -368,14 +368,6 @@
           betting history.</div>
       </div>
       <div style="display:flex; gap:10px;" id="admin-header-actions">
-        <!--
-          The Super Admin Console link used to sit here as plain markup, so its existence and its URL
-          were visible in the page source to anyone who reached this console. It is now injected at
-          runtime by maybeRevealSuperAdminEntry(), and only after the SERVER confirms the
-          ?superadmin_key=... in the URL matches SUPERADMIN_ACCESS_TOKEN. With no key, a wrong key, or
-          the feature switched off, nothing is added — the element genuinely does not exist in the DOM
-          rather than being hidden with CSS, so it cannot be recovered by inspecting the page.
-        -->
         <a href="parity.html" class="btn btn-ghost"
           style="padding:6px 12px; font-size:12.5px; text-decoration:none; display:flex; align-items:center;">Parity
           Monitor</a>
@@ -1278,42 +1270,6 @@
       if (gate) gate.remove();
     }
 
-    /**
-     * Add the Super Admin Console link, but only when the server says the ?superadmin_key=... in the
-     * URL is the right one.
-     *
-     * The token is never shipped to the browser and never compared here — the page sends its
-     * candidate and the server answers yes/no — so reading this source tells an attacker that the
-     * mechanism exists but not the value that satisfies it. Getting a yes reveals a link and nothing
-     * more: superadmin.html still demands the super-admin login, and every figure it shows is behind
-     * require_superadmin server-side.
-     */
-    function maybeRevealSuperAdminEntry() {
-      const key = new URLSearchParams(window.location.search).get('superadmin_key');
-      if (!key) return;   // no key, no request, no trace in the network log
-
-      fetch('api/admin/superadmin-entry', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ key: key })
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (!data || data.ok !== true) return;
-          const actions = document.getElementById('admin-header-actions');
-          if (!actions || document.getElementById('superAdminEntryLink')) return;
-
-          const link = document.createElement('a');
-          link.id = 'superAdminEntryLink';
-          link.href = 'superadmin.html';
-          link.className = 'btn btn-ghost';
-          link.style.cssText = 'padding:6px 12px; font-size:12.5px; text-decoration:none; display:flex; align-items:center; border-color:#5b7fff; color:#8fa3ff;';
-          link.textContent = '📊 Super Admin Console';
-          actions.prepend(link);
-        })
-        .catch(() => { /* stay hidden on any failure */ });
-    }
-
     function lockAdminConsole() {
       document.documentElement.classList.add('admin-locked');
       const gate = document.getElementById('admin-boot-gate');
@@ -1334,7 +1290,6 @@
             localStorage.setItem('bet1x_admin_logged_in', 'true');
             removeAdminLoginOverlay();
             unlockAdminConsole();
-            maybeRevealSuperAdminEntry();
             loadStats();
             renderAllTabs();
 
