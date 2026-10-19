@@ -44,6 +44,22 @@ function classify_gameplay_transaction($details) {
     if (strpos($details, 'Astronaut Cash Out') === 0)         return ['game' => 'astronaut', 'kind' => 'win'];
     if (strpos($details, 'Tower Rush Bet') === 0)             return ['game' => 'towerrush', 'kind' => 'wager'];
     if (strpos($details, 'Tower Rush Cash Out') === 0)        return ['game' => 'towerrush', 'kind' => 'win'];
+    // Teen Patti's Show stake (it had no ledger row at all before).
+    if (strpos($details, 'Teen Patti Show') === 0)            return ['game' => 'teenpatti', 'kind' => 'wager'];
+    // The cricket games were not counted anywhere on this dashboard.
+    if (strpos($details, 'Ball by Ball Bet') === 0)           return ['game' => 'bbb', 'kind' => 'wager'];
+    if (strpos($details, 'Ball by Ball Win') === 0)           return ['game' => 'bbb', 'kind' => 'win'];
+    if (strpos($details, 'Ball by Ball Refund') === 0)        return ['game' => 'bbb', 'kind' => 'win'];
+    if (strpos($details, 'Cricket Bet') === 0)                return ['game' => 'cricket', 'kind' => 'wager'];
+    if (strpos($details, 'Cricket Win') === 0)                return ['game' => 'cricket', 'kind' => 'win'];
+    if (strpos($details, 'Cricket Refund') === 0)             return ['game' => 'cricket', 'kind' => 'win'];
+    if (strpos($details, 'Cricket Cash Out') === 0)           return ['game' => 'cricket', 'kind' => 'win'];
+    if (strpos($details, 'Your Eleven Entry') === 0)          return ['game' => 'youreleven', 'kind' => 'wager'];
+    if (strpos($details, 'Your Eleven Prize') === 0)          return ['game' => 'youreleven', 'kind' => 'win'];
+    if (strpos($details, 'Your Eleven Refund') === 0)         return ['game' => 'youreleven', 'kind' => 'win'];
+    // Referral commission is money the house pays out, so it is a cost against profit. It has no
+    // wager side: its row shows only what was paid.
+    if ($details === 'Referral Bonus Claimed')               return ['game' => 'referral', 'kind' => 'win'];
     return null;
 }
 
@@ -56,7 +72,42 @@ function game_labels() {
         'chickenroad' => 'Chicken Road',
         'astronaut'   => 'Astronaut',
         'towerrush'   => 'Tower Rush',
+        'bbb'         => 'Ball by Ball',
+        'youreleven'  => 'Your 11',
+        'cricket'     => 'Cricket (match betting)',
+        'referral'    => 'Referral commission paid',
     ];
+}
+
+/**
+ * What each game is BUILT to pay back, from its rules and the operator's current settings — shown
+ * beside what it actually paid back, so the operator can see both the design and the reality.
+ * Over many bets "actual" drifts toward "built"; over a few days it can be well above or below.
+ */
+function game_design_payback() {
+    $pct = function ($x) { return rtrim(rtrim(number_format((float) $x * 100, 1, '.', ''), '0'), '.') . '%'; };
+    $out = [
+        'color_guess' => '39–98% depending on bet',
+        'aviator'     => '96%',
+        // Only claim a commission when the running Teen Patti code actually takes one (tp_commission).
+        'teenpatti'   => function_exists('tp_commission')
+            ? 'house keeps ' . js_num_str((float) cfg('TEENPATTI_COMMISSION_PCT', 10)) . '% of pots players win'
+            : 'no house commission on pots',
+        'mines'       => '96% at most',
+        'youreleven'  => '85% (15% rake per contest)',
+        'referral'    => '—',
+    ];
+    try { if (function_exists('cr_config_get'))    $out['chickenroad'] = $pct(cr_config_get()['rtp']) . ' at most'; } catch (Throwable $e) {}
+    try { if (function_exists('astro_config_get')) $out['astronaut']   = $pct(astro_config_get()['rtp']); } catch (Throwable $e) {}
+    try { if (function_exists('tr_config_get'))    $out['towerrush']   = $pct(tr_config_get()['rtp']) . ' per floor'; } catch (Throwable $e) {}
+    try { if (function_exists('bbb_config'))       $out['bbb']         = $pct(1 - ((float) bbb_config()['rake_pct']) / 100) . ' of each pool'; } catch (Throwable $e) {}
+    try {
+        if (function_exists('mx_config')) {
+            $c = mx_config();
+            $out['cricket'] = 'margin ' . $pct($c['mo_margin']) . ' / ' . $pct($c['bm_margin']);
+        }
+    } catch (Throwable $e) {}
+    return $out;
 }
 
 function register_admin_routes(Router $app) {
@@ -212,10 +263,16 @@ function register_admin_routes(Router $app) {
 
             $nowMs = now_ms();
             $nowIso = js_iso($nowMs);
-            $todayKey = substr($nowIso, 0, 10);
-            $monthKey = substr($nowIso, 0, 7);
-            $startOfToday = strtotime($todayKey . 'T00:00:00.000Z') * 1000;
-            $startOfMonth = strtotime($monthKey . '-01T00:00:00.000Z') * 1000;
+            // "Today" and "this month" are India days (IST, UTC+5:30), the operator's calendar — they
+            // used to roll over at 05:30 IST (UTC midnight), splitting an Indian evening across two days.
+            $istOff = 330 * 60 * 1000;
+            $istDay = function ($ms) use ($istOff) { return gmdate('Y-m-d', (int) floor(($ms + $istOff) / 1000)); };
+            $istMonth = function ($ms) use ($istOff) { return gmdate('Y-m', (int) floor(($ms + $istOff) / 1000)); };
+            $todayKey = $istDay($nowMs);
+            $monthKey = $istMonth($nowMs);
+            $startOfToday = (int) (floor(($nowMs + $istOff) / 86400000) * 86400000 - $istOff);
+            $startOfYesterday = $startOfToday - 86400000;
+            $startOfMonth = (int) (strtotime($monthKey . '-01T00:00:00Z') * 1000 - $istOff);
 
             // --- Registered users ---
             $newToday = 0; $newThisMonth = 0;
@@ -246,6 +303,22 @@ function register_admin_routes(Router $app) {
             $houseProfitAllTime = 0.0; $houseProfitToday = 0.0; $houseProfitThisMonth = 0.0;
             $totalWagered = 0.0; $totalPaidOut = 0.0; $totalBets = 0; $totalWins = 0;
             $recentTx = [];
+            // Single payouts over the last 24h, for the "biggest recent wins" review panel: the
+            // honest replacement for secretly clawing a lucky streak back. Nothing is changed here —
+            // it just surfaces the large wins so an operator can look at who, and how often.
+            $bigWins = [];
+            $bigWinSince = $nowMs - 24 * 3600 * 1000;
+
+            // Today (IST): the "today" box — betting volume, payouts, profit, who played, hour by hour.
+            $today = ['wagered' => 0.0, 'paid_out' => 0.0, 'bets' => 0, 'wins' => 0, 'biggest_win' => null];
+            $todayBettors = [];
+            $todayPerGame = [];
+            $hourly = array_fill(0, 24, ['wagered' => 0.0, 'profit' => 0.0]);
+            $yesterdayProfit = 0.0; $yesterdayWagered = 0.0;
+            // Players who placed a bet in the last 15 minutes, per game — covers every game, including
+            // the ones the in-memory live tracker does not follow (Chicken Road, Astronaut, cricket ...).
+            $activeSince = $nowMs - 15 * 60 * 1000;
+            $activeByGame = [];
 
             foreach ($transactions as $t) {
                 $cls = classify_gameplay_transaction($t['details'] ?? null);
@@ -254,8 +327,8 @@ function register_admin_routes(Router $app) {
                     : $nowMs;
                 if ($tsMs === null) $tsMs = $nowMs;
                 $tsIso = js_iso($tsMs);
-                $dayKey = substr($tsIso, 0, 10);
-                $mKey   = substr($tsIso, 0, 7);
+                $dayKey = $istDay($tsMs);
+                $mKey   = $istMonth($tsMs);
                 $amtParsed = js_parse_float($t['amount'] ?? 0);
                 $amt = js_truthy($amtParsed) ? (float)$amtParsed : 0.0;
 
@@ -292,6 +365,41 @@ function register_admin_routes(Router $app) {
                     }
                     if ($cls['kind'] === 'wager') $perUserNet[$uKey]['wagered'] += $amt;
                     else                          $perUserNet[$uKey]['won'] += $amt;
+
+                    if ($tsMs >= $startOfToday) {
+                        $g = $cls['game'];
+                        if (!isset($todayPerGame[$g])) $todayPerGame[$g] = ['label' => $labels[$g] ?? $g, 'wagered' => 0.0, 'paid_out' => 0.0, 'bets' => 0];
+                        $hr = (int) gmdate('G', (int) floor(($tsMs + $istOff) / 1000));
+                        $hourly[$hr]['profit'] += $signedProfit;
+                        if ($cls['kind'] === 'wager') {
+                            $today['wagered'] += $amt; $today['bets']++;
+                            $todayPerGame[$g]['wagered'] += $amt; $todayPerGame[$g]['bets']++;
+                            $hourly[$hr]['wagered'] += $amt;
+                            $todayBettors[strtolower((string) ($t['user'] ?? ''))] = true;
+                        } else {
+                            $today['paid_out'] += $amt; $today['wins']++;
+                            $todayPerGame[$g]['paid_out'] += $amt;
+                            if ($g !== 'referral' && (!$today['biggest_win'] || $amt > $today['biggest_win']['amount'])) {
+                                $today['biggest_win'] = ['username' => $t['user'] ?? null, 'game' => $labels[$g] ?? $g, 'amount' => to_fixed_num($amt, 2)];
+                            }
+                        }
+                    } elseif ($tsMs >= $startOfYesterday) {
+                        $yesterdayProfit += $signedProfit;
+                        if ($cls['kind'] === 'wager') $yesterdayWagered += $amt;
+                    }
+                    if ($cls['kind'] === 'wager' && $tsMs >= $activeSince) {
+                        $activeByGame[$cls['game']][strtolower((string) ($t['user'] ?? ''))] = true;
+                    }
+
+                    if ($cls['kind'] === 'win' && $tsMs >= $bigWinSince && $amt > 0) {
+                        $bigWins[] = [
+                            'username'  => $t['user'] ?? null,
+                            'game'      => $labels[$cls['game']] ?? $cls['game'],
+                            'amount'    => to_fixed_num($amt, 2),
+                            'details'   => $t['details'] ?? null,
+                            'timestamp' => $tsIso,
+                        ];
+                    }
                 }
 
                 if ($cls) {
@@ -312,6 +420,10 @@ function register_admin_routes(Router $app) {
             usort($recentTx, function ($a, $b) {
                 return strcmp((string)$b['timestamp'], (string)$a['timestamp']);
             });
+
+            // Biggest single payouts in the last 24h, largest first.
+            usort($bigWins, function ($a, $b) { return ($b['amount'] <=> $a['amount']); });
+            $bigWins = array_slice($bigWins, 0, 12);
 
             // --- Winners / losers: net = wagered - won. Positive net = the house is up on them. ---
             $netEntries = [];
@@ -346,10 +458,78 @@ function register_admin_routes(Router $app) {
                 $monthlyTrend[] = ['month' => $m, 'profit' => to_fixed_num($monthlyMap[$m], 2)];
             }
 
+            // --- Money in / out: the cashier side, which this console did not show at all ---
+            $finance = [
+                'deposits_total' => 0.0, 'deposits_count' => 0, 'deposits_today' => 0.0, 'deposits_today_count' => 0,
+                'deposits_pending' => 0.0, 'deposits_pending_count' => 0,
+                'withdrawals_total' => 0.0, 'withdrawals_count' => 0, 'withdrawals_today' => 0.0, 'withdrawals_today_count' => 0,
+                'withdrawals_pending' => 0.0, 'withdrawals_pending_count' => 0,
+                'wallet_liability' => 0.0, 'players_with_balance' => 0,
+            ];
+            $pendingWithdrawals = [];
+            try {
+                foreach (all('SELECT "username","amount","status","created_at" FROM "Deposit"') as $d) {
+                    $a = (float) $d['amount']; $ms = sql_to_ms($d['created_at']) ?? 0; $st = (string) $d['status'];
+                    if ($st === 'Completed') {
+                        $finance['deposits_total'] += $a; $finance['deposits_count']++;
+                        if ($ms >= $startOfToday) { $finance['deposits_today'] += $a; $finance['deposits_today_count']++; }
+                    } elseif ($st === 'Pending') {
+                        $finance['deposits_pending'] += $a; $finance['deposits_pending_count']++;
+                    }
+                }
+                foreach (all('SELECT "withdrawal_id","username","amount","method","status","created_at" FROM "Withdrawal"') as $w) {
+                    $a = (float) $w['amount']; $ms = sql_to_ms($w['created_at']) ?? 0; $st = (string) $w['status'];
+                    if ($st === 'Completed') {
+                        $finance['withdrawals_total'] += $a; $finance['withdrawals_count']++;
+                        if ($ms >= $startOfToday) { $finance['withdrawals_today'] += $a; $finance['withdrawals_today_count']++; }
+                    } elseif ($st === 'Pending') {
+                        $finance['withdrawals_pending'] += $a; $finance['withdrawals_pending_count']++;
+                        $pendingWithdrawals[] = ['username' => $w['username'], 'amount' => to_fixed_num($a, 2), 'method' => $w['method'], 'requested_at' => js_iso($ms)];
+                    }
+                }
+            } catch (Throwable $e) { /* the JSON fallback has no cashier tables worth summing */ }
+            // What the platform owes its customers: every player's wallet ("admin" is the house's own seat).
+            $recentSignups = [];
+            foreach ($users as $u) {
+                if (strtolower((string) ($u['username'] ?? '')) === 'admin') continue;
+                $bal = (float) js_parse_float($u['wallet_balance'] ?? 0);
+                if (is_finite($bal) && $bal > 0) { $finance['wallet_liability'] += $bal; $finance['players_with_balance']++; }
+                $ms = !empty($u['created_at']) ? (is_numeric($u['created_at']) ? (int) $u['created_at'] : sql_to_ms($u['created_at'])) : null;
+                $recentSignups[] = ['username' => $u['username'] ?? null, 'balance' => to_fixed_num(is_finite($bal) ? $bal : 0, 2), 'joined_at' => $ms ? js_iso($ms) : null, '_ms' => $ms ?: 0];
+            }
+            usort($recentSignups, function ($a, $b) { return $b['_ms'] <=> $a['_ms']; });
+            $recentSignups = array_map(function ($r) { unset($r['_ms']); return $r; }, array_slice($recentSignups, 0, 8));
+            usort($pendingWithdrawals, function ($a, $b) { return strcmp($a['requested_at'], $b['requested_at']); });   // oldest first: waiting longest
+            foreach ($finance as $k => $v) if (is_float($v)) $finance[$k] = to_fixed_num($v, 2);
+            $finance['net_cash_in'] = to_fixed_num($finance['deposits_total'] - $finance['withdrawals_total'], 2);
+            $finance['net_cash_in_today'] = to_fixed_num($finance['deposits_today'] - $finance['withdrawals_today'], 2);
+
+            // Players betting in the last 15 minutes, per game (union with the live tracker's counts).
+            $activeCounts = [];
+            $activeUnion = $liveUnion;
+            foreach ($activeByGame as $set) foreach ($set as $u => $_) $activeUnion[$u] = true;
+            foreach ($labels as $g => $label) {
+                if ($g === 'referral') continue;
+                $activeCounts[$g] = ['label' => $label, 'count' => max(count($activeByGame[$g] ?? []), (int) ($liveByGame[$g] ?? 0))];
+            }
+
+            foreach ($todayPerGame as $g => $pg) {
+                $todayPerGame[$g]['profit'] = to_fixed_num($pg['wagered'] - $pg['paid_out'], 2);
+                $todayPerGame[$g]['wagered'] = to_fixed_num($pg['wagered'], 2);
+                $todayPerGame[$g]['paid_out'] = to_fixed_num($pg['paid_out'], 2);
+            }
+            uasort($todayPerGame, function ($a, $b) { return $b['wagered'] <=> $a['wagered']; });
+            $hourlyOut = [];
+            foreach ($hourly as $h => $v) $hourlyOut[] = ['hour' => $h, 'wagered' => to_fixed_num($v['wagered'], 2), 'profit' => to_fixed_num($v['profit'], 2)];
+
+            $design = game_design_payback();
             foreach ($perGame as $g => $pg) {
                 $perGame[$g]['wagered']  = to_fixed_num($pg['wagered'], 2);
                 $perGame[$g]['paid_out'] = to_fixed_num($pg['paid_out'], 2);
                 $perGame[$g]['profit']   = to_fixed_num($pg['wagered'] - $pg['paid_out'], 2);
+                // Share of every rupee staked that went back to players, as it actually happened.
+                $perGame[$g]['paid_back_pct'] = $pg['wagered'] > 0 ? to_fixed_num($pg['paid_out'] / $pg['wagered'] * 100, 1) : null;
+                $perGame[$g]['built_to_pay_back'] = $design[$g] ?? null;
             }
 
             $res->json([
@@ -384,6 +564,30 @@ function register_admin_routes(Router $app) {
                 ],
                 'bot_takeover'         => bot_takeover_state(),
                 'recent_transactions'  => array_slice($recentTx, 0, 60),
+                'big_wins_24h'         => $bigWins,
+                // India-time day the "today" figures cover, and the "today" box itself
+                'today_key'            => $todayKey,
+                'today' => [
+                    'wagered'          => to_fixed_num($today['wagered'], 2),
+                    'paid_out'         => to_fixed_num($today['paid_out'], 2),
+                    'profit'           => to_fixed_num($houseProfitToday, 2),
+                    'bets'             => $today['bets'],
+                    'wins'             => $today['wins'],
+                    'players'          => count($todayBettors),
+                    'new_users'        => $newToday,
+                    'avg_bet'          => $today['bets'] ? to_fixed_num($today['wagered'] / $today['bets'], 2) : 0,
+                    'margin_pct'       => $today['wagered'] > 0 ? to_fixed_num($houseProfitToday / $today['wagered'] * 100, 1) : null,
+                    'biggest_win'      => $today['biggest_win'],
+                    'yesterday_profit' => to_fixed_num($yesterdayProfit, 2),
+                    'yesterday_wagered'=> to_fixed_num($yesterdayWagered, 2),
+                    'per_game'         => array_values($todayPerGame),
+                    'hourly'           => $hourlyOut,
+                ],
+                'finance'              => $finance,
+                'pending_withdrawals'  => array_slice($pendingWithdrawals, 0, 10),
+                'recent_signups'       => $recentSignups,
+                'active_15m'           => $activeCounts,
+                'active_unique_15m'    => count($activeUnion),
             ]);
         } catch (Throwable $err) {
             fail500($res, $err, 'admin');

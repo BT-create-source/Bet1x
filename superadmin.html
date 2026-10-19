@@ -194,6 +194,47 @@
   .feed-amt { font-family: 'IBM Plex Mono', monospace; font-weight: 700; flex-shrink: 0; }
   .feed-time { color: var(--text-faint); font-size: 10.5px; width: 52px; text-align: right; flex-shrink: 0; }
 
+  /* ---------- TODAY box ---------- */
+  .today-box {
+    background: linear-gradient(160deg, #121a33 0%, var(--surface) 55%); border: 1px solid #2a3560; border-radius: 16px;
+    padding: 20px 22px; box-shadow: var(--shadow); margin-bottom: 18px; position: relative; overflow: hidden;
+  }
+  .today-box::before { content: ''; position: absolute; left: 0; top: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--accent), var(--teal), var(--profit)); }
+  .today-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .today-head h2 { font-size: 15px; font-weight: 800; letter-spacing: 0.02em; text-transform: uppercase; }
+  .today-head .date { font-size: 12px; color: var(--text-dim); }
+  .today-grid { display: grid; grid-template-columns: 1.25fr 1fr 1fr 1fr; gap: 14px; }
+  @media (max-width: 1100px) { .today-grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px) { .today-grid { grid-template-columns: 1fr; } }
+  .tcell { background: rgba(9, 11, 17, .45); border: 1px solid var(--border-soft); border-radius: 12px; padding: 14px 15px; }
+  .tcell .lbl { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-faint); font-weight: 700; margin-bottom: 8px; }
+  .tcell .big { font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 700; line-height: 1; letter-spacing: -0.02em; }
+  .tcell .val { font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 700; line-height: 1.05; }
+  .tcell .sub { font-size: 11.5px; color: var(--text-dim); margin-top: 8px; line-height: 1.5; }
+  .tcell .sub b { color: var(--text); font-weight: 600; }
+  .delta-up { color: var(--profit); font-weight: 700; } .delta-down { color: var(--loss); font-weight: 700; }
+  .today-lower { display: grid; grid-template-columns: 1.3fr 1fr; gap: 14px; margin-top: 14px; }
+  @media (max-width: 1100px) { .today-lower { grid-template-columns: 1fr; } }
+  #hourlyChart { width: 100%; height: 150px; display: block; }
+  .mini-tbl { width: 100%; min-width: 0; font-size: 12px; }
+  .mini-tbl td, .mini-tbl th { padding: 6px 8px; }
+  .mini-tbl td.num { white-space: nowrap; }
+
+  /* ---------- money row ---------- */
+  .money-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+  @media (max-width: 1100px) { .money-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .money-grid { grid-template-columns: 1fr; } }
+  .pill-warn { display: inline-block; font-size: 10.5px; font-weight: 700; color: var(--warn); background: var(--warn-soft); border: 1px solid rgba(251,191,36,.35); border-radius: 6px; padding: 1px 7px; margin-left: 6px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  @media (max-width: 1100px) { .grid-3 { grid-template-columns: 1fr; } }
+  .mrow { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 12px; }
+  .mrow .mlbl { width: 78px; flex-shrink: 0; white-space: nowrap; color: var(--text-dim); font-family: 'IBM Plex Mono', monospace; }
+  .wl-row .house-tag { font-size: 9.5px; color: #fff; border-radius: 4px; padding: 1px 6px; margin-left: 8px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; }
+  .mrow .mtrack { flex: 1; height: 8px; border-radius: 99px; background: var(--surface-3); overflow: hidden; }
+  .mrow .mfill { height: 100%; border-radius: 99px; }
+  .mrow .mval { width: 120px; text-align: right; font-family: 'IBM Plex Mono', monospace; font-weight: 700; }
+  tr.total-row td { border-top: 1px solid var(--border); font-weight: 700; color: var(--text); }
+
   footer { text-align: center; color: var(--text-faint); font-size: 11px; margin-top: 30px; }
 
   ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -238,6 +279,70 @@
     </div>
   </div>
 
+  <!-- TODAY: the house's day at a glance (India time) -->
+  <section class="today-box" aria-labelledby="todayTitle">
+    <div class="today-head">
+      <h2 id="todayTitle">📅 Today at a glance</h2>
+      <span class="date" id="todayDateLbl">—</span>
+    </div>
+    <div class="today-grid">
+      <div class="tcell">
+        <div class="lbl">House profit today</div>
+        <div class="big" id="tProfit">—</div>
+        <div class="sub"><span id="tVsYesterday">—</span><br>margin <b id="tMargin">—</b> of everything bet</div>
+      </div>
+      <div class="tcell">
+        <div class="lbl">Total bet today</div>
+        <div class="val" id="tWagered">—</div>
+        <div class="sub"><b id="tBets">—</b> bets &middot; avg <b id="tAvgBet">—</b><br>yesterday <b id="tYWagered">—</b></div>
+      </div>
+      <div class="tcell">
+        <div class="lbl">Paid out to players today</div>
+        <div class="val" id="tPaidOut">—</div>
+        <div class="sub"><b id="tWins">—</b> winning payouts<br>biggest: <b id="tBiggest">—</b></div>
+      </div>
+      <div class="tcell">
+        <div class="lbl">Players today</div>
+        <div class="val" id="tPlayers">—</div>
+        <div class="sub">placed at least one bet<br><b id="tNewUsers">—</b> new sign-ups &middot; money in <b id="tCashIn">—</b></div>
+      </div>
+    </div>
+    <div class="today-lower">
+      <div class="tcell">
+        <div class="lbl">Hour by hour — bars: amount bet &middot; line: house profit</div>
+        <canvas id="hourlyChart" width="800" height="150"></canvas>
+      </div>
+      <div class="tcell">
+        <div class="lbl">Today by game</div>
+        <div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th>Game</th><th class="num">Bets</th><th class="num">Bet</th><th class="num">Profit</th></tr></thead><tbody id="todayGameBody"></tbody></table></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Money in / out -->
+  <div class="money-grid">
+    <div class="kpi profit-line">
+      <div class="lbl">Deposits received</div>
+      <div class="val mono" id="mDeposits">—</div>
+      <div class="sub"><b id="mDepCount">—</b> deposits &middot; today <b id="mDepToday">—</b><br><span id="mDepPending">—</span></div>
+    </div>
+    <div class="kpi loss-line">
+      <div class="lbl">Withdrawals paid</div>
+      <div class="val mono" id="mWithdrawals">—</div>
+      <div class="sub"><b id="mWdCount">—</b> paid &middot; today <b id="mWdToday">—</b><br><span id="mWdPending">—</span></div>
+    </div>
+    <div class="kpi teal-line">
+      <div class="lbl">Net cash in</div>
+      <div class="val mono" id="mNetCash">—</div>
+      <div class="sub">deposits − withdrawals paid<br>today <b id="mNetToday">—</b></div>
+    </div>
+    <div class="kpi accent-line">
+      <div class="lbl">Held in player wallets</div>
+      <div class="val mono" id="mLiability">—</div>
+      <div class="sub">what players could withdraw<br><b id="mFunded">—</b> players with a balance</div>
+    </div>
+  </div>
+
   <!-- KPI hero row -->
   <div class="kpi-grid">
     <div class="kpi accent-line">
@@ -246,14 +351,14 @@
       <div class="sub"><b id="kpiNewToday">—</b> new today &middot; <b id="kpiNewMonth">—</b> this month</div>
     </div>
     <div class="kpi teal-line">
-      <div class="lbl">Currently Live</div>
+      <div class="lbl">Active Now</div>
       <div class="val mono" id="kpiLiveUsers">—</div>
-      <div class="sub">unique players active across every game right now</div>
+      <div class="sub">players who bet in the last 15 minutes, any game</div>
     </div>
     <div class="kpi" id="kpiProfitAllCard">
       <div class="lbl">House Profit — All Time</div>
       <div class="val mono" id="kpiProfitAll">—</div>
-      <div class="sub"><b id="kpiWagered">—</b> wagered &middot; <b id="kpiPaidOut">—</b> paid out</div>
+      <div class="sub"><b id="kpiWagered">—</b> wagered &middot; <b id="kpiPaidOut">—</b> paid out<br><b id="kpiBetCount">—</b> bets &middot; <b id="kpiWinCount">—</b> payouts</div>
     </div>
     <div class="kpi" id="kpiProfitTodayCard">
       <div class="lbl">House Profit — Today</div>
@@ -277,8 +382,8 @@
     </div>
     <div class="panel">
       <div class="panel-head">
-        <h2>🟢 Live Players by Game</h2>
-        <span class="hint">45s activity window</span>
+        <h2>🟢 Players Active Now, by Game</h2>
+        <span class="hint">bet in the last 15 minutes, every game</span>
       </div>
       <div id="liveGamesList"></div>
     </div>
@@ -317,13 +422,36 @@
 
   <div class="panel" style="margin-bottom:16px;">
     <div class="panel-head">
+      <h2>🏆 Biggest Wins — last 24 hours</h2>
+      <span class="hint">large single payouts, for review — look for one name winning big repeatedly</span>
+    </div>
+    <div class="wl-list" id="bigWinsList"></div>
+  </div>
+
+  <div class="grid-3">
+    <div class="panel">
+      <div class="panel-head"><h2>🗓 House Profit by Month</h2><span class="hint">India time</span></div>
+      <div id="monthlyList"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>⏳ Pending Withdrawals</h2><span class="hint">oldest first — approve in the admin panel</span></div>
+      <div class="wl-list" id="pendingWdList"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>🆕 Newest Players</h2><span class="hint">latest sign-ups and their balance</span></div>
+      <div class="wl-list" id="signupsList"></div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="panel-head">
       <h2>🎮 Per-Game Breakdown</h2>
       <span class="hint">all-time, excludes the house's own seat</span>
     </div>
     <div class="tbl-wrap">
       <table>
         <thead><tr>
-          <th>Game</th><th class="num">Bets</th><th class="num">Wins</th><th class="num">Wagered</th><th class="num">Paid Out</th><th class="num">Profit</th>
+          <th>Game</th><th class="num">Bets</th><th class="num">Wins</th><th class="num">Wagered</th><th class="num">Paid Out</th><th class="num">Profit</th><th class="num" title="Share of every rupee staked that actually went back to players">Paid back</th><th class="num" title="What the game is designed to pay back over many bets">Built to pay back</th>
         </tr></thead>
         <tbody id="perGameBody"></tbody>
       </table>
@@ -338,7 +466,7 @@
     <div id="feedPanel"></div>
   </div>
 
-  <footer>Super Admin Console &middot; polling <span class="mono">/api/admin/super-dashboard</span> every 6s &middot; every figure above is a live aggregation of real backend data</footer>
+  <footer>Super Admin Console &middot; polling <span class="mono">/api/admin/super-dashboard</span> every 6s &middot; every figure above is a live aggregation of real backend data &middot; "today" and "this month" are India time (IST)</footer>
 </div>
 
 <script>
@@ -379,7 +507,9 @@ function adminFetch(path, options) {
 }
 const GAME_ORDER = ['color_guess', 'aviator', 'teenpatti', 'mines'];
 const GAME_LABELS = {
-  color_guess: 'Color Prediction', aviator: 'Aviator', teenpatti: 'Teen Patti', mines: 'Mines'
+  color_guess: 'Color Prediction', aviator: 'Aviator', teenpatti: 'Teen Patti', mines: 'Mines',
+  chickenroad: 'Chicken Road', astronaut: 'Astronaut', towerrush: 'Tower Rush', bbb: 'Ball by Ball',
+  youreleven: 'Your 11', cricket: 'Cricket (match betting)'
 };
 let knownTxIds = new Set();
 let firstLoad = true;
@@ -406,27 +536,34 @@ function renderKPIs(d) {
   document.getElementById('kpiTotalUsers').textContent = fmtInt(d.users.total_registered);
   document.getElementById('kpiNewToday').textContent = fmtInt(d.users.new_today);
   document.getElementById('kpiNewMonth').textContent = fmtInt(d.users.new_this_month);
-  document.getElementById('kpiLiveUsers').textContent = fmtInt(d.live.total_unique);
+  document.getElementById('kpiLiveUsers').textContent = fmtInt(d.active_unique_15m != null ? d.active_unique_15m : d.live.total_unique);
 
   setProfitColor(document.getElementById('kpiProfitAll'), d.gameplay.house_profit_all_time);
   document.getElementById('kpiWagered').textContent = fmtMoney(d.gameplay.total_wagered);
   document.getElementById('kpiPaidOut').textContent = fmtMoney(d.gameplay.total_paid_out);
+  document.getElementById('kpiBetCount').textContent = fmtInt(d.gameplay.total_bets);
+  document.getElementById('kpiWinCount').textContent = fmtInt(d.gameplay.total_wins);
 
   setProfitColor(document.getElementById('kpiProfitToday'), d.gameplay.house_profit_today);
   const today = new Date(d.generated_at);
-  document.getElementById('kpiTodayDate').textContent = today.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  document.getElementById('kpiTodayDate').textContent = today.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }) + ' (India time)';
 
   setProfitColor(document.getElementById('kpiProfitMonth'), d.gameplay.house_profit_this_month);
-  document.getElementById('kpiMonthLabel').textContent = today.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+  document.getElementById('kpiMonthLabel').textContent = today.toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' });
 }
 
 function renderLiveGames(d) {
   const el = document.getElementById('liveGamesList');
-  const rows = GAME_ORDER.map(k => ({ key: k, label: GAME_LABELS[k], count: (d.live.per_game[k] || 0) }));
+  // Every game, not just the four the in-memory tracker follows: the server counts players who placed
+  // a bet in the last 15 minutes (and takes the tracker's figure where it is higher).
+  const src = d.active_15m || {};
+  const rows = Object.keys(src).length
+    ? Object.keys(src).map(k => ({ key: k, label: src[k].label || GAME_LABELS[k] || k, count: src[k].count || 0 }))
+    : GAME_ORDER.map(k => ({ key: k, label: GAME_LABELS[k], count: (d.live.per_game[k] || 0) }));
   const max = Math.max(1, ...rows.map(r => r.count));
   el.innerHTML = rows.map(r => `
     <div class="game-row">
-      <div class="gname">${r.label}</div>
+      <div class="gname">${esc(r.label)}</div>
       <div class="bar-track"><div class="bar-fill" style="width:${(r.count / max * 100).toFixed(1)}%;"></div></div>
       <div class="gcount">${r.count}</div>
     </div>`).join('');
@@ -434,10 +571,10 @@ function renderLiveGames(d) {
 
 function renderBotGrid(d) {
   const el = document.getElementById('botGrid');
-  const keys = ['global', ...GAME_ORDER];
+  const keys = Object.keys(d.bot_takeover || {}).length ? Object.keys(d.bot_takeover) : ['global', ...GAME_ORDER];
   el.innerHTML = keys.map(k => {
     const cfg = d.bot_takeover[k] || { enabled: false, profit_pct: 0 };
-    const label = k === 'global' ? 'Global (master)' : GAME_LABELS[k];
+    const label = k === 'global' ? 'Global (master)' : (GAME_LABELS[k] || k);
     return `
       <div class="bot-card ${cfg.enabled ? 'on' : ''}">
         <div class="bname">${label}</div>
@@ -449,17 +586,141 @@ function renderBotGrid(d) {
 
 function renderPerGameTable(d) {
   const body = document.getElementById('perGameBody');
-  const rows = GAME_ORDER.map(k => d.gameplay.per_game[k]).filter(Boolean);
+  // Every game the server reports, not just the first four: Chicken Road, Astronaut, Tower Rush and
+  // the cricket games were counted in the totals but never shown as their own row.
+  const rows = Object.values(d.gameplay.per_game || {}).filter(Boolean);
   rows.sort((a, b) => b.profit - a.profit);
   body.innerHTML = rows.map(r => `
     <tr>
-      <td class="gname-cell">${r.label}</td>
+      <td class="gname-cell">${esc(r.label)}</td>
       <td class="num">${fmtInt(r.bet_count)}</td>
       <td class="num">${fmtInt(r.win_count)}</td>
       <td class="num">${fmtMoney(r.wagered)}</td>
       <td class="num">${fmtMoney(r.paid_out)}</td>
       <td class="num ${r.profit > 0 ? 'profit-pos' : (r.profit < 0 ? 'profit-neg' : '')}">${fmtMoney(r.profit)}</td>
-    </tr>`).join('');
+      <td class="num">${r.paid_back_pct == null ? '—' : r.paid_back_pct + '%'}</td>
+      <td class="num">${esc(r.built_to_pay_back || '—')}</td>
+    </tr>`).join('') + (rows.length ? (() => {
+      const t = rows.reduce((a, r) => ({ b: a.b + (r.bet_count || 0), w: a.w + (r.win_count || 0), wg: a.wg + (+r.wagered || 0), p: a.p + (+r.paid_out || 0) }), { b: 0, w: 0, wg: 0, p: 0 });
+      const pr = t.wg - t.p;
+      return `<tr class="total-row"><td class="gname-cell">All games</td><td class="num">${fmtInt(t.b)}</td><td class="num">${fmtInt(t.w)}</td>
+        <td class="num">${fmtMoney(t.wg)}</td><td class="num">${fmtMoney(t.p)}</td>
+        <td class="num ${pr > 0 ? 'profit-pos' : (pr < 0 ? 'profit-neg' : '')}">${fmtMoney(pr)}</td>
+        <td class="num">${t.wg > 0 ? (t.p / t.wg * 100).toFixed(1) + '%' : '—'}</td><td class="num">—</td></tr>`;
+    })() : '');
+}
+
+/** The TODAY box: profit, betting volume, payouts and players for the current India day. */
+function renderToday(d) {
+  const t = d.today;
+  if (!t) return;
+  const dateTxt = new Date(d.generated_at).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' });
+  document.getElementById('todayDateLbl').textContent = dateTxt + ' · India time, since midnight';
+  setProfitColor(document.getElementById('tProfit'), t.profit);
+  const diff = (+t.profit || 0) - (+t.yesterday_profit || 0);
+  document.getElementById('tVsYesterday').innerHTML = 'yesterday ' + esc(fmtMoney(t.yesterday_profit)) + ' · '
+    + `<span class="${diff >= 0 ? 'delta-up' : 'delta-down'}">${diff >= 0 ? '▲' : '▼'} ${esc(fmtMoney(Math.abs(diff)))}</span>`;
+  document.getElementById('tMargin').textContent = t.margin_pct == null ? '—' : t.margin_pct + '%';
+  document.getElementById('tWagered').textContent = fmtMoney(t.wagered);
+  document.getElementById('tBets').textContent = fmtInt(t.bets);
+  document.getElementById('tAvgBet').textContent = fmtMoney(t.avg_bet);
+  document.getElementById('tYWagered').textContent = fmtMoney(t.yesterday_wagered);
+  document.getElementById('tPaidOut').textContent = fmtMoney(t.paid_out);
+  document.getElementById('tWins').textContent = fmtInt(t.wins);
+  document.getElementById('tBiggest').textContent = t.biggest_win ? `${fmtMoney(t.biggest_win.amount)} · ${t.biggest_win.username} (${t.biggest_win.game})` : '—';
+  document.getElementById('tPlayers').textContent = fmtInt(t.players);
+  document.getElementById('tNewUsers').textContent = fmtInt(t.new_users);
+  document.getElementById('tCashIn').textContent = d.finance ? fmtMoney(d.finance.net_cash_in_today) : '—';
+  const body = document.getElementById('todayGameBody');
+  body.innerHTML = (t.per_game || []).length ? t.per_game.map(g => `<tr>
+      <td class="gname-cell">${esc(g.label)}</td><td class="num">${fmtInt(g.bets)}</td><td class="num">${fmtMoney(g.wagered)}</td>
+      <td class="num ${g.profit > 0 ? 'profit-pos' : (g.profit < 0 ? 'profit-neg' : '')}">${fmtMoney(g.profit)}</td></tr>`).join('')
+    : '<tr><td colspan="4" class="gname-cell" style="color:var(--text-faint); font-weight:500;">No bets yet today.</td></tr>';
+  drawHourlyChart(d);
+}
+
+function drawHourlyChart(d) {
+  const canvas = document.getElementById('hourlyChart');
+  const data = (d.today && d.today.hourly) || [];
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.clientWidth || 700, cssH = 150;
+  canvas.width = cssW * dpr; canvas.height = cssH * dpr; canvas.style.height = cssH + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr); ctx.clearRect(0, 0, cssW, cssH);
+  const padB = 18, padT = 8, plotH = cssH - padB - padT;
+  const maxW = Math.max(1, ...data.map(h => +h.wagered || 0));
+  const maxP = Math.max(1, ...data.map(h => Math.abs(+h.profit || 0)));
+  const bw = cssW / 24;
+  const nowHr = +new Date().toLocaleString('en-US', { hour: 'numeric', hour12: false, timeZone: 'Asia/Kolkata' }) % 24;
+  data.forEach((h, i) => {
+    const bh = (+h.wagered || 0) / maxW * plotH;
+    ctx.fillStyle = i === nowHr ? 'rgba(91,127,255,0.85)' : 'rgba(91,127,255,0.38)';
+    ctx.fillRect(i * bw + bw * 0.18, padT + plotH - bh, bw * 0.64, bh);
+    if (i % 3 === 0) {
+      ctx.fillStyle = '#545c74'; ctx.font = '9.5px "IBM Plex Mono", monospace'; ctx.textAlign = 'center';
+      ctx.fillText(String(i).padStart(2, '0'), i * bw + bw / 2, cssH - 5);
+    }
+  });
+  // profit line, centred on a zero baseline
+  const zeroY = padT + plotH / 2;
+  ctx.strokeStyle = '#232a3c'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, zeroY); ctx.lineTo(cssW, zeroY); ctx.stroke();
+  ctx.lineWidth = 2; ctx.strokeStyle = '#34d399'; ctx.beginPath();
+  data.forEach((h, i) => {
+    if (i > nowHr) return;
+    const y = zeroY - (+h.profit || 0) / maxP * (plotH / 2 - 2);
+    const x = i * bw + bw / 2;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+  ctx.textAlign = 'left';
+}
+
+/** Money in / out: deposits, withdrawals, pending queues, wallet balances. */
+function renderFinance(d) {
+  const f = d.finance;
+  if (!f) return;
+  document.getElementById('mDeposits').textContent = fmtMoney(f.deposits_total);
+  document.getElementById('mDepCount').textContent = fmtInt(f.deposits_count);
+  document.getElementById('mDepToday').textContent = fmtMoney(f.deposits_today);
+  document.getElementById('mDepPending').innerHTML = f.deposits_pending_count
+    ? `<span class="pill-warn">${fmtInt(f.deposits_pending_count)} pending · ${esc(fmtMoney(f.deposits_pending))}</span>` : 'nothing pending';
+  document.getElementById('mWithdrawals').textContent = fmtMoney(f.withdrawals_total);
+  document.getElementById('mWdCount').textContent = fmtInt(f.withdrawals_count);
+  document.getElementById('mWdToday').textContent = fmtMoney(f.withdrawals_today);
+  document.getElementById('mWdPending').innerHTML = f.withdrawals_pending_count
+    ? `<span class="pill-warn">${fmtInt(f.withdrawals_pending_count)} waiting · ${esc(fmtMoney(f.withdrawals_pending))}</span>` : 'nothing waiting';
+  setProfitColor(document.getElementById('mNetCash'), f.net_cash_in);
+  document.getElementById('mNetToday').textContent = fmtMoney(f.net_cash_in_today);
+  document.getElementById('mLiability').textContent = fmtMoney(f.wallet_liability);
+  document.getElementById('mFunded').textContent = fmtInt(f.players_with_balance);
+}
+
+function renderMonthly(d) {
+  const el = document.getElementById('monthlyList');
+  const rows = (d.gameplay.monthly_trend || []).slice(-6).reverse();
+  const max = Math.max(1, ...rows.map(r => Math.abs(+r.profit || 0)));
+  el.innerHTML = rows.length ? rows.map(r => {
+    const label = new Date(r.month + '-01T00:00:00Z').toLocaleDateString('en-IN', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+    const pos = (+r.profit || 0) >= 0;
+    return `<div class="mrow"><span class="mlbl">${esc(label)}</span>
+      <span class="mtrack"><span class="mfill" style="display:block; width:${(Math.abs(+r.profit || 0) / max * 100).toFixed(1)}%; background:${pos ? 'var(--profit)' : 'var(--loss)'};"></span></span>
+      <span class="mval" style="color:${pos ? 'var(--profit)' : 'var(--loss)'};">${fmtMoney(r.profit)}</span></div>`;
+  }).join('') : '<div class="wl-empty">No monthly history yet.</div>';
+}
+
+function renderQueues(d) {
+  const wd = document.getElementById('pendingWdList');
+  const list = d.pending_withdrawals || [];
+  wd.innerHTML = list.length ? list.map(w => `<div class="wl-row">
+      <span class="wname">${esc(w.username)}</span><span class="feed-game" style="flex:1; text-align:center;">${esc(w.method || '')}</span>
+      <span class="wnet" style="color:var(--warn);">${fmtMoney(w.amount)}</span><span class="feed-time">${timeAgo(w.requested_at)}</span></div>`).join('')
+    : '<div class="wl-empty">No withdrawals waiting.</div>';
+  const su = document.getElementById('signupsList');
+  const users = d.recent_signups || [];
+  su.innerHTML = users.length ? users.map(u => `<div class="wl-row">
+      <span class="wname">${esc(u.username)}</span><span class="wnet">${fmtMoney(u.balance)}</span>
+      <span class="feed-time">${u.joined_at ? timeAgo(u.joined_at) : '—'}</span></div>`).join('')
+    : '<div class="wl-empty">No players yet.</div>';
 }
 
 function renderWinnersLosers(d) {
@@ -476,6 +737,25 @@ function renderWinnersLosers(d) {
   winners.innerHTML = d.players.top_winners.length ? d.players.top_winners.map(u => `
     <div class="wl-row"><span class="wname">${esc(u.username)}</span><span class="wnet" style="color:var(--profit);">${fmtMoney(u.net)}</span></div>
   `).join('') : '<div class="wl-empty">No winning players yet.</div>';
+}
+
+function renderBigWins(d) {
+  const el = document.getElementById('bigWinsList');
+  if (!el) return;
+  const wins = (d.big_wins_24h || []);
+  // Count how many of these big wins each player had, so a repeat winner stands out.
+  const times = {};
+  wins.forEach(w => { const k = (w.username || '').toLowerCase(); times[k] = (times[k] || 0) + 1; });
+  el.innerHTML = wins.length ? wins.map(w => {
+    const n = times[(w.username || '').toLowerCase()] || 1;
+    const repeat = n > 1 ? `<span class="house-tag" style="background:var(--loss);">×${n} in 24h</span>` : '';
+    return `<div class="wl-row">
+      <span class="wname">${esc(w.username)}${repeat}</span>
+      <span class="feed-game" style="flex:1; text-align:center;">${esc(w.game)}</span>
+      <span class="wnet" style="color:var(--profit);">${fmtMoney(w.amount)}</span>
+      <span class="feed-time">${timeAgo(w.timestamp)}</span>
+    </div>`;
+  }).join('') : '<div class="wl-empty">No large wins in the last 24 hours.</div>';
 }
 
 function renderFeed(d) {
@@ -578,11 +858,16 @@ async function loadDashboard() {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const d = await res.json();
 
+    renderToday(d);
+    renderFinance(d);
     renderKPIs(d);
     renderLiveGames(d);
+    renderMonthly(d);
+    renderQueues(d);
     renderBotGrid(d);
     renderPerGameTable(d);
     renderWinnersLosers(d);
+    renderBigWins(d);
     renderFeed(d);
     drawProfitChart(d);
     window._lastDashData = d;
@@ -699,7 +984,7 @@ async function checkGateAndInit() {
   if (!window._superDashTimer) {
     window._superDashTimer = setInterval(loadDashboard, 6000);
   }
-  window.addEventListener('resize', () => { if (window._lastDashData) drawProfitChart(window._lastDashData); });
+  window.addEventListener('resize', () => { if (window._lastDashData) { drawProfitChart(window._lastDashData); drawHourlyChart(window._lastDashData); } });
 }
 
 checkGateAndInit();
