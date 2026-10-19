@@ -41,6 +41,9 @@ function register_password_reset_routes(Router $app) {
 
         try {
             $user = find_user_by_email($email);
+            // An address the signup code made up (no email given) belongs to nobody we know, so it
+            // can never unlock the account. Same generic answer, so it reveals nothing.
+            if ($user && is_placeholder_email($user)) $user = null;
             if ($user) {
                 $result = email_otp_issue($email);
                 if (empty($result['ok'])) {
@@ -126,6 +129,10 @@ function register_password_reset_routes(Router $app) {
                 // EmailOtp), so this branch means the account was deleted in the meantime, not a
                 // guessing attack — safe to say plainly.
                 $res->status(404)->json(['error' => 'No account found for that email.']);
+                return;
+            }
+            if (is_placeholder_email($user)) {
+                $res->status(400)->json(['error' => 'This account has no email address on file. Please contact support.']);
                 return;
             }
 

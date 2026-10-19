@@ -255,7 +255,7 @@ function register_mines_routes(Router $app) {
     });
 
     // --- POST /api/mines/reveal ---
-    $app->post('/api/mines/reveal', 'require_auth', function (Req $req, Res $res) {
+    $app->post('/api/mines/reveal', 'require_auth', function (Req $req, Res $out) {
         $username = acting_username($req);
         $tileIndex = js_parse_int($req->b('index'));
 
@@ -265,216 +265,223 @@ function register_mines_routes(Router $app) {
             // targeted at all.
             mark_user_active('mines', $username);
 
-            $session = mines_session_get($username);
-            if (!$session || $session['status'] !== 'active') {
-                $res->status(400)->json(['ok' => false, 'error' => 'No active game round.']);
-                return;
-            }
-
-            // Number.isInteger first, and not just the range comparisons: a missing or non-numeric
-            // `index` parses to NaN, and every NaN comparison is false, so `NaN < 0 || NaN >= 25`
-            // waved the request straight through. NaN is then never found in mine_positions either,
-            // which made a body with no tile in it a guaranteed-safe reveal that could be repeated
-            // to run the multiplier up for free.
-            if (!js_is_integer($tileIndex) || $tileIndex < 0 || $tileIndex >= 25) {
-                $res->status(400)->json(['ok' => false, 'error' => 'Invalid tile index.']);
-                return;
-            }
-            $tileIndex = (int)$tileIndex;
-
-            if (in_array($tileIndex, $session['revealed'], true)) {
-                $res->status(400)->json(['ok' => false, 'error' => 'Tile already revealed.']);
-                return;
-            }
-
-            $rig = mines_rig_get();
-            $hitMine = in_array($tileIndex, $session['mine_positions'], true);
-            $wasRiggedThisReveal = false;
-
-            // 1. Admin matrix override for this tile.
-            //
-            // 'mine' still applies: an operator marking a further tile mid-round is stacking the
-            // board, which is allowed and only ever makes it harder.
-            //
-            // 'safe' deliberately no longer forces a tile safe. It used to set hitMine = false AND
-            // delete the tile from mine_positions, which quietly destroyed the player's chosen mine
-            // count: the board is laid at start with the operator's mines plus random extras up to
-            // the number of mines the PLAYER selected, and every one of those extras that happened
-            // to sit on a tile marked 'safe' was removed again the moment it was clicked. With 9
-            // rigged mines against a player on 15, that left only the operator's 9 genuinely live,
-            // so 16 tiles could be opened safely. The count the player chose is authoritative, so
-            // the board laid at start is what stands. 'safe' is still honoured where it does not
-            // break that count: tiles marked 'safe' never receive one of the operator's own mines.
-            $matrixTile = $rig['matrix'][$tileIndex] ?? 'auto';
-            if ($matrixTile === 'mine') {
-                $hitMine = true;
-                $wasRiggedThisReveal = true;
-                if (!in_array($tileIndex, $session['mine_positions'], true)) $session['mine_positions'][] = $tileIndex;
-            }
-
-            // 2. Manual admin targeting/rig config always takes full precedence over the autonomous
-            //    bot engine below.
-            $hasManualRigConfig = (is_array($rig['target_users']) && count($rig['target_users']) > 0)
-                                || js_truthy($rig['next_tile']) || js_truthy($rig['rig_type']);
-
-            if ($hasManualRigConfig) {
-                $isTargetedUser = !is_array($rig['target_users'])
-                                || count($rig['target_users']) === 0
-                                || in_array($username, $rig['target_users'], true);
-
-                if ($isTargetedUser) {
-                    if ($rig['next_tile'] === 'mine' || $rig['rig_type'] === 'platform_profit') {
-                        $hitMine = true;
-                        $wasRiggedThisReveal = true;
-                        if (!in_array($tileIndex, $session['mine_positions'], true)) $session['mine_positions'][] = $tileIndex;
-                    } elseif ($rig['next_tile'] === 'gem' || $rig['rig_type'] === 'guarantee_win') {
-                        $hitMine = false;
-                        $wasRiggedThisReveal = true;
-                        $session['mine_positions'] = array_values(array_filter($session['mine_positions'],
-                            function ($m) use ($tileIndex) { return $m !== $tileIndex; }));
-                    }
+            // The whole read-decide-write runs under this player's board lock. Without it, two
+            // reveals sent at once both read the same "active" board and the LAST write won: a
+            // safe tile written after a mine silently undid the bust, and a reveal written after a
+            // cash-out flipped the board back to "active" so it could be cashed out a second time.
+            $res = new HeldRes();
+            tx_locked('mines', $username, function () use ($res, $username, $tileIndex) {
+                $session = mines_session_get($username);
+                if (!$session || $session['status'] !== 'active') {
+                    $res->status(400)->json(['ok' => false, 'error' => 'No active game round.']);
+                    return;
                 }
-            } elseif (bot_takeover_active('mines')['active'] && is_user_targeted('mines', $username)) {
-                // 3. No manual rig is configured at all — the autonomous engine decides this reveal,
-                //    for a currently live-targeted user only. Being selected by the percentage-based
-                //    targeting engine IS the rig decision here, with no further probability roll on
-                //    top: every reveal a targeted user makes is rigged in the house's favour,
-                //    exactly like every other game. That is what makes the configured percentage
-                //    mean what it says — set it to 90% and 90% of live bettors get rigged, not 90%
-                //    of 90%.
-                $hitMine = true;
-                $wasRiggedThisReveal = true;
-                if (!in_array($tileIndex, $session['mine_positions'], true)) $session['mine_positions'][] = $tileIndex;
-            }
 
-            $user = get_or_create_user($username);
-            if (!$user) { $res->status(404)->json(['ok' => false, 'error' => 'Account not found.']); return; }
+                // Number.isInteger first, and not just the range comparisons: a missing or non-numeric
+                // `index` parses to NaN, and every NaN comparison is false, so `NaN < 0 || NaN >= 25`
+                // waved the request straight through. NaN is then never found in mine_positions either,
+                // which made a body with no tile in it a guaranteed-safe reveal that could be repeated
+                // to run the multiplier up for free.
+                if (!js_is_integer($tileIndex) || $tileIndex < 0 || $tileIndex >= 25) {
+                    $res->status(400)->json(['ok' => false, 'error' => 'Invalid tile index.']);
+                    return;
+                }
+                $tileIndex = (int)$tileIndex;
 
-            if ($hitMine) {
-                $session['status'] = 'busted';
+                if (in_array($tileIndex, $session['revealed'], true)) {
+                    $res->status(400)->json(['ok' => false, 'error' => 'Tile already revealed.']);
+                    return;
+                }
 
-                // Keep the busting tile at the head of mine_positions. The set is unchanged — same
-                // members, so the audit trail and every in_array() membership test are unaffected —
-                // but the order now records WHICH tile busted, which is what lets the finished board
-                // be reproduced identically if the player reloads the page. mines_session_write
-                // persists this column, so it survives; a separate display column would have needed
-                // a schema migration to remember one integer.
-                $session['mine_positions'] = array_values(array_unique(array_merge(
-                    [(int) $tileIndex],
-                    array_map('intval', $session['mine_positions'])
-                )));
+                $rig = mines_rig_get();
+                $hitMine = in_array($tileIndex, $session['mine_positions'], true);
+                $wasRiggedThisReveal = false;
 
-                $displayMines = mines_display_mine_positions($session, $tileIndex);
+                // 1. Admin matrix override for this tile.
+                //
+                // 'mine' still applies: an operator marking a further tile mid-round is stacking the
+                // board, which is allowed and only ever makes it harder.
+                //
+                // 'safe' deliberately no longer forces a tile safe. It used to set hitMine = false AND
+                // delete the tile from mine_positions, which quietly destroyed the player's chosen mine
+                // count: the board is laid at start with the operator's mines plus random extras up to
+                // the number of mines the PLAYER selected, and every one of those extras that happened
+                // to sit on a tile marked 'safe' was removed again the moment it was clicked. With 9
+                // rigged mines against a player on 15, that left only the operator's 9 genuinely live,
+                // so 16 tiles could be opened safely. The count the player chose is authoritative, so
+                // the board laid at start is what stands. 'safe' is still honoured where it does not
+                // break that count: tiles marked 'safe' never receive one of the operator's own mines.
+                $matrixTile = $rig['matrix'][$tileIndex] ?? 'auto';
+                if ($matrixTile === 'mine') {
+                    $hitMine = true;
+                    $wasRiggedThisReveal = true;
+                    if (!in_array($tileIndex, $session['mine_positions'], true)) $session['mine_positions'][] = $tileIndex;
+                }
+
+                // 2. Manual admin targeting/rig config always takes full precedence over the autonomous
+                //    bot engine below.
+                $hasManualRigConfig = (is_array($rig['target_users']) && count($rig['target_users']) > 0)
+                                    || js_truthy($rig['next_tile']) || js_truthy($rig['rig_type']);
+
+                if ($hasManualRigConfig) {
+                    $isTargetedUser = !is_array($rig['target_users'])
+                                    || count($rig['target_users']) === 0
+                                    || in_array($username, $rig['target_users'], true);
+
+                    if ($isTargetedUser) {
+                        if ($rig['next_tile'] === 'mine' || $rig['rig_type'] === 'platform_profit') {
+                            $hitMine = true;
+                            $wasRiggedThisReveal = true;
+                            if (!in_array($tileIndex, $session['mine_positions'], true)) $session['mine_positions'][] = $tileIndex;
+                        } elseif ($rig['next_tile'] === 'gem' || $rig['rig_type'] === 'guarantee_win') {
+                            $hitMine = false;
+                            $wasRiggedThisReveal = true;
+                            $session['mine_positions'] = array_values(array_filter($session['mine_positions'],
+                                function ($m) use ($tileIndex) { return $m !== $tileIndex; }));
+                        }
+                    }
+                } elseif (bot_takeover_active('mines')['active'] && is_user_targeted('mines', $username)) {
+                    // 3. No manual rig is configured at all — the autonomous engine decides this reveal,
+                    //    for a currently live-targeted user only. Being selected by the percentage-based
+                    //    targeting engine IS the rig decision here, with no further probability roll on
+                    //    top: every reveal a targeted user makes is rigged in the house's favour,
+                    //    exactly like every other game. That is what makes the configured percentage
+                    //    mean what it says — set it to 90% and 90% of live bettors get rigged, not 90%
+                    //    of 90%.
+                    $hitMine = true;
+                    $wasRiggedThisReveal = true;
+                    if (!in_array($tileIndex, $session['mine_positions'], true)) $session['mine_positions'][] = $tileIndex;
+                }
+
+                $user = get_or_create_user($username);
+                if (!$user) { $res->status(404)->json(['ok' => false, 'error' => 'Account not found.']); return; }
+
+                if ($hitMine) {
+                    $session['status'] = 'busted';
+
+                    // Keep the busting tile at the head of mine_positions. The set is unchanged — same
+                    // members, so the audit trail and every in_array() membership test are unaffected —
+                    // but the order now records WHICH tile busted, which is what lets the finished board
+                    // be reproduced identically if the player reloads the page. mines_session_write
+                    // persists this column, so it survives; a separate display column would have needed
+                    // a schema migration to remember one integer.
+                    $session['mine_positions'] = array_values(array_unique(array_merge(
+                        [(int) $tileIndex],
+                        array_map('intval', $session['mine_positions'])
+                    )));
+
+                    $displayMines = mines_display_mine_positions($session, $tileIndex);
+                    mines_session_write($username, $session);
+                    log_debug('mines busted', ['username' => $username, 'tile' => $tileIndex + 1]);
+
+                    $res->json(['ok' => true, 'hit_mine' => true, 'state' => [
+                        'status'           => 'busted',
+                        'grid_size'        => 25,
+                        'mines_count'      => $session['mines_count'],
+                        'bet_amount'       => $session['bet_amount'],
+                        'revealed'         => array_values($session['revealed']),
+                        'multiplier'       => 0,
+                        'potential_payout' => 0,
+                        'server_seed'      => $session['server_seed'],
+                        // Display layout, not the live one — see mines_display_mine_positions().
+                        'mine_positions'   => $displayMines,
+                        'balance'          => (float)$user['wallet_balance'],
+                        'was_rigged'       => $wasRiggedThisReveal,
+                    ]]);
+                    return;
+                }
+
+                $session['revealed'][] = $tileIndex;
+                $newMult = calculate_mines_multiplier(25, $session['mines_count'], count($session['revealed']));
+                $newPayout = to_fixed_num($session['bet_amount'] * $newMult, 2);
+
+                $session['multiplier'] = $newMult;
+                $session['potential_payout'] = $newPayout;
                 mines_session_write($username, $session);
-                log_debug('mines busted', ['username' => $username, 'tile' => $tileIndex + 1]);
 
-                $res->json(['ok' => true, 'hit_mine' => true, 'state' => [
-                    'status'           => 'busted',
+                $res->json(['ok' => true, 'hit_mine' => false, 'state' => [
+                    'status'           => 'active',
                     'grid_size'        => 25,
                     'mines_count'      => $session['mines_count'],
                     'bet_amount'       => $session['bet_amount'],
                     'revealed'         => array_values($session['revealed']),
-                    'multiplier'       => 0,
-                    'potential_payout' => 0,
-                    'server_seed'      => $session['server_seed'],
-                    // Display layout, not the live one — see mines_display_mine_positions().
-                    'mine_positions'   => $displayMines,
+                    'multiplier'       => $newMult,
+                    'potential_payout' => $newPayout,
                     'balance'          => (float)$user['wallet_balance'],
                     'was_rigged'       => $wasRiggedThisReveal,
                 ]]);
-                return;
-            }
-
-            $session['revealed'][] = $tileIndex;
-            $newMult = calculate_mines_multiplier(25, $session['mines_count'], count($session['revealed']));
-            $newPayout = to_fixed_num($session['bet_amount'] * $newMult, 2);
-
-            $session['multiplier'] = $newMult;
-            $session['potential_payout'] = $newPayout;
-            mines_session_write($username, $session);
-
-            $res->json(['ok' => true, 'hit_mine' => false, 'state' => [
-                'status'           => 'active',
-                'grid_size'        => 25,
-                'mines_count'      => $session['mines_count'],
-                'bet_amount'       => $session['bet_amount'],
-                'revealed'         => array_values($session['revealed']),
-                'multiplier'       => $newMult,
-                'potential_payout' => $newPayout,
-                'balance'          => (float)$user['wallet_balance'],
-                'was_rigged'       => $wasRiggedThisReveal,
-            ]]);
+            });
+            $res->release($out);
         } catch (Throwable $err) {
-            fail500($res, $err, 'mines');
+            fail500($out, $err, 'mines');
         }
     });
 
     // --- POST /api/mines/cashout ---
-    $app->post('/api/mines/cashout', 'require_auth', function (Req $req, Res $res) {
+    $app->post('/api/mines/cashout', 'require_auth', function (Req $req, Res $out) {
         $username = acting_username($req);
 
         try {
-            $session = mines_session_get($username);
-            if (!$session || $session['status'] !== 'active') {
-                $res->status(400)->json(['ok' => false, 'error' => 'No active game to cash out.']);
-                return;
-            }
-            if (count($session['revealed']) === 0) {
-                $res->status(400)->json(['ok' => false, 'error' => 'Reveal at least one tile before cashing out.']);
-                return;
-            }
+            // Same board lock as /reveal: a cash-out and a reveal for one board can never overlap,
+            // so a reveal can no longer write "active" back over a board that was just paid.
+            $res = new HeldRes();
+            tx_locked('mines', $username, function () use ($res, $username) {
+                $session = mines_session_get($username);
+                if (!$session || $session['status'] !== 'active') {
+                    $res->status(400)->json(['ok' => false, 'error' => 'No active game to cash out.']);
+                    return;
+                }
+                if (count($session['revealed']) === 0) {
+                    $res->status(400)->json(['ok' => false, 'error' => 'Reveal at least one tile before cashing out.']);
+                    return;
+                }
+                $user = get_or_create_user($username);
+                if (!$user) { $res->status(404)->json(['ok' => false, 'error' => 'Account not found.']); return; }
 
-            $payout = $session['potential_payout'];
+                // Recomputed from the board rather than trusting the stored figure, with the same
+                // formula /reveal uses to show it.
+                $mult = calculate_mines_multiplier(25, $session['mines_count'], count($session['revealed']));
+                $payout = to_fixed_num($session['bet_amount'] * $mult, 2);
 
-            // Flip the session state BEFORE crediting anything, so two cash-out requests racing each
-            // other cannot both see an 'active' session and both get paid.
-            if (!mines_session_claim_status($username, 'active', 'cashed')) {
-                $res->status(400)->json(['ok' => false, 'error' => 'No active game to cash out.']);
-                return;
-            }
+                // Flip the session state BEFORE crediting anything (belt and braces with the lock).
+                if (!mines_session_claim_status($username, 'active', 'cashed')) {
+                    $res->status(400)->json(['ok' => false, 'error' => 'No active game to cash out.']);
+                    return;
+                }
 
-            // Freeze the player-facing layout for this finished round, exactly as the bust path
-            // does. No hit tile here — the player never stepped on one — so the whole selection is
-            // drawn from the live mines, skipping every tile they already opened as a gem.
-            $session['status'] = 'cashed';
-            $displayMines = mines_display_mine_positions($session, null);
-            mines_session_write($username, $session);
+                // Freeze the player-facing layout for this finished round, exactly as the bust path
+                // does. No hit tile here — the player never stepped on one — so the whole selection is
+                // drawn from the live mines, skipping every tile they already opened as a gem.
+                $session['status'] = 'cashed';
+                $session['multiplier'] = $mult;
+                $session['potential_payout'] = $payout;
+                $displayMines = mines_display_mine_positions($session, null);
+                mines_session_write($username, $session);
 
-            $user = get_or_create_user($username);
-            if (!$user) { $res->status(404)->json(['ok' => false, 'error' => 'Account not found.']); return; }
-            $balanceAfterCredit = credit_wallet($user['id'], $payout);
-
-            // Mirror image of the stake path: here the credit lands first, so a failed ledger write
-            // leaves the player holding money no transaction row accounts for. The payout was
-            // legitimately won, so it is deliberately NOT clawed back; instead the discrepancy is
-            // logged loudly enough to be reconciled rather than silently corrupting the books.
-            try {
+                // Credit and ledger row commit together with the status change, or not at all.
+                $balanceAfterCredit = credit_wallet($user['id'], $payout);
                 insert_transaction(new_record_id('MINES_WIN'), $username, 'Deposit', $payout,
-                                   'Mines Cash Out — ' . js_num_str($session['multiplier']) . 'x', 'Completed');
-            } catch (Throwable $ledgerErr) {
-                log_error('MINES PAYOUT LEDGER WRITE FAILED - wallet credited without a ledger row', [
-                    'username' => $username, 'payout' => $payout,
-                    'multiplier' => $session['multiplier'], 'message' => $ledgerErr->getMessage(),
-                ]);
-            }
+                                   'Mines Cash Out — ' . js_num_str($mult) . 'x', 'Completed');
 
-            log_debug('mines cashout', ['username' => $username, 'payout' => $payout, 'multiplier' => $session['multiplier']]);
+                log_debug('mines cashout', ['username' => $username, 'payout' => $payout, 'multiplier' => $mult]);
 
-            $res->json(['ok' => true, 'payout' => $payout, 'state' => [
-                'status'           => 'cashed',
-                'grid_size'        => 25,
-                'mines_count'      => $session['mines_count'],
-                'bet_amount'       => $session['bet_amount'],
-                'revealed'         => array_values($session['revealed']),
-                'multiplier'       => $session['multiplier'],
-                'potential_payout' => $payout,
-                'server_seed'      => $session['server_seed'],
-                // Display layout, not the live one — see mines_display_mine_positions().
-                'mine_positions'   => $displayMines,
-                'balance'          => $balanceAfterCredit,
-            ]]);
+                $res->json(['ok' => true, 'payout' => $payout, 'state' => [
+                    'status'           => 'cashed',
+                    'grid_size'        => 25,
+                    'mines_count'      => $session['mines_count'],
+                    'bet_amount'       => $session['bet_amount'],
+                    'revealed'         => array_values($session['revealed']),
+                    'multiplier'       => $mult,
+                    'potential_payout' => $payout,
+                    'server_seed'      => $session['server_seed'],
+                    // Display layout, not the live one — see mines_display_mine_positions().
+                    'mine_positions'   => $displayMines,
+                    'balance'          => $balanceAfterCredit,
+                ]]);
+            });
+            $res->release($out);
         } catch (Throwable $err) {
-            fail500($res, $err, 'mines');
+            fail500($out, $err, 'mines');
         }
     });
 

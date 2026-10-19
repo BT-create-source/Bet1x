@@ -356,7 +356,8 @@ let roundId = (typeof getOfflineAviatorRoundId === 'function') ? getOfflineAviat
         phase = parsed.phase || 'waiting';
         phaseStart = parsed.phase_start;
         roundId = parsed.round_id || roundId;
-        crashPoint = parsed.crash_point || crashPoint;
+        // A flight in progress has no known crash point on the client (see syncAviator).
+        crashPoint = (phase === 'running') ? Infinity : (parsed.crash_point || crashPoint);
         currentMultiplier = parsed.current_multiplier || 1.00;
       }
     }
@@ -927,7 +928,10 @@ function syncAviator() {
           phase = data.phase;
           phaseStart = authoritativePhaseStart;
           roundId = data.round_id || roundId;
-          crashPoint = data.crash_point || crashPoint;
+          // The server no longer reveals where a flight will crash while it is in the air (that
+          // let players cash out one tick before every crash). In flight there is nothing to clamp
+          // to, so the curve runs until the server reports the crash and its real crash point.
+          crashPoint = (data.phase === 'running') ? Infinity : (data.crash_point || crashPoint);
           if (data.current_multiplier) currentMultiplier = data.current_multiplier;
 
           // Keep the on-screen round number in lockstep with the server's authoritative round_id

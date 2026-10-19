@@ -3114,6 +3114,8 @@ window.savePassword = function () {
         settingsMsg('settings-password-msg', data.error || 'Could not change password.', 'error');
         return;
       }
+      // A password change signs out every other session; this device gets a fresh token.
+      if (data.token) localStorage.setItem(AUTH_TOKEN_KEY, data.token);
       cp.value = '';
       np.value = '';
       cnp.value = '';

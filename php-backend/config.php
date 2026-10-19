@@ -246,7 +246,12 @@ $ALLOW_AUTO_USER_CREATION = env_bool('ALLOW_AUTO_USER_CREATION', false);
 $BCRYPT_ROUNDS           = (int) env_num('BCRYPT_ROUNDS', 12);
 $SESSION_TTL_MS          = (int) round(env_num('SESSION_TTL_HOURS', 24 * 7) * 3600 * 1000);
 $MIN_BET                 = env_num('MIN_BET', 1);
-$MAX_BET                 = env_num('MAX_BET', 100000);
+// The largest single stake, across Aviator, Colour Prediction and Mines (the crash games keep their
+// own tighter per-game caps). This is the main brake on short-term swings: one ₹1,00,000 Aviator
+// bet at 50x is a ₹50 lakh payout, so the house's whole day can turn on one lucky round. ₹10,000
+// keeps any single round's exposure to a level a day's normal volume absorbs. Raise it in .env only
+// with the bankroll to cover the matching win.
+$MAX_BET                 = env_num('MAX_BET', 10000);
 $MIN_WITHDRAWAL          = env_num('MIN_WITHDRAWAL', 100);
 
 // --- Testing switches ---
@@ -258,6 +263,11 @@ if ($IS_PRODUCTION && $DISABLE_RATE_LIMITS) {
 // --- House-edge engine ---
 $AVIATOR_SMART_CRASH    = env_bool('AVIATOR_SMART_CRASH', true);
 $AVIATOR_HIGH_STAKE_REF = env_num('AVIATOR_HIGH_STAKE_REF', 1000);
+// A hard ceiling on what one Aviator bet can pay, the same backstop the crash games (Astronaut,
+// Tower Rush, Chicken Road) already carry. The crash point is capped at 50x and MAX_BET caps the
+// stake, so this only bites on an operator override or a raised MAX_BET — it is the last guard
+// against one round paying out more than the float can cover.
+$AVIATOR_MAX_WIN        = env_num('AVIATOR_MAX_WIN', 1000000);
 
 // Teen Patti pads any table short of 4 seats with randomly-named NPC fillers, and runs a background
 // "organic traffic" engine that seats simulated players into rooms with nobody real in them at all,
@@ -269,6 +279,13 @@ $AVIATOR_HIGH_STAKE_REF = env_num('AVIATOR_HIGH_STAKE_REF', 1000);
 // either way). This does not touch the separate "Admin" house seat used for rigging — see the
 // bot-seat fallback in teenpatti.php's tp_start_round().
 $TEENPATTI_AUTO_BOT_FILL = env_bool('TEENPATTI_AUTO_BOT_FILL', true);
+
+// The house's cut ("admin profit") of every Teen Patti pot a player wins, in percent (0-20). Teen
+// Patti pays the winner the whole pot, so this commission is the ONLY thing the house earns on a
+// hand a player wins — raising it is the direct lever on Teen Patti profit. 10% is the top of what
+// established Teen Patti apps charge; above that players notice losing a large slice of every pot.
+// It is taken only from a real player's winnings, never from the house's own ("Admin") seat.
+$TEENPATTI_COMMISSION_PCT = max(0.0, min(20.0, (float) env_num('TEENPATTI_COMMISSION_PCT', 10)));
 
 // --- Monitoring ---
 // How old the cron heartbeat may get before /api/ready reports the deployment as not-ready.
@@ -287,6 +304,12 @@ $SIGNUP_MAX_PER_IP_PER_DAY  = (int)   env_num('SIGNUP_MAX_PER_IP_PER_DAY', 0);
 $WITHDRAWAL_DAILY_MAX       = (float) env_num('WITHDRAWAL_DAILY_MAX', 0);
 $WITHDRAWAL_DAILY_COUNT_MAX = (int)   env_num('WITHDRAWAL_DAILY_COUNT_MAX', 0);
 $WITHDRAWAL_REQUIRE_DEPOSIT = env_bool('WITHDRAWAL_REQUIRE_DEPOSIT', false);
+// Play-through before cash-out: a player must have wagered at least this multiple of everything
+// they ever deposited before a withdrawal is accepted (1 = "play your deposits once"). It stops
+// money going straight in and back out — which is what made the referral commission (paid on every
+// approved deposit) a loop: deposit into a second account, collect the inviter's 1.5-1.8%, withdraw,
+// repeat. On by default in production; 0 turns it off.
+$WITHDRAWAL_MIN_TURNOVER    = max(0.0, (float) env_num('WITHDRAWAL_MIN_TURNOVER', $IS_PRODUCTION ? 1 : 0));
 
 // A signup bonus that can be withdrawn without ever depositing is just free money handed to whoever
 // scripts the registration form. Refuse to boot on that combination rather than discovering it in
@@ -408,12 +431,15 @@ $CONFIG = [
     'DISABLE_RATE_LIMITS'      => $DISABLE_RATE_LIMITS,
     'AVIATOR_SMART_CRASH'      => $AVIATOR_SMART_CRASH,
     'AVIATOR_HIGH_STAKE_REF'   => $AVIATOR_HIGH_STAKE_REF,
+    'AVIATOR_MAX_WIN'          => $AVIATOR_MAX_WIN,
     'TEENPATTI_AUTO_BOT_FILL'  => $TEENPATTI_AUTO_BOT_FILL,
+    'TEENPATTI_COMMISSION_PCT' => $TEENPATTI_COMMISSION_PCT,
     'CRON_STALE_SECONDS'         => $CRON_STALE_SECONDS,
     'SIGNUP_MAX_PER_IP_PER_DAY'  => $SIGNUP_MAX_PER_IP_PER_DAY,
     'WITHDRAWAL_DAILY_MAX'       => $WITHDRAWAL_DAILY_MAX,
     'WITHDRAWAL_DAILY_COUNT_MAX' => $WITHDRAWAL_DAILY_COUNT_MAX,
     'WITHDRAWAL_REQUIRE_DEPOSIT' => $WITHDRAWAL_REQUIRE_DEPOSIT,
+    'WITHDRAWAL_MIN_TURNOVER'    => $WITHDRAWAL_MIN_TURNOVER,
     'CRICKET_ENABLED'          => $CRICKET_ENABLED,
     'CRICKET_LIVE'             => $CRICKET_LIVE,
     'CRICKET_VIRTUAL'          => $CRICKET_VIRTUAL,      // enabled AND allowed (see the production guard)

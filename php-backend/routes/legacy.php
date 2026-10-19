@@ -48,6 +48,13 @@ function register_legacy_routes(Router $app) {
         try {
             // Operator sign-in. The credential lives in ADMIN_PASSWORD_HASH, never in the codebase,
             // and the old `login_bypass` action — which granted admin to anyone who asked — is gone.
+            // The operator logins are the keys to every wallet (balance adjustments, withdrawal
+            // approvals), so they get the tight 'auth' budget: 20 attempts per 15 minutes per IP.
+            // Before this, the only brake was the general 600-requests-a-minute API limit.
+            // (Player login is deliberately unlimited by product decision; this is only the two
+            // operator logins.)
+            if (($action === 'login' || $action === 'superadmin_login') && rate_limit('auth', $req, $res)) return;
+
             if ($action === 'login') {
                 $username = trim((string)($req->b('username') ?? ''));
                 $password = (string)($req->b('password') ?? '');
@@ -221,7 +228,7 @@ function register_legacy_routes(Router $app) {
                     }
 
                     insert_transaction(
-                        ($delta >= 0 ? 'DEP_' : 'WTH_') . (int) floor(100000 + js_random() * 900000),
+                        ($delta >= 0 ? 'DEP_' : 'WTH_') . random_int(1000000000, 9999999999),
                         $user['username'], $delta >= 0 ? 'Deposit' : 'Withdrawal',
                         (float)$amt, $details, 'Completed'
                     );
@@ -373,20 +380,24 @@ function register_legacy_routes(Router $app) {
             $res->status(400)->json(['error' => 'Maximum single deposit is INR 5,00,000.']);
             return;
         }
-        $amount = (float)$amount;
+        $amount = round((float)$amount, 2);   // whole paise only
 
         try {
             if ($action === 'submit_upi_deposit') {
-                $utr = trim((string)($req->b('utr') ?? ''));
-                if (!preg_match('/^[A-Za-z0-9]{6,32}$/', $utr)) {
+                // Upper-cased: a UTR is the same bank transfer whatever case it is typed in. The
+                // duplicate check used to be case-sensitive, so "abc123xyz" and "ABC123XYZ" were two
+                // separate deposit claims for ONE payment, and an operator could approve both.
+                $utr = strtoupper(trim((string)($req->b('utr') ?? '')));
+                if (!preg_match('/^[A-Z0-9]{6,32}$/', $utr)) {
                     $res->status(400)->json(['error' => 'Please enter a valid UTR reference number.']);
                     return;
                 }
 
                 // One UTR identifies one bank transfer, so re-submitting it must not create a second
                 // deposit row. order_id is uniquely indexed; check first so the user gets a clear
-                // message rather than a database constraint error.
-                $existing = one('SELECT * FROM "Deposit" WHERE "order_id" = ? LIMIT 1', ['UPI_' . $utr]);
+                // message rather than a database constraint error. UPPER() also catches claims
+                // stored, before this change, in a different case.
+                $existing = one('SELECT * FROM "Deposit" WHERE UPPER("order_id") = ? LIMIT 1', ['UPI_' . $utr]);
                 if ($existing) {
                     $res->status(409)->json([
                         'error'      => 'That UTR has already been submitted. It is pending verification.',
@@ -396,7 +407,7 @@ function register_legacy_routes(Router $app) {
                     return;
                 }
 
-                $depId = 'DEP_' . (int) floor(100000 + js_random() * 900000);
+                $depId = 'DEP_' . random_int(1000000000, 9999999999);
                 $nowSql = ms_to_sql();
 
                 // Recorded as Pending, not Completed. The original flow credited the wallet the
@@ -455,7 +466,7 @@ function register_legacy_routes(Router $app) {
             ]);
             return;
         }
-        $amount = (float)$amount;
+        $amount = round((float)$amount, 2);   // whole paise only
 
         $details = '';
         if ($method === 'upi') {
@@ -514,23 +525,28 @@ function register_legacy_routes(Router $app) {
             $user = get_or_create_user($username);
             if (!$user) { $res->status(404)->json(['error' => 'Account not found.']); return; }
 
-            $withdrawalId = 'WTH_' . (int) floor(100000 + js_random() * 900000);
+            $withdrawalId = 'WTH_' . random_int(1000000000, 9999999999);
 
-            // Hold the funds first. If the conditional debit does not match a row the player simply
-            // does not have the balance, and no withdrawal row is created.
-            $newBalance = debit_wallet($user['id'], $amount);
+            // Hold the funds and record the request in ONE transaction. They used to be separate
+            // statements, so if writing the request failed after the debit (a repeated id, a
+            // database hiccup) the money had left the wallet with no withdrawal to show for it.
+            $newBalance = tx(function () use ($user, $amount, $withdrawalId, $method, $details) {
+                // If the conditional debit does not match a row the player simply does not have the
+                // balance, and no withdrawal row is created.
+                $after = debit_wallet($user['id'], $amount);
+                if ($after === null) return null;
+                $nowSql = ms_to_sql();
+                q('INSERT INTO "Withdrawal" ("withdrawal_id","username","amount","method","details","status","created_at","updated_at")
+                   VALUES (?,?,?,?,?,?,?,?)',
+                  [$withdrawalId, $user['username'], $amount, $method, $details, 'Pending', $nowSql, $nowSql]);
+                insert_transaction(new_record_id('WTH'), $user['username'], 'Withdrawal', $amount,
+                                   'Withdrawal Request ' . $withdrawalId . ': ' . $details, 'Pending');
+                return $after;
+            });
             if ($newBalance === null) {
                 $res->status(400)->json(['error' => 'Insufficient wallet balance.']);
                 return;
             }
-
-            $nowSql = ms_to_sql();
-            q('INSERT INTO "Withdrawal" ("withdrawal_id","username","amount","method","details","status","created_at","updated_at")
-               VALUES (?,?,?,?,?,?,?,?)',
-              [$withdrawalId, $user['username'], $amount, $method, $details, 'Pending', $nowSql, $nowSql]);
-
-            insert_transaction(new_record_id('WTH'), $user['username'], 'Withdrawal', $amount,
-                               'Withdrawal Request ' . $withdrawalId . ': ' . $details, 'Pending');
 
             log_info('withdrawal requested', ['username' => $user['username'], 'amount' => $amount, 'withdrawalId' => $withdrawalId]);
             $res->json([

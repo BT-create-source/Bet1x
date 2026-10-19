@@ -118,35 +118,40 @@ function register_teenpatti_routes(Router $app) {
                 return;
             }
 
-            // Find an empty seat, or evict a filler to make room for a human player.
-            $targetSeat = null;
-            foreach ($seats as $s) { if (empty($s['username'])) { $targetSeat = $s; break; } }
-            if (!$targetSeat) {
-                foreach ($seats as $s) { if (!empty($s['is_bot'])) { $targetSeat = $s; break; } }
-            }
-            if (!$targetSeat) {
-                $res->status(400)->json(['error' => 'Room is full with 4 real players.']);
+            // Take the seat under the table's lock, against a fresh read of the table.
+            //
+            // A seat taken while a hand is being played used to join that hand: no cards, not
+            // folded, and no boot paid, so the newcomer could keep calling until everyone else
+            // packed and take a pot they never paid into. During a hand a newcomer now sits out
+            // (folded) until the next deal, and a filler is never evicted from a hand in progress.
+            $seatPick = tx_locked('tp_room', $roomId, function () use ($roomId, $username, $user) {
+                $liveRoom = tp_get_room($roomId);
+                $handLive = $liveRoom && $liveRoom['status'] !== 'waiting';
+                $liveSeats = tp_get_seats($roomId);
+                $pick = null;
+                foreach ($liveSeats as $s) { if (empty($s['username'])) { $pick = $s; break; } }
+                if (!$pick && !$handLive) {
+                    foreach ($liveSeats as $s) { if (!empty($s['is_bot'])) { $pick = $s; break; } }
+                }
+                if (!$pick) return null;
+                tp_update_seat($pick['id'], [
+                    'username' => $username,
+                    'is_bot'   => 0,
+                    'folded'   => $handLive ? 1 : 0,
+                    'cards'    => null,
+                    'balance'  => (float)$user['wallet_balance'],
+                    'last_seen_at' => now_ms(),
+                ]);
+                return $pick;
+            });
+            if (!$seatPick) {
+                $res->status(400)->json(['error' => 'Room is full right now. Please try again in a moment.']);
                 return;
             }
-
-            tp_update_seat($targetSeat['id'], [
-                'username' => $username,
-                'is_bot'   => 0,
-                'folded'   => 0,
-                'cards'    => null,
-                'balance'  => (float)$user['wallet_balance'],
-                // Record the heartbeat AT JOIN, which server.js did not do.
-                //
-                // Not a gratuitous change — it is what keeps the observable behaviour the same.
-                // In Node the presence sweep ran on its own 5-second interval, so a player who sat
-                // down and then polled /state (the client does so every 2s) always recorded a
-                // heartbeat before the sweeper next looked, and kept their seat. Here the sweep is
-                // synchronous at the top of every Teen Patti request, so without this the player's
-                // OWN next request evicts them before its handler can set the heartbeat, and nobody
-                // can ever stay seated. The player has demonstrably just made a request, so
-                // treating them as present is also simply true.
-                'last_seen_at' => now_ms(),
-            ]);
+            // (last_seen_at is recorded at join, above. The sweep is synchronous at the top of every
+            // Teen Patti request, so without a heartbeat at join the player's own next request
+            // would evict them before its handler could set one, and nobody could stay seated.)
+            $targetSeat = $seatPick;
 
             $updatedSeats = tp_get_seats($roomId);
             $updatedRoom = tp_get_room($roomId);

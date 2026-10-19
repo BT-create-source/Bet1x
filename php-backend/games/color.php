@@ -405,11 +405,11 @@ function settle_color_round($room, $targetRound, array &$state) {
             $payout = ((float)$b['amount']) * $multiplier;
             $user = find_user_ci($b['username'] ?? '');
             if ($user) {
-                // NOTE: read-then-write, not an atomic increment. This is what the original does,
-                // and it is reproduced rather than corrected. The row lock held by the caller is
-                // what actually keeps it safe here.
-                $newBal = (float)$user['wallet_balance'] + $payout;
-                q('UPDATE "User" SET "wallet_balance" = ? WHERE "id" = ?', [$newBal, (int)$user['id']]);
+                // An atomic increment. This used to read the balance and write back read + payout;
+                // the lock held here is on the colour game's own state row, not on the player, so a
+                // bet or withdrawal the same player made in that instant was overwritten and their
+                // stake came back for free.
+                credit_wallet((int)$user['id'], $payout);
 
                 insert_transaction(
                     new_record_id('TX'),
@@ -432,30 +432,69 @@ function settle_color_round($room, $targetRound, array &$state) {
  * request read; two pollers reading before either writes would both see "not settled" and both pay
  * out. The surrounding lock is what makes the guard actually hold.
  */
+/** Has this round of this room already been drawn? */
+function color_round_is_settled(array $st, $room, $roundId) {
+    foreach (($st[$room]['history'] ?? []) as $h) {
+        if ((string)($h['roundNumber'] ?? '') === (string)$roundId) return true;
+    }
+    return false;
+}
+
+/**
+ * Settle everything in $room that has ended since the last settlement. Returns true if it changed
+ * the state. Must run under the colour state lock (color_with_state).
+ *
+ * This used to settle only the round that JUST ended. Settlement runs when someone polls (or the
+ * one-minute cron), so if nobody was watching a room when a round ended — the player bet and closed
+ * the page — that round was skipped forever: never drawn, never paid, the stake silently kept.
+ * Every earlier round that still holds bets is now settled first, oldest first.
+ */
+function color_settle_due($room, array &$st, $nowSec) {
+    $duration = color_duration($room);
+    $prevRoundId = get_color_round_id($room, $nowSec - $duration);
+
+    if (empty($st[$room]['last_settled_round'])) {
+        $st[$room]['last_settled_round'] = $prevRoundId;
+        return true;
+    }
+    $last = (string)$st[$room]['last_settled_round'];
+    if ($last === (string)$prevRoundId) return false;
+
+    // Round ids are fixed-width (YYYYMMDDHH + a 3-digit bucket), so string order is time order.
+    $missed = [];
+    foreach (array_keys($st[$room]['bets'] ?? []) as $rid) {
+        $rid = (string)$rid;
+        if (strlen($rid) === strlen((string)$prevRoundId) && strcmp($rid, $last) > 0
+            && strcmp($rid, (string)$prevRoundId) < 0 && !empty($st[$room]['bets'][$rid])) {
+            $missed[] = $rid;
+        }
+    }
+    sort($missed, SORT_STRING);
+    foreach ($missed as $rid) {
+        if (!color_round_is_settled($st, $room, $rid)) settle_color_round($room, $rid, $st);
+    }
+    if (!color_round_is_settled($st, $room, $prevRoundId)) settle_color_round($room, $prevRoundId, $st);
+    $st[$room]['last_settled_round'] = $prevRoundId;
+
+    // Forget the bets of settled rounds, keeping the latest 20 for the operator console. Nothing
+    // ever removed them, so this one state row (read and rewritten under a lock on every colour
+    // poll) grew with every bet ever placed and would slowly choke the game.
+    $settledKeys = [];
+    foreach (array_keys($st[$room]['bets'] ?? []) as $rid) {
+        if (strcmp((string)$rid, (string)$prevRoundId) <= 0) $settledKeys[] = (string)$rid;
+    }
+    sort($settledKeys, SORT_STRING);
+    foreach (array_slice($settledKeys, 0, max(0, count($settledKeys) - 20)) as $rid) {
+        unset($st[$room]['bets'][$rid]);
+    }
+    return true;
+}
+
 function color_advance_room($room) {
     return color_with_state(function () use ($room) {
         $st = load_color_state();
         $nowSec = (int) floor(now_ms() / 1000);
-        $duration = color_duration($room);
-        $prevRoundId = get_color_round_id($room, $nowSec - $duration);
-
-        $stateChanged = false;
-        if (empty($st[$room]['last_settled_round'])) {
-            $st[$room]['last_settled_round'] = $prevRoundId;
-            $stateChanged = true;
-        } elseif ((string)$st[$room]['last_settled_round'] !== (string)$prevRoundId) {
-            $alreadySettled = false;
-            if (!empty($st[$room]['history'])) {
-                foreach ($st[$room]['history'] as $h) {
-                    if ((string)($h['roundNumber'] ?? '') === (string)$prevRoundId) { $alreadySettled = true; break; }
-                }
-            }
-            if (!$alreadySettled) settle_color_round($room, $prevRoundId, $st);
-            $st[$room]['last_settled_round'] = $prevRoundId;
-            $stateChanged = true;
-        }
-
-        if ($stateChanged) save_color_state($st);
+        if (color_settle_due($room, $st, $nowSec)) save_color_state($st);
         return $st;
     });
 }
@@ -468,23 +507,7 @@ function color_advance_all_rooms() {
         $stateChanged = false;
 
         foreach (color_rooms() as $room) {
-            $duration = color_duration($room);
-            $prevRoundId = get_color_round_id($room, $nowSec - $duration);
-
-            if (empty($state[$room]['last_settled_round'])) {
-                $state[$room]['last_settled_round'] = $prevRoundId;
-                $stateChanged = true;
-            } elseif ((string)$state[$room]['last_settled_round'] !== (string)$prevRoundId) {
-                $alreadySettled = false;
-                if (!empty($state[$room]['history'])) {
-                    foreach ($state[$room]['history'] as $h) {
-                        if ((string)($h['roundNumber'] ?? '') === (string)$prevRoundId) { $alreadySettled = true; break; }
-                    }
-                }
-                if (!$alreadySettled) settle_color_round($room, $prevRoundId, $state);
-                $state[$room]['last_settled_round'] = $prevRoundId;
-                $stateChanged = true;
-            }
+            if (color_settle_due($room, $state, $nowSec)) $stateChanged = true;
         }
 
         if ($stateChanged) save_color_state($state);

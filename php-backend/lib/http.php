@@ -333,6 +333,32 @@ class Router {
  * the client gets a generic sentence in production. Development still returns the real message,
  * because there the person reading it is the person debugging it.
  */
+/**
+ * A response held back until the work it reports on has been committed.
+ *
+ * Handlers that run inside tx_locked() write their answer to one of these instead of the real
+ * response, then release() it after the transaction commits. If anything throws, the transaction
+ * rolls back and the held answer is simply never sent, so a player can never be shown a result that
+ * did not actually happen.
+ */
+class HeldRes extends Res {
+    private $heldStatus = 200;
+    private $heldBody = null;
+
+    public function status($code) { $this->heldStatus = (int) $code; return $this; }
+
+    public function json($body) {
+        if ($this->sent) return $this;
+        $this->sent = true;
+        $this->heldBody = $body;
+        return $this;
+    }
+
+    public function release(Res $real) {
+        if ($this->sent) $real->status($this->heldStatus)->json($this->heldBody);
+    }
+}
+
 function fail500(Res $res, Throwable $err, $context = '') {
     log_error('unhandled route error' . ($context !== '' ? " [$context]" : ''), [
         'type'    => get_class($err),

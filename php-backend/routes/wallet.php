@@ -59,13 +59,17 @@ function register_wallet_routes(Router $app) {
                         $user = find_user_ci($username);
                         if (!$user) throw new RuntimeException('User not found.');
 
-                        $newBal = (float)$user['wallet_balance'] + $delta;
-                        if ($newBal < 0) throw new RuntimeException('Insufficient wallet balance.');
-
-                        q('UPDATE "User" SET "wallet_balance" = ? WHERE "id" = ?', [$newBal, (int)$user['id']]);
+                        // Atomic increment / conditional decrement. Writing back "balance read a
+                        // moment ago + delta" erased any bet or win the player made in between.
+                        if ($delta >= 0) {
+                            $newBal = credit_wallet((int)$user['id'], $delta);
+                        } else {
+                            $newBal = debit_wallet((int)$user['id'], -$delta);
+                            if ($newBal === null) throw new RuntimeException('Insufficient wallet balance.');
+                        }
 
                         $type = ($delta >= 0) ? 'Deposit' : 'Withdrawal';
-                        $txnId = strtoupper(substr($type, 0, 3)) . '_' . (int) floor(100000 + js_random() * 900000);
+                        $txnId = strtoupper(substr($type, 0, 3)) . '_' . random_int(1000000000, 9999999999);
                         insert_transaction($txnId, $user['username'], $type, abs($delta), $details, 'Completed');
 
                         return $newBal;
@@ -95,7 +99,7 @@ function register_wallet_routes(Router $app) {
                     $txns = readJsonTable('transactions');
                     $type = ($delta >= 0) ? 'Deposit' : 'Withdrawal';
                     array_unshift($txns, [
-                        'id'        => strtoupper(substr($type, 0, 3)) . '_' . (int) floor(100000 + js_random() * 900000),
+                        'id'        => strtoupper(substr($type, 0, 3)) . '_' . random_int(1000000000, 9999999999),
                         'user'      => $found['username'],
                         'type'      => $type,
                         'amount'    => abs($delta),
@@ -164,14 +168,19 @@ function register_wallet_routes(Router $app) {
                     $user = find_user_ci($username);
                     if (!$user) throw new RuntimeException('User not found.');
                     q('UPDATE "User" SET "wallet_balance" = ? WHERE "id" = ?', [$targetBal, (int)$user['id']]);
-                    $txnId = 'DEP_' . (int) floor(100000 + js_random() * 900000);
+                    $txnId = 'DEP_' . random_int(1000000000, 9999999999);
                     insert_transaction($txnId, $user['username'], 'Deposit', $targetBal,
                                        'Operator Balance Adjustment', 'Completed');
                 });
             } catch (Throwable $e) {
-                // Note: unlike every other fallback, this one does not consult
-                // ALLOW_JSON_FALLBACK and does not 404 on an unknown user — it writes the ledger
-                // row regardless. Reproduced as-is.
+                // Only the JSON development store may take over. This used to swallow ANY database
+                // error (including "User not found.") and still answer success, so in production the
+                // operator was told a reset had happened when nothing had changed.
+                if ($e->getMessage() === 'User not found.') {
+                    $res->status(404)->json(['error' => 'User not found.']);
+                    return;
+                }
+                if (!json_fallback_allowed()) throw $e;
                 $users = readJsonTable('users');
                 foreach ($users as $i => $u) {
                     if (strtolower($u['username'] ?? '') === strtolower((string)$username)) {

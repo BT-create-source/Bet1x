@@ -159,6 +159,29 @@ function tx(callable $fn) {
     }
 }
 
+/** A string folded to a signed 32-bit integer, for Postgres's two-key advisory locks. */
+function lock_key_int($s) {
+    $n = crc32((string) $s);
+    return $n > 0x7FFFFFFF ? $n - 0x100000000 : $n;
+}
+
+/**
+ * Run $fn in a transaction while holding an exclusive lock on one thing — one player's Mines board,
+ * one Teen Patti table — so two requests about that thing run one after the other, never at once.
+ *
+ * It is what stops a player firing the same action several times in parallel to be paid twice:
+ * every request re-reads the state AFTER the lock is granted, so the second one sees what the first
+ * one did. The lock is released when the transaction ends. Re-entrant: a nested call for the same
+ * $scope/$subject inside the same transaction is granted immediately.
+ */
+function tx_locked($scope, $subject, callable $fn) {
+    return tx(function ($pdo) use ($scope, $subject, $fn) {
+        q('SELECT pg_advisory_xact_lock(CAST(? AS integer), CAST(? AS integer))',
+          [lock_key_int($scope), lock_key_int(strtolower((string) $subject))]);
+        return $fn($pdo);
+    });
+}
+
 // -------------------------------------------------------------------------------------------------
 // GameState — the generic key/JSON store
 // -------------------------------------------------------------------------------------------------

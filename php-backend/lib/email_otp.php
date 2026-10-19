@@ -120,16 +120,22 @@ function email_otp_check($email, $code) {
     }
 
     $maxAttempts = (int) cfg('OTP_MAX_ATTEMPTS', 5);
-    if ((int) $row['attempts'] >= $maxAttempts) {
+    // Claim an attempt BEFORE comparing, in one conditional statement. The count used to be read,
+    // compared, and only bumped after a wrong guess, so a burst of guesses sent in parallel all saw
+    // the same count and all got checked: the 5-attempt limit did not hold, and a 6-digit code
+    // (which unlocks a password reset) could be ground down far faster than intended.
+    $claimed = affected('UPDATE "EmailOtp" SET "attempts" = "attempts" + 1 WHERE "email" = ? AND "attempts" < ?',
+                        [$email, $maxAttempts]);
+    if ($claimed === 0) {
         return ['ok' => false, 'error' => 'Too many incorrect attempts. Please request a new code.'];
     }
 
     $code = preg_replace('/\D+/', '', (string) $code);
     if (!hash_equals((string) $row['otp_hash'], email_otp_hash($email, $code))) {
-        // Burn one attempt. Expiring the code entirely on the last attempt stops an attacker
-        // grinding a live code, and costs an honest user only a resend.
-        q('UPDATE "EmailOtp" SET "attempts" = "attempts" + 1 WHERE "email" = ?', [$email]);
-        $left = $maxAttempts - ((int) $row['attempts'] + 1);
+        // The attempt was already burned above. Expiring the code entirely on the last attempt
+        // stops an attacker grinding a live code, and costs an honest user only a resend.
+        $used = (int) scalar('SELECT "attempts" FROM "EmailOtp" WHERE "email" = ?', [$email], $maxAttempts);
+        $left = $maxAttempts - $used;
         return ['ok' => false,
                 'error' => $left > 0
                     ? 'Incorrect code. ' . $left . ' attempt' . ($left === 1 ? '' : 's') . ' remaining.'

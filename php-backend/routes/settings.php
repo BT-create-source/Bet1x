@@ -8,6 +8,63 @@ require_once __DIR__ . '/../lib/http.php';
 require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/helpers.php';
 require_once __DIR__ . '/../lib/ratelimit.php';
+require_once __DIR__ . '/../games/aviator.php';
+require_once __DIR__ . '/../games/color.php';
+
+/**
+ * Why this player cannot change username right now, or null if they can.
+ *
+ * Deposits, withdrawals, game sessions, seats and the Aviator/Colour bets are all filed under the
+ * player's NAME. Renamed mid-flight, an approved deposit or a rejected withdrawal's refund was
+ * credited to the old name (to nobody, or to whoever registered that name next), an open game
+ * could no longer be cashed out, and a pending bet could no longer be paid. So a rename waits until
+ * nothing is in play.
+ */
+function rename_blocked_reason($username) {
+    $checks = [
+        ['SELECT COUNT(*) FROM "Deposit" WHERE LOWER("username") = LOWER(?) AND "status" = \'Pending\'',
+         'You have a deposit waiting for approval.'],
+        ['SELECT COUNT(*) FROM "Withdrawal" WHERE LOWER("username") = LOWER(?) AND "status" = \'Pending\'',
+         'You have a withdrawal waiting for approval.'],
+        ['SELECT COUNT(*) FROM "MinesSession" WHERE LOWER("username") = LOWER(?) AND "status" IN (\'active\',\'starting\')',
+         'You have a Mines game in progress.'],
+        ['SELECT COUNT(*) FROM "ChickenRoadSession" WHERE LOWER("username") = LOWER(?) AND "status" IN (\'active\',\'starting\')',
+         'You have a Chicken Road game in progress.'],
+        ['SELECT COUNT(*) FROM "TowerRushSession" WHERE LOWER("username") = LOWER(?) AND "status" IN (\'active\',\'starting\')',
+         'You have a Tower Rush game in progress.'],
+        ['SELECT COUNT(*) FROM "AstronautBet" WHERE LOWER("username") = LOWER(?) AND "status" = \'pending\'',
+         'You have an Astronaut bet in play.'],
+        ['SELECT COUNT(*) FROM "TeenPattiSeat" WHERE LOWER("username") = LOWER(?)',
+         'You are seated at a Teen Patti table.'],
+    ];
+    foreach ($checks as [$sql, $reason]) {
+        try {
+            if ((int) scalar($sql, [$username], 0) > 0) return $reason;
+        } catch (Throwable $e) { /* table not present on this deployment: nothing in play there */ }
+    }
+    try {
+        foreach (aviator_load(false)['bets'] ?? [] as $b) {
+            if (($b['status'] ?? '') === 'pending' && strtolower((string) ($b['username'] ?? '')) === strtolower($username)) {
+                return 'You have an Aviator bet in play.';
+            }
+        }
+    } catch (Throwable $e) { /* no Aviator state yet */ }
+    try {
+        $st = load_color_state();
+        foreach (color_rooms() as $room) {
+            $last = (string) ($st[$room]['last_settled_round'] ?? '');
+            foreach (($st[$room]['bets'] ?? []) as $rid => $bets) {
+                if ($last !== '' && strcmp((string) $rid, $last) <= 0) continue;   // already settled
+                foreach ((array) $bets as $b) {
+                    if (strtolower((string) ($b['username'] ?? '')) === strtolower($username)) {
+                        return 'You have a Colour Prediction bet waiting for its result.';
+                    }
+                }
+            }
+        }
+    } catch (Throwable $e) { /* no colour state yet */ }
+    return null;
+}
 
 function register_settings_routes(Router $app) {
 
@@ -36,7 +93,23 @@ function register_settings_routes(Router $app) {
                 if ($existing) { $res->status(409)->json(['error' => 'Username is already taken.']); return; }
             }
 
-            q('UPDATE "User" SET "username" = ? WHERE "id" = ?', [$newUsername, (int) $user['id']]);
+            $busy = rename_blocked_reason($user['username']);
+            if ($busy !== null) {
+                $res->status(409)->json(['error' => $busy . ' Please change your username once it has finished.']);
+                return;
+            }
+
+            ensure_user_identity_indexes();
+            try {
+                q('UPDATE "User" SET "username" = ? WHERE "id" = ?', [$newUsername, (int) $user['id']]);
+            } catch (Throwable $dupErr) {
+                // Someone else took the name between the check above and this write.
+                if (is_unique_violation($dupErr)) {
+                    $res->status(409)->json(['error' => 'Username is already taken.']);
+                    return;
+                }
+                throw $dupErr;
+            }
 
             // The signed token embeds the username, so a rename has to reissue one — otherwise
             // every subsequent request would keep acting as the now-nonexistent old name.
@@ -101,7 +174,13 @@ function register_settings_routes(Router $app) {
             }
 
             q('UPDATE "User" SET "password" = ? WHERE "id" = ?', [hash_password($new), (int) $user['id']]);
-            $res->json(['success' => true]);
+            // Changing the password ends every session issued before it (lib/auth.php
+            // session_still_valid), including this one, so hand this device a fresh token.
+            $token = issue_token([
+                'id' => (int) $user['id'], 'username' => $user['username'],
+                'email' => $user['email'], 'role' => 'user',
+            ]);
+            $res->json(['success' => true, 'token' => $token]);
         } catch (Throwable $err) {
             fail500($res, $err, 'settings');
         }

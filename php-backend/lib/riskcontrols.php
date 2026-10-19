@@ -135,6 +135,44 @@ function risk_has_completed_deposit($username) {
     }
 }
 
+/** Total of this account's approved deposits. */
+function risk_total_deposited($username) {
+    try {
+        return (float) scalar("SELECT COALESCE(SUM(\"amount\"), 0) FROM \"Deposit\"
+                               WHERE LOWER(\"username\") = LOWER(?) AND \"status\" = 'Completed'", [$username], 0);
+    } catch (Throwable $e) {
+        log_debug('risk_total_deposited unavailable: ' . $e->getMessage());
+        return 0.0;
+    }
+}
+
+/**
+ * Money this account has actually staked in games, less stakes that were handed back (a cancelled
+ * Astronaut bet, a voided market, a refunded contest). Read from the ledger by its description
+ * wording, the same way the operator dashboard classifies it. Refunds are subtracted so that
+ * "bet, cancel, repeat" cannot manufacture play-through without ever risking anything.
+ */
+function risk_total_wagered($username) {
+    $stakes  = ['Color Guess Wager', 'Aviator Wager', 'Teen Patti Boot', 'Teen Patti Chaal', 'Teen Patti Show',
+                'Mines Bet', 'Chicken Road Bet', 'Astronaut Bet Round', 'Tower Rush Bet', 'Ball by Ball Bet',
+                'Cricket Bet', 'Your Eleven Entry'];
+    $refunds = ['Astronaut Bet Cancelled', 'Ball by Ball Refund', 'Cricket Refund', 'Your Eleven Refund'];
+    $sum = function (array $prefixes, $type) use ($username) {
+        $like = implode(' OR ', array_fill(0, count($prefixes), '"details" LIKE ?'));
+        $params = [$username, $type];
+        foreach ($prefixes as $p) $params[] = $p . '%';
+        return (float) scalar('SELECT COALESCE(SUM("amount"), 0) FROM "Transaction"
+                               WHERE LOWER("user") = LOWER(?) AND "type" = ? AND "status" = \'Completed\' AND (' . $like . ')',
+                              $params, 0);
+    };
+    try {
+        return max(0.0, $sum($stakes, 'Withdrawal') - $sum($refunds, 'Deposit'));
+    } catch (Throwable $e) {
+        log_debug('risk_total_wagered unavailable: ' . $e->getMessage());
+        return INF;   // fail open, like the other checks: the operator still approves every payout
+    }
+}
+
 /**
  * Gate a withdrawal request. Call BEFORE holding any funds.
  *
@@ -171,6 +209,20 @@ function risk_check_withdrawal($username, $amount) {
         ]);
         return 'This request exceeds your daily withdrawal limit of INR ' . js_num_str($maxAmount)
              . '. You can still withdraw INR ' . js_num_str($remaining) . ' today.';
+    }
+
+    // --- 4. Play-through: deposits must be played before they can be withdrawn --------------------
+    $turnover = (float) cfg('WITHDRAWAL_MIN_TURNOVER', 0);
+    if ($turnover > 0) {
+        $deposited = risk_total_deposited($username);
+        if ($deposited > 0) {
+            $short = round($deposited * $turnover - risk_total_wagered($username), 2);
+            if ($short > 0) {
+                log_info('withdrawal blocked: play-through', ['username' => $username, 'short' => $short]);
+                return 'Deposits must be played before they can be withdrawn. Please play INR '
+                     . js_num_str($short) . ' more, then try again.';
+            }
+        }
     }
 
     return null;

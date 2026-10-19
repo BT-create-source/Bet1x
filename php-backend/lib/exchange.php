@@ -41,7 +41,12 @@ function mx_config_defaults() {
         'user_max_liability_market' => 100000,
         'house_max_loss_market' => 200000,
         'window_seconds' => 20,           // unused: markets no longer suspend for a ball running
-        'ball_guard_seconds' => 4,        // bets this close before a ball are void
+        // Bets this close before a ball (as the feed first reports it) are void. It has to cover how
+        // far the data feed runs behind a fast live stream: anything struck inside that gap is a
+        // bet on a ball the bettor has already seen. 4s was shorter than a typical feed delay, so
+        // 8s; raise it in the operator console if the live feed is slower. The simulated league
+        // still clamps this to its own faster ball rhythm (mx_config).
+        'ball_guard_seconds' => 8,
         'wicket_suspend_seconds' => 25,   // extra pause after a wicket, while the market reprices
     ];
 }

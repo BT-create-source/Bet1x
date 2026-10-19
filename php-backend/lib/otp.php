@@ -119,16 +119,19 @@ function otp_check($phone, $code) {
     }
 
     $maxAttempts = (int) cfg('OTP_MAX_ATTEMPTS', 5);
-    if ((int) $row['attempts'] >= $maxAttempts) {
+    // Claim an attempt BEFORE comparing, in one conditional statement, so a burst of parallel
+    // guesses cannot all slip past the attempt limit (see email_otp_check).
+    $claimed = affected('UPDATE "PhoneOtp" SET "attempts" = "attempts" + 1 WHERE "phone" = ? AND "attempts" < ?',
+                        [$phone, $maxAttempts]);
+    if ($claimed === 0) {
         return ['ok' => false, 'error' => 'Too many incorrect attempts. Please request a new code.'];
     }
 
     $code = preg_replace('/\D+/', '', (string) $code);
     if (!hash_equals((string) $row['otp_hash'], otp_hash($phone, $code))) {
-        // Burn one attempt. Expiring the code entirely on the last attempt stops an attacker
-        // grinding a live code, and costs an honest user only a resend.
-        q('UPDATE "PhoneOtp" SET "attempts" = "attempts" + 1 WHERE "phone" = ?', [$phone]);
-        $left = $maxAttempts - ((int) $row['attempts'] + 1);
+        // The attempt was already burned above.
+        $used = (int) scalar('SELECT "attempts" FROM "PhoneOtp" WHERE "phone" = ?', [$phone], $maxAttempts);
+        $left = $maxAttempts - $used;
         return ['ok' => false,
                 'error' => $left > 0
                     ? 'Incorrect code. ' . $left . ' attempt' . ($left === 1 ? '' : 's') . ' remaining.'

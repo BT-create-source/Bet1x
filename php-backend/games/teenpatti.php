@@ -405,9 +405,24 @@ function tp_schedule_bot_fill($roomId) {
 // -------------------------------------------------------------------------------------------------
 
 /** Deal a fresh hand. */
+/**
+ * Deal a new hand, under the table's lock.
+ *
+ * Several requests call this speculatively (a join, the bot fill, the sweep). Two of them arriving
+ * together used to both see a full 'waiting' table and both deal: every real player's boot was
+ * taken twice for one hand. Under the lock the second caller sees the hand already dealt
+ * ('playing') and does nothing.
+ */
 function tp_start_round($roomId) {
+    return tx_locked('tp_room', $roomId, function () use ($roomId) {
+        tp_start_round_locked($roomId);
+    });
+}
+
+function tp_start_round_locked($roomId) {
     $room = tp_get_room($roomId);
     if (!$room) return;
+    if ($room['status'] !== 'waiting') return;   // a hand is already being played, or just finished
     $seats = tp_get_seats($roomId);
 
     // Mandatory full table: a hand never deals with an empty seat still open. This is the one
@@ -446,6 +461,33 @@ function tp_start_round($roomId) {
         return;
     }
 
+    // Take every real player's boot BEFORE dealing, each with the conditional debit (balance check
+    // and deduction in one statement). This used to be an unconditional "balance - boot" by
+    // username: a player who spent their balance elsewhere a moment after the check above was dealt
+    // in anyway and went negative, and a failed debit was only logged, so that player played the
+    // hand for free. If anyone cannot pay now, everyone already charged is refunded and the hand is
+    // not dealt.
+    $charged = [];
+    foreach ($activeOccupied as $seat) {
+        if (!empty($seat['is_bot']) || empty($seat['username'])) continue;
+        $payer = find_user_ci($seat['username']);
+        $after = $payer ? debit_wallet((int)$payer['id'], $bootAmt) : null;
+        if ($after === null) {
+            foreach ($charged as $c) credit_wallet($c['id'], $bootAmt);
+            tp_update_seat($seat['id'], ['username' => null, 'is_bot' => 0, 'cards' => null, 'folded' => 0]);
+            tp_reset_room_to_waiting($roomId);
+            return;
+        }
+        $charged[] = ['id' => (int)$payer['id'], 'username' => $payer['username']];
+    }
+    foreach ($charged as $c) {
+        insert_transaction(
+            new_record_id('TP'), $c['username'], 'Withdrawal', $bootAmt,
+            'Teen Patti Boot — ' . $room['name'] . ' Round #' . ((int)$room['round'] + 1),
+            'Completed'
+        );
+    }
+
     $deck = tp_create_deck();
     $deckPos = 0;
     $pot = 0.0;
@@ -453,18 +495,6 @@ function tp_start_round($roomId) {
     foreach ($activeOccupied as $seat) {
         $cards = [$deck[$deckPos++], $deck[$deckPos++], $deck[$deckPos++]];
         $pot += $bootAmt;
-
-        if (empty($seat['is_bot']) && !empty($seat['username'])) {
-            try {
-                q('UPDATE "User" SET "wallet_balance" = "wallet_balance" - ? WHERE LOWER("username") = LOWER(?)',
-                  [$bootAmt, $seat['username']]);
-                insert_transaction(
-                    new_record_id('TP'), $seat['username'], 'Withdrawal', $bootAmt,
-                    'Teen Patti Boot — ' . $room['name'] . ' Round #' . ((int)$room['round'] + 1),
-                    'Completed'
-                );
-            } catch (Throwable $e) { log_error('[TP] Boot deduct error: ' . $e->getMessage()); }
-        }
 
         tp_update_seat($seat['id'], [
             'cards'   => js_json_encode($cards),
@@ -686,8 +716,21 @@ function tp_start_round($roomId) {
     }
 }
 
-/** Process one player (or filler) action. Returns the same result objects the original returned. */
+/**
+ * Process one player (or filler) action, under the table's lock. Returns the same result objects
+ * the original returned.
+ *
+ * Without the lock, the same action sent several times at once was processed several times: every
+ * copy read "your turn" before any of them moved the turn on. Pressing Show five times in parallel
+ * paid the whole pot five times.
+ */
 function tp_process_action($roomId, $username, $action) {
+    return tx_locked('tp_room', $roomId, function () use ($roomId, $username, $action) {
+        return tp_process_action_locked($roomId, $username, $action);
+    });
+}
+
+function tp_process_action_locked($roomId, $username, $action) {
     $room = tp_get_room($roomId);
     if (!$room || $room['status'] !== 'playing') return ['error' => 'Game not active.'];
     $seats = tp_get_seats($roomId);
@@ -707,10 +750,10 @@ function tp_process_action($roomId, $username, $action) {
     if ($action === 'chaal') {
         if (empty($mySeat['is_bot'])) {
             $user = find_user_ci($username);
-            if (!$user || (float)$user['wallet_balance'] < $currentStake) {
+            // Conditional debit: the balance check and the deduction are one statement.
+            if (!$user || debit_wallet((int)$user['id'], $currentStake) === null) {
                 return ['error' => 'Insufficient balance for Chaal.'];
             }
-            q('UPDATE "User" SET "wallet_balance" = "wallet_balance" - ? WHERE "id" = ?', [$currentStake, (int)$user['id']]);
             insert_transaction(new_record_id('TP_CHAAL'), $username, 'Withdrawal', $currentStake,
                 'Teen Patti Chaal — ' . $room['name'], 'Completed');
         }
@@ -778,11 +821,13 @@ function tp_process_action($roomId, $username, $action) {
 
         if (empty($mySeat['is_bot'])) {
             $user = find_user_ci($username);
-            if (!$user || (float)$user['wallet_balance'] < $currentStake) {
+            if (!$user || debit_wallet((int)$user['id'], $currentStake) === null) {
                 return ['error' => 'Insufficient balance for Show.'];
             }
-            // Note: no ledger row is written for a Show stake. That is the original behaviour.
-            q('UPDATE "User" SET "wallet_balance" = "wallet_balance" - ? WHERE "id" = ?', [$currentStake, (int)$user['id']]);
+            // Recorded like every other stake. It used to have no ledger row at all, so the profit
+            // dashboard never saw Show stakes and every player's history was short by them.
+            insert_transaction(new_record_id('TP_SHOW'), $username, 'Withdrawal', $currentStake,
+                'Teen Patti Show — ' . $room['name'], 'Completed');
         }
 
         $newPot = (float)$room['pot'] + $currentStake;
@@ -807,20 +852,41 @@ function tp_process_action($roomId, $username, $action) {
     return ['error' => 'Unknown action.'];
 }
 
+/** The house commission on a pot won by a player, in rupees (floored to the paisa). */
+function tp_commission($pot) {
+    $pct = max(0.0, min(20.0, (float) cfg('TEENPATTI_COMMISSION_PCT', 10)));
+    return floor($pot * $pct + 1e-7) / 100;
+}
+
 /** Credit the winner and close the hand. */
 function tp_end_game($roomId, $winnerSeat, $pot, $log, $wasShow) {
+    // Close the hand first, and only if it is still open. Under the table lock this always succeeds
+    // for the first caller; it is the guarantee that one hand pays one pot, however it ended.
+    $closed = affected("UPDATE \"TeenPattiRoom\" SET \"status\" = 'finished' WHERE \"id\" = ? AND \"status\" = 'playing'",
+                       [$roomId]);
+    if ($closed === 0) return ['error' => 'Game not active.'];
+
     $winnerName = $winnerSeat['username'];
     if ($wasShow) $log[] = $winnerName . ' won the Show! Pot: ₹' . js_num_str($pot);
     else          $log[] = 'Everyone folded. ' . $winnerName . ' wins! Pot: ₹' . js_num_str($pot);
 
+    $isPlayer = empty($winnerSeat['is_bot']) && $winnerName && strtolower((string) $winnerName) !== 'admin';
+    $paid = $pot;
     if (empty($winnerSeat['is_bot']) && $winnerName) {
-        try {
-            q('UPDATE "User" SET "wallet_balance" = "wallet_balance" + ? WHERE LOWER("username") = LOWER(?)', [$pot, $winnerName]);
-            insert_transaction(new_record_id('TP_WIN'), $winnerName, 'Deposit', $pot, 'Teen Patti Won Pot', 'Completed');
-        } catch (Throwable $e) { log_error('[TP] Winner credit error: ' . $e->getMessage()); }
+        // The house commission comes out of a pot a PLAYER wins (the "Admin" seat is the house's own
+        // money, so it pays none). Without it the house earned nothing from any hand a player won.
+        $commission = $isPlayer ? tp_commission($pot) : 0.0;
+        $paid = round($pot - $commission, 2);
+        // Credited by account id, not by a case-insensitive name match that could hit two rows.
+        $winnerUser = find_user_ci($winnerName);
+        if ($winnerUser) credit_wallet((int) $winnerUser['id'], $paid);
+        insert_transaction(new_record_id('TP_WIN'), $winnerName, 'Deposit', $paid, 'Teen Patti Won Pot', 'Completed');
+        if ($commission > 0) {
+            $log[] = 'House commission: ₹' . js_num_str($commission) . ' (' . js_num_str((float) cfg('TEENPATTI_COMMISSION_PCT', 10)) . '%)';
+        }
     }
 
-    $log[] = '🏆 GAME OVER — ' . $winnerName . ' WON THE POT OF ₹' . js_num_str($pot) . '!';
+    $log[] = '🏆 GAME OVER — ' . $winnerName . ' WON THE POT OF ₹' . js_num_str($paid) . '!';
 
     tp_update_room($roomId, [
         'status'           => 'finished',

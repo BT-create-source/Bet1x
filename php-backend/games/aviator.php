@@ -496,10 +496,17 @@ function aviator_tick() {
     });
 }
 
-/** The public state payload shared by /api/server_time and game_sync's aviator views. */
-function aviator_public_state($state = null) {
+/**
+ * The public state payload shared by /api/server_time and game_sync's aviator views.
+ *
+ * While the plane is flying, crash_point is withheld (null) unless $forOperator: it is where the
+ * plane is going to crash, so sending it to players let anyone reading the network traffic cash out
+ * one tick before every crash. Between rounds it is the round that just ended, which is public.
+ */
+function aviator_public_state($state = null, $forOperator = false) {
     if ($state === null) $state = aviator_load(false);
     $elapsed = (now_ms() - (int)$state['phase_start']) / 1000.0;
+    $hide = $state['phase'] === 'running' && !$forOperator;
     return [
         'round_id'           => (int)$state['round_id'],
         'phase'              => $state['phase'],
@@ -508,6 +515,11 @@ function aviator_public_state($state = null) {
         'time_left'          => $state['phase'] === 'waiting' ? max(0, (float)$state['duration'] - $elapsed) : 0,
         'duration'           => js_truthy($state['duration']) ? (float)$state['duration'] : 5.0,
         'current_multiplier' => aviator_current_multiplier($state),
-        'crash_point'        => (float)$state['crash_point'],
+        'crash_point'        => $hide ? null : (float)$state['crash_point'],
     ];
+}
+
+/** The instant (ms) a running flight reaches its crash point. */
+function aviator_crash_at_ms($state) {
+    return (int)$state['phase_start'] + (int) round(aviator_seconds_to((float)$state['crash_point']) * 1000);
 }

@@ -83,7 +83,7 @@ function register_db_gateway_routes(Router $app) {
                 $saved = map_game_bet(one('SELECT * FROM "GameBet" WHERE "id" = ?', [$id]));
             } catch (Throwable $e) {
                 $bets = readJsonTable('game_bets');
-                $betRecord['id'] = 'BET_' . (int) floor(100000 + js_random() * 900000);
+                $betRecord['id'] = 'BET_' . random_int(1000000000, 9999999999);
                 $betRecord['created_at'] = js_iso();
                 array_unshift($bets, $betRecord);
                 writeJsonTable('game_bets', array_slice($bets, 0, 100));
@@ -116,7 +116,7 @@ function register_db_gateway_routes(Router $app) {
         $amount = $req->b('amount'); $details = $req->b('details'); $status = $req->b('status');
         try {
             $txnId = js_truthy($id) ? $id
-                   : strtoupper(substr((string)$type, 0, 3)) . '_' . (int) floor(100000 + js_random() * 900000);
+                   : strtoupper(substr((string)$type, 0, 3)) . '_' . random_int(1000000000, 9999999999);
             $ts = ms_to_sql();
             insert_transaction($txnId, $user, $type, (float)js_parse_float($amount), $details, $status, now_ms());
             $res->json(map_transaction(one('SELECT * FROM "Transaction" WHERE "id" = ?', [$txnId])));
@@ -173,14 +173,15 @@ function register_db_gateway_routes(Router $app) {
                 if (!$deposit) return ['error' => 'Deposit order not found.'];
                 if ($deposit['status'] !== 'Pending') return ['success' => true, 'message' => 'Deposit already processed.'];
 
-                q('UPDATE "Deposit" SET "status" = ?, "gateway_id" = ?, "updated_at" = ? WHERE "deposit_id" = ?',
-                  ['Completed', $paymentId, ms_to_sql(), $deposit['deposit_id']]);
+                // Conditional claim: of two simultaneous completions only one matches 'Pending',
+                // so a deposit is credited once. (Both used to pass the check above and both paid.)
+                $claimed = affected('UPDATE "Deposit" SET "status" = ?, "gateway_id" = ?, "updated_at" = ?
+                                     WHERE "deposit_id" = ? AND "status" = \'Pending\'',
+                                    ['Completed', $paymentId, ms_to_sql(), $deposit['deposit_id']]);
+                if ($claimed === 0) return ['success' => true, 'message' => 'Deposit already processed.'];
 
                 $user = find_user_ci($deposit['username']);
-                if ($user) {
-                    q('UPDATE "User" SET "wallet_balance" = ? WHERE "id" = ?',
-                      [(float)$user['wallet_balance'] + (float)$deposit['amount'], (int)$user['id']]);
-                }
+                if ($user) credit_wallet((int)$user['id'], (float)$deposit['amount']);   // atomic increment
 
                 $txn = one('SELECT * FROM "Transaction" WHERE "user" = ? AND "details" LIKE ? LIMIT 1',
                            [$deposit['username'], '%' . $orderId . '%']);
@@ -240,7 +241,7 @@ function register_db_gateway_routes(Router $app) {
 
     $app->post('/api/db/payment-logs', function (Req $req, Res $res) {
         try {
-            $id = js_truthy($req->b('id')) ? $req->b('id') : 'LOG_' . (int) floor(100000 + js_random() * 900000);
+            $id = js_truthy($req->b('id')) ? $req->b('id') : 'LOG_' . random_int(1000000000, 9999999999);
             $ts = js_truthy($req->b('timestamp')) ? strtotime((string)$req->b('timestamp')) * 1000 : now_ms();
             q('INSERT INTO "PaymentLog" ("id","payload","signature","timestamp") VALUES (?,?,?,?)',
               [$id, js_json_encode($req->b('payload')), $req->b('signature'), ms_to_sql($ts)]);
@@ -414,7 +415,7 @@ function register_db_sync_route(Router $app) {
                     }
                 } elseif ($table === 'payment_logs') {
                     foreach ($data as $item) {
-                        $logId = js_truthy($item['id'] ?? null) ? $item['id'] : 'LOG_' . (int) floor(100000 + js_random() * 900000);
+                        $logId = js_truthy($item['id'] ?? null) ? $item['id'] : 'LOG_' . random_int(1000000000, 9999999999);
                         $ts = js_truthy($item['timestamp'] ?? null) ? strtotime((string)$item['timestamp']) * 1000 : now_ms();
                         q('INSERT INTO "PaymentLog" ("id","payload","signature","timestamp") VALUES (?,?,?,?)
                            ON CONFLICT ("id") DO UPDATE SET "payload"=EXCLUDED."payload", "signature"=EXCLUDED."signature",

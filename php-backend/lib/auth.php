@@ -56,8 +56,52 @@ function issue_token($opts) {
         'iat'      => $now,
         'exp'      => $now + $ttl,
     ];
+    // A fingerprint of the account's current password, so changing the password ends every session
+    // issued before it (see session_still_valid).
+    if ($payload['role'] === 'user' && !empty($payload['id'])) {
+        $pv = account_password_version((int) $payload['id']);
+        if ($pv !== null) $payload['pv'] = $pv;
+    }
     $payloadB64 = b64url(js_json_encode($payload));
     return TOKEN_VERSION . '.' . $payloadB64 . '.' . token_sign($payloadB64);
+}
+
+/** A short, non-reversible fingerprint of the account's stored password hash, or null. */
+function account_password_version($userId, $passwordHash = null) {
+    if ($passwordHash === null) {
+        try {
+            $row = one('SELECT "password" FROM "User" WHERE "id" = ?', [(int) $userId]);
+        } catch (Throwable $e) { return null; }
+        if (!$row) return null;
+        $passwordHash = (string) $row['password'];
+    }
+    return substr(hash_hmac('sha256', (string) $passwordHash, (string) cfg('APP_SECRET')), 0, 16);
+}
+
+/**
+ * Is a validly signed player token still attached to the account it was issued for?
+ *
+ * A token names its account by id AND username and stays valid for days. Without this check:
+ *   - after a rename, the OLD token kept acting as the old name, so whoever registered that name
+ *     next was controlled by the previous owner's token;
+ *   - after a password change (say, because the account was stolen), every session the thief had
+ *     already opened kept working until it expired.
+ * Fails open only when the database cannot be read at all (the JSON-fallback development mode).
+ */
+function session_still_valid(array $payload) {
+    if (($payload['role'] ?? 'user') !== 'user' || empty($payload['id'])) return true;
+    try {
+        $row = one('SELECT "username", "password" FROM "User" WHERE "id" = ?', [(int) $payload['id']]);
+    } catch (Throwable $e) {
+        return true;
+    }
+    if (!$row) return false;
+    if (strtolower((string) $row['username']) !== strtolower((string) $payload['username'])) return false;
+    if (isset($payload['pv'])
+        && !hash_equals(account_password_version((int) $payload['id'], (string) $row['password']), (string) $payload['pv'])) {
+        return false;
+    }
+    return true;
 }
 
 /**
@@ -97,7 +141,9 @@ function extract_token(Req $req) {
 
 /** Populates $req->auth with the verified session (or null). Never rejects a request on its own. */
 function attach_session(Req $req, Res $res) {
-    $req->auth = verify_token(extract_token($req));
+    $payload = verify_token(extract_token($req));
+    if ($payload !== null && !session_still_valid($payload)) $payload = null;
+    $req->auth = $payload;
 }
 
 /** Reject anonymous callers. */

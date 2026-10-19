@@ -275,6 +275,7 @@ function register_auth_routes(Router $app) {
         }
 
         $hashedPassword = hash_password($password);
+        ensure_user_identity_indexes();   // "Bob" and "bob" can never both exist
 
         try {
             $newUser = null;
@@ -298,6 +299,10 @@ function register_auth_routes(Router $app) {
                           [$username, $email, $hashedPassword, $startingBalance, ms_to_sql(),
                            $signupIp, $startingBalance > 0 ? 1 : 0]);
                     } catch (Throwable $colErr) {
+                        // A duplicate is not a missing column: another signup took this name or
+                        // email a moment ago. (Retrying would also fail — Postgres has already
+                        // aborted this transaction.)
+                        if (is_unique_violation($colErr)) throw new RuntimeException('Username is already taken.');
                         log_debug('signup falling back to pre-migration-002 column set: ' . $colErr->getMessage());
                         q('INSERT INTO "User" ("username","email","password","wallet_balance","created_at") VALUES (?,?,?,?,?)',
                           [$username, $email, $hashedPassword, $startingBalance, ms_to_sql()]);

@@ -171,11 +171,20 @@ function register_gamesync_routes(Router $app) {
 
             if ($action === 'aviator_get_state') {
                 $state = aviator_tick();
-                $av = aviator_public_state($state);
+                $av = aviator_public_state($state, $isOperator);
 
                 $user = get_or_create_user($username);
                 $balance = $user ? (float)$user['wallet_balance'] : 0;
                 mark_user_active('aviator', $username);
+
+                // A player gets their own bets only. The full list named every other player and
+                // their stakes, and the page only ever reads the caller's own rows from it.
+                $visibleBets = array_values($state['bets']);
+                if (!$isOperator) {
+                    $visibleBets = array_values(array_filter($visibleBets, function ($b) use ($username) {
+                        return $username !== '' && strtolower((string)($b['username'] ?? '')) === strtolower($username);
+                    }));
+                }
 
                 $res->json([
                     'server_time'        => $now,
@@ -188,7 +197,7 @@ function register_gamesync_routes(Router $app) {
                     'duration'           => $av['duration'],
                     'current_multiplier' => $av['current_multiplier'],
                     'crash_point'        => $av['crash_point'],
-                    'bets'               => array_values($state['bets']),
+                    'bets'               => $visibleBets,
                     'history'            => array_values($state['history']),
                     'wallet_balance'     => $balance,
                 ]);
@@ -197,7 +206,7 @@ function register_gamesync_routes(Router $app) {
 
             if ($action === 'admin_get_live_state' || $action === 'admin_get_games') {
                 $avState = aviator_tick();
-                $av = aviator_public_state($avState);
+                $av = aviator_public_state($avState, true);   // operators see the live crash point
 
                 // Same serialisation as the player-facing endpoint: this admin view settles rounds
                 // too, and an operator refreshing the console while a room is settling must not race
@@ -562,36 +571,32 @@ function register_gamesync_routes(Router $app) {
                     return;
                 }
 
-                $state = aviator_tick();
-                if ($state['phase'] !== 'waiting') {
-                    $res->status(400)->json(['error' => 'Betting for this round has closed.']);
-                    return;
-                }
-                foreach ($state['bets'] as $b) {
-                    if (strtolower((string)($b['username'] ?? '')) === strtolower((string)$username)
-                        && (int)($b['console_id'] ?? 0) === (int)$consoleId
-                        && ($b['status'] ?? '') === 'pending') {
-                        $res->status(400)->json(['error' => 'You already have a bet on this console for this round.']);
-                        return;
-                    }
-                }
-
                 $user = get_or_create_user($username);
                 if (!$user) { $res->status(404)->json(['error' => 'Account not found.']); return; }
                 mark_user_active('aviator', $username);
+                aviator_tick();
 
-                $newBal = debit_wallet($user['id'], $betAmt);
-                if ($newBal === null) {
-                    $res->status(400)->json(['error' => 'Insufficient wallet balance.']);
-                    return;
-                }
-
-                $roundId = (int)$state['round_id'];
-                insert_transaction(new_record_id('TX'), $username, 'Withdrawal', $betAmt,
-                                   'Aviator Wager Round #' . $roundId, 'Completed');
-
-                tx(function () use ($username, $betAmt, $consoleId) {
+                // Everything happens under the round's row lock: "is betting still open?", "no bet on
+                // this console yet?", the debit, the ledger row and the bet itself. Checked outside
+                // the lock, a bet could be debited and then appended to a round that had already
+                // taken off, and two quick clicks could both pass the one-bet-per-console check.
+                $placed = tx(function () use ($user, $username, $betAmt, $consoleId) {
                     $s = aviator_load(true);
+                    $elapsed = (now_ms() - (int)$s['phase_start']) / 1000.0;
+                    if ($s['phase'] !== 'waiting' || $elapsed >= (float)$s['duration']) {
+                        return ['error' => 'Betting for this round has closed.'];
+                    }
+                    foreach ($s['bets'] as $b) {
+                        if (strtolower((string)($b['username'] ?? '')) === strtolower((string)$username)
+                            && (int)($b['console_id'] ?? 0) === (int)$consoleId
+                            && ($b['status'] ?? '') === 'pending') {
+                            return ['error' => 'You already have a bet on this console for this round.'];
+                        }
+                    }
+                    $newBal = debit_wallet($user['id'], $betAmt);
+                    if ($newBal === null) return ['error' => 'Insufficient wallet balance.'];
+                    insert_transaction(new_record_id('TX'), $username, 'Withdrawal', $betAmt,
+                                       'Aviator Wager Round #' . (int)$s['round_id'], 'Completed');
                     $s['bets'][] = [
                         'username'          => $username,
                         'amount'            => $betAmt,
@@ -601,9 +606,14 @@ function register_gamesync_routes(Router $app) {
                         'was_rigged'        => false,
                     ];
                     aviator_save($s);
+                    return ['ok' => true, 'new_balance' => $newBal];
                 });
 
-                $res->json(['success' => true, 'new_balance' => $newBal]);
+                if (isset($placed['error'])) {
+                    $res->status(400)->json(['error' => $placed['error']]);
+                    return;
+                }
+                $res->json(['success' => true, 'new_balance' => $placed['new_balance']]);
                 return;
             }
 
@@ -612,10 +622,12 @@ function register_gamesync_routes(Router $app) {
                 $cId = js_parse_int($req->b('console_id'));
                 aviator_tick();
 
-                // Claim the bet inside the lock so a double-clicked cash-out cannot be paid twice.
-                // This is the direct equivalent of the original mutating the bet object before its
-                // first await.
-                $claim = tx(function () use ($username, $cId) {
+                $user = get_or_create_user($username);
+                if (!$user) { $res->status(404)->json(['error' => 'User not found.']); return; }
+
+                // Claim the bet AND pay it inside the lock, so a double-clicked cash-out cannot be
+                // paid twice and a claimed bet can never be left marked "won" but unpaid.
+                $claim = tx(function () use ($user, $username, $cId) {
                     $s = aviator_load(true);
 
                     $idx = null;
@@ -626,6 +638,11 @@ function register_gamesync_routes(Router $app) {
                     }
                     if ($idx === null) return ['error' => 'No active bet found for this console.'];
                     if ($s['phase'] !== 'running') return ['error' => 'The round is not in progress.'];
+                    // The flight may have reached its crash point after aviator_tick() above but
+                    // before this lock was taken. The stored phase still says "running" then, and the
+                    // multiplier is clamped AT the crash point, so without this check a click landing
+                    // in that gap was paid the full crash multiplier instead of losing.
+                    if (now_ms() >= aviator_crash_at_ms($s)) return ['error' => 'The plane has already flown away.'];
 
                     $mult = aviator_current_multiplier($s);
                     $s['bets'][$idx]['status'] = 'won';
@@ -633,30 +650,28 @@ function register_gamesync_routes(Router $app) {
                     $s['bets'][$idx]['was_rigged'] = false;  // a successful cashout was never a rigged outcome
                     aviator_save($s);
 
-                    return ['ok' => true, 'amount' => (float)$s['bets'][$idx]['amount'], 'multiplier' => $mult];
+                    // Floored to the paisa, so rounding never pays more than the multiplier is worth,
+                    // then held under the operator's per-bet win cap (AVIATOR_MAX_WIN).
+                    $payout = floor((float)$s['bets'][$idx]['amount'] * $mult * 100 + 1e-7) / 100;
+                    $capped = min($payout, (float) cfg('AVIATOR_MAX_WIN', 1000000));
+                    $newBal = credit_wallet($user['id'], $capped);
+                    insert_transaction(new_record_id('TX'), $username, 'Deposit', $capped,
+                        'Aviator Payout @ ' . js_to_fixed($mult, 2) . 'x'
+                        . ($capped < $payout ? ' (max win cap)' : ''), 'Completed');
+
+                    return ['ok' => true, 'multiplier' => $mult, 'payout' => $capped, 'new_balance' => $newBal];
                 });
 
                 if (isset($claim['error'])) {
                     $res->status(400)->json(['error' => $claim['error']]);
                     return;
                 }
-
-                $payout = round($claim['amount'] * $claim['multiplier'] * 100) / 100;
-
-                $user = get_or_create_user($username);
-                if ($user) {
-                    $newBal = credit_wallet($user['id'], $payout);
-                    insert_transaction(new_record_id('TX'), $username, 'Deposit', $payout,
-                        'Aviator Payout @ ' . js_to_fixed($claim['multiplier'], 2) . 'x', 'Completed');
-                    $res->json([
-                        'success'     => true,
-                        'multiplier'  => $claim['multiplier'],
-                        'payout'      => $payout,
-                        'new_balance' => $newBal,
-                    ]);
-                } else {
-                    $res->status(404)->json(['error' => 'User not found.']);
-                }
+                $res->json([
+                    'success'     => true,
+                    'multiplier'  => $claim['multiplier'],
+                    'payout'      => $claim['payout'],
+                    'new_balance' => $claim['new_balance'],
+                ]);
                 return;
             }
 
@@ -700,15 +715,16 @@ function register_gamesync_routes(Router $app) {
                 return;
             }
 
-            // NOTE: read-then-write, not the atomic debit_wallet used everywhere else. This path is
-            // genuinely double-spendable under concurrency. Reproduced deliberately — it is flagged
-            // in the migration dossier as a bug to fix as a separate, explicit change.
-            $newBal = (float)$user['wallet_balance'] + $delta;
-            if ($newBal < 0) {
+            // Atomic increment / conditional decrement, like every other wallet change. This was a
+            // read-then-write ("balance read a moment ago + delta"), which erased any bet or win
+            // the player made in between and could be double-spent under concurrency.
+            $newBal = $delta >= 0
+                ? credit_wallet((int)$user['id'], $delta)
+                : debit_wallet((int)$user['id'], -$delta);
+            if ($newBal === null) {
                 $res->status(400)->json(['error' => 'Insufficient wallet balance.']);
                 return;
             }
-            q('UPDATE "User" SET "wallet_balance" = ? WHERE "id" = ?', [$newBal, (int)$user['id']]);
 
             insert_transaction(new_record_id('TX'), $username, $delta >= 0 ? 'Deposit' : 'Withdrawal',
                                abs($delta), $reason, 'Completed');
@@ -849,6 +865,7 @@ function register_gamesync_routes(Router $app) {
 
                 $hashed = hash_password($password);
                 $startingBalance = (float) cfg('SIGNUP_BONUS');
+                ensure_user_identity_indexes();   // "Bob" and "bob" can never both exist
 
                 // signup_ip / bonus_credited come from migration-002; fall back to the original
                 // column set so a database that has not had it applied still registers users.
@@ -860,6 +877,12 @@ function register_gamesync_routes(Router $app) {
                        $signupIp, $startingBalance > 0 ? 1 : 0,
                        $phone, 0]);
                 } catch (Throwable $colErr) {
+                    // Another signup took this name or email a moment ago (the check above passed
+                    // for both). Not a missing column, so do not retry with the old column set.
+                    if (is_unique_violation($colErr)) {
+                        $res->status(400)->json(['error' => 'Username or email is already registered.']);
+                        return;
+                    }
                     log_debug('legacy signup falling back to pre-migration-002 column set: ' . $colErr->getMessage());
                     q('INSERT INTO "User" ("username","email","password","wallet_balance","created_at") VALUES (?,?,?,?,?)',
                       [$username, $email, $hashed, $startingBalance, ms_to_sql()]);

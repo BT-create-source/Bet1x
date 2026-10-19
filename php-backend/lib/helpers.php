@@ -107,9 +107,16 @@ function round2($value) {
     return floor($f * 100 + 0.5) / 100;
 }
 
-/** Math.random() in [0,1). */
+/**
+ * A random number in [0,1), like Math.random().
+ *
+ * Drawn from the operating system's secure generator (random_int), not mt_rand. Card deals, mine
+ * layouts, colour numbers and crash points all come through here, and mt_rand's Mersenne Twister can
+ * be reconstructed from a run of its own outputs (cards seen, results shown), which would let a
+ * player predict the next deal. random_int cannot be predicted that way.
+ */
 function js_random() {
-    return mt_rand() / (mt_getrandmax() + 1.0);
+    return random_int(0, 9007199254740991) / 9007199254740992.0;   // 53 random bits, like a JS double
 }
 
 /** Fisher-Yates, matching tpShuffle. */
@@ -138,16 +145,15 @@ function new_record_id($prefix) {
 }
 
 /**
- * The OTHER id generator, kept deliberately.
+ * A short, readable id for things operators read out and type: deposits, withdrawals and admin
+ * adjustments ("DEP_4821937465"). PREFIX + 10 random digits.
  *
- * Three endpoints (/api/wallet/adjust, /api/wallet/reset and admin.php's adjust_balance) build ids
- * as PREFIX_ + a six-digit random number instead of using new_record_id. That is only 900,000
- * possible values, so by the birthday bound a collision becomes likely at around 1,100 rows — a
- * real latent bug. It is reproduced exactly rather than fixed, because this port is not allowed to
- * change behaviour; it is flagged in the migration dossier as a separate decision to make later.
+ * These used to be PREFIX + 6 digits (only 900,000 values, so a repeat became likely after about
+ * 1,100 rows). A withdrawal debits the wallet before its row is written, so a repeated id threw
+ * after the money had left and the player's withdrawal simply vanished.
  */
 function legacy_record_id($prefix) {
-    return $prefix . (int) floor(100000 + js_random() * 900000);
+    return $prefix . random_int(1000000000, 9999999999);
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -273,6 +279,50 @@ function find_user_by_email($email) {
  * fully funded account for any username appearing in a request body, which was an unlimited
  * free-money faucet; an unknown username now simply resolves to null.
  */
+/**
+ * Make usernames and emails unique ignoring case (sql/migration-015), once per deploy.
+ *
+ * Called before anything that creates or renames an account. Must run OUTSIDE a transaction: a
+ * failed CREATE INDEX would abort it. If existing accounts already collide the index cannot be
+ * built; that is logged loudly (with the query to find them) and retried on the next call.
+ */
+function ensure_user_identity_indexes() {
+    static $done = false;
+    if ($done) return;
+    try {
+        if ((int) state_get('user_identity_schema_version') >= 15) { $done = true; return; }
+        q('CREATE UNIQUE INDEX IF NOT EXISTS "User_username_lower_key" ON "User" (LOWER("username"))');
+        q('CREATE UNIQUE INDEX IF NOT EXISTS "User_email_lower_key" ON "User" (LOWER("email"))
+           WHERE "email" IS NOT NULL AND "email" <> \'\'');
+        state_set('user_identity_schema_version', 15);
+        $done = true;
+    } catch (Throwable $e) {
+        log_error('USER IDENTITY INDEX NOT APPLIED - two accounts differ only by letter case; see sql/migration-015',
+                  ['message' => $e->getMessage()]);
+        $done = true;   // do not retry on every request in this process
+    }
+}
+
+/**
+ * Is this account's email one the signup code invented because none was given ("<username>@" one of
+ * demo.com / bet1x.com / bet1x.local)? Those are real-looking domains whose mailboxes we do not
+ * control (demo.com belongs to someone else entirely), so a code sent there must never be able to
+ * reset a password. Matched on the domain alone, because a renamed account keeps its old address.
+ */
+function is_placeholder_email(array $user) {
+    $email = strtolower(trim((string) ($user['email'] ?? '')));
+    foreach (['@demo.com', '@bet1x.com', '@bet1x.local'] as $domain) {
+        if ($email !== '' && substr($email, -strlen($domain)) === $domain) return true;
+    }
+    return false;
+}
+
+/** True if a database error is a unique-constraint violation (Postgres SQLSTATE 23505). */
+function is_unique_violation(Throwable $e) {
+    return ($e instanceof PDOException && (string) $e->getCode() === '23505')
+        || strpos($e->getMessage(), '23505') !== false;
+}
+
 function get_or_create_user($username, $allowCreate = null) {
     if (is_array($username)) $username = $username[0] ?? null;
     if (!is_string($username)) return null;
