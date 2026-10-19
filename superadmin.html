@@ -235,6 +235,41 @@
   .mrow .mval { width: 120px; text-align: right; font-family: 'IBM Plex Mono', monospace; font-weight: 700; }
   tr.total-row td { border-top: 1px solid var(--border); font-weight: 700; color: var(--text); }
 
+  /* ---------- Player Win Monitor ---------- */
+  .mon-btn { background: linear-gradient(140deg, #f59e0b, #d97706); border: 0; color: #1c1200; font-size: 12px; font-weight: 800;
+    padding: 8px 14px; border-radius: 8px; cursor: pointer; font-family: 'IBM Plex Sans', sans-serif; box-shadow: 0 4px 14px rgba(245,158,11,.25); }
+  .mon-btn .cnt { display: inline-block; min-width: 18px; margin-left: 6px; padding: 0 5px; border-radius: 9px; background: #1c1200; color: #fbbf24; font-size: 11px; }
+  #monOverlay { position: fixed; inset: 0; z-index: 200; background: rgba(4,6,12,.78); backdrop-filter: blur(3px); display: none; padding: 22px; overflow-y: auto; }
+  #monOverlay.show { display: block; }
+  .mon-card { max-width: 1380px; margin: 0 auto; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px 22px; box-shadow: var(--shadow); }
+  .mon-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; }
+  .mon-top h2 { font-size: 18px; font-weight: 800; }
+  .mon-top p { margin: 4px 0 0; font-size: 12px; color: var(--text-dim); max-width: 760px; line-height: 1.55; }
+  .mon-close { background: var(--surface-2); border: 1px solid var(--border); color: var(--text); width: 36px; height: 36px; border-radius: 9px; font-size: 20px; cursor: pointer; }
+  .mon-ctrls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 6px 0 12px; font-size: 12px; color: var(--text-dim); }
+  .mon-ctrls select, .mon-ctrls input[type=text], .mon-ctrls input[type=number] { background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+    border-radius: 7px; padding: 7px 9px; font-family: 'IBM Plex Sans', sans-serif; font-size: 12.5px; }
+  .mon-ctrls label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  .mon-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .mon-chip { font-size: 12px; padding: 5px 10px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-dim); }
+  .mon-chip b { color: var(--text); font-family: 'IBM Plex Mono', monospace; }
+  #monTable { min-width: 1100px; }
+  #monTable td.num { white-space: nowrap; }
+  #monTable th { cursor: pointer; user-select: none; white-space: nowrap; }
+  #monTable th.sorted { color: var(--text); }
+  #monTable tr.prow { cursor: pointer; }
+  #monTable tr.prow:hover td { background: rgba(91,127,255,.06); }
+  .flag { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+  .flag.red { background: var(--loss); box-shadow: 0 0 0 3px rgba(251,113,133,.2); } .flag.amber { background: var(--warn); } .flag.none { background: var(--surface-3); }
+  .reason { font-family: 'IBM Plex Sans', sans-serif; font-size: 11px; color: var(--warn); }
+  tr.pdetail td { background: var(--surface-2); font-family: 'IBM Plex Sans', sans-serif; }
+  .pd-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 14px; padding: 6px 2px; }
+  @media (max-width: 1000px) { .pd-grid { grid-template-columns: 1fr; } }
+  .pd-grid h4 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-faint); }
+  .pd-grid table { min-width: 0; font-size: 11.5px; }
+  .pd-grid td, .pd-grid th { padding: 4px 6px; }
+  .pd-line { font-size: 11.5px; color: var(--text-dim); padding: 3px 0; border-bottom: 1px solid var(--border-soft); }
+
   footer { text-align: center; color: var(--text-faint); font-size: 11px; margin-top: 30px; }
 
   ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -274,6 +309,7 @@
     </div>
     <div class="status-cluster">
       <span class="live-pill"><span class="live-dot"></span><span id="lastUpdated">connecting…</span></span>
+      <button class="mon-btn" onclick="openMonitor()">🔍 Player Win Monitor<span class="cnt" id="monBtnCount">…</span></button>
       <button id="refreshBtn" onclick="loadDashboard()">↻ Refresh now</button>
       <button onclick="superAdminLogout()" style="background:var(--surface-2); border:1px solid var(--border); color:var(--text-dim); font-size:12px; font-weight:600; padding:7px 13px; border-radius:8px; cursor:pointer; font-family:'IBM Plex Sans', sans-serif;">Sign out</button>
     </div>
@@ -443,6 +479,15 @@
     </div>
   </div>
 
+  <!-- Player Win Monitor summary -->
+  <div class="panel" style="margin-bottom:16px; border-color: rgba(245,158,11,.35);">
+    <div class="panel-head">
+      <h2>🔍 Player Win Monitor — who is winning more than the games normally pay</h2>
+      <button class="mon-btn" onclick="openMonitor()">Open the monitor</button>
+    </div>
+    <div class="wl-list" id="monSummaryList"><div class="wl-empty">Checking players…</div></div>
+  </div>
+
   <!-- What the operators did -->
   <div class="panel-head" style="margin: 6px 2px 10px;">
     <h2 style="font-size:16px;">👮 Admin Activity</h2>
@@ -488,6 +533,46 @@
   </div>
 
   <footer>Super Admin Console &middot; polling <span class="mono">/api/admin/super-dashboard</span> every 6s &middot; every figure above is a live aggregation of real backend data &middot; "today" and "this month" are India time (IST)</footer>
+</div>
+
+<div id="monOverlay" role="dialog" aria-modal="true" aria-labelledby="monTitle">
+  <div class="mon-card">
+    <div class="mon-top">
+      <div>
+        <h2 id="monTitle">🔍 Player Win Monitor</h2>
+        <p>For every player: what they bet and won, what the games they played normally pay back on those bets, and how unlikely their result is by luck alone.
+          A <b style="color:var(--loss)">red</b> flag means winnings luck can hardly explain; <b style="color:var(--warn)">amber</b> means worth a look — winning more than usual,
+          money added to their balance by an admin by hand, or admin actions that name them. A flag is a reason to look, not proof: check their games and the admin actions below each row.</p>
+      </div>
+      <button class="mon-close" onclick="closeMonitor()" aria-label="Close">×</button>
+    </div>
+    <div class="mon-ctrls">
+      <span>Period</span>
+      <select id="monWindow" onchange="loadMonitor()">
+        <option value="24h">Last 24 hours</option><option value="7d" selected>Last 7 days</option><option value="30d">Last 30 days</option><option value="all">All time</option>
+      </select>
+      <label><input type="checkbox" id="monOnlyFlagged" onchange="renderMonitor()"> Only flagged</label>
+      <label><input type="checkbox" id="monOnlyAdmin" onchange="renderMonitor()"> Only players helped by an admin</label>
+      <span>Min bets</span><input type="number" id="monMinBets" value="0" min="0" style="width:70px;" oninput="renderMonitor()">
+      <input type="text" id="monSearch" placeholder="Search player…" oninput="clearTimeout(window._monQ); window._monQ = setTimeout(loadMonitor, 350);" style="width:170px;">
+      <span id="monStatus" style="margin-left:auto;"></span>
+    </div>
+    <div class="mon-chips" id="monChips"></div>
+    <div class="tbl-wrap">
+      <table id="monTable">
+        <thead><tr>
+          <th data-k="flag">Flag</th><th data-k="username">Player</th><th class="num" data-k="net" title="What the player is up (won − bet)">Income</th>
+          <th class="num" data-k="bets">Bets</th><th class="num" data-k="wagered">Bet</th><th class="num" data-k="won">Won</th>
+          <th class="num" data-k="payback_pct" title="Share of what they bet that came back to them">Paid back</th>
+          <th class="num" data-k="expected_pct" title="What these games normally pay back on the same bets">Normal</th>
+          <th class="num" data-k="excess" title="Won minus what the games would normally have paid">Above normal</th>
+          <th class="num" data-k="z" title="How unlikely this is by luck alone">Chance by luck</th>
+          <th class="num" data-k="admin_added">Added by admin</th><th data-k="last_bet_at">Last bet</th>
+        </tr></thead>
+        <tbody id="monBody"></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -770,6 +855,99 @@ function renderAdmin(d) {
       <span class="wnet" style="color:${ok ? 'var(--profit)' : 'var(--loss)'};">${ok ? 'Approved' : 'Rejected'} ${fmtMoney(x.amount)}</span>
       <span class="feed-time">${timeAgo(x.at)}</span></div>`;
   }).join('') : '<div class="wl-empty">No deposit or withdrawal decisions yet.</div>';
+}
+
+// ---------------------------------------------------------------- Player Win Monitor
+let monData = null, monSort = { k: 'flag', dir: -1 }, monOpen = {};
+const FLAG_RANK = { red: 2, amber: 1, none: 0 };
+function luckText(p) {
+  if (p.luck_one_in == null || p.z <= 0.5) return 'normal';
+  return 'about 1 in ' + Number(p.luck_one_in).toLocaleString('en-IN');
+}
+async function loadMonitor(silent) {
+  const w = document.getElementById('monWindow').value;
+  if (!silent) document.getElementById('monStatus').textContent = 'loading…';
+  try {
+    const q = document.getElementById('monSearch').value.trim();
+    const res = await adminFetch('/api/admin/super-player-monitor?window=' + encodeURIComponent(w) + (q ? '&q=' + encodeURIComponent(q) : ''));
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    monData = await res.json();
+    document.getElementById('monStatus').textContent = 'updated ' + new Date(monData.generated_at).toLocaleTimeString('en-IN', { hour12: false });
+    renderMonitor(); renderMonitorSummary();
+  } catch (e) {
+    document.getElementById('monStatus').textContent = 'could not load — ' + e.message;
+  }
+}
+function openMonitor() { document.getElementById('monOverlay').classList.add('show'); document.body.style.overflow = 'hidden'; loadMonitor(); }
+function closeMonitor() { document.getElementById('monOverlay').classList.remove('show'); document.body.style.overflow = ''; }
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMonitor(); });
+document.addEventListener('click', (e) => {
+  const th = e.target.closest('#monTable th[data-k]');
+  if (th) { const k = th.dataset.k; monSort = { k, dir: monSort.k === k ? -monSort.dir : -1 }; renderMonitor(); return; }
+  const row = e.target.closest('#monTable tr.prow');
+  if (row) { const u = row.dataset.u; monOpen[u] = !monOpen[u]; renderMonitor(); }
+});
+function renderMonitorSummary() {
+  if (!monData) return;
+  const f = monData.flagged || { red: 0, amber: 0 };
+  document.getElementById('monBtnCount').textContent = (f.red + f.amber) || '0';
+  const top = (monData.players || []).filter(p => p.flag !== 'none').slice(0, 6);
+  const el = document.getElementById('monSummaryList');
+  const head = `<div class="wl-summary"><span class="chip"><span class="flag red"></span>Investigate <span class="n">${f.red}</span></span>`
+    + `<span class="chip"><span class="flag amber"></span>Worth a look <span class="n">${f.amber}</span></span>`
+    + `<span class="chip">of <span class="n">${fmtInt(monData.players_total)}</span> players who bet · ${esc(document.getElementById('monWindow').selectedOptions[0].text.toLowerCase())}</span></div>`;
+  el.innerHTML = head + (top.length ? top.map(p => `<div class="wl-row">
+      <span class="wname"><span class="flag ${p.flag}"></span>${esc(p.username)}</span>
+      <span class="reason" style="flex:1; padding:0 10px;">${esc((p.reasons || []).join(' · '))}</span>
+      <span class="wnet" style="color:${p.net >= 0 ? 'var(--profit)' : 'var(--loss)'};">${p.net >= 0 ? '+' : ''}${fmtMoney(p.net)}</span></div>`).join('')
+    : '<div class="wl-empty">No player stands out right now.</div>');
+}
+function renderMonitor() {
+  if (!monData) return;
+  const onlyFlag = document.getElementById('monOnlyFlagged').checked;
+  const onlyAdmin = document.getElementById('monOnlyAdmin').checked;
+  const minBets = parseInt(document.getElementById('monMinBets').value, 10) || 0;
+  let rows = (monData.players || []).filter(p => (!onlyFlag || p.flag !== 'none') && (!onlyAdmin || p.admin_added > 0 || (p.admin_mentions || []).length)
+    && p.bets >= minBets);
+  const k = monSort.k, dir = monSort.dir;
+  rows.sort((a, b) => {
+    let x = a[k], y = b[k];
+    if (k === 'flag') { x = FLAG_RANK[a.flag] * 1e12 + (+a.net || 0); y = FLAG_RANK[b.flag] * 1e12 + (+b.net || 0); }
+    if (typeof x === 'string' || typeof y === 'string') return dir * String(x || '').localeCompare(String(y || ''));
+    return dir * ((+x || 0) - (+y || 0));
+  });
+  document.querySelectorAll('#monTable th[data-k]').forEach(th => th.classList.toggle('sorted', th.dataset.k === k));
+  const f = monData.flagged || {};
+  const ep = monData.expected_payback || {};
+  document.getElementById('monChips').innerHTML = `<span class="mon-chip"><span class="flag red"></span>Investigate <b>${f.red || 0}</b></span>`
+    + `<span class="mon-chip"><span class="flag amber"></span>Worth a look <b>${f.amber || 0}</b></span>`
+    + `<span class="mon-chip">Showing <b>${Math.min(rows.length, 300)}</b> of ${fmtInt(monData.players_total)} players${(monData.matching || 0) > Math.min(rows.length, 300) ? ' (flagged and highest income first — search to find anyone)' : ''}</span>`
+    + `<span class="mon-chip" title="What each game normally pays back">Normal payback: ${Object.entries(ep).map(([g, v]) => esc(GAME_LABELS[g] || g) + ' ' + v + '%').join(' · ')}</span>`;
+  const body = document.getElementById('monBody');
+  body.innerHTML = rows.length ? rows.slice(0, 300).map(p => {
+    const open = monOpen[p.username];
+    const tr = `<tr class="prow" data-u="${esc(p.username)}">
+      <td><span class="flag ${p.flag}"></span>${p.flag === 'red' ? 'Investigate' : (p.flag === 'amber' ? 'Look' : '')}</td>
+      <td class="gname-cell">${esc(p.username)}${(p.reasons || []).length ? `<div class="reason">${esc(p.reasons.join(' · '))}</div>` : ''}</td>
+      <td class="num ${p.net > 0 ? 'profit-pos' : (p.net < 0 ? 'profit-neg' : '')}">${p.net > 0 ? '+' : ''}${fmtMoney(p.net)}</td>
+      <td class="num">${fmtInt(p.bets)}</td><td class="num">${fmtMoney(p.wagered)}</td><td class="num">${fmtMoney(p.won)}</td>
+      <td class="num">${p.payback_pct == null ? '—' : p.payback_pct + '%'}</td><td class="num">${p.expected_pct == null ? '—' : p.expected_pct + '%'}</td>
+      <td class="num ${p.excess > 0 ? 'profit-pos' : ''}">${p.excess > 0 ? '+' : ''}${fmtMoney(p.excess)}</td>
+      <td class="num" style="color:${p.z >= 3 ? 'var(--loss)' : (p.z >= 2 ? 'var(--warn)' : 'var(--text-dim)')};">${esc(luckText(p))}</td>
+      <td class="num" style="color:${p.admin_added > 0 ? 'var(--warn)' : 'var(--text-faint)'};">${p.admin_added > 0 ? fmtMoney(p.admin_added) : '—'}</td>
+      <td>${p.last_bet_at ? timeAgo(p.last_bet_at) + ' ago' : '—'}</td></tr>`;
+    if (!open) return tr;
+    const games = (p.per_game || []).map(g => `<tr><td class="gname-cell">${esc(g.label)}</td><td class="num">${fmtInt(g.bets)}</td><td class="num">${fmtMoney(g.wagered)}</td>
+      <td class="num">${fmtMoney(g.won)}</td><td class="num">${g.payback_pct == null ? '—' : g.payback_pct + '%'}</td><td class="num">${g.expected_pct}%</td></tr>`).join('');
+    const wins = (p.top_wins || []).map(w => `<div class="pd-line">${esc(fmtMoney(w.amount))} · ${esc(w.game)} · ${esc(timeAgo(w.at))} ago</div>`).join('') || '<div class="pd-line">No wins in this period.</div>';
+    const men = (p.admin_mentions || []).map(m => `<div class="pd-line"><b>${esc(m.actor)}</b> · ${esc(m.action)} · ${esc(timeAgo(m.at))} ago</div>`).join('');
+    const adminTxt = (p.admin_adjustments ? `<div class="pd-line">Balance changed by an admin <b>${p.admin_adjustments}</b> time(s): +${esc(fmtMoney(p.admin_added))} / −${esc(fmtMoney(p.admin_removed))}${p.admin_last ? ' · last ' + esc(timeAgo(p.admin_last)) + ' ago' : ''}</div>` : '')
+      + (men || (p.admin_adjustments ? '' : '<div class="pd-line">No admin involvement recorded.</div>'));
+    return tr + `<tr class="pdetail"><td colspan="12"><div class="pd-grid">
+      <div><h4>By game</h4><table><thead><tr><th>Game</th><th class="num">Bets</th><th class="num">Bet</th><th class="num">Won</th><th class="num">Paid back</th><th class="num">Normal</th></tr></thead><tbody>${games}</tbody></table></div>
+      <div><h4>Biggest wins</h4>${wins}<div class="pd-line">Win rate: ${p.win_rate_pct == null ? '—' : p.win_rate_pct + '%'} of bets</div></div>
+      <div><h4>Admin involvement</h4>${adminTxt}</div></div></td></tr>`;
+  }).join('') : '<tr><td colspan="12" class="gname-cell" style="color:var(--text-faint); font-weight:500;">No players match these filters.</td></tr>';
 }
 
 function renderMonthly(d) {
@@ -1061,6 +1239,8 @@ async function checkGateAndInit() {
   loadDashboard();
   if (!window._superDashTimer) {
     window._superDashTimer = setInterval(loadDashboard, 6000);
+    loadMonitor(true);
+    window._monTimer = setInterval(() => loadMonitor(true), 60000);
   }
   window.addEventListener('resize', () => { if (window._lastDashData) { drawProfitChart(window._lastDashData); drawHourlyChart(window._lastDashData); } });
 }

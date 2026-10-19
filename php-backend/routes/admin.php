@@ -111,6 +111,44 @@ function game_design_payback() {
     return $out;
 }
 
+/**
+ * What each game normally pays back per rupee staked (as a fraction), for the player win monitor.
+ * Where a game's return depends on the bet type, the HIGHEST figure is used, so an ordinary player
+ * is never flagged just for picking the better bets. Teen Patti has no fixed return (players play
+ * each other and the bots), so its figure is filled in from the platform's own average.
+ */
+function game_expected_payback() {
+    $out = [
+        'color_guess' => 0.98, 'aviator' => 0.96, 'mines' => 0.96, 'youreleven' => 0.85, 'cricket' => 0.97,
+        'teenpatti' => null, 'chickenroad' => 0.97, 'astronaut' => 0.97, 'towerrush' => 0.97, 'bbb' => 0.90,
+    ];
+    try { if (function_exists('cr_config_get'))    $out['chickenroad'] = (float) cr_config_get()['rtp']; } catch (Throwable $e) {}
+    try { if (function_exists('astro_config_get')) $out['astronaut']   = (float) astro_config_get()['rtp']; } catch (Throwable $e) {}
+    try { if (function_exists('tr_config_get'))    $out['towerrush']   = (float) tr_config_get()['rtp']; } catch (Throwable $e) {}
+    try { if (function_exists('bbb_config'))       $out['bbb']         = 1 - ((float) bbb_config()['rake_pct']) / 100; } catch (Throwable $e) {}
+    try { if (function_exists('mx_config'))        $out['cricket']     = 1 - (float) mx_config()['mo_margin']; } catch (Throwable $e) {}
+    return $out;
+}
+
+/**
+ * How widely one bet's payout swings, as a multiple of its stake (a standard deviation). Used to
+ * judge how much of a player's winnings luck can explain. Deliberately generous (wider than most
+ * real bets), so a flag means "very hard to explain by luck", not "a good week".
+ */
+function game_payout_spread() {
+    return ['color_guess' => 1.5, 'aviator' => 2.5, 'mines' => 1.8, 'youreleven' => 3.0, 'cricket' => 1.2,
+            'teenpatti' => 1.8, 'chickenroad' => 1.8, 'astronaut' => 2.5, 'towerrush' => 1.8, 'bbb' => 2.0];
+}
+
+/** Upper tail of the normal distribution: the chance of doing at least this well by luck. */
+function normal_upper_tail($z) {
+    // Abramowitz & Stegun 7.1.26 (error under 1.5e-7), enough for "about 1 in N".
+    $x = abs($z) / M_SQRT2;
+    $t = 1 / (1 + 0.3275911 * $x);
+    $erfc = $t * (0.254829592 + $t * (-0.284496736 + $t * (1.421413741 + $t * (-1.453152027 + $t * 1.061405429)))) * exp(-$x * $x);
+    return $z >= 0 ? 0.5 * $erfc : 1 - 0.5 * $erfc;
+}
+
 function register_admin_routes(Router $app) {
 
     // Operator-only from here on: house statistics, the super dashboard and the rig consoles.
@@ -627,6 +665,157 @@ function register_admin_routes(Router $app) {
                         'decisions'         => array_map($strip, array_slice($decisions, 0, 15)),
                     ];
                 })(),
+            ]);
+        } catch (Throwable $err) {
+            fail500($res, $err, 'admin');
+        }
+    });
+
+    /**
+     * Player win monitor (super admin only) — which players are winning more than the games
+     * normally pay, so an operator favouring someone stands out.
+     *
+     *   GET /api/admin/super-player-monitor?window=24h|7d|30d|all
+     *
+     * For each player: what they staked and won, what the games they played would normally have
+     * paid back on those stakes, and how unlikely their result is by luck alone (a z-score turned
+     * into "about 1 in N"). Alongside: money an admin added to their balance by hand and operator
+     * actions that name them. Nothing is changed; this only reports.
+     */
+    $app->get('/api/admin/super-player-monitor', 'require_superadmin', function (Req $req, Res $res) {
+        try {
+            $windows = ['24h' => 1, '7d' => 7, '30d' => 30, 'all' => 0];
+            $win = (string) $req->q('window', '7d');
+            if (!isset($windows[$win])) $win = '7d';
+            $nowMs = now_ms();
+            $sinceMs = $windows[$win] ? $nowMs - $windows[$win] * 86400000 : 0;
+
+            $rows = $sinceMs
+                ? all('SELECT "user","type","amount","details","timestamp" FROM "Transaction" WHERE "timestamp" >= ?', [gmdate('Y-m-d H:i:s', (int) ($sinceMs / 1000))])
+                : all('SELECT "user","type","amount","details","timestamp" FROM "Transaction"');
+            $labels = game_labels();
+            $expected = game_expected_payback();
+            $spread = game_payout_spread();
+
+            $players = []; $platform = [];
+            foreach ($rows as $t) {
+                $user = (string) ($t['user'] ?? '');
+                if ($user === '' || strtolower($user) === 'admin') continue;
+                $cls = classify_gameplay_transaction($t['details'] ?? null);
+                if (!$cls || $cls['game'] === 'referral') continue;
+                $g = $cls['game'];
+                $amt = abs((float) js_parse_float($t['amount'] ?? 0));
+                if (!is_finite($amt) || $amt <= 0) continue;
+                $ms = sql_to_ms($t['timestamp']) ?? 0;
+                $k = strtolower($user);
+                if (!isset($players[$k])) $players[$k] = ['username' => $user, 'games' => [], 'bets' => 0, 'wins' => 0, 'wagered' => 0.0, 'won' => 0.0, 'last_ms' => 0, 'top_wins' => []];
+                $P = &$players[$k];
+                if (!isset($P['games'][$g])) $P['games'][$g] = ['bets' => 0, 'wagered' => 0.0, 'won' => 0.0, 'stake_sq' => 0.0];
+                if (!isset($platform[$g])) $platform[$g] = ['wagered' => 0.0, 'won' => 0.0];
+                if ($cls['kind'] === 'wager') {
+                    $P['bets']++; $P['wagered'] += $amt;
+                    $P['games'][$g]['bets']++; $P['games'][$g]['wagered'] += $amt; $P['games'][$g]['stake_sq'] += $amt * $amt;
+                    $platform[$g]['wagered'] += $amt;
+                } else {
+                    $P['wins']++; $P['won'] += $amt; $P['games'][$g]['won'] += $amt;
+                    $platform[$g]['won'] += $amt;
+                    $P['top_wins'][] = ['game' => $labels[$g] ?? $g, 'amount' => to_fixed_num($amt, 2), 'at' => js_iso($ms)];
+                }
+                if ($ms > $P['last_ms']) $P['last_ms'] = $ms;
+                unset($P);
+            }
+            // Teen Patti (and any game without a fixed return): the platform's own average, kept between
+            // 90% and 100% — a low average (bots winning most pots, old test data) must not make an
+            // ordinary player look lucky.
+            foreach ($expected as $g => $v) {
+                if ($v !== null) continue;
+                $pf = $platform[$g] ?? null;
+                $expected[$g] = ($pf && $pf['wagered'] > 0) ? max(0.9, min(1.0, $pf['won'] / $pf['wagered'])) : 0.95;
+            }
+
+            // Money an admin added / removed by hand, per player (all time — a favour is a favour whenever).
+            $credits = [];
+            try {
+                foreach (all("SELECT \"user\",\"type\",\"amount\",\"timestamp\" FROM \"Transaction\" WHERE \"details\" LIKE 'Admin Adjustment%' OR \"details\" LIKE 'Manual Adjustment%'") as $a) {
+                    $k = strtolower((string) $a['user']);
+                    if (!isset($credits[$k])) $credits[$k] = ['added' => 0.0, 'removed' => 0.0, 'count' => 0, 'last' => null];
+                    $v = abs((float) $a['amount']);
+                    if (($a['type'] ?? '') === 'Deposit') $credits[$k]['added'] += $v; else $credits[$k]['removed'] += $v;
+                    $credits[$k]['count']++;
+                    $ms = sql_to_ms($a['timestamp']);
+                    if ($ms && (!$credits[$k]['last'] || $ms > sql_to_ms($credits[$k]['last']))) $credits[$k]['last'] = js_iso($ms);
+                }
+            } catch (Throwable $e) {}
+            // Operator actions that name a player (balance changes, approvals ... from the action log).
+            $mentions = [];
+            foreach (admin_log_recent(200) as $act) {
+                $sum = json_decode((string) $act['summary'], true);
+                if (!is_array($sum)) continue;
+                foreach (['username', 'user', 'target', 'player'] as $f) {
+                    if (!empty($sum[$f]) && is_string($sum[$f])) {
+                        $k = strtolower($sum[$f]);
+                        $mentions[$k][] = ['at' => $act['at'], 'actor' => $act['actor'], 'action' => $act['action'] ?: $act['path']];
+                    }
+                }
+            }
+
+            $out = []; $flagged = ['red' => 0, 'amber' => 0];
+            foreach ($players as $k => $P) {
+                $exp = 0.0; $var = 0.0; $perGame = [];
+                foreach ($P['games'] as $g => $G) {
+                    $e = (float) ($expected[$g] ?? 0.95);
+                    $exp += $G['wagered'] * $e;
+                    $var += pow((float) ($spread[$g] ?? 2.0), 2) * $G['stake_sq'];
+                    $perGame[] = ['label' => $labels[$g] ?? $g, 'bets' => $G['bets'], 'wagered' => to_fixed_num($G['wagered'], 2), 'won' => to_fixed_num($G['won'], 2),
+                                  'payback_pct' => $G['wagered'] > 0 ? to_fixed_num($G['won'] / $G['wagered'] * 100, 1) : null, 'expected_pct' => to_fixed_num($e * 100, 1)];
+                }
+                usort($perGame, function ($a, $b) { return $b['wagered'] <=> $a['wagered']; });
+                $excess = $P['won'] - $exp;
+                $z = $var > 0 ? $excess / sqrt($var) : 0.0;
+                $pLuck = normal_upper_tail($z);
+                $net = $P['won'] - $P['wagered'];
+                $cr = $credits[$k] ?? ['added' => 0.0, 'removed' => 0.0, 'count' => 0, 'last' => null];
+                $men = $mentions[$k] ?? [];
+
+                $reasons = []; $flag = 'none';
+                if ($P['bets'] >= 20 && $z >= 3 && $net >= 500) { $flag = 'red'; $reasons[] = 'wins far more than these games normally pay (about 1 in ' . number_format(1 / max($pLuck, 1e-12)) . ' by luck)'; }
+                elseif ($P['bets'] >= 20 && $z >= 2 && $net > 0) { $flag = 'amber'; $reasons[] = 'winning more than usual (about 1 in ' . number_format(1 / max($pLuck, 1e-12)) . ' by luck)'; }
+                if ($cr['added'] > 0) {
+                    $reasons[] = 'received ' . number_format($cr['added'], 2) . ' from an admin by hand';
+                    // a hand-given credit matters when the player is also up overall, or when it is large
+                    if ($flag === 'none' && ($net > 0 || $cr['added'] >= 1000)) $flag = 'amber';
+                    if ($cr['added'] >= 1000 && $z >= 2) $flag = 'red';
+                }
+                if ($men && $net > 0) { $reasons[] = count($men) . ' admin action(s) name this player'; if ($flag === 'none') $flag = 'amber'; }
+                if ($flag !== 'none') $flagged[$flag]++;
+
+                usort($P['top_wins'], function ($a, $b) { return $b['amount'] <=> $a['amount']; });
+                $out[] = [
+                    'username' => $P['username'], 'bets' => $P['bets'], 'wins' => $P['wins'],
+                    'wagered' => to_fixed_num($P['wagered'], 2), 'won' => to_fixed_num($P['won'], 2), 'net' => to_fixed_num($net, 2),
+                    'payback_pct' => $P['wagered'] > 0 ? to_fixed_num($P['won'] / $P['wagered'] * 100, 1) : null,
+                    'expected_pct' => $P['wagered'] > 0 ? to_fixed_num($exp / $P['wagered'] * 100, 1) : null,
+                    'excess' => to_fixed_num($excess, 2), 'z' => to_fixed_num($z, 2),
+                    'luck_one_in' => $z > 0 ? (int) min(1e12, round(1 / max($pLuck, 1e-12))) : null,
+                    'win_rate_pct' => $P['bets'] ? to_fixed_num($P['wins'] / $P['bets'] * 100, 1) : null,
+                    'admin_added' => to_fixed_num($cr['added'], 2), 'admin_removed' => to_fixed_num($cr['removed'], 2), 'admin_adjustments' => $cr['count'], 'admin_last' => $cr['last'],
+                    'admin_mentions' => array_slice($men, 0, 8),
+                    'flag' => $flag, 'reasons' => $reasons,
+                    'per_game' => $perGame, 'top_wins' => array_slice($P['top_wins'], 0, 5),
+                    'last_bet_at' => $P['last_ms'] ? js_iso($P['last_ms']) : null,
+                ];
+            }
+            $rank = ['red' => 2, 'amber' => 1, 'none' => 0];
+            usort($out, function ($a, $b) use ($rank) { return [$rank[$b['flag']], $b['net']] <=> [$rank[$a['flag']], $a['net']]; });
+            // ?q= narrows to matching usernames before the list is cut, so any player can be found.
+            $q = strtolower(trim((string) $req->q('q', '')));
+            if ($q !== '') $out = array_values(array_filter($out, function ($p) use ($q) { return strpos(strtolower((string) $p['username']), $q) !== false; }));
+
+            $res->json([
+                'generated_at' => js_iso($nowMs), 'window' => $win,
+                'players_total' => count($players), 'matching' => count($out), 'flagged' => $flagged,
+                'expected_payback' => array_map(function ($v) { return to_fixed_num($v * 100, 1); }, $expected),
+                'players' => array_slice($out, 0, 400),
             ]);
         } catch (Throwable $err) {
             fail500($res, $err, 'admin');
