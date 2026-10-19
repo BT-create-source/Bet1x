@@ -615,10 +615,10 @@
       <button class="mon-close" onclick="closeExcl()" aria-label="Close">×</button>
     </div>
     <div class="excl-add">
-      <input type="text" id="exclAdd" placeholder="Type any username and press Add…" onkeydown="if(event.key==='Enter'){exclAddName();}">
-      <button type="button" onclick="exclAddName()">Add</button>
+      <input type="text" id="exclAdd" placeholder="Search any account by name, or type a new one…" oninput="exclSearch()" onkeydown="if(event.key==='Enter'){exclAddName();}">
+      <button type="button" onclick="exclAddName()">Add typed name</button>
     </div>
-    <div class="sub" id="exclListLabel" style="font-size:11.5px; color:var(--text-faint);">Players who bet in the selected period, plus any you have already marked:</div>
+    <div class="sub" id="exclListLabel" style="font-size:11.5px; color:var(--text-faint);">Accounts active now, active recently, or who bet in the selected period — plus anyone you search for:</div>
     <div class="excl-list" id="exclList"></div>
     <div class="excl-save">
       <button type="button" onclick="saveExcl()">Save &amp; refresh stats</button>
@@ -967,45 +967,53 @@ function updateExclBadge(list) {
   const n = (list || []).length;
   el.textContent = n; el.style.display = n ? '' : 'none';
 }
+let exclCands = [];
 async function openExcl() {
   document.getElementById('exclOverlay').classList.add('show'); document.body.style.overflow = 'hidden';
   document.getElementById('exclStatus').textContent = 'loading…';
-  document.getElementById('exclListLabel').textContent = 'Players who bet ' + (period.from === period.to ? 'on ' + period.from : 'between ' + period.from + ' and ' + period.to) + ', plus any you have already marked:';
+  document.getElementById('exclAdd').value = '';
   exclChecked = {};
-  let excluded = [];
-  try {
-    const er = await adminFetch('/api/admin/super-excluded');
-    excluded = (await er.json()).excluded || [];
-  } catch (e) {}
-  excluded.forEach(u => { exclChecked[u] = true; });
-  // candidate players = who bet in the current period (names), plus the already-excluded
-  const cand = {};
-  excluded.forEach(u => { cand[u] = { user: u, bet: 0, already: true }; });
-  try {
-    const dr = await adminFetch('/api/admin/super-drill?from=' + period.from + '&to=' + period.to + '&kind=wager');
-    const d = await dr.json();
-    (d.rows || []).forEach(r => {
-      const k = String(r.user || '').toLowerCase();
-      if (!k) return;
-      if (!cand[k]) cand[k] = { user: r.user, bet: 0, already: !!exclChecked[k] };
-      cand[k].bet += (+r.amount || 0);
-    });
-  } catch (e) {}
-  document.getElementById('exclStatus').textContent = '';
-  renderExcl(Object.values(cand));
+  await loadExclCandidates('');
 }
-function renderExcl(cands) {
-  cands.sort((a, b) => (exclChecked[String(b.user).toLowerCase()] ? 1 : 0) - (exclChecked[String(a.user).toLowerCase()] ? 1 : 0) || (b.bet - a.bet) || String(a.user).localeCompare(String(b.user)));
+async function loadExclCandidates(q) {
+  try {
+    const res = await adminFetch('/api/admin/super-candidates?from=' + period.from + '&to=' + period.to + (q ? '&q=' + encodeURIComponent(q) : ''));
+    const d = await res.json();
+    (d.excluded || []).forEach(u => { if (!(u in exclChecked)) exclChecked[u] = true; });   // keep ticks, add any stored
+    exclCands = d.candidates || [];
+    document.getElementById('exclStatus').textContent = '';
+    renderExcl();
+  } catch (e) { document.getElementById('exclStatus').textContent = 'could not load — ' + e.message; }
+}
+let _exclSearchT = 0;
+function exclSearch() {
+  const q = document.getElementById('exclAdd').value.trim();
+  clearTimeout(_exclSearchT);
+  _exclSearchT = setTimeout(() => loadExclCandidates(q), 300);
+}
+function renderExcl() {
+  // merge any ticked-but-not-in-list names (e.g. just added) so they stay visible
+  const byKey = {};
+  exclCands.forEach(c => { byKey[String(c.user).toLowerCase()] = c; });
+  Object.keys(exclChecked).forEach(k => { if (!byKey[k]) byKey[k] = { user: k, bet: 0, active: false, recent: false, reasons: ['added by name'] }; });
+  const cands = Object.values(byKey);
+  cands.sort((a, b) => {
+    const ax = exclChecked[String(a.user).toLowerCase()] ? 1 : 0, bx = exclChecked[String(b.user).toLowerCase()] ? 1 : 0;
+    return (bx - ax) || ((b.active ? 1 : 0) - (a.active ? 1 : 0)) || ((+b.bet || 0) - (+a.bet || 0)) || String(a.user).localeCompare(String(b.user));
+  });
   const el = document.getElementById('exclList');
   el.innerHTML = cands.length ? cands.map(c => {
     const k = String(c.user).toLowerCase();
     const on = !!exclChecked[k];
+    let meta = (c.reasons || []).join(' · ');
+    if (c.bet > 0) meta = 'bet ' + fmtMoney(c.bet) + ' this period' + (meta ? ' · ' + meta.replace('bet in this period', '').replace(/^ · | · $/,'') : '');
+    const dot = c.active ? '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--teal);margin-right:6px;"></span>' : '';
     return `<label class="excl-row ${on ? 'on' : ''}" data-u="${esc(k)}">
       <input type="checkbox" ${on ? 'checked' : ''} onchange="exclToggle('${esc(k)}', this.checked)">
-      <span class="nm">${esc(c.user)}</span>
-      <span class="meta">${c.bet > 0 ? 'bet ' + fmtMoney(c.bet) + ' this period' : (c.already ? '' : 'no bets this period')}</span>
+      <span class="nm">${dot}${esc(c.user)}</span>
+      <span class="meta">${esc(meta)}</span>
       ${on ? '<span class="tag">EXCLUDED</span>' : ''}</label>`;
-  }).join('') : '<div class="wl-empty">No players bet in this period. Use the box above to add a test account by name.</div>';
+  }).join('') : '<div class="wl-empty">Nobody active or betting right now. Type a username above to add a test account.</div>';
 }
 function exclToggle(k, on) { if (on) exclChecked[k] = true; else delete exclChecked[k];
   const row = document.querySelector('.excl-row[data-u="' + CSS.escape(k) + '"]');
@@ -1015,13 +1023,10 @@ function exclAddName() {
   const inp = document.getElementById('exclAdd');
   const name = inp.value.trim();
   if (!name) return;
-  const k = name.toLowerCase();
-  exclChecked[k] = true;
-  const el = document.getElementById('exclList');
-  if (!el.querySelector('.excl-row[data-u="' + CSS.escape(k) + '"]')) {
-    el.insertAdjacentHTML('afterbegin', `<label class="excl-row on" data-u="${esc(k)}"><input type="checkbox" checked onchange="exclToggle('${esc(k)}', this.checked)"><span class="nm">${esc(name)}</span><span class="meta">added by name</span><span class="tag">EXCLUDED</span></label>`);
-  } else { exclToggle(k, true); const cb = el.querySelector('.excl-row[data-u="' + CSS.escape(k) + '"] input'); if (cb) cb.checked = true; }
+  exclChecked[name.toLowerCase()] = true;
+  if (!exclCands.some(c => String(c.user).toLowerCase() === name.toLowerCase())) exclCands.unshift({ user: name, bet: 0, active: false, recent: false, reasons: ['added by name'] });
   inp.value = '';
+  renderExcl();
 }
 async function saveExcl() {
   const list = Object.keys(exclChecked);

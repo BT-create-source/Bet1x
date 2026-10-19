@@ -1046,6 +1046,77 @@ function register_admin_routes(Router $app) {
     });
 
     /**
+     * Candidate accounts for the test/internal exclusion manager (super admin only).
+     *   GET /api/admin/super-candidates?from=&to=&q=
+     *
+     * Returns, as one list a super admin can tick: accounts active right now (playing), accounts
+     * that did anything in the last 24h, accounts that bet in the chosen period, and — when ?q= is
+     * given — any account whose name matches (so an idle, signed-in test account is still findable).
+     * Each carries a short reason and whether it is already excluded. Stateless tokens mean a truly
+     * idle session cannot be enumerated, so name search is how those are added.
+     */
+    $app->get('/api/admin/super-candidates', 'require_superadmin', function (Req $req, Res $res) use ($super_ist_range) {
+        try {
+            $r = $super_ist_range($req);
+            $lo = gmdate('Y-m-d H:i:s', (int) ($r['startMs'] / 1000));
+            $hi = gmdate('Y-m-d H:i:s', (int) ($r['endMs'] / 1000));
+            $excluded = super_excluded_set();
+            $cand = [];   // lower => ['user','reasons'=>[], 'bet'=>0, 'active'=>bool, 'recent'=>bool, 'excluded'=>bool]
+            $add = function ($name, $reason) use (&$cand, $excluded) {
+                $k = strtolower(trim((string) $name));
+                if ($k === '' || $k === 'admin') return;
+                if (!isset($cand[$k])) $cand[$k] = ['user' => $name, 'bet' => 0.0, 'active' => false, 'recent' => false, 'excluded' => isset($excluded[$k]), 'reasons' => []];
+                if ($reason && !in_array($reason, $cand[$k]['reasons'], true)) $cand[$k]['reasons'][] = $reason;
+            };
+
+            // active right now — the live presence engine (the 4 live games)
+            if (function_exists('get_live_usernames')) {
+                foreach (live_user_games() as $g) {
+                    foreach (get_live_usernames($g) as $u) { $add($u, 'active now'); if (isset($cand[strtolower($u)])) $cand[strtolower($u)]['active'] = true; }
+                }
+            }
+            // anything in the last 24h, and bets inside the chosen period
+            $since24 = gmdate('Y-m-d H:i:s', (int) ((now_ms() - 24 * 3600 * 1000) / 1000));
+            try {
+                foreach (all('SELECT DISTINCT "user" FROM "Transaction" WHERE "timestamp" >= ?', [$since24]) as $t) {
+                    $add($t['user'], 'active in the last 24h'); if (isset($cand[strtolower((string) $t['user'])])) $cand[strtolower((string) $t['user'])]['recent'] = true;
+                }
+            } catch (Throwable $e) {}
+            try {
+                foreach (all('SELECT "user","amount","details" FROM "Transaction" WHERE "timestamp" >= ? AND "timestamp" < ?', [$lo, $hi]) as $t) {
+                    $cls = classify_gameplay_transaction($t['details'] ?? null);
+                    if (!$cls || $cls['kind'] !== 'wager') continue;
+                    $add($t['user'], 'bet in this period');
+                    $k = strtolower((string) $t['user']);
+                    if (isset($cand[$k])) $cand[$k]['bet'] += abs((float) js_parse_float($t['amount'] ?? 0));
+                }
+            } catch (Throwable $e) {}
+            // already excluded always shown
+            foreach (array_keys($excluded) as $k) $add($k, 'already excluded');
+            // name search — find any account (idle or not)
+            $q = trim((string) $req->q('q', ''));
+            if ($q !== '') {
+                try {
+                    foreach (all('SELECT "username" FROM "User" WHERE LOWER("username") LIKE LOWER(?) ORDER BY "username" LIMIT 40', ['%' . $q . '%']) as $u) {
+                        $add($u['username'], 'matches your search');
+                    }
+                } catch (Throwable $e) {}
+            }
+
+            $out = array_values(array_map(function ($c) {
+                $c['bet'] = to_fixed_num($c['bet'], 2);
+                return $c;
+            }, $cand));
+            // active first, then biggest bettors, then name
+            usort($out, function ($a, $b) {
+                return [$b['active'] ? 1 : 0, $b['recent'] ? 1 : 0, $b['bet']] <=> [$a['active'] ? 1 : 0, $a['recent'] ? 1 : 0, $a['bet']]
+                    ?: strcmp(strtolower($a['user']), strtolower($b['user']));
+            });
+            $res->json(['from' => $r['from'], 'to' => $r['to'], 'count' => count($out), 'candidates' => array_slice($out, 0, 500), 'excluded' => array_keys($excluded)]);
+        } catch (Throwable $err) { fail500($res, $err, 'admin'); }
+    });
+
+    /**
      * The test / internal account exclusion list (super admin only).
      *   GET  /api/admin/super-excluded                      -> current list
      *   POST /api/admin/super-excluded {usernames:[...]}     -> replace the whole list
