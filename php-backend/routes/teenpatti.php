@@ -46,7 +46,7 @@ function register_teenpatti_routes(Router $app) {
                     ];
                 }
 
-                $result[] = [
+                $entry = [
                     'id'                => $r['id'],
                     'name'              => $r['name'],
                     'boot_amount'       => (float)$r['boot_amount'],
@@ -58,8 +58,11 @@ function register_teenpatti_routes(Router $app) {
                     'players'           => $players,
                     'player_count'      => $playerCount,
                     'real_player_count' => $realPlayerCount,
-                    'admin_rig'         => tp_room_admin_rig($r),
                 ];
+                if (is_admin($req)) {
+                    $entry['admin_rig'] = tp_room_admin_rig($r);
+                }
+                $result[] = $entry;
             }
             $res->json($result);
         } catch (Throwable $err) {
@@ -293,7 +296,8 @@ function register_teenpatti_routes(Router $app) {
 
             $rig = tp_room_admin_rig($room);
 
-            $res->json([
+            $isAdmin = is_admin($req);
+            $statePayload = [
                 'room_id'        => $room['id'],
                 'name'           => $room['name'],
                 'boot_amount'    => (float)$room['boot_amount'],
@@ -309,9 +313,13 @@ function register_teenpatti_routes(Router $app) {
                 'log'            => tp_room_log($room),
                 'my_seat'        => $mySeat ? (int)$mySeat['seat'] : null,
                 'wallet_balance' => $walletBalance,
-                'admin_rig'      => $rig,
-                'was_rigged'     => (bool)($isFinished && $rig !== null && array_key_exists('winner_seat', $rig)),
-            ]);
+            ];
+            if ($isAdmin) {
+                $rig = tp_room_admin_rig($room);
+                $statePayload['admin_rig'] = $rig;
+                $statePayload['was_rigged'] = (bool)($isFinished && $rig !== null && array_key_exists('winner_seat', $rig));
+            }
+            $res->json($statePayload);
         } catch (Throwable $err) {
             fail500($res, $err, 'teenpatti');
         }

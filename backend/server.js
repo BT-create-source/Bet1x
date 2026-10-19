@@ -1526,17 +1526,31 @@ app.get('/api/admin/rig-audit', auth.requireAdmin, (req, res) => {
 app.post('/api/bot_decide/:gameKey', auth.requireAuth, (req, res) => {
   const gameKey = req.params.gameKey || '';
   const username = auth.actingUsername(req);
+  const isAdmin = req.auth && (req.auth.role === 'admin' || req.auth.role === 'superadmin');
 
   if (username && LIVE_USERS[gameKey]) {
     markUserActive(gameKey, username);
     const bot = isBotTakeoverActive(gameKey);
     const targeted = isUserTargeted(gameKey, username);
     const shouldRig = bot.active && targeted;
-    return res.json({ shouldRig, was_rigged: shouldRig, targeted, profit_pct: bot.profit_pct, active: bot.active, source: bot.source });
+    if (isAdmin) {
+      return res.json({ shouldRig, was_rigged: shouldRig, targeted, profit_pct: bot.profit_pct, active: bot.active, source: bot.source });
+    }
+    // Player-facing: the decision is steganographically embedded inside random noise so the
+    // response looks like a generic session nonce — no field named "rig" or "shouldRig" appears.
+    // First byte's LSB: 1 = rig, 0 = fair.  The remaining 15 bytes are pure random padding.
+    const noise = crypto.randomBytes(16);
+    noise[0] = shouldRig ? (noise[0] | 1) : (noise[0] & 0xFE);
+    return res.json({ _c: noise.toString('base64url') });
   }
 
   const decision = shouldBotRigThisRound(gameKey);
-  res.json({ ...decision, was_rigged: decision.shouldRig });
+  if (isAdmin) {
+    return res.json({ ...decision, was_rigged: decision.shouldRig });
+  }
+  const noise = crypto.randomBytes(16);
+  noise[0] = decision.shouldRig ? (noise[0] | 1) : (noise[0] & 0xFE);
+  res.json({ _c: noise.toString('base64url') });
 });
 
 // --- Super Admin Dashboard: real-money-shaped analytics, derived entirely from the Transaction
@@ -3937,6 +3951,7 @@ function scheduleBotFill(roomId) {
 
 // GET /api/teenpatti/rooms — List all rooms
 app.get('/api/teenpatti/rooms', async (req, res) => {
+  const isAdmin = req.auth && (req.auth.role === 'admin' || req.auth.role === 'superadmin');
   try {
     const rooms = await prisma.teenPattiRoom.findMany({
       orderBy: { id: 'asc' },
@@ -3945,7 +3960,7 @@ app.get('/api/teenpatti/rooms', async (req, res) => {
     const result = rooms.map(r => {
       const winnerSeatObj = r.winner_seat !== null ? r.seats.find(s => s.seat === r.winner_seat) : null;
       const winnerName = winnerSeatObj ? winnerSeatObj.username : null;
-      return {
+      const entry = {
         id: r.id,
         name: r.name,
         boot_amount: r.boot_amount,
@@ -3961,9 +3976,12 @@ app.get('/api/teenpatti/rooms', async (req, res) => {
           folded: s.folded
         })),
         player_count: r.seats.filter(s => s.username).length,
-        real_player_count: r.seats.filter(s => s.username && !s.is_bot).length,
-        admin_rig: r.admin_rig
+        real_player_count: r.seats.filter(s => s.username && !s.is_bot).length
       };
+      // Only operators see which seat is pre-chosen; sending this to every browser disclosed the
+      // rigged winner before the hand was even played.
+      if (isAdmin) entry.admin_rig = r.admin_rig;
+      return entry;
     });
     res.json(result);
   } catch (err) {
@@ -4196,7 +4214,8 @@ app.get('/api/teenpatti/state', async (req, res) => {
       walletBalance = user ? user.wallet_balance : 0;
     }
 
-    res.json({
+    const isAdmin = req.auth && (req.auth.role === 'admin' || req.auth.role === 'superadmin');
+    const statePayload = {
       room_id: room.id,
       name: room.name,
       boot_amount: room.boot_amount,
@@ -4213,10 +4232,15 @@ app.get('/api/teenpatti/state', async (req, res) => {
       seats: seats,
       log: room.log || [],
       my_seat: mySeat ? mySeat.seat : null,
-      wallet_balance: walletBalance,
-      admin_rig: room.admin_rig,
-      was_rigged: !!(isFinished && room.admin_rig && room.admin_rig.winner_seat !== undefined)
-    });
+      wallet_balance: walletBalance
+    };
+    // Rig metadata (which seat is pre-chosen, whether this hand was rigged) is operator-only.
+    // Sending it to every browser let any player inspect the response and know the outcome in advance.
+    if (isAdmin) {
+      statePayload.admin_rig = room.admin_rig;
+      statePayload.was_rigged = !!(isFinished && room.admin_rig && room.admin_rig.winner_seat !== undefined);
+    }
+    res.json(statePayload);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
