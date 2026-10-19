@@ -149,6 +149,29 @@ function normal_upper_tail($z) {
     return $z >= 0 ? 0.5 * $erfc : 1 - 0.5 * $erfc;
 }
 
+/**
+ * Test / internal accounts the super admin has marked to leave OUT of the money analytics.
+ *
+ * These are accounts the operator funds with virtual coins to test the games; counting their bets,
+ * wins, deposits, withdrawals or wallet balance would distort the real cash-flow picture. The list
+ * is a set of lowercased usernames in GameState, and every super-admin analytics endpoint skips
+ * anyone in it. The accounts still exist and still play — they are only removed from the figures.
+ */
+function super_excluded_set() {
+    try { $list = state_get('superadmin_excluded_users'); } catch (Throwable $e) { $list = null; }
+    $out = [];
+    if (is_array($list)) foreach ($list as $u) { $u = strtolower(trim((string) $u)); if ($u !== '') $out[$u] = true; }
+    return $out;
+}
+function super_excluded_save(array $usernames) {
+    $seen = [];
+    foreach ($usernames as $u) { $u = strtolower(trim((string) $u)); if ($u !== '' && $u !== 'admin' && !isset($seen[$u])) $seen[$u] = true; }
+    $list = array_keys($seen);
+    sort($list);
+    state_set('superadmin_excluded_users', $list);
+    return $list;
+}
+
 function register_admin_routes(Router $app) {
 
     // Operator-only from here on: house statistics, the super dashboard and the rig consoles.
@@ -312,10 +335,12 @@ function register_admin_routes(Router $app) {
             $startOfToday = (int) (floor(($nowMs + $istOff) / 86400000) * 86400000 - $istOff);
             $startOfYesterday = $startOfToday - 86400000;
             $startOfMonth = (int) (strtotime($monthKey . '-01T00:00:00Z') * 1000 - $istOff);
+            $excluded = super_excluded_set();   // test / internal accounts to leave out of the figures
 
             // --- Registered users ---
             $newToday = 0; $newThisMonth = 0;
             foreach ($users as $u) {
+                if (isset($excluded[strtolower((string)($u['username'] ?? ''))])) continue;
                 if (empty($u['created_at'])) continue;
                 $ms = is_numeric($u['created_at']) ? (int)$u['created_at'] : sql_to_ms($u['created_at']);
                 if ($ms === null) continue;
@@ -391,9 +416,11 @@ function register_admin_routes(Router $app) {
                 // and its wagers are not a real customer's stake, so it is excluded from the
                 // wagered/won ledger to keep the sign of "house profit" correct. It still appears in
                 // the recent-activity feed below for transparency.
-                $isHouseAccount = strtolower((string)($t['user'] ?? '')) === 'admin';
+                $uLower = strtolower((string)($t['user'] ?? ''));
+                $isHouseAccount = $uLower === 'admin';
+                $isExcluded = isset($excluded[$uLower]);
 
-                if ($cls && !$isHouseAccount && ($cls['kind'] === 'wager' || $cls['kind'] === 'win')) {
+                if ($cls && !$isHouseAccount && !$isExcluded && ($cls['kind'] === 'wager' || $cls['kind'] === 'win')) {
                     $signedProfit = $cls['kind'] === 'wager' ? $amt : -$amt;
                     $houseProfitAllTime += $signedProfit;
                     if ($tsMs >= $startOfToday) $houseProfitToday += $signedProfit;
@@ -456,7 +483,7 @@ function register_admin_routes(Router $app) {
                     }
                 }
 
-                if ($cls) {
+                if ($cls && !$isExcluded) {
                     $recentTx[] = [
                         'id'        => $t['id'] ?? null,
                         'user'      => $t['user'] ?? null,
@@ -524,6 +551,7 @@ function register_admin_routes(Router $app) {
             $decisions = [];
             try {
                 foreach (all('SELECT "username","amount","status","created_at","updated_at" FROM "Deposit"') as $d) {
+                    if (isset($excluded[strtolower((string) ($d['username'] ?? ''))])) continue;
                     $a = (float) $d['amount']; $ms = sql_to_ms($d['created_at']) ?? 0; $st = (string) $d['status'];
                     if ($st === 'Completed' || $st === 'Rejected') {
                         $dec = sql_to_ms($d['updated_at']) ?? $ms;
@@ -537,6 +565,7 @@ function register_admin_routes(Router $app) {
                     }
                 }
                 foreach (all('SELECT "withdrawal_id","username","amount","method","status","created_at","updated_at" FROM "Withdrawal"') as $w) {
+                    if (isset($excluded[strtolower((string) ($w['username'] ?? ''))])) continue;
                     $a = (float) $w['amount']; $ms = sql_to_ms($w['created_at']) ?? 0; $st = (string) $w['status'];
                     if ($st === 'Completed' || $st === 'Rejected') {
                         $dec = sql_to_ms($w['updated_at']) ?? $ms;
@@ -554,7 +583,8 @@ function register_admin_routes(Router $app) {
             // What the platform owes its customers: every player's wallet ("admin" is the house's own seat).
             $recentSignups = [];
             foreach ($users as $u) {
-                if (strtolower((string) ($u['username'] ?? '')) === 'admin') continue;
+                $uL = strtolower((string) ($u['username'] ?? ''));
+                if ($uL === 'admin' || isset($excluded[$uL])) continue;
                 $bal = (float) js_parse_float($u['wallet_balance'] ?? 0);
                 if (is_finite($bal) && $bal > 0) { $finance['wallet_liability'] += $bal; $finance['players_with_balance']++; }
                 $ms = !empty($u['created_at']) ? (is_numeric($u['created_at']) ? (int) $u['created_at'] : sql_to_ms($u['created_at'])) : null;
@@ -651,6 +681,7 @@ function register_admin_routes(Router $app) {
                 'recent_signups'       => $recentSignups,
                 'active_15m'           => $activeCounts,
                 'active_unique_15m'    => count($activeUnion),
+                'excluded_accounts'    => array_keys($excluded),
                 // What the operators did: their action log, hand-made balance changes, cashier decisions
                 'admin' => (function () use ($adjustments, $adj, $decisions) {
                     $byTime = function ($a, $b) { return $b['_ms'] <=> $a['_ms']; };
@@ -697,10 +728,11 @@ function register_admin_routes(Router $app) {
             $expected = game_expected_payback();
             $spread = game_payout_spread();
 
+            $excluded = super_excluded_set();
             $players = []; $platform = [];
             foreach ($rows as $t) {
                 $user = (string) ($t['user'] ?? '');
-                if ($user === '' || strtolower($user) === 'admin') continue;
+                if ($user === '' || strtolower($user) === 'admin' || isset($excluded[strtolower($user)])) continue;
                 $cls = classify_gameplay_transaction($t['details'] ?? null);
                 if (!$cls || $cls['game'] === 'referral') continue;
                 $g = $cls['game'];
@@ -853,6 +885,7 @@ function register_admin_routes(Router $app) {
             $hi = gmdate('Y-m-d H:i:s', (int) ($r['endMs'] / 1000));
             $istOff = $r['istOff'];
             $labels = game_labels();
+            $excluded = super_excluded_set();
 
             $rows = [];
             try { $rows = all('SELECT "user","type","amount","details","timestamp" FROM "Transaction" WHERE "timestamp" >= ? AND "timestamp" < ?', [$lo, $hi]); }
@@ -868,7 +901,8 @@ function register_admin_routes(Router $app) {
             $biggest = null;
             $spanDays = max(1, (int) round(($r['endMs'] - $r['startMs']) / 86400000));
             foreach ($rows as $t) {
-                if (strtolower((string) ($t['user'] ?? '')) === 'admin') continue;
+                $uL = strtolower((string) ($t['user'] ?? ''));
+                if ($uL === 'admin' || isset($excluded[$uL])) continue;
                 $cls = classify_gameplay_transaction($t['details'] ?? null);
                 if (!$cls) continue;
                 $amt = abs((float) js_parse_float($t['amount'] ?? 0));
@@ -898,15 +932,21 @@ function register_admin_routes(Router $app) {
             // Cashier movement in the same range (by created date).
             $fin = ['deposits' => 0.0, 'deposits_count' => 0, 'withdrawals' => 0.0, 'withdrawals_count' => 0];
             try {
-                foreach (all('SELECT "amount","status","created_at" FROM "Deposit" WHERE "created_at" >= ? AND "created_at" < ? AND "status" = \'Completed\'', [$lo, $hi]) as $d) {
+                foreach (all('SELECT "username","amount","status","created_at" FROM "Deposit" WHERE "created_at" >= ? AND "created_at" < ? AND "status" = \'Completed\'', [$lo, $hi]) as $d) {
+                    if (isset($excluded[strtolower((string) ($d['username'] ?? ''))])) continue;
                     $fin['deposits'] += (float) $d['amount']; $fin['deposits_count']++;
                 }
-                foreach (all('SELECT "amount","status","created_at" FROM "Withdrawal" WHERE "created_at" >= ? AND "created_at" < ? AND "status" = \'Completed\'', [$lo, $hi]) as $w) {
+                foreach (all('SELECT "username","amount","status","created_at" FROM "Withdrawal" WHERE "created_at" >= ? AND "created_at" < ? AND "status" = \'Completed\'', [$lo, $hi]) as $w) {
+                    if (isset($excluded[strtolower((string) ($w['username'] ?? ''))])) continue;
                     $fin['withdrawals'] += (float) $w['amount']; $fin['withdrawals_count']++;
                 }
             } catch (Throwable $e) {}
             $newUsers = 0;
-            try { $newUsers = (int) scalar('SELECT COUNT(*) FROM "User" WHERE "created_at" >= ? AND "created_at" < ?', [$lo, $hi], 0); } catch (Throwable $e) {}
+            try {
+                foreach (all('SELECT "username" FROM "User" WHERE "created_at" >= ? AND "created_at" < ?', [$lo, $hi]) as $u) {
+                    if (!isset($excluded[strtolower((string) ($u['username'] ?? ''))])) $newUsers++;
+                }
+            } catch (Throwable $e) {}
 
             foreach ($perGame as $g => $pg) {
                 $perGame[$g]['profit'] = to_fixed_num($pg['wagered'] - $pg['paid_out'], 2);
@@ -946,6 +986,7 @@ function register_admin_routes(Router $app) {
             $r = $super_ist_range($req);
             $lo = gmdate('Y-m-d H:i:s', (int) ($r['startMs'] / 1000));
             $hi = gmdate('Y-m-d H:i:s', (int) ($r['endMs'] / 1000));
+            $excluded = super_excluded_set();
             $kind = (string) $req->q('kind', 'wager');
             $gameFilter = null;
             if (strpos($kind, 'game:') === 0) { $gameFilter = substr($kind, 5); $kind = 'game'; }
@@ -956,6 +997,7 @@ function register_admin_routes(Router $app) {
                 $tbl = $kind === 'deposit' ? 'Deposit' : 'Withdrawal';
                 try {
                     foreach (all("SELECT \"username\",\"amount\",\"status\",\"created_at\" FROM \"$tbl\" WHERE \"created_at\" >= ? AND \"created_at\" < ? AND \"status\" = 'Completed' ORDER BY \"created_at\" DESC", [$lo, $hi]) as $x) {
+                        if (isset($excluded[strtolower((string) ($x['username'] ?? ''))])) continue;
                         $a = (float) $x['amount']; $total += $a; $count++;
                         if (count($out) < $CAP) $out[] = ['user' => $x['username'], 'label' => ucfirst($kind), 'amount' => to_fixed_num($a, 2), 'kind' => $kind, 'at' => js_iso(sql_to_ms($x['created_at']) ?? 0)];
                     }
@@ -963,6 +1005,7 @@ function register_admin_routes(Router $app) {
             } elseif ($kind === 'newusers') {
                 try {
                     foreach (all('SELECT "username","wallet_balance","created_at" FROM "User" WHERE "created_at" >= ? AND "created_at" < ? ORDER BY "created_at" DESC', [$lo, $hi]) as $u) {
+                        if (isset($excluded[strtolower((string) ($u['username'] ?? ''))])) continue;
                         $count++;
                         if (count($out) < $CAP) $out[] = ['user' => $u['username'], 'label' => 'Signed up', 'amount' => to_fixed_num((float) $u['wallet_balance'], 2), 'kind' => 'newuser', 'at' => js_iso(sql_to_ms($u['created_at']) ?? 0)];
                     }
@@ -979,7 +1022,8 @@ function register_admin_routes(Router $app) {
                     usort($rows, function ($a, $b) { return strcmp((string) ($b['timestamp'] ?? ''), (string) ($a['timestamp'] ?? '')); });
                 }
                 foreach ($rows as $t) {
-                    if (strtolower((string) ($t['user'] ?? '')) === 'admin') continue;
+                    $uL = strtolower((string) ($t['user'] ?? ''));
+                    if ($uL === 'admin' || isset($excluded[$uL])) continue;
                     $cls = classify_gameplay_transaction($t['details'] ?? null);
                     if (!$cls) continue;
                     if ($kind === 'wager' && $cls['kind'] !== 'wager') continue;
@@ -998,6 +1042,35 @@ function register_admin_routes(Router $app) {
 
             $res->json(['from' => $r['from'], 'to' => $r['to'], 'kind' => $req->q('kind', 'wager'),
                 'count' => $count, 'total' => to_fixed_num($total, 2), 'capped' => $count > $CAP, 'rows' => $out]);
+        } catch (Throwable $err) { fail500($res, $err, 'admin'); }
+    });
+
+    /**
+     * The test / internal account exclusion list (super admin only).
+     *   GET  /api/admin/super-excluded                      -> current list
+     *   POST /api/admin/super-excluded {usernames:[...]}     -> replace the whole list
+     *   POST /api/admin/super-excluded {add:"name"} / {remove:"name"}  -> one at a time
+     */
+    $app->get('/api/admin/super-excluded', 'require_superadmin', function (Req $req, Res $res) {
+        $res->json(['excluded' => array_keys(super_excluded_set())]);
+    });
+    $app->post('/api/admin/super-excluded', 'require_superadmin', function (Req $req, Res $res) {
+        try {
+            $cur = array_keys(super_excluded_set());
+            $list = $req->b('usernames');
+            if (is_array($list)) {
+                $cur = $list;                                   // full replace
+            } else {
+                $add = $req->b('add'); $remove = $req->b('remove');
+                if (is_string($add) && trim($add) !== '') $cur[] = $add;
+                if (is_string($remove) && trim($remove) !== '') {
+                    $rm = strtolower(trim($remove));
+                    $cur = array_values(array_filter($cur, function ($u) use ($rm) { return strtolower(trim((string) $u)) !== $rm; }));
+                }
+            }
+            $saved = super_excluded_save($cur);
+            log_info('superadmin updated the excluded-account list', ['count' => count($saved)]);
+            $res->json(['ok' => true, 'excluded' => $saved]);
         } catch (Throwable $err) { fail500($res, $err, 'admin'); }
     });
 
