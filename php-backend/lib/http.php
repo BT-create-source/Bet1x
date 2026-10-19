@@ -161,6 +161,9 @@ class Res {
 
     public function status($code) { $this->status = (int)$code; return $this; }
 
+    /** The status this response was (or will be) sent with — read by the operator action log. */
+    public function statusCode() { return $this->status; }
+
     public function setHeader($name, $value) { $this->headers[$name] = $value; return $this; }
 
     /** res.json(body) — encoded exactly the way JSON.stringify would. */

@@ -11,6 +11,7 @@ require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/helpers.php';
 require_once __DIR__ . '/../lib/botengine.php';
 require_once __DIR__ . '/../lib/rigaudit.php';
+require_once __DIR__ . '/../lib/adminlog.php';
 
 /**
  * Which game a Transaction's free-text `details` belongs to, and whether it was a wager (stake
@@ -320,7 +321,22 @@ function register_admin_routes(Router $app) {
             $activeSince = $nowMs - 15 * 60 * 1000;
             $activeByGame = [];
 
+            // Balance changes an operator made by hand ("Admin Adjustment" from the admin panel,
+            // "Manual Adjustment" from the legacy wallet endpoint): money the house created or took.
+            $adjustments = [];
+            $adj = ['credited' => 0.0, 'debited' => 0.0, 'credited_today' => 0.0, 'debited_today' => 0.0, 'count' => 0];
+
             foreach ($transactions as $t) {
+                $det = (string) ($t['details'] ?? '');
+                if (strpos($det, 'Admin Adjustment') === 0 || strpos($det, 'Manual Adjustment') === 0) {
+                    $aMs = !empty($t['timestamp']) ? (is_numeric($t['timestamp']) ? (int) $t['timestamp'] : (sql_to_ms($t['timestamp']) ?? 0)) : 0;
+                    $aAmt = abs((float) js_parse_float($t['amount'] ?? 0));
+                    $credit = ($t['type'] ?? '') === 'Deposit';
+                    $adj[$credit ? 'credited' : 'debited'] += $aAmt;
+                    if ($aMs >= $startOfToday) $adj[$credit ? 'credited_today' : 'debited_today'] += $aAmt;
+                    $adj['count']++;
+                    $adjustments[] = ['username' => $t['user'] ?? null, 'amount' => to_fixed_num($aAmt, 2), 'credit' => $credit, 'details' => $det, 'at' => js_iso($aMs ?: $nowMs), '_ms' => $aMs];
+                }
                 $cls = classify_gameplay_transaction($t['details'] ?? null);
                 $tsMs = !empty($t['timestamp'])
                     ? (is_numeric($t['timestamp']) ? (int)$t['timestamp'] : sql_to_ms($t['timestamp']))
@@ -467,9 +483,14 @@ function register_admin_routes(Router $app) {
                 'wallet_liability' => 0.0, 'players_with_balance' => 0,
             ];
             $pendingWithdrawals = [];
+            $decisions = [];
             try {
-                foreach (all('SELECT "username","amount","status","created_at" FROM "Deposit"') as $d) {
+                foreach (all('SELECT "username","amount","status","created_at","updated_at" FROM "Deposit"') as $d) {
                     $a = (float) $d['amount']; $ms = sql_to_ms($d['created_at']) ?? 0; $st = (string) $d['status'];
+                    if ($st === 'Completed' || $st === 'Rejected') {
+                        $dec = sql_to_ms($d['updated_at']) ?? $ms;
+                        $decisions[] = ['kind' => 'Deposit', 'username' => $d['username'], 'amount' => to_fixed_num($a, 2), 'status' => $st, 'at' => js_iso($dec), '_ms' => $dec];
+                    }
                     if ($st === 'Completed') {
                         $finance['deposits_total'] += $a; $finance['deposits_count']++;
                         if ($ms >= $startOfToday) { $finance['deposits_today'] += $a; $finance['deposits_today_count']++; }
@@ -477,8 +498,12 @@ function register_admin_routes(Router $app) {
                         $finance['deposits_pending'] += $a; $finance['deposits_pending_count']++;
                     }
                 }
-                foreach (all('SELECT "withdrawal_id","username","amount","method","status","created_at" FROM "Withdrawal"') as $w) {
+                foreach (all('SELECT "withdrawal_id","username","amount","method","status","created_at","updated_at" FROM "Withdrawal"') as $w) {
                     $a = (float) $w['amount']; $ms = sql_to_ms($w['created_at']) ?? 0; $st = (string) $w['status'];
+                    if ($st === 'Completed' || $st === 'Rejected') {
+                        $dec = sql_to_ms($w['updated_at']) ?? $ms;
+                        $decisions[] = ['kind' => 'Withdrawal', 'username' => $w['username'], 'amount' => to_fixed_num($a, 2), 'status' => $st, 'at' => js_iso($dec), '_ms' => $dec];
+                    }
                     if ($st === 'Completed') {
                         $finance['withdrawals_total'] += $a; $finance['withdrawals_count']++;
                         if ($ms >= $startOfToday) { $finance['withdrawals_today'] += $a; $finance['withdrawals_today_count']++; }
@@ -588,6 +613,20 @@ function register_admin_routes(Router $app) {
                 'recent_signups'       => $recentSignups,
                 'active_15m'           => $activeCounts,
                 'active_unique_15m'    => count($activeUnion),
+                // What the operators did: their action log, hand-made balance changes, cashier decisions
+                'admin' => (function () use ($adjustments, $adj, $decisions) {
+                    $byTime = function ($a, $b) { return $b['_ms'] <=> $a['_ms']; };
+                    $strip = function ($r) { unset($r['_ms']); return $r; };
+                    usort($adjustments, $byTime);
+                    usort($decisions, $byTime);
+                    foreach ($adj as $k => $v) if (is_float($v)) $adj[$k] = to_fixed_num($v, 2);
+                    return [
+                        'actions'           => admin_log_recent(40),
+                        'adjustments'       => array_map($strip, array_slice($adjustments, 0, 15)),
+                        'adjustment_totals' => $adj,
+                        'decisions'         => array_map($strip, array_slice($decisions, 0, 15)),
+                    ];
+                })(),
             ]);
         } catch (Throwable $err) {
             fail500($res, $err, 'admin');

@@ -58,6 +58,7 @@ require_once __DIR__ . '/lib/security.php';
 require_once __DIR__ . '/lib/ratelimit.php';
 require_once __DIR__ . '/lib/rigaudit.php';
 require_once __DIR__ . '/lib/botengine.php';
+require_once __DIR__ . '/lib/adminlog.php';
 
 require_once __DIR__ . '/games/color.php';
 require_once __DIR__ . '/games/aviator.php';
@@ -170,6 +171,8 @@ try {
         register_fallback_routes($app);
 
         $app->dispatch($req, $res);
+        // Record successful admin / super admin actions (lib/adminlog.php). Never throws.
+        admin_log_record($req, $res);
     }
 
     if (!$res->sent) {

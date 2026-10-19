@@ -443,6 +443,27 @@
     </div>
   </div>
 
+  <!-- What the operators did -->
+  <div class="panel-head" style="margin: 6px 2px 10px;">
+    <h2 style="font-size:16px;">👮 Admin Activity</h2>
+    <span class="hint">everything the admin and super admin did — from the operator action log and the ledger</span>
+  </div>
+  <div class="grid-3">
+    <div class="panel">
+      <div class="panel-head"><h2>📝 Operator Actions</h2><span class="hint">newest first</span></div>
+      <div class="wl-list" id="adminActionsList" style="max-height:420px; overflow-y:auto;"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>💳 Balances Changed by Admin</h2><span class="hint">money added / removed by hand</span></div>
+      <div class="wl-summary" id="adjTotals"></div>
+      <div class="wl-list" id="adjList" style="max-height:360px; overflow-y:auto;"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>✅ Deposit &amp; Withdrawal Decisions</h2><span class="hint">approved / rejected, newest first</span></div>
+      <div class="wl-list" id="decisionsList" style="max-height:420px; overflow-y:auto;"></div>
+    </div>
+  </div>
+
   <div class="panel" style="margin-bottom:16px;">
     <div class="panel-head">
       <h2>🎮 Per-Game Breakdown</h2>
@@ -695,6 +716,62 @@ function renderFinance(d) {
   document.getElementById('mFunded').textContent = fmtInt(f.players_with_balance);
 }
 
+/** What an operator action was, in words. */
+function describeAction(a) {
+  const byAction = {
+    approve_deposit: 'Approved a deposit', reject_deposit: 'Rejected a deposit',
+    approve_withdrawal: 'Approved a withdrawal', reject_withdrawal: 'Rejected a withdrawal',
+    adjust_balance: 'Changed a player balance', set_payment_config: 'Changed payment settings',
+  };
+  if (a.action && byAction[a.action]) return byAction[a.action];
+  const p = a.path || '';
+  const rules = [
+    [/chickenroad/, 'Changed Chicken Road settings'], [/astronaut/, 'Changed Astronaut settings'],
+    [/towerrush/, 'Changed Tower Rush settings'], [/bot_decide|bot_status|bot|takeover/i, 'Changed bot takeover'],
+    [/mines/, 'Mines admin action'], [/teenpatti/, 'Teen Patti admin action'], [/cricket|exchange|bbb/, 'Cricket admin action'],
+    [/fantasy|youreleven/, 'Your 11 admin action'], [/wallet/, 'Changed a player wallet'], [/settings|config/, 'Changed site settings'],
+    [/gamesync/, 'Game control action'],
+  ];
+  for (const [re, label] of rules) if (re.test(p)) return label + (a.action ? ' (' + a.action + ')' : '');
+  return (a.method || '') + ' ' + p + (a.action ? ' · ' + a.action : '');
+}
+
+function renderAdmin(d) {
+  const ad = d.admin || {};
+  const acts = ad.actions || [];
+  document.getElementById('adminActionsList').innerHTML = acts.length ? acts.map(a => {
+    let detail = '';
+    try { const o = a.summary ? JSON.parse(a.summary) : null; if (o) detail = Object.entries(o).map(([k, v]) => k + ': ' + v).join(' · '); } catch (e) { detail = a.summary || ''; }
+    return `<div class="wl-row" style="flex-direction:column; align-items:stretch; gap:3px;">
+      <div style="display:flex; justify-content:space-between; gap:8px;">
+        <span class="wname">${esc(describeAction(a))}</span><span class="feed-time" style="width:auto;">${a.at ? timeAgo(a.at) + ' ago' : ''}</span></div>
+      <div style="font-size:11px; color:var(--text-dim);"><b style="color:${a.role === 'superadmin' ? 'var(--warn)' : 'var(--accent)'};">${esc(a.actor || '?')}</b> (${esc(a.role || '')})${detail ? ' · ' + esc(detail) : ''}</div>
+    </div>`;
+  }).join('') : '<div class="wl-empty">No operator actions recorded yet. Recording starts with this update — every approval, balance change and settings change from now on appears here.</div>';
+
+  const t = ad.adjustment_totals || {};
+  document.getElementById('adjTotals').innerHTML =
+    `<span class="chip"><span class="swatch" style="background:var(--profit);"></span>Added <span class="n">${esc(fmtMoney(t.credited))}</span></span>`
+    + `<span class="chip"><span class="swatch" style="background:var(--loss);"></span>Removed <span class="n">${esc(fmtMoney(t.debited))}</span></span>`
+    + `<span class="chip">today +${esc(fmtMoney(t.credited_today))} / −${esc(fmtMoney(t.debited_today))}</span>`;
+  const adj = ad.adjustments || [];
+  document.getElementById('adjList').innerHTML = adj.length ? adj.map(x => `<div class="wl-row">
+      <span class="wname">${esc(x.username)}</span>
+      <span class="wnet" style="color:${x.credit ? 'var(--profit)' : 'var(--loss)'};">${x.credit ? '+' : '−'}${fmtMoney(x.amount)}</span>
+      <span class="feed-time">${timeAgo(x.at)}</span></div>`).join('')
+    : '<div class="wl-empty">No balances changed by hand.</div>';
+
+  const dec = ad.decisions || [];
+  document.getElementById('decisionsList').innerHTML = dec.length ? dec.map(x => {
+    const ok = x.status === 'Completed';
+    return `<div class="wl-row">
+      <span class="wname">${esc(x.username)}</span>
+      <span class="feed-game" style="flex:1; text-align:center;">${esc(x.kind)}</span>
+      <span class="wnet" style="color:${ok ? 'var(--profit)' : 'var(--loss)'};">${ok ? 'Approved' : 'Rejected'} ${fmtMoney(x.amount)}</span>
+      <span class="feed-time">${timeAgo(x.at)}</span></div>`;
+  }).join('') : '<div class="wl-empty">No deposit or withdrawal decisions yet.</div>';
+}
+
 function renderMonthly(d) {
   const el = document.getElementById('monthlyList');
   const rows = (d.gameplay.monthly_trend || []).slice(-6).reverse();
@@ -864,6 +941,7 @@ async function loadDashboard() {
     renderLiveGames(d);
     renderMonthly(d);
     renderQueues(d);
+    renderAdmin(d);
     renderBotGrid(d);
     renderPerGameTable(d);
     renderWinnersLosers(d);
