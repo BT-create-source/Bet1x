@@ -822,6 +822,185 @@ function register_admin_routes(Router $app) {
         }
     });
 
+    /**
+     * Period helpers — an India-time (IST, UTC+5:30) date range from ?from=&to= (YYYY-MM-DD),
+     * both inclusive. Defaults to today. Shared by the period summary and the drill-down.
+     */
+    $super_ist_range = function (Req $req) {
+        $istOff = 330 * 60 * 1000;
+        $nowMs = now_ms();
+        $today = gmdate('Y-m-d', (int) floor(($nowMs + $istOff) / 1000));
+        $valid = function ($d) { return is_string($d) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $d) && strtotime($d . 'T00:00:00Z') !== false; };
+        $from = $req->q('from'); $to = $req->q('to');
+        if (!$valid($from)) $from = $today;
+        if (!$valid($to)) $to = $from;
+        if (strcmp($from, $to) > 0) { $t = $from; $from = $to; $to = $t; }           // swap if reversed
+        $startMs = (int) (strtotime($from . 'T00:00:00Z') * 1000 - $istOff);
+        $endMs   = (int) (strtotime($to . 'T00:00:00Z') * 1000 - $istOff) + 86400000; // end of the 'to' day
+        if ($endMs - $startMs > 400 * 86400000) $startMs = $endMs - 400 * 86400000;   // cap the span
+        return ['from' => $from, 'to' => $to, 'startMs' => $startMs, 'endMs' => $endMs, 'istOff' => $istOff, 'nowMs' => $nowMs];
+    };
+
+    /**
+     * Super period summary (super admin only) — the "at a glance" figures for ANY India-time date
+     * range, so the operator can look at a day, a week, a month or a custom span.
+     *   GET /api/admin/super-period?from=YYYY-MM-DD&to=YYYY-MM-DD
+     */
+    $app->get('/api/admin/super-period', 'require_superadmin', function (Req $req, Res $res) use ($super_ist_range) {
+        try {
+            $r = $super_ist_range($req);
+            $lo = gmdate('Y-m-d H:i:s', (int) ($r['startMs'] / 1000));
+            $hi = gmdate('Y-m-d H:i:s', (int) ($r['endMs'] / 1000));
+            $istOff = $r['istOff'];
+            $labels = game_labels();
+
+            $rows = [];
+            try { $rows = all('SELECT "user","type","amount","details","timestamp" FROM "Transaction" WHERE "timestamp" >= ? AND "timestamp" < ?', [$lo, $hi]); }
+            catch (Throwable $e) {
+                foreach (readJsonTable('transactions') as $t) {
+                    $ms = is_numeric($t['timestamp'] ?? null) ? (int) $t['timestamp'] : (sql_to_ms($t['timestamp'] ?? null) ?? 0);
+                    if ($ms >= $r['startMs'] && $ms < $r['endMs']) $rows[] = $t;
+                }
+            }
+
+            $wagered = 0.0; $paidOut = 0.0; $bets = 0; $wins = 0; $profit = 0.0;
+            $players = []; $perGame = []; $byDay = []; $byHour = array_fill(0, 24, ['wagered' => 0.0, 'profit' => 0.0]);
+            $biggest = null;
+            $spanDays = max(1, (int) round(($r['endMs'] - $r['startMs']) / 86400000));
+            foreach ($rows as $t) {
+                if (strtolower((string) ($t['user'] ?? '')) === 'admin') continue;
+                $cls = classify_gameplay_transaction($t['details'] ?? null);
+                if (!$cls) continue;
+                $amt = abs((float) js_parse_float($t['amount'] ?? 0));
+                if (!is_finite($amt) || $amt <= 0) continue;
+                $ms = is_numeric($t['timestamp'] ?? null) ? (int) $t['timestamp'] : (sql_to_ms($t['timestamp'] ?? null) ?? 0);
+                $g = $cls['game'];
+                if (!isset($perGame[$g])) $perGame[$g] = ['key' => $g, 'label' => $labels[$g] ?? $g, 'wagered' => 0.0, 'paid_out' => 0.0, 'bets' => 0];
+                $dayK = gmdate('Y-m-d', (int) floor(($ms + $istOff) / 1000));
+                if (!isset($byDay[$dayK])) $byDay[$dayK] = ['wagered' => 0.0, 'profit' => 0.0];
+                $hr = (int) gmdate('G', (int) floor(($ms + $istOff) / 1000));
+                if ($cls['kind'] === 'wager') {
+                    $wagered += $amt; $bets++; $profit += $amt;
+                    $perGame[$g]['wagered'] += $amt; $perGame[$g]['bets']++;
+                    $byDay[$dayK]['wagered'] += $amt; $byDay[$dayK]['profit'] += $amt;
+                    $byHour[$hr]['wagered'] += $amt; $byHour[$hr]['profit'] += $amt;
+                    $players[strtolower((string) ($t['user'] ?? ''))] = true;
+                } else {
+                    $paidOut += $amt; $wins++; $profit -= $amt;
+                    $perGame[$g]['paid_out'] += $amt;
+                    $byDay[$dayK]['profit'] -= $amt; $byHour[$hr]['profit'] -= $amt;
+                    if ($g !== 'referral' && (!$biggest || $amt > $biggest['amount'])) {
+                        $biggest = ['username' => $t['user'] ?? null, 'game' => $labels[$g] ?? $g, 'amount' => to_fixed_num($amt, 2)];
+                    }
+                }
+            }
+
+            // Cashier movement in the same range (by created date).
+            $fin = ['deposits' => 0.0, 'deposits_count' => 0, 'withdrawals' => 0.0, 'withdrawals_count' => 0];
+            try {
+                foreach (all('SELECT "amount","status","created_at" FROM "Deposit" WHERE "created_at" >= ? AND "created_at" < ? AND "status" = \'Completed\'', [$lo, $hi]) as $d) {
+                    $fin['deposits'] += (float) $d['amount']; $fin['deposits_count']++;
+                }
+                foreach (all('SELECT "amount","status","created_at" FROM "Withdrawal" WHERE "created_at" >= ? AND "created_at" < ? AND "status" = \'Completed\'', [$lo, $hi]) as $w) {
+                    $fin['withdrawals'] += (float) $w['amount']; $fin['withdrawals_count']++;
+                }
+            } catch (Throwable $e) {}
+            $newUsers = 0;
+            try { $newUsers = (int) scalar('SELECT COUNT(*) FROM "User" WHERE "created_at" >= ? AND "created_at" < ?', [$lo, $hi], 0); } catch (Throwable $e) {}
+
+            foreach ($perGame as $g => $pg) {
+                $perGame[$g]['profit'] = to_fixed_num($pg['wagered'] - $pg['paid_out'], 2);
+                $perGame[$g]['wagered'] = to_fixed_num($pg['wagered'], 2);
+                $perGame[$g]['paid_out'] = to_fixed_num($pg['paid_out'], 2);
+            }
+            uasort($perGame, function ($a, $b) { return $b['wagered'] <=> $a['wagered']; });
+            ksort($byDay);
+            $daily = [];
+            foreach ($byDay as $k => $v) $daily[] = ['date' => $k, 'wagered' => to_fixed_num($v['wagered'], 2), 'profit' => to_fixed_num($v['profit'], 2)];
+            $hourly = [];
+            foreach ($byHour as $h => $v) $hourly[] = ['hour' => $h, 'wagered' => to_fixed_num($v['wagered'], 2), 'profit' => to_fixed_num($v['profit'], 2)];
+
+            $res->json([
+                'generated_at' => js_iso($r['nowMs']), 'from' => $r['from'], 'to' => $r['to'], 'span_days' => $spanDays,
+                'wagered' => to_fixed_num($wagered, 2), 'paid_out' => to_fixed_num($paidOut, 2), 'profit' => to_fixed_num($profit, 2),
+                'bets' => $bets, 'wins' => $wins, 'players' => count($players), 'new_users' => $newUsers,
+                'avg_bet' => $bets ? to_fixed_num($wagered / $bets, 2) : 0,
+                'margin_pct' => $wagered > 0 ? to_fixed_num($profit / $wagered * 100, 1) : null,
+                'biggest_win' => $biggest,
+                'deposits' => to_fixed_num($fin['deposits'], 2), 'deposits_count' => $fin['deposits_count'],
+                'withdrawals' => to_fixed_num($fin['withdrawals'], 2), 'withdrawals_count' => $fin['withdrawals_count'],
+                'net_cash_in' => to_fixed_num($fin['deposits'] - $fin['withdrawals'], 2),
+                'per_game' => array_values($perGame), 'daily' => $daily, 'hourly' => $hourly,
+                'multi_day' => $spanDays > 1,
+            ]);
+        } catch (Throwable $err) { fail500($res, $err, 'admin'); }
+    });
+
+    /**
+     * Super drill-down (super admin only) — the individual rows behind a figure, so a box opens into
+     * "who did what, when, which game". Scoped to the same India-time range.
+     *   GET /api/admin/super-drill?from=&to=&kind=wager|win|deposit|withdrawal|newusers|game:<key>
+     */
+    $app->get('/api/admin/super-drill', 'require_superadmin', function (Req $req, Res $res) use ($super_ist_range) {
+        try {
+            $r = $super_ist_range($req);
+            $lo = gmdate('Y-m-d H:i:s', (int) ($r['startMs'] / 1000));
+            $hi = gmdate('Y-m-d H:i:s', (int) ($r['endMs'] / 1000));
+            $kind = (string) $req->q('kind', 'wager');
+            $gameFilter = null;
+            if (strpos($kind, 'game:') === 0) { $gameFilter = substr($kind, 5); $kind = 'game'; }
+            $labels = game_labels();
+            $out = []; $total = 0.0; $count = 0; $CAP = 1000;
+
+            if ($kind === 'deposit' || $kind === 'withdrawal') {
+                $tbl = $kind === 'deposit' ? 'Deposit' : 'Withdrawal';
+                try {
+                    foreach (all("SELECT \"username\",\"amount\",\"status\",\"created_at\" FROM \"$tbl\" WHERE \"created_at\" >= ? AND \"created_at\" < ? AND \"status\" = 'Completed' ORDER BY \"created_at\" DESC", [$lo, $hi]) as $x) {
+                        $a = (float) $x['amount']; $total += $a; $count++;
+                        if (count($out) < $CAP) $out[] = ['user' => $x['username'], 'label' => ucfirst($kind), 'amount' => to_fixed_num($a, 2), 'kind' => $kind, 'at' => js_iso(sql_to_ms($x['created_at']) ?? 0)];
+                    }
+                } catch (Throwable $e) {}
+            } elseif ($kind === 'newusers') {
+                try {
+                    foreach (all('SELECT "username","wallet_balance","created_at" FROM "User" WHERE "created_at" >= ? AND "created_at" < ? ORDER BY "created_at" DESC', [$lo, $hi]) as $u) {
+                        $count++;
+                        if (count($out) < $CAP) $out[] = ['user' => $u['username'], 'label' => 'Signed up', 'amount' => to_fixed_num((float) $u['wallet_balance'], 2), 'kind' => 'newuser', 'at' => js_iso(sql_to_ms($u['created_at']) ?? 0)];
+                    }
+                } catch (Throwable $e) {}
+            } else {
+                // gameplay rows: wager, win, or a single game's bets+wins
+                $rows = [];
+                try { $rows = all('SELECT "user","amount","details","timestamp" FROM "Transaction" WHERE "timestamp" >= ? AND "timestamp" < ? ORDER BY "timestamp" DESC', [$lo, $hi]); }
+                catch (Throwable $e) {
+                    foreach (readJsonTable('transactions') as $t) {
+                        $ms = is_numeric($t['timestamp'] ?? null) ? (int) $t['timestamp'] : (sql_to_ms($t['timestamp'] ?? null) ?? 0);
+                        if ($ms >= $r['startMs'] && $ms < $r['endMs']) $rows[] = $t;
+                    }
+                    usort($rows, function ($a, $b) { return strcmp((string) ($b['timestamp'] ?? ''), (string) ($a['timestamp'] ?? '')); });
+                }
+                foreach ($rows as $t) {
+                    if (strtolower((string) ($t['user'] ?? '')) === 'admin') continue;
+                    $cls = classify_gameplay_transaction($t['details'] ?? null);
+                    if (!$cls) continue;
+                    if ($kind === 'wager' && $cls['kind'] !== 'wager') continue;
+                    if ($kind === 'win' && $cls['kind'] !== 'win') continue;
+                    if ($kind === 'game' && $cls['game'] !== $gameFilter) continue;
+                    $amt = abs((float) js_parse_float($t['amount'] ?? 0));
+                    if (!is_finite($amt) || $amt <= 0) continue;
+                    $total += $cls['kind'] === 'wager' ? $amt : -$amt; $count++;
+                    if (count($out) < $CAP) {
+                        $ms = is_numeric($t['timestamp'] ?? null) ? (int) $t['timestamp'] : (sql_to_ms($t['timestamp'] ?? null) ?? 0);
+                        $out[] = ['user' => $t['user'] ?? null, 'label' => $labels[$cls['game']] ?? $cls['game'], 'game' => $cls['game'],
+                                  'amount' => to_fixed_num($amt, 2), 'kind' => $cls['kind'], 'details' => $t['details'] ?? null, 'at' => js_iso($ms)];
+                    }
+                }
+            }
+
+            $res->json(['from' => $r['from'], 'to' => $r['to'], 'kind' => $req->q('kind', 'wager'),
+                'count' => $count, 'total' => to_fixed_num($total, 2), 'capped' => $count > $CAP, 'rows' => $out]);
+        } catch (Throwable $err) { fail500($res, $err, 'admin'); }
+    });
+
     // --- Per-game betting aggregates (GameBet rows — currently Mines only) ---
     $app->get('/api/admin/game-stats', function (Req $req, Res $res) {
         try {

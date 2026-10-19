@@ -274,6 +274,33 @@
   .pd-grid td, .pd-grid th { padding: 4px 6px; }
   .pd-line { font-size: 11.5px; color: var(--text-dim); padding: 3px 0; border-bottom: 1px solid var(--border-soft); }
 
+  /* ---------- range picker + clickable boxes + drill overlay ---------- */
+  .range-bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .range-bar .rp { background: var(--surface-2); border: 1px solid var(--border); color: var(--text-dim); font-size: 12px; font-weight: 600;
+    padding: 6px 11px; border-radius: 7px; cursor: pointer; font-family: 'IBM Plex Sans', sans-serif; }
+  .range-bar .rp.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .range-bar input[type=date] { background: var(--surface-2); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 5px 8px; font-size: 12px; font-family: 'IBM Plex Sans', sans-serif; color-scheme: dark; }
+  .range-bar .rsep { color: var(--text-faint); font-size: 12px; }
+  .clickbox { cursor: pointer; transition: border-color .12s, transform .08s; position: relative; }
+  .clickbox:hover { border-color: var(--accent) !important; }
+  .clickbox:hover::after { content: 'click to see details ▸'; position: absolute; right: 12px; bottom: 9px; font-size: 9.5px; color: var(--accent); font-family: 'IBM Plex Sans', sans-serif; letter-spacing: .03em; }
+  .cash-chips { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .cash-chip { flex: 1; min-width: 150px; background: rgba(9,11,17,.45); border: 1px solid var(--border-soft); border-radius: 11px; padding: 11px 13px; }
+  .cash-chip .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--text-faint); font-weight: 700; margin-bottom: 6px; }
+  .cash-chip .v { font-family: 'IBM Plex Mono', monospace; font-size: 19px; font-weight: 700; }
+  .cash-chip .s { font-size: 10.5px; color: var(--text-dim); margin-top: 3px; }
+  #drillOverlay { position: fixed; inset: 0; z-index: 260; background: rgba(4,6,12,.8); backdrop-filter: blur(3px); display: none; padding: 22px; overflow-y: auto; }
+  #drillOverlay.show { display: block; }
+  .drill-card { max-width: 1120px; margin: 0 auto; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px 22px; box-shadow: var(--shadow); }
+  .drill-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 8px; }
+  .drill-top h2 { font-size: 17px; font-weight: 800; }
+  .drill-top .sub { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+  .drill-tools { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 6px 0 12px; font-size: 12px; color: var(--text-dim); }
+  .drill-tools input { background: var(--surface-2); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 6px 9px; font-size: 12.5px; }
+  #drillTable { min-width: 760px; }
+  #drillTable tbody td { font-size: 12px; }
+  .drill-day { color: var(--text-faint); }
+
   footer { text-align: center; color: var(--text-faint); font-size: 11px; margin-top: 30px; }
 
   ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -322,38 +349,54 @@
   <!-- TODAY: the house's day at a glance (India time) -->
   <section class="today-box" aria-labelledby="todayTitle">
     <div class="today-head">
-      <h2 id="todayTitle">📅 Today at a glance</h2>
+      <h2 id="todayTitle">📅 At a glance</h2>
       <span class="date" id="todayDateLbl">—</span>
     </div>
+    <div class="range-bar" style="margin-bottom:14px;">
+      <button type="button" class="rp" data-preset="today">Today</button>
+      <button type="button" class="rp" data-preset="yesterday">Yesterday</button>
+      <button type="button" class="rp" data-preset="7d">Last 7 days</button>
+      <button type="button" class="rp" data-preset="30d">Last 30 days</button>
+      <button type="button" class="rp" data-preset="month">This month</button>
+      <span class="rsep">|</span>
+      <input type="date" id="rpFrom"> <span class="rsep">to</span> <input type="date" id="rpTo">
+      <button type="button" class="rp" id="rpApply">Apply</button>
+    </div>
     <div class="today-grid">
-      <div class="tcell">
-        <div class="lbl">House profit today</div>
+      <div class="tcell clickbox" data-drill="wager" title="See every bet in this period">
+        <div class="lbl">House profit</div>
         <div class="big" id="tProfit">—</div>
         <div class="sub"><span id="tVsYesterday">—</span><br>margin <b id="tMargin">—</b> of everything bet</div>
       </div>
-      <div class="tcell">
-        <div class="lbl">Total bet today</div>
+      <div class="tcell clickbox" data-drill="wager" title="See every bet in this period">
+        <div class="lbl">Total bet</div>
         <div class="val" id="tWagered">—</div>
-        <div class="sub"><b id="tBets">—</b> bets &middot; avg <b id="tAvgBet">—</b><br>yesterday <b id="tYWagered">—</b></div>
+        <div class="sub"><b id="tBets">—</b> bets &middot; avg <b id="tAvgBet">—</b><br><span id="tPlayers2">—</span> players</div>
       </div>
-      <div class="tcell">
-        <div class="lbl">Paid out to players today</div>
+      <div class="tcell clickbox" data-drill="win" title="See every winning payout in this period">
+        <div class="lbl">Paid out to players</div>
         <div class="val" id="tPaidOut">—</div>
         <div class="sub"><b id="tWins">—</b> winning payouts<br>biggest: <b id="tBiggest">—</b></div>
       </div>
-      <div class="tcell">
-        <div class="lbl">Players today</div>
+      <div class="tcell clickbox" data-drill="wager" title="See who played">
+        <div class="lbl">Players</div>
         <div class="val" id="tPlayers">—</div>
-        <div class="sub">placed at least one bet<br><b id="tNewUsers">—</b> new sign-ups &middot; money in <b id="tCashIn">—</b></div>
+        <div class="sub">placed at least one bet<br><b id="tNewUsers">—</b> new sign-ups</div>
       </div>
+    </div>
+    <div class="cash-chips">
+      <div class="cash-chip clickbox" data-drill="deposit"><div class="lbl">Deposits (this period)</div><div class="v" id="cDeposits">—</div><div class="s"><b id="cDepCount">—</b> deposits</div></div>
+      <div class="cash-chip clickbox" data-drill="withdrawal"><div class="lbl">Withdrawals (this period)</div><div class="v" id="cWithdrawals">—</div><div class="s"><b id="cWdCount">—</b> paid</div></div>
+      <div class="cash-chip clickbox" data-drill="deposit"><div class="lbl">Net cash in (this period)</div><div class="v" id="cNet">—</div><div class="s">deposits − withdrawals</div></div>
+      <div class="cash-chip clickbox" data-drill="newusers"><div class="lbl">New sign-ups (this period)</div><div class="v" id="cNew">—</div><div class="s">click to list them</div></div>
     </div>
     <div class="today-lower">
       <div class="tcell">
-        <div class="lbl">Hour by hour — bars: amount bet &middot; line: house profit</div>
+        <div class="lbl" id="periodChartLbl">Hour by hour — bars: amount bet &middot; line: house profit</div>
         <canvas id="hourlyChart" width="800" height="150"></canvas>
       </div>
       <div class="tcell">
-        <div class="lbl">Today by game</div>
+        <div class="lbl">By game (click a row for its bets)</div>
         <div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th>Game</th><th class="num">Bets</th><th class="num">Bet</th><th class="num">Profit</th></tr></thead><tbody id="todayGameBody"></tbody></table></div>
       </div>
     </div>
@@ -361,12 +404,12 @@
 
   <!-- Money in / out -->
   <div class="money-grid">
-    <div class="kpi profit-line">
+    <div class="kpi profit-line clickbox" data-drill="deposit" data-all="1">
       <div class="lbl">Deposits received</div>
       <div class="val mono" id="mDeposits">—</div>
       <div class="sub"><b id="mDepCount">—</b> deposits &middot; today <b id="mDepToday">—</b><br><span id="mDepPending">—</span></div>
     </div>
-    <div class="kpi loss-line">
+    <div class="kpi loss-line clickbox" data-drill="withdrawal" data-all="1">
       <div class="lbl">Withdrawals paid</div>
       <div class="val mono" id="mWithdrawals">—</div>
       <div class="sub"><b id="mWdCount">—</b> paid &middot; today <b id="mWdToday">—</b><br><span id="mWdPending">—</span></div>
@@ -537,6 +580,25 @@
   </div>
 
   <footer>Super Admin Console &middot; polling <span class="mono">/api/admin/super-dashboard</span> every 6s &middot; every figure above is a live aggregation of real backend data &middot; "today" and "this month" are India time (IST)</footer>
+</div>
+
+<div id="drillOverlay" role="dialog" aria-modal="true" aria-labelledby="drillTitle">
+  <div class="drill-card">
+    <div class="drill-top">
+      <div><h2 id="drillTitle">Details</h2><div class="sub" id="drillSub">—</div></div>
+      <button class="mon-close" onclick="closeDrill()" aria-label="Close">×</button>
+    </div>
+    <div class="drill-tools">
+      <input type="text" id="drillSearch" placeholder="Search player…" oninput="renderDrill()" style="width:200px;">
+      <span id="drillStatus" style="margin-left:auto;"></span>
+    </div>
+    <div class="tbl-wrap">
+      <table id="drillTable">
+        <thead><tr><th>When</th><th>Player</th><th>Game / type</th><th class="num">Amount</th></tr></thead>
+        <tbody id="drillBody"></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <div id="monOverlay" role="dialog" aria-modal="true" aria-labelledby="monTitle">
@@ -721,69 +783,155 @@ function renderPerGameTable(d) {
 }
 
 /** The TODAY box: profit, betting volume, payouts and players for the current India day. */
-function renderToday(d) {
-  const t = d.today;
-  if (!t) return;
-  const dateTxt = new Date(d.generated_at).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' });
-  document.getElementById('todayDateLbl').textContent = dateTxt + ' · India time, since midnight';
-  setProfitColor(document.getElementById('tProfit'), t.profit);
-  const diff = (+t.profit || 0) - (+t.yesterday_profit || 0);
-  document.getElementById('tVsYesterday').innerHTML = 'yesterday ' + esc(fmtMoney(t.yesterday_profit)) + ' · '
-    + `<span class="${diff >= 0 ? 'delta-up' : 'delta-down'}">${diff >= 0 ? '▲' : '▼'} ${esc(fmtMoney(Math.abs(diff)))}</span>`;
-  document.getElementById('tMargin').textContent = t.margin_pct == null ? '—' : t.margin_pct + '%';
-  document.getElementById('tWagered').textContent = fmtMoney(t.wagered);
-  document.getElementById('tBets').textContent = fmtInt(t.bets);
-  document.getElementById('tAvgBet').textContent = fmtMoney(t.avg_bet);
-  document.getElementById('tYWagered').textContent = fmtMoney(t.yesterday_wagered);
-  document.getElementById('tPaidOut').textContent = fmtMoney(t.paid_out);
-  document.getElementById('tWins').textContent = fmtInt(t.wins);
-  document.getElementById('tBiggest').textContent = t.biggest_win ? `${fmtMoney(t.biggest_win.amount)} · ${t.biggest_win.username} (${t.biggest_win.game})` : '—';
-  document.getElementById('tPlayers').textContent = fmtInt(t.players);
-  document.getElementById('tNewUsers').textContent = fmtInt(t.new_users);
-  document.getElementById('tCashIn').textContent = d.finance ? fmtMoney(d.finance.net_cash_in_today) : '—';
+// ---- period "at a glance" box: any India-time date range + clickable drill-downs ----
+function istDateStr(offsetDays) {
+  const d = new Date(Date.now() + (offsetDays || 0) * 86400000);
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });   // YYYY-MM-DD
+}
+const period = { preset: 'today', from: istDateStr(0), to: istDateStr(0), lastLoad: 0, data: null };
+function setPreset(name) {
+  period.preset = name;
+  const today = istDateStr(0);
+  if (name === 'today') { period.from = today; period.to = today; }
+  else if (name === 'yesterday') { period.from = istDateStr(-1); period.to = istDateStr(-1); }
+  else if (name === '7d') { period.from = istDateStr(-6); period.to = today; }
+  else if (name === '30d') { period.from = istDateStr(-29); period.to = today; }
+  else if (name === 'month') { period.from = today.slice(0, 8) + '01'; period.to = today; }
+  document.getElementById('rpFrom').value = period.from;
+  document.getElementById('rpTo').value = period.to;
+  document.querySelectorAll('.range-bar .rp[data-preset]').forEach(b => b.classList.toggle('active', b.dataset.preset === name));
+  loadPeriod();
+}
+async function loadPeriod(silent) {
+  period.lastLoad = Date.now();
+  try {
+    const res = await adminFetch('/api/admin/super-period?from=' + period.from + '&to=' + period.to);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    period.data = await res.json();
+    renderPeriod(period.data);
+  } catch (e) { if (!silent) document.getElementById('todayDateLbl').textContent = 'could not load — ' + e.message; }
+}
+function renderPeriod(P) {
+  const multi = P.multi_day;
+  const fmtD = (s) => new Date(s + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+  document.getElementById('todayDateLbl').textContent = (multi ? (fmtD(P.from) + ' → ' + fmtD(P.to) + ' · ' + P.span_days + ' days') : (fmtD(P.from) + ' · India time')) ;
+  setProfitColor(document.getElementById('tProfit'), P.profit);
+  document.getElementById('tVsYesterday').innerHTML = multi ? ('over <b>' + P.span_days + '</b> days · avg <b>' + esc(fmtMoney((+P.profit || 0) / P.span_days)) + '</b>/day') : 'India time, since midnight';
+  document.getElementById('tMargin').textContent = P.margin_pct == null ? '—' : P.margin_pct + '%';
+  document.getElementById('tWagered').textContent = fmtMoney(P.wagered);
+  document.getElementById('tBets').textContent = fmtInt(P.bets);
+  document.getElementById('tAvgBet').textContent = fmtMoney(P.avg_bet);
+  document.getElementById('tPlayers2').textContent = fmtInt(P.players);
+  document.getElementById('tPaidOut').textContent = fmtMoney(P.paid_out);
+  document.getElementById('tWins').textContent = fmtInt(P.wins);
+  document.getElementById('tBiggest').textContent = P.biggest_win ? `${fmtMoney(P.biggest_win.amount)} · ${P.biggest_win.username} (${P.biggest_win.game})` : '—';
+  document.getElementById('tPlayers').textContent = fmtInt(P.players);
+  document.getElementById('tNewUsers').textContent = fmtInt(P.new_users);
+  document.getElementById('cDeposits').textContent = fmtMoney(P.deposits);
+  document.getElementById('cDepCount').textContent = fmtInt(P.deposits_count);
+  document.getElementById('cWithdrawals').textContent = fmtMoney(P.withdrawals);
+  document.getElementById('cWdCount').textContent = fmtInt(P.withdrawals_count);
+  const net = document.getElementById('cNet'); net.textContent = fmtMoney(P.net_cash_in); net.style.color = P.net_cash_in >= 0 ? 'var(--profit)' : 'var(--loss)';
+  document.getElementById('cNew').textContent = fmtInt(P.new_users);
+  document.getElementById('periodChartLbl').textContent = multi ? 'Day by day — bars: amount bet · line: house profit' : 'Hour by hour — bars: amount bet · line: house profit';
   const body = document.getElementById('todayGameBody');
-  body.innerHTML = (t.per_game || []).length ? t.per_game.map(g => `<tr>
+  body.innerHTML = (P.per_game || []).length ? P.per_game.map(g => `<tr class="prow" data-drill="game:${esc(g.key || '')}" data-game="${esc(g.label)}" style="cursor:pointer;">
       <td class="gname-cell">${esc(g.label)}</td><td class="num">${fmtInt(g.bets)}</td><td class="num">${fmtMoney(g.wagered)}</td>
       <td class="num ${g.profit > 0 ? 'profit-pos' : (g.profit < 0 ? 'profit-neg' : '')}">${fmtMoney(g.profit)}</td></tr>`).join('')
-    : '<tr><td colspan="4" class="gname-cell" style="color:var(--text-faint); font-weight:500;">No bets yet today.</td></tr>';
-  drawHourlyChart(d);
+    : '<tr><td colspan="4" class="gname-cell" style="color:var(--text-faint); font-weight:500;">No bets in this period.</td></tr>';
+  drawPeriodChart(P);
 }
-
-function drawHourlyChart(d) {
+function drawPeriodChart(P) {
   const canvas = document.getElementById('hourlyChart');
-  const data = (d.today && d.today.hourly) || [];
+  const multi = P.multi_day;
+  const data = multi ? (P.daily || []) : (P.hourly || []);
+  const n = data.length || 1;
   const dpr = window.devicePixelRatio || 1;
   const cssW = canvas.clientWidth || 700, cssH = 150;
   canvas.width = cssW * dpr; canvas.height = cssH * dpr; canvas.style.height = cssH + 'px';
-  const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr); ctx.clearRect(0, 0, cssW, cssH);
+  const ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr); ctx.clearRect(0, 0, cssW, cssH);
   const padB = 18, padT = 8, plotH = cssH - padB - padT;
   const maxW = Math.max(1, ...data.map(h => +h.wagered || 0));
   const maxP = Math.max(1, ...data.map(h => Math.abs(+h.profit || 0)));
-  const bw = cssW / 24;
-  const nowHr = +new Date().toLocaleString('en-US', { hour: 'numeric', hour12: false, timeZone: 'Asia/Kolkata' }) % 24;
+  const bw = cssW / n;
   data.forEach((h, i) => {
     const bh = (+h.wagered || 0) / maxW * plotH;
-    ctx.fillStyle = i === nowHr ? 'rgba(91,127,255,0.85)' : 'rgba(91,127,255,0.38)';
-    ctx.fillRect(i * bw + bw * 0.18, padT + plotH - bh, bw * 0.64, bh);
-    if (i % 3 === 0) {
+    ctx.fillStyle = 'rgba(91,127,255,0.42)';
+    ctx.fillRect(i * bw + bw * 0.18, padT + plotH - bh, Math.max(1, bw * 0.64), bh);
+    const step = multi ? Math.ceil(n / 8) : 3;
+    if (i % step === 0) {
       ctx.fillStyle = '#545c74'; ctx.font = '9.5px "IBM Plex Mono", monospace'; ctx.textAlign = 'center';
-      ctx.fillText(String(i).padStart(2, '0'), i * bw + bw / 2, cssH - 5);
+      const lbl = multi ? (h.date || '').slice(5) : String(h.hour).padStart(2, '0');
+      ctx.fillText(lbl, i * bw + bw / 2, cssH - 5);
     }
   });
-  // profit line, centred on a zero baseline
   const zeroY = padT + plotH / 2;
   ctx.strokeStyle = '#232a3c'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, zeroY); ctx.lineTo(cssW, zeroY); ctx.stroke();
   ctx.lineWidth = 2; ctx.strokeStyle = '#34d399'; ctx.beginPath();
   data.forEach((h, i) => {
-    if (i > nowHr) return;
     const y = zeroY - (+h.profit || 0) / maxP * (plotH / 2 - 2);
     const x = i * bw + bw / 2;
     if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
   });
-  ctx.stroke();
-  ctx.textAlign = 'left';
+  ctx.stroke(); ctx.textAlign = 'left';
 }
+// kept so the 6s dashboard refresh keeps the box live while the 'today' preset is selected
+function renderToday(d) {
+  if (period.preset === 'today' && Date.now() - period.lastLoad > 7000) loadPeriod(true);
+}
+
+// ---- drill-down overlay: the rows behind a box ----
+let drillData = null;
+async function openDrill(kind, title, allTime) {
+  const from = allTime ? '2020-01-01' : period.from;
+  const to = allTime ? istDateStr(0) : period.to;
+  document.getElementById('drillOverlay').classList.add('show'); document.body.style.overflow = 'hidden';
+  document.getElementById('drillTitle').textContent = title;
+  document.getElementById('drillSearch').value = '';
+  document.getElementById('drillSub').textContent = (allTime ? 'All time' : (from === to ? from : from + ' → ' + to)) + ' · loading…';
+  document.getElementById('drillBody').innerHTML = '';
+  try {
+    const res = await adminFetch('/api/admin/super-drill?from=' + from + '&to=' + to + '&kind=' + encodeURIComponent(kind));
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    drillData = await res.json();
+    document.getElementById('drillSub').textContent = (allTime ? 'All time' : (from === to ? fmtDateLong(from) : fmtDateLong(from) + ' → ' + fmtDateLong(to)))
+      + ' · ' + fmtInt(drillData.count) + ' entries · total ' + fmtMoney(drillData.total) + (drillData.capped ? ' (showing the first 1000)' : '');
+    renderDrill();
+  } catch (e) { document.getElementById('drillSub').textContent = 'could not load — ' + e.message; }
+}
+function fmtDateLong(s) { return new Date(s + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }); }
+function closeDrill() { document.getElementById('drillOverlay').classList.remove('show'); document.body.style.overflow = ''; }
+function renderDrill() {
+  if (!drillData) return;
+  const q = document.getElementById('drillSearch').value.trim().toLowerCase();
+  const rows = (drillData.rows || []).filter(r => !q || String(r.user || '').toLowerCase().includes(q));
+  document.getElementById('drillStatus').textContent = rows.length + ' shown';
+  document.getElementById('drillBody').innerHTML = rows.length ? rows.map(r => {
+    const dt = new Date(r.at);
+    const when = dt.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' });
+    const col = r.kind === 'win' ? 'var(--profit)' : (r.kind === 'wager' ? 'var(--text)' : (r.kind === 'withdrawal' ? 'var(--loss)' : 'var(--teal)'));
+    return `<tr><td class="drill-day">${esc(when)}</td><td class="gname-cell">${esc(r.user || '—')}</td>
+      <td>${esc(r.label || '')}</td><td class="num" style="color:${col};">${r.kind === 'win' || r.kind === 'withdrawal' ? '−' : (r.kind === 'wager' ? '' : '+')}${fmtMoney(r.amount)}</td></tr>`;
+  }).join('') : '<tr><td colspan="4" class="gname-cell" style="color:var(--text-faint);">Nothing to show.</td></tr>';
+}
+// wiring: range buttons, custom dates, clickable boxes
+document.addEventListener('click', (e) => {
+  const rp = e.target.closest('.range-bar .rp[data-preset]');
+  if (rp) { setPreset(rp.dataset.preset); return; }
+  if (e.target.id === 'rpApply') {
+    const f = document.getElementById('rpFrom').value, t = document.getElementById('rpTo').value;
+    if (f && t) { period.preset = 'custom'; period.from = f; period.to = t; document.querySelectorAll('.range-bar .rp[data-preset]').forEach(b => b.classList.remove('active')); loadPeriod(); }
+    return;
+  }
+  const gameRow = e.target.closest('#todayGameBody tr.prow[data-drill]');
+  if (gameRow) { openDrill(gameRow.dataset.drill, gameRow.dataset.game + ' — bets & payouts'); return; }
+  const box = e.target.closest('.clickbox[data-drill]');
+  if (box) {
+    const titles = { wager: 'Every bet', win: 'Winning payouts', deposit: 'Deposits', withdrawal: 'Withdrawals', newusers: 'New sign-ups' };
+    openDrill(box.dataset.drill, titles[box.dataset.drill] || 'Details', box.dataset.all === '1');
+  }
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrill(); });
 
 /** Money in / out: deposits, withdrawals, pending queues, wallet balances. */
 function renderFinance(d) {
@@ -1244,6 +1392,7 @@ async function checkGateAndInit() {
   dashboard.style.display = 'block';
   loadDashboard();
   if (!window._superDashTimer) {
+    setPreset('today');
     window._superDashTimer = setInterval(loadDashboard, 6000);
     loadMonitor(true);
     window._monTimer = setInterval(() => loadMonitor(true), 60000);
