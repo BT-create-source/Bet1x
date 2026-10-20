@@ -384,6 +384,9 @@
       <span class="rsep">|</span>
       <input type="date" id="rpFrom"> <span class="rsep">to</span> <input type="date" id="rpTo">
       <button type="button" class="rp" id="rpApply">Apply</button>
+      <span class="rsep">|</span>
+      <span style="font-size:12px; color:var(--text-dim);">Any single day:</span>
+      <input type="date" id="rpDay" title="Jump to one day">
     </div>
     <div class="today-grid">
       <div class="tcell clickbox" data-drill="wager" title="See every bet in this period">
@@ -1059,6 +1062,15 @@ document.addEventListener('click', (e) => {
   if (box) {
     const titles = { wager: 'Every bet', win: 'Winning payouts', deposit: 'Deposits', withdrawal: 'Withdrawals', newusers: 'New sign-ups' };
     openDrill(box.dataset.drill, titles[box.dataset.drill] || 'Details', box.dataset.all === '1');
+  }
+});
+document.addEventListener('change', (e) => {
+  if (e.target && e.target.id === 'rpDay' && e.target.value) {
+    period.preset = 'day'; period.from = e.target.value; period.to = e.target.value;
+    document.getElementById('rpFrom').value = e.target.value;
+    document.getElementById('rpTo').value = e.target.value;
+    document.querySelectorAll('.range-bar .rp[data-preset]').forEach(b => b.classList.remove('active'));
+    loadPeriod();
   }
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrill(); });
