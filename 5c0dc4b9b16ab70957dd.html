@@ -615,10 +615,10 @@
       <button class="mon-close" onclick="closeExcl()" aria-label="Close">×</button>
     </div>
     <div class="excl-add">
-      <input type="text" id="exclAdd" placeholder="Search any account by name, or type a new one…" oninput="exclSearch()" onkeydown="if(event.key==='Enter'){exclAddName();}">
+      <input type="text" id="exclAdd" placeholder="Search signed-in accounts, or type any username…" oninput="exclSearch()" onkeydown="if(event.key==='Enter'){exclAddName();}">
       <button type="button" onclick="exclAddName()">Add typed name</button>
     </div>
-    <div class="sub" id="exclListLabel" style="font-size:11.5px; color:var(--text-faint);">Accounts active now, active recently, or who bet in the selected period — plus anyone you search for:</div>
+    <div class="sub" id="exclListLabel" style="font-size:11.5px; color:var(--text-faint);">Signed-in accounts (green dot = online now), players active recently or who bet in the selected period. Search finds any account:</div>
     <div class="excl-list" id="exclList"></div>
     <div class="excl-save">
       <button type="button" onclick="saveExcl()">Save &amp; refresh stats</button>
@@ -1013,7 +1013,7 @@ function renderExcl() {
       <span class="nm">${dot}${esc(c.user)}</span>
       <span class="meta">${esc(meta)}</span>
       ${on ? '<span class="tag">EXCLUDED</span>' : ''}</label>`;
-  }).join('') : '<div class="wl-empty">Nobody active or betting right now. Type a username above to add a test account.</div>';
+  }).join('') : '<div class="wl-empty">Nobody is signed in or betting right now. Type a username above to add a test account by name.</div>';
 }
 function exclToggle(k, on) { if (on) exclChecked[k] = true; else delete exclChecked[k];
   const row = document.querySelector('.excl-row[data-u="' + CSS.escape(k) + '"]');

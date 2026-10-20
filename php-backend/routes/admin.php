@@ -1069,10 +1069,14 @@ function register_admin_routes(Router $app) {
                 if ($reason && !in_array($reason, $cand[$k]['reasons'], true)) $cand[$k]['reasons'][] = $reason;
             };
 
-            // active right now — the live presence engine (the 4 live games)
+            // signed in now — every authenticated player seen in the last 15 minutes (lib/presence.php)
+            if (function_exists('online_usernames')) {
+                foreach (online_usernames() as $u) { $add($u, 'signed in now'); if (isset($cand[strtolower($u)])) $cand[strtolower($u)]['active'] = true; }
+            }
+            // also actively playing — the live presence engine (the 4 live games)
             if (function_exists('get_live_usernames')) {
                 foreach (live_user_games() as $g) {
-                    foreach (get_live_usernames($g) as $u) { $add($u, 'active now'); if (isset($cand[strtolower($u)])) $cand[strtolower($u)]['active'] = true; }
+                    foreach (get_live_usernames($g) as $u) { $add($u, 'playing now'); if (isset($cand[strtolower($u)])) $cand[strtolower($u)]['active'] = true; }
                 }
             }
             // anything in the last 24h, and bets inside the chosen period

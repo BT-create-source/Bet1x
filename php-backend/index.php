@@ -59,6 +59,7 @@ require_once __DIR__ . '/lib/ratelimit.php';
 require_once __DIR__ . '/lib/rigaudit.php';
 require_once __DIR__ . '/lib/botengine.php';
 require_once __DIR__ . '/lib/adminlog.php';
+require_once __DIR__ . '/lib/presence.php';
 
 require_once __DIR__ . '/games/color.php';
 require_once __DIR__ . '/games/aviator.php';

@@ -144,6 +144,12 @@ function attach_session(Req $req, Res $res) {
     $payload = verify_token(extract_token($req));
     if ($payload !== null && !session_still_valid($payload)) $payload = null;
     $req->auth = $payload;
+    // Record that this user is online (best-effort; see lib/presence.php). Only real players — the
+    // operator accounts are not part of the signed-in player list.
+    if ($payload !== null && function_exists('touch_session_presence')) {
+        $role = (string) ($payload['role'] ?? 'user');
+        if ($role === 'user' && !empty($payload['username'])) touch_session_presence($payload['username'], $role);
+    }
 }
 
 /** Reject anonymous callers. */
