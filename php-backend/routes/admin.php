@@ -1101,9 +1101,16 @@ function register_admin_routes(Router $app) {
             $q = trim((string) $req->q('q', ''));
             if ($q !== '') {
                 try {
-                    foreach (all('SELECT "username" FROM "User" WHERE LOWER("username") LIKE LOWER(?) ORDER BY "username" LIMIT 40', ['%' . $q . '%']) as $u) {
-                        $add($u['username'], 'matches your search');
+                    foreach (all('SELECT "username" FROM "User" WHERE LOWER("username") LIKE LOWER(?) ORDER BY "username" LIMIT 60', ['%' . $q . '%']) as $u) {
+                        $add($u['username'], 'registered account');
                     }
+                } catch (Throwable $e) {}
+            }
+            // ?all=1 — every registered account that still exists (the operator wants the whole list)
+            $allUsers = 0;
+            if (js_truthy($req->q('all'))) {
+                try {
+                    foreach (all('SELECT "username" FROM "User" ORDER BY LOWER("username") LIMIT 3000') as $u) { $add($u['username'], 'registered account'); $allUsers++; }
                 } catch (Throwable $e) {}
             }
 
@@ -1116,7 +1123,8 @@ function register_admin_routes(Router $app) {
                 return [$b['active'] ? 1 : 0, $b['recent'] ? 1 : 0, $b['bet']] <=> [$a['active'] ? 1 : 0, $a['recent'] ? 1 : 0, $a['bet']]
                     ?: strcmp(strtolower($a['user']), strtolower($b['user']));
             });
-            $res->json(['from' => $r['from'], 'to' => $r['to'], 'count' => count($out), 'candidates' => array_slice($out, 0, 500), 'excluded' => array_keys($excluded)]);
+            $res->json(['from' => $r['from'], 'to' => $r['to'], 'count' => count($out), 'all_mode' => $allUsers > 0,
+                'candidates' => array_slice($out, 0, 800), 'excluded' => array_keys($excluded)]);
         } catch (Throwable $err) { fail500($res, $err, 'admin'); }
     });
 

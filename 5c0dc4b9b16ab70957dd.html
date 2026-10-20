@@ -621,7 +621,11 @@
       <input type="text" id="exclAdd" placeholder="Search signed-in accounts, or type any username…" oninput="exclSearch()" onkeydown="if(event.key==='Enter'){exclAddName();}">
       <button type="button" onclick="exclAddName()">Add typed name</button>
     </div>
-    <div class="sub" id="exclListLabel" style="font-size:11.5px; color:var(--text-faint);">Signed-in accounts (green dot = online now), players active recently or who bet in the selected period. Search finds any account:</div>
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:4px;">
+      <div class="sub" id="exclListLabel" style="font-size:11.5px; color:var(--text-faint);">Signed-in accounts (green dot = online now), players active recently or who bet in the selected period. Search finds any account:</div>
+      <label style="font-size:12px; color:var(--text-dim); display:inline-flex; align-items:center; gap:6px; cursor:pointer; white-space:nowrap;"><input type="checkbox" id="exclAll" onchange="loadExclCandidates(document.getElementById('exclAdd').value.trim())" style="width:15px;height:15px;accent-color:var(--teal);"> Show every account</label>
+    </div>
+    <div class="sub" id="exclCount" style="font-size:11px; color:var(--text-faint); margin-bottom:4px;"></div>
     <div class="excl-list" id="exclList"></div>
     <div class="excl-save">
       <button type="button" onclick="saveExcl()">Save &amp; refresh stats</button>
@@ -970,7 +974,7 @@ function updateExclBadge(list) {
   const n = (list || []).length;
   el.textContent = n; el.style.display = n ? '' : 'none';
 }
-let exclCands = [];
+let exclCands = [], exclTotal = 0;
 async function openExcl() {
   document.getElementById('exclOverlay').classList.add('show'); document.body.style.overflow = 'hidden';
   document.getElementById('exclStatus').textContent = 'loading…';
@@ -979,11 +983,14 @@ async function openExcl() {
   await loadExclCandidates('');
 }
 async function loadExclCandidates(q) {
+  const all = document.getElementById('exclAll') && document.getElementById('exclAll').checked;
+  document.getElementById('exclStatus').textContent = 'loading…';
   try {
-    const res = await adminFetch('/api/admin/super-candidates?from=' + period.from + '&to=' + period.to + (q ? '&q=' + encodeURIComponent(q) : ''));
+    const res = await adminFetch('/api/admin/super-candidates?from=' + period.from + '&to=' + period.to + (q ? '&q=' + encodeURIComponent(q) : '') + (all ? '&all=1' : ''));
     const d = await res.json();
     (d.excluded || []).forEach(u => { if (!(u in exclChecked)) exclChecked[u] = true; });   // keep ticks, add any stored
     exclCands = d.candidates || [];
+    exclTotal = d.count || exclCands.length;
     document.getElementById('exclStatus').textContent = '';
     renderExcl();
   } catch (e) { document.getElementById('exclStatus').textContent = 'could not load — ' + e.message; }
@@ -1005,7 +1012,10 @@ function renderExcl() {
     return (bx - ax) || ((b.active ? 1 : 0) - (a.active ? 1 : 0)) || ((+b.bet || 0) - (+a.bet || 0)) || String(a.user).localeCompare(String(b.user));
   });
   const el = document.getElementById('exclList');
-  el.innerHTML = cands.length ? cands.map(c => {
+  const shown = Math.min(cands.length, 600);
+  const cl = document.getElementById('exclCount');
+  if (cl) cl.textContent = exclTotal > shown ? ('Showing ' + shown + ' of ' + fmtInt(exclTotal) + ' accounts — use the search box to find a specific one.') : (cands.length + ' account' + (cands.length === 1 ? '' : 's'));
+  el.innerHTML = cands.length ? cands.slice(0, 600).map(c => {
     const k = String(c.user).toLowerCase();
     const on = !!exclChecked[k];
     let meta = (c.reasons || []).join(' · ');
