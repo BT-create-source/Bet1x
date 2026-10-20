@@ -393,6 +393,13 @@
     /** A safe landing: it stays where it came down, levels out with a squash, and the tower sways. */
     land(g, skin, x, vx, rot, bl, landY, resolve) {
       g.remove();
+      // A floor that HOLDS must keep more than half its base on the one below. If the block came down
+      // with its base more than ~45% off the edge, pull it in to that limit — anything further off is
+      // a slip (topple), never a hold, so the 50%-off rule reads cleanly.
+      const k = art(skin);
+      const maxHold = Math.max(0, bl.w * 0.5 - k.w * 0.05);
+      const off = x - bl.x;
+      if (Math.abs(off) > maxHold) x = bl.x + (off < 0 ? -1 : 1) * maxHold;
       this.addFloor(skin, x, true, rot);
       this.sway.v += ((x - bl.x) / bl.w) * 70 + vx * 0.05 + rot * 1.2;
       this.aimCamera();
@@ -402,6 +409,9 @@
     /** A collapse: it landed with its centre past the edge, tips over the corner below and falls away. */
     topple(g, k, x, rot, bl, landY, resolve) {
       const side = x >= bl.x ? 1 : -1;
+      // A collapse must look like a collapse: the base sits clearly past half-off the edge, then slips.
+      const minSlip = bl.w * 0.5 + k.w * 0.06;
+      if (Math.abs(x - bl.x) < minSlip) x = bl.x + side * minSlip;
       const edgeX = bl.x + side * bl.w / 2;
       const ex = edgeX - x;                                     // the pivot, in the block's own frame
       this.sway.v += side * 40;
