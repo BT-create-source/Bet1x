@@ -974,17 +974,18 @@ function updateExclBadge(list) {
   const n = (list || []).length;
   el.textContent = n; el.style.display = n ? '' : 'none';
 }
-let exclCands = [], exclTotal = 0;
+let exclCands = [], exclTotal = 0, exclFilter = '';
 async function openExcl() {
   document.getElementById('exclOverlay').classList.add('show'); document.body.style.overflow = 'hidden';
   document.getElementById('exclStatus').textContent = 'loading…';
   document.getElementById('exclAdd').value = '';
+  exclFilter = '';
   exclChecked = {};
   await loadExclCandidates('');
 }
-async function loadExclCandidates(q) {
+async function loadExclCandidates(q, silent) {
   const all = document.getElementById('exclAll') && document.getElementById('exclAll').checked;
-  document.getElementById('exclStatus').textContent = 'loading…';
+  if (!silent) document.getElementById('exclStatus').textContent = 'loading…';
   try {
     const res = await adminFetch('/api/admin/super-candidates?from=' + period.from + '&to=' + period.to + (q ? '&q=' + encodeURIComponent(q) : '') + (all ? '&all=1' : ''));
     const d = await res.json();
@@ -992,21 +993,23 @@ async function loadExclCandidates(q) {
     exclCands = d.candidates || [];
     exclTotal = d.count || exclCands.length;
     document.getElementById('exclStatus').textContent = '';
-    renderExcl();
-  } catch (e) { document.getElementById('exclStatus').textContent = 'could not load — ' + e.message; }
+    renderExcl();                         // renderExcl applies exclFilter
+  } catch (e) { if (!silent) document.getElementById('exclStatus').textContent = 'could not load — ' + e.message; }
 }
 let _exclSearchT = 0;
 function exclSearch() {
-  const q = document.getElementById('exclAdd').value.trim();
+  exclFilter = document.getElementById('exclAdd').value.trim();
+  renderExcl();                          // instant client-side filter of the loaded list
   clearTimeout(_exclSearchT);
-  _exclSearchT = setTimeout(() => loadExclCandidates(q), 300);
+  _exclSearchT = setTimeout(() => loadExclCandidates(exclFilter, true), 300);   // pull in any match not loaded yet
 }
 function renderExcl() {
   // merge any ticked-but-not-in-list names (e.g. just added) so they stay visible
   const byKey = {};
   exclCands.forEach(c => { byKey[String(c.user).toLowerCase()] = c; });
   Object.keys(exclChecked).forEach(k => { if (!byKey[k]) byKey[k] = { user: k, bet: 0, active: false, recent: false, reasons: ['added by name'] }; });
-  const cands = Object.values(byKey);
+  let cands = Object.values(byKey);
+  if (exclFilter) { const f = exclFilter.toLowerCase(); cands = cands.filter(c => String(c.user).toLowerCase().includes(f)); }
   cands.sort((a, b) => {
     const ax = exclChecked[String(a.user).toLowerCase()] ? 1 : 0, bx = exclChecked[String(b.user).toLowerCase()] ? 1 : 0;
     return (bx - ax) || ((b.active ? 1 : 0) - (a.active ? 1 : 0)) || ((+b.bet || 0) - (+a.bet || 0)) || String(a.user).localeCompare(String(b.user));
@@ -1014,7 +1017,11 @@ function renderExcl() {
   const el = document.getElementById('exclList');
   const shown = Math.min(cands.length, 600);
   const cl = document.getElementById('exclCount');
-  if (cl) cl.textContent = exclTotal > shown ? ('Showing ' + shown + ' of ' + fmtInt(exclTotal) + ' accounts — use the search box to find a specific one.') : (cands.length + ' account' + (cands.length === 1 ? '' : 's'));
+  if (cl) {
+    if (exclFilter) cl.textContent = cands.length + ' match' + (cands.length === 1 ? '' : 'es') + ' for “' + exclFilter + '”';
+    else if (exclTotal > shown) cl.textContent = 'Showing ' + shown + ' of ' + fmtInt(exclTotal) + ' accounts — type to search.';
+    else cl.textContent = cands.length + ' account' + (cands.length === 1 ? '' : 's');
+  }
   el.innerHTML = cands.length ? cands.slice(0, 600).map(c => {
     const k = String(c.user).toLowerCase();
     const on = !!exclChecked[k];
