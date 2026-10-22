@@ -60,6 +60,7 @@ require_once __DIR__ . '/lib/rigaudit.php';
 require_once __DIR__ . '/lib/botengine.php';
 require_once __DIR__ . '/lib/adminlog.php';
 require_once __DIR__ . '/lib/presence.php';
+require_once __DIR__ . '/lib/subadmin.php';
 
 require_once __DIR__ . '/games/color.php';
 require_once __DIR__ . '/games/aviator.php';
@@ -87,6 +88,7 @@ require_once __DIR__ . '/routes/mines.php';
 require_once __DIR__ . '/routes/chickenroad.php';
 require_once __DIR__ . '/routes/astronaut.php';
 require_once __DIR__ . '/routes/towerrush.php';
+require_once __DIR__ . '/routes/subadmin.php';
 require_once __DIR__ . '/routes/legacy.php';
 
 // -------------------------------------------------------------------------------------------------
@@ -151,6 +153,9 @@ try {
         register_chickenroad_routes($app);
         register_astronaut_routes($app);
         register_towerrush_routes($app);
+        // 10c. Sub-admins: their own /api/subadmin/* console, and the management endpoints under
+        //      /api/admin (registered after step 5, so the require_admin gate on /api/admin applies).
+        register_subadmin_routes($app);
         // 11. The PHP-shaped legacy endpoints
         register_legacy_routes($app);
         // 11b. "Your Eleven" fantasy cricket. An additive module that is mounted only when it is

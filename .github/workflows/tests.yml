@@ -58,7 +58,7 @@ jobs:
                    php-backend/tests/test_criclive.php php-backend/tests/test_virtual_rng.php \
                    php-backend/test_bbb.php php-backend/test_exchange.php php-backend/test_your11_feed.php \
                    php-backend/test_fantasy.php php-backend/test_fantasy_money.php php-backend/test_fantasy_scoring.php \
-                   php-backend/test_fantasy_settle.php php-backend/test_fantasy_parity.php php-backend/test_crash_games.php; do
+                   php-backend/test_fantasy_settle.php php-backend/test_fantasy_parity.php php-backend/test_crash_games.php \n                   php-backend/test_subadmin.php; do
             [ -f "$t" ] || continue
             echo "::group::$t"
             if php "$t"; then echo "PASS $t"; else echo "::error::FAILED $t"; fail=1; fi

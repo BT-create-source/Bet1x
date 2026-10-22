@@ -205,8 +205,10 @@ function register_admin_routes(Router $app) {
             };
 
             $totalDeposited = $sumAmount($deposits);
-            $totalWithdrawn = $sumAmount($withdrawals, function ($w) { return ($w['status'] ?? null) === 'Completed'; });
-            $pendingWithdrawals = count(array_filter($withdrawals, function ($w) { return ($w['status'] ?? null) === 'Pending'; }));
+            // Withdrawals a sub-admin pays are that sub-admin's cash and queue (lib/subadmin.php).
+            $routed = function_exists('subadmin_routed_withdrawals') ? subadmin_routed_withdrawals() : [];
+            $totalWithdrawn = $sumAmount($withdrawals, function ($w) use ($routed) { return ($w['status'] ?? null) === 'Completed' && !isset($routed[$w['withdrawal_id'] ?? '']); });
+            $pendingWithdrawals = count(array_filter($withdrawals, function ($w) use ($routed) { return ($w['status'] ?? null) === 'Pending' && !isset($routed[$w['withdrawal_id'] ?? '']); }));
             // Wallet liability is money the platform owes its CUSTOMERS. "Admin" is the house's own
             // seat — the account the house plays through, seeded with a float by sql/schema*.sql —
             // so its balance is the house's own money, not a debt. Including it made a brand-new
@@ -564,8 +566,12 @@ function register_admin_routes(Router $app) {
                         $finance['deposits_pending'] += $a; $finance['deposits_pending_count']++;
                     }
                 }
+                // Withdrawals a sub-admin pays from their own cash are not the platform's cash-out;
+                // they are reported in the Sub-Admins section instead.
+                $routedWd = function_exists('subadmin_routed_withdrawals') ? subadmin_routed_withdrawals() : [];
                 foreach (all('SELECT "withdrawal_id","username","amount","method","status","created_at","updated_at" FROM "Withdrawal"') as $w) {
                     if (isset($excluded[strtolower((string) ($w['username'] ?? ''))])) continue;
+                    if (isset($routedWd[$w['withdrawal_id']])) continue;
                     $a = (float) $w['amount']; $ms = sql_to_ms($w['created_at']) ?? 0; $st = (string) $w['status'];
                     if ($st === 'Completed' || $st === 'Rejected') {
                         $dec = sql_to_ms($w['updated_at']) ?? $ms;
@@ -936,8 +942,10 @@ function register_admin_routes(Router $app) {
                     if (isset($excluded[strtolower((string) ($d['username'] ?? ''))])) continue;
                     $fin['deposits'] += (float) $d['amount']; $fin['deposits_count']++;
                 }
-                foreach (all('SELECT "username","amount","status","created_at" FROM "Withdrawal" WHERE "created_at" >= ? AND "created_at" < ? AND "status" = \'Completed\'', [$lo, $hi]) as $w) {
+                $routedWd = function_exists('subadmin_routed_withdrawals') ? subadmin_routed_withdrawals() : [];
+                foreach (all('SELECT "withdrawal_id","username","amount","status","created_at" FROM "Withdrawal" WHERE "created_at" >= ? AND "created_at" < ? AND "status" = \'Completed\'', [$lo, $hi]) as $w) {
                     if (isset($excluded[strtolower((string) ($w['username'] ?? ''))])) continue;
+                    if (isset($routedWd[$w['withdrawal_id']])) continue;   // paid by a sub-admin, not the platform
                     $fin['withdrawals'] += (float) $w['amount']; $fin['withdrawals_count']++;
                 }
             } catch (Throwable $e) {}
@@ -995,9 +1003,12 @@ function register_admin_routes(Router $app) {
 
             if ($kind === 'deposit' || $kind === 'withdrawal') {
                 $tbl = $kind === 'deposit' ? 'Deposit' : 'Withdrawal';
+                $idCol = $kind === 'deposit' ? 'deposit_id' : 'withdrawal_id';
+                $routedWd = ($kind === 'withdrawal' && function_exists('subadmin_routed_withdrawals')) ? subadmin_routed_withdrawals() : [];
                 try {
-                    foreach (all("SELECT \"username\",\"amount\",\"status\",\"created_at\" FROM \"$tbl\" WHERE \"created_at\" >= ? AND \"created_at\" < ? AND \"status\" = 'Completed' ORDER BY \"created_at\" DESC", [$lo, $hi]) as $x) {
+                    foreach (all("SELECT \"$idCol\" AS rid,\"username\",\"amount\",\"status\",\"created_at\" FROM \"$tbl\" WHERE \"created_at\" >= ? AND \"created_at\" < ? AND \"status\" = 'Completed' ORDER BY \"created_at\" DESC", [$lo, $hi]) as $x) {
                         if (isset($excluded[strtolower((string) ($x['username'] ?? ''))])) continue;
+                        if (isset($routedWd[$x['rid']])) continue;   // paid by a sub-admin, not the platform
                         $a = (float) $x['amount']; $total += $a; $count++;
                         if (count($out) < $CAP) $out[] = ['user' => $x['username'], 'label' => ucfirst($kind), 'amount' => to_fixed_num($a, 2), 'kind' => $kind, 'at' => js_iso(sql_to_ms($x['created_at']) ?? 0)];
                     }

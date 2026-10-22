@@ -730,3 +730,48 @@ never pay for a second tower. Not wired to the bot-takeover engine.
 
 Checks: `php -d extension=pdo_pgsql -d extension=curl php-backend/test_towerrush.php` (maths, the HTTP
 API on four servers at once, races, wallet reconciliation; under a minute).
+
+## 16. Sub-Admins — `subadmin.html`
+
+A role between the Admin and the players. A sub-admin buys coins from the Admin, sells them to their
+own users for cash collected outside the site (UPI / cash), and pays out those users' withdrawals.
+Nothing to add to `.env`; no cron line.
+
+1. The schema is `sql/migration-018-subadmins-postgres.sql`. The code applies it by itself on first
+   use (additive, idempotent; it touches no existing table), so running it by hand is optional.
+2. Admin console → **Sub-Admins** tab (the Super Admin console has the same screen behind its
+   **Sub-Admins** button): create accounts (temporary password shown once, stored only as a bcrypt
+   hash), allocate coins, confirm payments, assign players, adjust, reset passwords, suspend.
+3. Sub-admins sign in at **`/subadmin.html`** and must replace their temporary password first.
+
+Rules the code enforces:
+
+* **The Admin's coin supply is unlimited.** There is no Admin coin balance: an allocation creates
+  coins in the sub-admin's inventory from `admin_supply`, which is never debited.
+* **Workflow settings** (Sub-Admins → Workflow settings): allocations are credited *after the payment
+  is confirmed* (default) or *immediately on credit* (the agreed amount is then an outstanding
+  obligation).
+* **Fixed rule, not a setting:** when a sub-admin pays out a withdrawal, the player's coins go back
+  to the Admin's supply. The sub-admin's inventory does not grow from payouts, so to sell more coins
+  they buy more from the Admin.
+* **Game play never touches a sub-admin's inventory.** Wins and losses move coins between the
+  player's wallet and the platform exactly as before; they are reported per sub-admin.
+* **Withdrawals** from a player who belongs to an active sub-admin go to that sub-admin's queue
+  (Pending → Approved → Paid, or Rejected; the coins are held from the request on). The Admin's own
+  Approve/Reject refuses those, so nothing can be paid twice. Removing the player from the sub-admin
+  hands unpaid requests back to the Admin's queue. Players with no sub-admin are unchanged.
+* **Conversion rule:** `COIN_RUPEE_RATE` (₹ per coin, default `1`, which is what the cashier has
+  always used). Only the sub-admin screens read it; change it from 1 only together with the cashier's
+  INR labels.
+* **Ledgers:** every coin movement is a row in `SubAdminLedger`, every money movement a row in the
+  separate cash ledger `SubAdminCash`, linked by reference ids, each naming who created and who
+  confirmed it. A database trigger refuses deletes and ledger edits; corrections are reversal or
+  adjustment entries pointing at the original. Reversals of deposits and payouts are Admin-only.
+* The site does **not** verify UPI or cash payments itself; "confirmed" means a named person
+  confirmed it, at a recorded time.
+* Withdrawals paid by sub-admins are left out of the platform's own cash-out figures on the Admin
+  and Super Admin dashboards (they are the sub-admin's cash) and shown in the Sub-Admins section.
+
+Checks: `php -d extension=pdo_pgsql -d extension=curl php-backend/test_subadmin.php` (145 checks over
+real HTTP on four servers: roles and isolation, both allocation workflows, deposits, real game play,
+withdrawals, double-click races, reversals, suspension, reports and ledger reconciliation; ~1 min).

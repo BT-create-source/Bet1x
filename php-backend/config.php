@@ -249,6 +249,13 @@ $MIN_BET                 = env_num('MIN_BET', 1);
 // with the bankroll to cover the matching win.
 $MAX_BET                 = env_num('MAX_BET', 10000);
 $MIN_WITHDRAWAL          = env_num('MIN_WITHDRAWAL', 100);
+// Rupees per coin: the one conversion rule for turning coins into money. The cashier has always
+// worked 1:1 (a ₹100 deposit credits 100 coins, a 100-coin withdrawal pays ₹100), which is the
+// default. The sub-admin system reads ONLY this value to show the rupee equivalent of a withdrawal
+// request and to suggest a payout, so the figure can never disagree between pages. Changing it
+// away from 1 also means re-labelling the cashier page, which still states amounts in INR.
+$COIN_RUPEE_RATE         = env_num('COIN_RUPEE_RATE', 1);
+if (!($COIN_RUPEE_RATE > 0)) $COIN_RUPEE_RATE = 1;
 
 // --- Testing switches ---
 $DISABLE_RATE_LIMITS = env_bool('DISABLE_RATE_LIMITS', false);
@@ -424,6 +431,7 @@ $CONFIG = [
     'MIN_BET'                  => $MIN_BET,
     'MAX_BET'                  => $MAX_BET,
     'MIN_WITHDRAWAL'           => $MIN_WITHDRAWAL,
+    'COIN_RUPEE_RATE'          => (float) $COIN_RUPEE_RATE,
     'DISABLE_RATE_LIMITS'      => $DISABLE_RATE_LIMITS,
     'AVIATOR_SMART_CRASH'      => $AVIATOR_SMART_CRASH,
     'AVIATOR_HIGH_STAKE_REF'   => $AVIATOR_HIGH_STAKE_REF,

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<!--
+  The sub-admin console. Starts locked in the markup (sa-locked) and is unlocked only after the server
+  confirms an active sub-admin session (assets/js/subadmin-app.js). It deliberately does NOT load
+  ui-common.js: that file runs the player session, and its token key and player check would sign a
+  sub-admin out. This page has its own small fetch wrapper with its own token (bet1x_subadmin_token).
+-->
+<html lang="en" class="sa-locked">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>bet1x — Sub-Admin Console</title>
+  <style>
+    html.sa-locked #sa-app { display: none !important; }
+    #sa-boot { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #0b0e1d; color: #8790b8;
+      font: 13px system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: .04em; z-index: 50; }
+    html:not(.sa-booting) #sa-boot { display: none; }
+  </style>
+  <link rel="stylesheet" href="assets/css/style.css?v=20261014j">
+  <link rel="stylesheet" href="assets/css/subadmin.css?v=20261022a">
+</head>
+<body class="sa-page">
+  <script>document.documentElement.classList.add('sa-booting');</script>
+  <div id="sa-boot">Verifying sub-admin session&hellip;</div>
+
+  <!-- Sign in -->
+  <div id="sa-login" class="sa-root sa-gate" hidden>
+    <div class="sa-card">
+      <div class="brand" style="margin-bottom:14px;"><span class="dot"></span> bet1x <span class="pill">Sub-Admin</span></div>
+      <h1>Sub-Admin sign in</h1>
+      <p class="sa-note" style="margin:0 0 18px;">Use the username and password your administrator gave you.</p>
+      <form id="saLoginForm" autocomplete="on">
+        <div class="sa-field" style="margin-bottom:12px;">
+          <label for="saLoginUser">Username</label>
+          <input type="text" id="saLoginUser" autocomplete="username" required>
+        </div>
+        <div class="sa-field">
+          <label for="saLoginPass">Password</label>
+          <input type="password" id="saLoginPass" autocomplete="current-password" required>
+        </div>
+        <div class="sa-msg err" id="saLoginMsg" role="alert"></div>
+        <button type="submit" class="sa-btn primary" style="width:100%; padding:12px; margin-top:6px;" id="saLoginBtn">Sign in</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Forced password change (temporary password) -->
+  <div id="sa-pw" class="sa-root sa-gate" hidden>
+    <div class="sa-card">
+      <h1>Choose a new password</h1>
+      <p class="sa-note" style="margin:0 0 18px;">You signed in with a temporary password. Choose your own before continuing — nobody else, including the administrator, will be able to see it.</p>
+      <form id="saPwForm">
+        <div class="sa-field" style="margin-bottom:12px;">
+          <label for="saPwCurrent">Temporary password</label>
+          <input type="password" id="saPwCurrent" autocomplete="current-password" required>
+        </div>
+        <div class="sa-field" style="margin-bottom:12px;">
+          <label for="saPwNew">New password</label>
+          <input type="password" id="saPwNew" autocomplete="new-password" minlength="8" required>
+          <span class="hint">At least 8 characters.</span>
+        </div>
+        <div class="sa-field">
+          <label for="saPwNew2">Repeat new password</label>
+          <input type="password" id="saPwNew2" autocomplete="new-password" minlength="8" required>
+        </div>
+        <div class="sa-msg err" id="saPwMsg" role="alert"></div>
+        <button type="submit" class="sa-btn primary" style="width:100%; padding:12px; margin-top:6px;">Save new password</button>
+        <button type="button" class="sa-btn" style="width:100%; margin-top:8px;" data-action="logout">Sign out</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- The console -->
+  <div id="sa-app">
+    <nav class="navbar">
+      <div class="brand"><span class="dot"></span> bet1x <span class="pill">Sub-Admin</span></div>
+      <div class="sa-root sa-userchip">
+        <span><b id="saName">—</b> <span class="sa-code" id="saPublicId"></span></span>
+        <span class="inv" title="Coins available to sell"><span id="saInvChip">0</span> coins</span>
+        <button class="sa-btn sm" type="button" data-action="logout">Sign out</button>
+      </div>
+    </nav>
+
+    <div class="container" style="margin-top:20px;">
+      <div class="sa-root" id="saRoot">
+        <div class="sa-tabs" role="tablist" aria-label="Sub-admin sections">
+          <button class="sa-tab" role="tab" data-view="dashboard">Dashboard</button>
+          <button class="sa-tab" role="tab" data-view="users">My Users</button>
+          <button class="sa-tab" role="tab" data-view="inventory">Coin Inventory</button>
+          <button class="sa-tab" role="tab" data-view="deposits">Deposits</button>
+          <button class="sa-tab" role="tab" data-view="withdrawals">Withdrawals <span class="cnt" id="saWdCount" hidden>0</span></button>
+          <button class="sa-tab" role="tab" data-view="history">Transaction History</button>
+          <button class="sa-tab" role="tab" data-view="reports">Financial Reports</button>
+          <button class="sa-tab" role="tab" data-view="settings">Account Settings</button>
+        </div>
+        <section id="saView" aria-live="polite"></section>
+      </div>
+    </div>
+
+    <div class="footer">bet1x — Sub-Admin console. Every action is recorded with your name and the time.</div>
+  </div>
+
+  <script src="assets/js/subadmin-common.js?v=20261022a"></script>
+  <script src="assets/js/subadmin-app.js?v=20261022a"></script>
+</body>
+</html>

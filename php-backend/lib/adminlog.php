@@ -10,7 +10,7 @@
  * Recording happens in ONE place, after every request has been handled (index.php), rather than in
  * each admin handler: many handlers check operator rights inline (is_admin) instead of through
  * require_admin, so a hook in any single gate would miss them. A request is recorded when it was
- * made with an admin or superadmin session, it changes something (any non-GET request, plus the
+ * made with an admin, superadmin or sub-admin session, it changes something (any non-GET request, plus the
  * legacy GET-reachable actions on api/admin.php and api/wallet.php), and it succeeded (status < 400).
  * Secrets are never stored: any field whose name looks like a password, token, key, OTP or hash is
  * dropped from the summary.
@@ -74,7 +74,10 @@ function admin_log_summary(Req $req) {
 function admin_log_record(Req $req, Res $res) {
     try {
         $role = (string) ($req->auth['role'] ?? '');
-        if ($role !== 'admin' && $role !== 'superadmin') return;
+        $actor = (string) ($req->auth['username'] ?? '');
+        // Sub-admins are privileged operators too: their actions land in the same log.
+        if ($role === '' && !empty($req->subadmin)) { $role = 'subadmin'; $actor = (string) $req->subadmin['username']; }
+        if ($role !== 'admin' && $role !== 'superadmin' && $role !== 'subadmin') return;
         $status = method_exists($res, 'statusCode') ? $res->statusCode() : 200;
         if ($status >= 400) return;
         $path = (string) $req->path;
@@ -92,7 +95,7 @@ function admin_log_record(Req $req, Res $res) {
 
         if (!admin_log_ensure()) return;
         q('INSERT INTO "AdminLog" ("actor","role","method","path","action","summary","status","ip") VALUES (?,?,?,?,?,?,?,?)', [
-            (string) ($req->auth['username'] ?? ''), $role, $req->method, substr($path, 0, 200),
+            $actor, $role, $req->method, substr($path, 0, 200),
             substr($action, 0, 80), admin_log_summary($req), $status, substr((string) $req->ip, 0, 64),
         ]);
     } catch (Throwable $e) {

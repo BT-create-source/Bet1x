@@ -64,6 +64,15 @@ sounds in `assets/js/tower-sfx.js`.
 Page `towerrush.html`; admin card in `assets/js/admin-newgames.js`; migration 013; tests
 `php-backend/test_towerrush.php`; DEPLOY.md §15.
 
+**Sub-Admins** (PHP only): `lib/subadmin.php` (all rules: accounts, sessions, allocations from the Admin's
+unlimited supply, user deposits, routed withdrawals, the coin ledger `SubAdminLedger` and cash ledger
+`SubAdminCash`, reports) + `routes/subadmin.php` (`/api/subadmin/*` for the sub-admin, `/api/admin/subadmin…`
+for Admin/Super Admin). Sub-admin tokens (role `subadmin`) live in `$req->subadmin`, never `$req->auth`, and
+`verify_token` rejects them by default, so they carry no player or operator authority. Page `subadmin.html`
+(+ `assets/js/subadmin-app.js`); the management screen `assets/js/subadmin-console.js` is mounted by both
+`admin.html` (Sub-Admins tab) and the super admin page; shared rendering in `assets/js/subadmin-common.js`,
+styles `assets/css/subadmin.css`. Migration 018 (self-applying); tests `php-backend/test_subadmin.php`; DEPLOY.md §16.
+
 The `README.md` describes an earlier "pitch demo, no backend" mode (pure HTML/CSS/JS with localStorage);
 the repo has since grown a real backend, so treat the README's "no backend" framing as historical/optional
 rather than how the app currently runs.

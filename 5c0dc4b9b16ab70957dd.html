@@ -19,6 +19,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/subadmin.css?v=20261022a">
 <style>
   :root {
     --bg: #090b11;
@@ -323,6 +324,16 @@
   .excl-save button { background: linear-gradient(140deg, var(--accent), #2f47c9); border: 0; color: #fff; font-weight: 800; font-size: 13px; padding: 10px 18px; border-radius: 9px; cursor: pointer; }
   .excl-save .muted { font-size: 11.5px; color: var(--text-faint); }
 
+  /* ---------- Sub-Admins section (rendered by assets/js/subadmin-console.js) ---------- */
+  .sa-open-btn { background: var(--surface-2); border: 1px solid var(--border); color: var(--text); font-size: 12px; font-weight: 600;
+    padding: 7px 13px; border-radius: 8px; cursor: pointer; font-family: 'IBM Plex Sans', sans-serif; }
+  .sa-open-btn:hover { border-color: var(--accent); color: #fff; }
+  .sa-open-btn .cnt { display: inline-block; min-width: 16px; margin-left: 5px; padding: 0 5px; border-radius: 9px; background: var(--warn); color: #1c1200; font-size: 11px; font-weight: 700; }
+  #saOverlay { position: fixed; inset: 0; z-index: 250; background: rgba(4,6,12,.8); backdrop-filter: blur(3px); display: none; padding: 22px; overflow-y: auto; }
+  #saOverlay.show { display: block; }
+  .sa-overlay-card { max-width: 1380px; margin: 0 auto; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px 22px; box-shadow: var(--shadow); }
+  @media (max-width: 640px) { #saOverlay { padding: 8px; } .sa-overlay-card { padding: 14px 12px 18px; } }
+
   footer { text-align: center; color: var(--text-faint); font-size: 11px; margin-top: 30px; }
 
   ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -363,6 +374,7 @@
     <div class="status-cluster">
       <span class="live-pill"><span class="live-dot"></span><span id="lastUpdated">connecting…</span></span>
       <button class="mon-btn" onclick="openMonitor()">🔍 Player Win Monitor<span class="cnt" id="monBtnCount">…</span></button>
+      <button class="sa-open-btn" onclick="openSubadmins()">🧑‍💼 Sub-Admins<span class="cnt" id="saBtnCount" style="display:none;">0</span></button>
       <button class="excl-btn" onclick="openExcl()">🧪 Test accounts<span class="cnt" id="exclBtnCount" style="display:none;">0</span></button>
       <button id="refreshBtn" onclick="loadDashboard()">↻ Refresh now</button>
       <button onclick="superAdminLogout()" style="background:var(--surface-2); border:1px solid var(--border); color:var(--text-dim); font-size:12px; font-weight:600; padding:7px 13px; border-radius:8px; cursor:pointer; font-family:'IBM Plex Sans', sans-serif;">Sign out</button>
@@ -443,7 +455,7 @@
     <div class="kpi teal-line">
       <div class="lbl">Net cash in</div>
       <div class="val mono" id="mNetCash">—</div>
-      <div class="sub">deposits − withdrawals paid<br>today <b id="mNetToday">—</b></div>
+      <div class="sub">deposits − withdrawals paid<br>today <b id="mNetToday">—</b> &middot; <span style="color:var(--text-faint);">sub-admin cash: see Sub-Admins</span></div>
     </div>
     <div class="kpi accent-line">
       <div class="lbl">Held in player wallets</div>
@@ -634,6 +646,16 @@
   </div>
 </div>
 
+<div id="saOverlay" role="dialog" aria-modal="true" aria-labelledby="saOverlayTitle">
+  <div class="sa-overlay-card">
+    <div class="drill-top">
+      <div><h2 id="saOverlayTitle">🧑‍💼 Sub-Admins</h2><div class="sub">Management and monitoring: every sub-admin account, their allocations and payments to the Admin, their users, deposits, withdrawals, payouts and corrections — the same records the Admin and the sub-admins see.</div></div>
+      <button class="mon-close" onclick="closeSubadmins()" aria-label="Close">×</button>
+    </div>
+    <div id="saMount"></div>
+  </div>
+</div>
+
 <div id="drillOverlay" role="dialog" aria-modal="true" aria-labelledby="drillTitle">
   <div class="drill-card">
     <div class="drill-top">
@@ -693,6 +715,8 @@
   </div>
 </div>
 
+<script src="assets/js/subadmin-common.js?v=20261022a"></script>
+<script src="assets/js/subadmin-console.js?v=20261022a"></script>
 <script>
 // Same origin as the page: the backend serves this console itself. Override with
 // window.BET1X_API_BASE only when the API is hosted separately.
@@ -1556,9 +1580,42 @@ async function checkGateAndInit() {
     window._superDashTimer = setInterval(loadDashboard, 6000);
     loadMonitor(true);
     window._monTimer = setInterval(() => loadMonitor(true), 60000);
+    refreshSubadminBadge();
+    window._saBadgeTimer = setInterval(refreshSubadminBadge, 60000);
   }
   window.addEventListener('resize', () => { if (window._lastDashData) { drawProfitChart(window._lastDashData); drawHourlyChart(window._lastDashData); } });
 }
+
+/** The Sub-Admins section: the shared management screen, with this console's token and colours. */
+window.openSubadmins = function () {
+  document.getElementById('saOverlay').classList.add('show');
+  document.body.style.overflow = 'hidden';
+  window._saConsole = SubAdminConsole.mount(document.getElementById('saMount'), { api: adminFetch, theme: 'super' });
+};
+window.closeSubadmins = function () {
+  document.getElementById('saOverlay').classList.remove('show');
+  document.body.style.overflow = '';
+  if (window._saConsole) window._saConsole.hide();
+  refreshSubadminBadge();
+};
+/** Open withdrawal requests and payments waiting on the Admin, on the topbar button. */
+async function refreshSubadminBadge() {
+  try {
+    const res = await adminFetch('/api/admin/subadmins');
+    if (!res.ok) return;
+    const d = await res.json();
+    const t = d.totals || {};
+    let n = 0;
+    (d.subadmins || []).forEach(function (x) { const f = x.figures || {}; if (f.paid_admin_unconfirmed > 0) n++; });
+    const el = document.getElementById('saBtnCount');
+    el.textContent = n; el.style.display = n ? '' : 'none';
+    el.title = n ? n + ' sub-admin(s) have payments waiting for confirmation' : '';
+  } catch (e) { /* the badge is a convenience */ }
+}
+document.addEventListener('keydown', function (e) {
+  const m = document.getElementById('saKitModal');
+  if (e.key === 'Escape' && document.getElementById('saOverlay').classList.contains('show') && !(m && m.classList.contains('show'))) closeSubadmins();
+});
 
 checkGateAndInit();
 </script>

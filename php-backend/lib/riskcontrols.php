@@ -126,7 +126,9 @@ function risk_has_completed_deposit($username) {
              WHERE LOWER(\"username\") = LOWER(?) AND \"status\" = 'Completed'",
             [$username]
         );
-        return $row && (int)$row['c'] > 0;
+        if ($row && (int)$row['c'] > 0) return true;
+        // Coins bought from the player's sub-admin (confirmed) are a deposit too.
+        return function_exists('subadmin_confirmed_deposit_total') && subadmin_confirmed_deposit_total($username) > 0;
     } catch (Throwable $e) {
         log_debug('risk_has_completed_deposit unavailable: ' . $e->getMessage());
         // Fail OPEN on an infrastructure error. A database hiccup must not freeze withdrawals for
@@ -138,8 +140,10 @@ function risk_has_completed_deposit($username) {
 /** Total of this account's approved deposits. */
 function risk_total_deposited($username) {
     try {
-        return (float) scalar("SELECT COALESCE(SUM(\"amount\"), 0) FROM \"Deposit\"
+        $cashier = (float) scalar("SELECT COALESCE(SUM(\"amount\"), 0) FROM \"Deposit\"
                                WHERE LOWER(\"username\") = LOWER(?) AND \"status\" = 'Completed'", [$username], 0);
+        // Plus coins bought from the player's sub-admin, so play-through applies to them the same way.
+        return $cashier + (function_exists('subadmin_confirmed_deposit_total') ? subadmin_confirmed_deposit_total($username) : 0.0);
     } catch (Throwable $e) {
         log_debug('risk_total_deposited unavailable: ' . $e->getMessage());
         return 0.0;

@@ -61,6 +61,9 @@ function issue_token($opts) {
     if ($payload['role'] === 'user' && !empty($payload['id'])) {
         $pv = account_password_version((int) $payload['id']);
         if ($pv !== null) $payload['pv'] = $pv;
+    } elseif (isset($opts['pv'])) {
+        // Sub-admin sessions carry the same kind of fingerprint, computed by lib/subadmin.php.
+        $payload['pv'] = (string) $opts['pv'];
     }
     $payloadB64 = b64url(js_json_encode($payload));
     return TOKEN_VERSION . '.' . $payloadB64 . '.' . token_sign($payloadB64);
@@ -107,8 +110,13 @@ function session_still_valid(array $payload) {
 /**
  * Verify signature and expiry. Returns the payload array, or null for anything malformed,
  * unsigned, tampered with, or expired.
+ *
+ * A sub-admin token is treated as invalid unless $allowSubadmin is true. Only attach_session asks
+ * for it, so every other caller in the codebase (the session-status route, the wallet fallbacks)
+ * sees a sub-admin token as no session at all and can never mistake a sub-admin for a player who
+ * happens to share the same username.
  */
-function verify_token($token) {
+function verify_token($token, $allowSubadmin = false) {
     if (!is_string($token) || $token === '') return null;
     $parts = explode('.', $token);
     if (count($parts) !== 3) return null; // legacy unsigned tokens land here and are rejected
@@ -123,6 +131,7 @@ function verify_token($token) {
     if (!is_array($payload)) return null;
     if (!isset($payload['username']) || !is_string($payload['username']) || $payload['username'] === '') return null;
     if (empty($payload['exp']) || $payload['exp'] < now_ms()) return null;
+    if (!$allowSubadmin && ($payload['role'] ?? '') === 'subadmin') return null;
     return $payload;
 }
 
@@ -141,7 +150,15 @@ function extract_token(Req $req) {
 
 /** Populates $req->auth with the verified session (or null). Never rejects a request on its own. */
 function attach_session(Req $req, Res $res) {
-    $payload = verify_token(extract_token($req));
+    $payload = verify_token(extract_token($req), true);
+    // A sub-admin session lives in $req->subadmin and never in $req->auth, so it carries no player,
+    // admin or super-admin authority anywhere. It is re-checked against the account on every request:
+    // a suspended account or a changed password ends it at once (subadmin_session_from_payload).
+    if ($payload !== null && ($payload['role'] ?? '') === 'subadmin') {
+        $req->auth = null;
+        $req->subadmin = function_exists('subadmin_session_from_payload') ? subadmin_session_from_payload($payload) : null;
+        return;
+    }
     if ($payload !== null && !session_still_valid($payload)) $payload = null;
     $req->auth = $payload;
     // Record that this user is online (best-effort; see lib/presence.php). Only real players — the

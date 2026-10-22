@@ -55,6 +55,7 @@
   </style>
 
   <link rel="stylesheet" href="assets/css/style.css?v=20261014j">
+  <link rel="stylesheet" href="assets/css/subadmin.css?v=20261022a">
   <style>
     :root {
       --text-light: #ffffff;
@@ -406,6 +407,7 @@
         <button class="admin-tab-btn" onclick="switchAdminTab('deposits', this)">Pending UPI Deposits</button>
         <button class="admin-tab-btn" onclick="switchAdminTab('paymentsettings', this)">Payment Settings</button>
         <button class="admin-tab-btn" onclick="switchAdminTab('users', this)">User Accounts</button>
+        <button class="admin-tab-btn" onclick="switchAdminTab('sub-admins', this)">Sub-Admins</button>
         <button class="admin-tab-btn" onclick="switchAdminTab('transactions', this)">All Transaction Logs</button>
         <button class="admin-tab-btn" onclick="switchAdminTab('wagers', this)">Game Betting History</button>
         <button class="admin-tab-btn active" onclick="switchAdminTab('cheats', this)">Outcome Bias Console</button>
@@ -1163,6 +1165,9 @@
       <pre id="cricketOpsOut" style="font-size:12px; white-space:pre-wrap; color:var(--text-dim); background:var(--bg-soft); border-radius:8px; padding:10px;">Actions log here.</pre>
     </div>
 
+      <!-- Tab: Sub-Admins (rendered by assets/js/subadmin-console.js) -->
+      <div id="admin-sub-admins" class="admin-content"></div>
+
   </div> <!-- End of admin-card -->
 
   </div>
@@ -1210,6 +1215,25 @@
   <script src="assets/js/sound-fx.js"></script>
   <script src="assets/js/qrcode-gen.js"></script>
   <script src="assets/js/admin-newgames.js"></script>
+  <script src="assets/js/subadmin-common.js?v=20261022a"></script>
+  <script src="assets/js/subadmin-console.js?v=20261022a"></script>
+  <script>
+    // The Sub-Admins tab loads whenever its panel becomes visible, however that happens (a click, the
+    // remembered tab after sign-in, switchAdminTab from anywhere). The shared fetch interceptor in
+    // ui-common.js attaches the operator token because this page sets BET1X_ADMIN_CONSOLE.
+    (function () {
+      var panel = document.getElementById('admin-sub-admins');
+      if (!panel || !window.SubAdminConsole) return;
+      var mounted = null;
+      var sync = function () {
+        var on = panel.classList.contains('active') && !document.documentElement.classList.contains('admin-locked');
+        if (on) mounted = window.SubAdminConsole.mount(panel, { api: function (p, init) { return fetch(p, init); }, theme: 'admin' });
+        else if (mounted) mounted.hide();
+      };
+      new MutationObserver(sync).observe(panel, { attributes: true, attributeFilter: ['class'] });
+      new MutationObserver(sync).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    })();
+  </script>
   <script>
     // The operator token travels in the Authorization header (see ui-common.js). It is deliberately
     // never appended to the query string, where it would end up in web-server access logs, browser
@@ -1962,9 +1986,10 @@
             <td style="color:var(--red); font-weight:700; font-family:var(--font-mono);">-₹${parseFloat(t.amount).toFixed(2)}</td>
             <td>${escapeHtml(t.details)}</td>
             <td><span style="font-size:11.5px; color:var(--text-dim);">${escapeHtml(t.created_at)}</span></td>
-            <td>
-              <button class="btn-action approve" onclick="approveWithdraw('${escapeHtml(t.withdrawal_id)}')">Approve</button>
-              <button class="btn-action reject" onclick="rejectWithdraw('${escapeHtml(t.withdrawal_id)}')" style="margin-left:4px;">Reject</button>
+            <td>${t.handled_by_subadmin
+              ? `<span class="badge pending" title="Paid by this sub-admin; manage it in the Sub-Admins tab">Sub-admin: ${escapeHtml(t.handled_by_subadmin)}</span>`
+              : `<button class="btn-action approve" onclick="approveWithdraw('${escapeHtml(t.withdrawal_id)}')">Approve</button>
+              <button class="btn-action reject" onclick="rejectWithdraw('${escapeHtml(t.withdrawal_id)}')" style="margin-left:4px;">Reject</button>`}
             </td>
           `;
             tbody.appendChild(row);

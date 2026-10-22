@@ -27,6 +27,9 @@ class Req {
     public $params  = [];
     public $rawBody = '';
     public $auth    = null;   // verified session payload, or null
+    // A verified, still-active sub-admin session (lib/subadmin.php), or null. Deliberately NOT in
+    // $auth: every existing route reads $auth, so a sub-admin token is anonymous to all of them.
+    public $subadmin = null;
     public $ip      = '';
 
     public static function capture() {

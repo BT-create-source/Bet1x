@@ -146,12 +146,15 @@ function register_legacy_routes(Router $app) {
                         $walletPool += js_truthy($v) ? (float)$v : 0.0;
                     }
 
+                    // Withdrawals a sub-admin pays are that sub-admin's cash and queue, not the Admin's.
+                    $routed = function_exists('subadmin_routed_withdrawals') ? subadmin_routed_withdrawals() : [];
+                    $adminOwn = function ($w) use ($routed) { return !isset($routed[$w['withdrawal_id'] ?? '']); };
                     $res->json([
                         'total_users'         => count($users),
                         'total_deposited'     => $sum($deposits, function ($d) { return ($d['status'] ?? null) === 'Completed'; }),
-                        'total_withdrawn'     => $sum($withdrawals, function ($w) { return ($w['status'] ?? null) === 'Completed'; }),
+                        'total_withdrawn'     => $sum($withdrawals, function ($w) use ($adminOwn) { return ($w['status'] ?? null) === 'Completed' && $adminOwn($w); }),
                         'wallet_pool'         => $walletPool,
-                        'pending_withdrawals' => count(array_filter($withdrawals, function ($w) { return ($w['status'] ?? null) === 'Pending'; })),
+                        'pending_withdrawals' => count(array_filter($withdrawals, function ($w) use ($adminOwn) { return ($w['status'] ?? null) === 'Pending' && $adminOwn($w); })),
                     ]);
                     return;
                 }
@@ -184,10 +187,21 @@ function register_legacy_routes(Router $app) {
                                           'deposits', 'map_deposit'));
                     return;
 
-                case 'withdrawals':
-                    $res->json(read_table('SELECT * FROM "Withdrawal" ORDER BY "created_at" DESC LIMIT 500', [],
-                                          'withdrawals', 'map_withdrawal'));
+                case 'withdrawals': {
+                    $rows = read_table('SELECT * FROM "Withdrawal" ORDER BY "created_at" DESC LIMIT 500', [],
+                                       'withdrawals', 'map_withdrawal');
+                    // Requests a sub-admin is handling are marked, so the console shows who pays them
+                    // instead of offering Approve / Reject (which the server refuses for them).
+                    $routed = function_exists('subadmin_routed_withdrawals') ? subadmin_routed_withdrawals() : [];
+                    if ($routed) {
+                        foreach ($rows as $i => $w) {
+                            $id = $w['withdrawal_id'] ?? null;
+                            if ($id !== null && isset($routed[$id])) $rows[$i]['handled_by_subadmin'] = $routed[$id];
+                        }
+                    }
+                    $res->json($rows);
                     return;
+                }
 
                 case 'get_payment_config': {
                     $cfg = state_get('payment_config') ?? [];
@@ -296,6 +310,14 @@ function register_legacy_routes(Router $app) {
 
                     $withdrawal = one('SELECT * FROM "Withdrawal" WHERE "withdrawal_id" = ? LIMIT 1', [$wthId]);
                     if (!$withdrawal) { $res->status(404)->json(['error' => 'Withdrawal record not found.']); return; }
+                    // A request in a sub-admin's queue is paid (or rejected) by that sub-admin. Letting
+                    // the Admin approve it here as well would pay the same coins out twice.
+                    $route = function_exists('subadmin_withdrawal_route') ? subadmin_withdrawal_route($wthId) : null;
+                    if ($route) {
+                        $res->status(409)->json(['error' => 'This withdrawal is handled by sub-admin ' . $route['username']
+                            . '. Manage it from the Sub-Admins section (or move the player back to the Admin there).']);
+                        return;
+                    }
 
                     $claimed = affected("UPDATE \"Withdrawal\" SET \"status\" = ?, \"updated_at\" = ?
                                          WHERE \"withdrawal_id\" = ? AND \"status\" = 'Pending'",
@@ -534,10 +556,15 @@ function register_legacy_routes(Router $app) {
 
             $withdrawalId = 'WTH_' . random_int(1000000000, 9999999999);
 
+            // A player who belongs to a sub-admin has their request paid by that sub-admin
+            // (lib/subadmin.php). The schema check is DDL, so it runs before the transaction.
+            if (function_exists('subadmin_ensure')) subadmin_ensure();
+            $handledBy = null;
+
             // Hold the funds and record the request in ONE transaction. They used to be separate
             // statements, so if writing the request failed after the debit (a repeated id, a
             // database hiccup) the money had left the wallet with no withdrawal to show for it.
-            $newBalance = tx(function () use ($user, $amount, $withdrawalId, $method, $details) {
+            $newBalance = tx(function () use ($user, $amount, $withdrawalId, $method, $details, &$handledBy) {
                 // If the conditional debit does not match a row the player simply does not have the
                 // balance, and no withdrawal row is created.
                 $after = debit_wallet($user['id'], $amount);
@@ -548,6 +575,9 @@ function register_legacy_routes(Router $app) {
                   [$withdrawalId, $user['username'], $amount, $method, $details, 'Pending', $nowSql, $nowSql]);
                 insert_transaction(new_record_id('WTH'), $user['username'], 'Withdrawal', $amount,
                                    'Withdrawal Request ' . $withdrawalId . ': ' . $details, 'Pending');
+                // Same transaction: the request is either in the sub-admin's queue or the Admin's,
+                // never both and never neither.
+                if (function_exists('subadmin_route_withdrawal')) $handledBy = subadmin_route_withdrawal($withdrawalId, $user, $amount);
                 return $after;
             });
             if ($newBalance === null) {
@@ -555,12 +585,14 @@ function register_legacy_routes(Router $app) {
                 return;
             }
 
-            log_info('withdrawal requested', ['username' => $user['username'], 'amount' => $amount, 'withdrawalId' => $withdrawalId]);
+            log_info('withdrawal requested', ['username' => $user['username'], 'amount' => $amount, 'withdrawalId' => $withdrawalId,
+                                              'subadmin' => $handledBy]);
             $res->json([
                 'success'       => true,
                 'message'       => 'Withdrawal request submitted successfully.',
                 'withdrawal_id' => $withdrawalId,
                 'new_balance'   => $newBalance,
+                'handled_by_subadmin' => $handledBy,
             ]);
         } catch (Throwable $err) {
             $res->status(500)->json(['error' => cfg('IS_PRODUCTION') ? 'Internal server error.' : $err->getMessage()]);
