@@ -287,7 +287,7 @@ function mx_place_bet(array $user, $matchKey, array $in) {
     try {
         return tx(function () use ($user, $matchKey, $in, $marketKey, $side, $stake, $cfg) {
             // One bet at a time per match, so the exposure checks see every bet already struck.
-            q('SELECT pg_advisory_xact_lock(?)', [crc32('mx:' . $matchKey) & 0x7FFFFFFF]);
+            db_xact_lock(crc32('mx:' . $matchKey) & 0x7FFFFFFF);
             $book = mx_markets($matchKey);
             if (!$book) throw new RuntimeException('404:Match not found.');
             $m = $book['markets'][$marketKey] ?? null;
@@ -536,7 +536,7 @@ function mx_cashout_offer(array $book, array $bets, $marketKey) {
 function mx_cashout(array $user, $matchKey, $marketKey, $expected = null) {
     try {
         return tx(function () use ($user, $matchKey, $marketKey, $expected) {
-            q('SELECT pg_advisory_xact_lock(?)', [crc32('mx:' . $matchKey) & 0x7FFFFFFF]);
+            db_xact_lock(crc32('mx:' . $matchKey) & 0x7FFFFFFF);
             $book = mx_markets($matchKey);
             if (!$book) throw new RuntimeException('404:Match not found.');
             $bets = all('SELECT * FROM "mx_bets" WHERE "match_key" = ? AND "market_key" = ? AND "user_id" = ? AND "status" = ? FOR UPDATE',

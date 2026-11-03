@@ -38,44 +38,54 @@ The `.htaccess` is still load-bearing for `backend/`, `node_modules/`, `.env` an
 
 ## 2. Database
 
-This backend ships with two schema files depending on what the cPanel host actually offers under
-"Databases" — check for a **MySQL Databases** icon vs a **PostgreSQL Databases** icon before
-picking one; some hosts (including plenty of shared cPanel plans) only offer one or the other.
+The same code runs on either engine; `DB_DRIVER` in `php-backend/.env` says which (`mysql` or
+`pgsql`, the default). Check the cPanel "Databases" section: if it offers **PostgreSQL Databases**,
+either works; if it offers only **MySQL Databases** (GoDaddy, for example), use Option A.
 
-### Option A — MySQL / MariaDB
+### Option A — MySQL 8.0.13+ / MariaDB 10.3+
 
-Create a MySQL database and user in cPanel, grant all privileges, then run the schema once:
+1. cPanel → **MySQL Database Wizard**: create a database and a user, and tick **ALL PRIVILEGES**.
+2. phpMyAdmin → select that database → **Import** → choose `php-backend/sql/schema-mysql.sql` →
+   Go. (Or `mysql -u DBUSER -p DBNAME < php-backend/sql/schema-mysql.sql`.)
+   This ONE file is the whole schema — core tables, every migration 002–018, and the seed rows.
+   Do **not** run `schema-postgres.sql` or any `migration-0XX-postgres.sql` file on MySQL.
+3. Optional: import `php-backend/sql/schema-mysql-protect.sql` too (triggers that make the
+   sub-admin money ledgers undeletable). If the host refuses it with a privilege error, skip it —
+   the application never deletes those rows either way.
+4. In `.env`: `DB_DRIVER=mysql`, `DB_HOST=localhost`, `DB_PORT=3306`, and the database name, user
+   and password exactly as cPanel shows them (with the account prefix, e.g. `cpuser_bet1x`).
+   `make-production-env.php --db-driver=mysql …` (§3) writes all of this for you.
 
-```bash
-mysql -u DBUSER -p DBNAME < php-backend/sql/schema.sql
-```
-
-Or paste the file into phpMyAdmin's SQL tab.
+How it works: the application's SQL is written once, in Postgres's dialect with double-quoted
+identifiers. `lib/db.php` puts each MySQL connection in `ANSI_QUOTES` + `PIPES_AS_CONCAT` mode,
+`READ COMMITTED`, UTC, with UPDATE row counts meaning "rows matched" — all as on Postgres — and
+`db_mysql_sql()` rewrites the few remaining Postgres-only phrases (`ON CONFLICT`, `IS NOT DISTINCT
+FROM`, `CAST(… AS integer)`). Advisory locks become rows of the `DbLock` table (`db_xact_lock()`)
+and `GET_LOCK()`. See the header of `sql/schema-mysql.sql` for how each Postgres type maps.
 
 ### Option B — PostgreSQL
 
 Create a PostgreSQL database and user in cPanel (the "PostgreSQL Database Wizard"), then run the
-Postgres-flavoured schema once:
+Postgres schema once, followed by every `sql/migration-0XX-postgres.sql` in number order (002–018):
 
 ```bash
 psql -U DBUSER -d DBNAME -f php-backend/sql/schema-postgres.sql
 ```
 
-Or paste the file into phpPgAdmin's SQL tab if the host provides one. `lib/db.php` in this build
-connects via `pgsql:` — it is the PostgreSQL edition of the connection layer; the two schema files
-and `lib/db.php` must match (don't run `schema.sql` against a Postgres database or vice versa). See
-the type-choices comment at the top of `sql/schema-postgres.sql` for why a few flag columns are
-`SMALLINT` rather than native `BOOLEAN` — that is deliberate, not an oversight.
+Or paste the files into phpPgAdmin's SQL tab if the host provides one. See the type-choices comment
+at the top of `sql/schema-postgres.sql` for why a few flag columns are `SMALLINT` rather than
+native `BOOLEAN` — that is deliberate, not an oversight.
 
-Either way, this creates the 11 tables that mirror the Prisma models, 4 runtime tables that replace
-state which used to live in the Node process's memory, and seeds the six Teen Patti rooms.
+Either way, this creates the tables that mirror the Prisma models, the runtime tables that replace
+state which used to live in the Node process's memory, and seeds the house account and the six
+Teen Patti rooms.
 
 **Do not run `sql/schema-cricket.sql`** — it does not exist in this build. The two cricket games are
 deferred to v2.
 
 ### The `Admin` house account — required, and it fails silently without it
 
-`schema.sql` seeds a user row named `Admin`. **Do not delete it, and if you are migrating an existing
+The schema seeds a user row named `Admin`. **Do not delete it, and if you are migrating an existing
 database, make sure the row exists there too.**
 
 Teen Patti's two house-win paths — the operator rig (`/api/teenpatti/admin/rig`) and the per-table
@@ -146,13 +156,7 @@ curl -s -X POST https://SITE/api/admin.php -d 'action=login&username=admin&passw
 
 ### Apply the risk-control migration
 
-MySQL:
-
-```bash
-mysql -u DBUSER -p DBNAME < php-backend/sql/migration-002-risk-controls.sql
-```
-
-PostgreSQL:
+MySQL: nothing to do — `schema-mysql.sql` already contains it. PostgreSQL:
 
 ```bash
 psql -U DBUSER -d DBNAME -f php-backend/sql/migration-002-risk-controls-postgres.sql
@@ -163,9 +167,8 @@ rather than erroring, so applying it is what actually switches them on.
 
 ### Apply the phone-verification migration
 
-Only needed if you intend to turn phone verification on. PostgreSQL only — `lib/db.php` connects
-with a `pgsql:` DSN and the upsert in `lib/otp.php` uses `ON CONFLICT`, so this backend does not run
-on MySQL regardless of what `sql/schema.sql` suggests.
+Only needed if you intend to turn phone verification on, and only on PostgreSQL — on MySQL,
+`schema-mysql.sql` already contains it.
 
 ```bash
 psql -U DBUSER -d DBNAME -f php-backend/sql/migration-003-phone-otp-postgres.sql

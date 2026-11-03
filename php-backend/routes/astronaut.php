@@ -231,8 +231,8 @@ function register_astronaut_routes(Router $app) {
     $app->get('/api/astronaut/top', function (Req $req, Res $res) {
         try {
             $rows = all('SELECT "username","amount","cashout_mult","payout","round_id" FROM "AstronautBet"
-                         WHERE "status" = \'won\' AND "created_at" > CURRENT_TIMESTAMP(3) - INTERVAL \'1 day\'
-                         ORDER BY "cashout_mult" DESC, "payout" DESC LIMIT 20');
+                         WHERE "status" = \'won\' AND "created_at" > ?
+                         ORDER BY "cashout_mult" DESC, "payout" DESC LIMIT 20', [sql_ago(86400)]);
             $res->json(['ok' => true, 'top' => array_map(function ($b) {
                 return ['player' => astro_mask_name($b['username']), 'amount' => (float) $b['amount'],
                         'cashout_mult' => (float) $b['cashout_mult'], 'payout' => (float) $b['payout'],

@@ -276,6 +276,8 @@ function bbb_index_by_ball(array $deliveries) {
 function bbb_ensure_schema() {
     static $done = false;
     if ($done) return;
+    // MySQL: sql/schema-mysql.sql already has the slot/attempt columns and their unique key.
+    if (db_is_mysql()) { $done = true; return; }
     if ((int) state_get('bbb_schema_version') < 14) {
         q('ALTER TABLE "bbb_rounds" ADD COLUMN IF NOT EXISTS "slot" INTEGER');
         q('ALTER TABLE "bbb_rounds" ADD COLUMN IF NOT EXISTS "attempt" INTEGER');

@@ -20,7 +20,10 @@ function presence_ensure() {
     static $done = null;
     if ($done !== null) return $done;
     try {
-        if ((int) state_get('session_presence_schema_version') < 17) {
+        if (db_is_mysql()) {
+            // Built by sql/schema-mysql.sql; this only confirms it is there.
+            q('SELECT 1 FROM "SessionPresence" LIMIT 1');
+        } elseif ((int) state_get('session_presence_schema_version') < 17) {
             q('CREATE TABLE IF NOT EXISTS "SessionPresence" (
                 "username"  TEXT PRIMARY KEY,
                 "last_seen" BIGINT NOT NULL,

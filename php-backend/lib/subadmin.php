@@ -75,7 +75,12 @@ function subadmin_ensure($allowDdl = true) {
     }
     try {
         if (!db_ready()) { $done = false; return false; }
-        if ((int) state_get('subadmin_schema_version') < SUBADMIN_SCHEMA_VERSION) {
+        if (db_is_mysql()) {
+            // MySQL: the tables come from sql/schema-mysql.sql. Confirm they are there, and record
+            // the version so the in-transaction check above agrees.
+            q('SELECT 1 FROM "SubAdminLedger" LIMIT 1');
+            if ((int) state_get('subadmin_schema_version') < SUBADMIN_SCHEMA_VERSION) state_set('subadmin_schema_version', SUBADMIN_SCHEMA_VERSION);
+        } elseif ((int) state_get('subadmin_schema_version') < SUBADMIN_SCHEMA_VERSION) {
             $sql = @file_get_contents(__DIR__ . '/../sql/migration-018-subadmins-postgres.sql');
             if (!is_string($sql) || $sql === '') throw new RuntimeException('migration-018 file missing');
             db_or_throw()->exec($sql);
@@ -374,7 +379,7 @@ function require_subadmin_ready(Req $req, Res $res) {
 
 /** Serialise every money operation for one sub-admin. MUST be called inside tx(). */
 function sa_lock($subadminId) {
-    q('SELECT pg_advisory_xact_lock(CAST(? AS integer), CAST(? AS integer))', [lock_key_int('subadmin'), (int) $subadminId]);
+    db_xact_lock(lock_key_int('subadmin'), (int) $subadminId);
 }
 
 function sa_event($subadminId, $event, array $actor, $details = null, $userId = null, $username = null) {
@@ -412,9 +417,10 @@ function sa_create(array $in, array $actor) {
             if ($attempt > 20) throw new RuntimeException('could not allocate a sub-admin id');
         }
         try {
-            $id = (int) scalar('INSERT INTO "SubAdmin" ("public_id","full_name","username","password_hash","must_change_password","status","coin_balance","created_at","created_by","created_by_role")
-                                VALUES (?,?,?,?,1,\'active\',0,?,?,?) RETURNING "id"',
-                               [$pid, $name, $username, $hash, $now, $actor['name'], $actor['role']]);
+            q('INSERT INTO "SubAdmin" ("public_id","full_name","username","password_hash","must_change_password","status","coin_balance","created_at","created_by","created_by_role")
+               VALUES (?,?,?,?,1,\'active\',0,?,?,?)',
+              [$pid, $name, $username, $hash, $now, $actor['name'], $actor['role']]);
+            $id = (int) db_or_throw()->lastInsertId();
         } catch (Throwable $e) {
             if (is_unique_violation($e)) sa_fail('A sub-admin with that username already exists.', 409, 'username_taken');
             throw $e;
@@ -503,16 +509,19 @@ function sa_login($username, $password) {
 // Inventory and ledger primitives — call only inside tx() after sa_lock()
 // -------------------------------------------------------------------------------------------------
 
+// Both run after sa_lock() inside tx(), so reading the balance back after the UPDATE (instead of
+// Postgres-only RETURNING) sees exactly the value this transaction wrote.
 function sa_inventory_add($subadminId, $coins) {
-    return (float) scalar('UPDATE "SubAdmin" SET "coin_balance" = ROUND(CAST("coin_balance" + ? AS numeric), 2) WHERE "id" = ? RETURNING "coin_balance"',
-                          [round2($coins), (int) $subadminId]);
+    q('UPDATE "SubAdmin" SET "coin_balance" = ROUND(CAST("coin_balance" + ? AS numeric), 2) WHERE "id" = ?',
+      [round2($coins), (int) $subadminId]);
+    return sa_inventory($subadminId);
 }
 
 /** Atomic conditional take. Returns the new balance, or null when the inventory is short. */
 function sa_inventory_take($subadminId, $coins) {
-    $v = scalar('UPDATE "SubAdmin" SET "coin_balance" = ROUND(CAST("coin_balance" - ? AS numeric), 2) WHERE "id" = ? AND "coin_balance" >= ? RETURNING "coin_balance"',
-                [round2($coins), (int) $subadminId, round2($coins)], null);
-    return $v === null ? null : (float) $v;
+    $n = affected('UPDATE "SubAdmin" SET "coin_balance" = ROUND(CAST("coin_balance" - ? AS numeric), 2) WHERE "id" = ? AND "coin_balance" >= ?',
+                  [round2($coins), (int) $subadminId, round2($coins)]);
+    return $n < 1 ? null : sa_inventory($subadminId);
 }
 
 function sa_inventory($subadminId) {
@@ -870,8 +879,9 @@ function sa_user_create($subadminId, array $in, array $actor) {
         $existing = one('SELECT "username","email" FROM "User" WHERE LOWER("username") = LOWER(?) OR LOWER("email") = LOWER(?) LIMIT 1', [$username, $email]);
         if ($existing) sa_fail(strtolower($existing['username']) === strtolower($username) ? 'That username is already taken.' : 'That email is already registered.', 409);
         try {
-            $uid = (int) scalar('INSERT INTO "User" ("username","email","password","wallet_balance","created_at") VALUES (?,?,?,0,?) RETURNING "id"',
-                                [$username, $email, $hash, ms_to_sql()]);
+            q('INSERT INTO "User" ("username","email","password","wallet_balance","created_at") VALUES (?,?,?,0,?)',
+              [$username, $email, $hash, ms_to_sql()]);
+            $uid = (int) db_or_throw()->lastInsertId();
         } catch (Throwable $e) {
             if (is_unique_violation($e)) sa_fail('That username is already taken.', 409);
             throw $e;

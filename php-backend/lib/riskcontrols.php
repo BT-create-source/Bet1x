@@ -62,8 +62,8 @@ function risk_signups_from_ip($ip, $windowHours = 24) {
     try {
         $row = one(
             'SELECT COUNT(*) AS c FROM "User"
-             WHERE "signup_ip" = ? AND "created_at" >= (NOW() - (? * INTERVAL \'1 hour\'))',
-            [$ip, (int)$windowHours]
+             WHERE "signup_ip" = ? AND "created_at" >= ?',
+            [$ip, sql_ago((int)$windowHours * 3600)]
         );
         return $row ? (int)$row['c'] : 0;
     } catch (Throwable $e) {
@@ -105,8 +105,8 @@ function risk_withdrawal_totals($username, $windowHours = 24) {
              FROM \"Withdrawal\"
              WHERE LOWER(\"username\") = LOWER(?)
                AND \"status\" IN ('Pending', 'Completed')
-               AND \"created_at\" >= (NOW() - (? * INTERVAL '1 hour'))",
-            [$username, (int)$windowHours]
+               AND \"created_at\" >= ?",
+            [$username, sql_ago((int)$windowHours * 3600)]
         );
         return [
             'count' => $row ? (int)$row['c'] : 0,

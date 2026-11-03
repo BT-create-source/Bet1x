@@ -19,7 +19,7 @@
  * USAGE
  *   php php-backend/tools/make-production-env.php \
  *       --domain=https://yourdomain.com \
- *       --db-name=cpaneluser_bet1x --db-user=cpaneluser_bet1x --db-pass='...' \
+ *       --db-name=cpaneluser_bet1x --db-user=cpaneluser_bet1x --db-pass='...'  *       [--db-driver=mysql|pgsql] [--db-host=...] [--db-port=...] \
  *       [--admin-pass='...'] [--superadmin-pass='...'] [--out=/path/to/.env.production]
  *
  * Passwords are generated for you when omitted. They are printed exactly once — save them to a
@@ -87,11 +87,18 @@ $dbName = (string) arg('db-name', '');
 $dbUser = (string) arg('db-user', '');
 $dbPass = (string) arg('db-pass', '');
 if ($dbName === '' || $dbUser === '') {
-    fail('--db-name and --db-user are required (create them in cPanel -> PostgreSQL Databases first).');
+    fail('--db-name and --db-user are required (create them in cPanel -> MySQL Databases or PostgreSQL Databases first).');
 }
 
-$dbHost = (string) arg('db-host', '127.0.0.1');
-$dbPort = (string) arg('db-port', '5432');
+// mysql for hosts whose cPanel offers only MySQL (import sql/schema-mysql.sql); pgsql otherwise.
+$dbDriver = strtolower((string) arg('db-driver', 'pgsql'));
+if ($dbDriver === 'postgres' || $dbDriver === 'postgresql') $dbDriver = 'pgsql';
+if ($dbDriver === 'mariadb') $dbDriver = 'mysql';
+if ($dbDriver !== 'pgsql' && $dbDriver !== 'mysql') fail('--db-driver must be mysql or pgsql.');
+$dbHost = (string) arg('db-host', $dbDriver === 'mysql' ? 'localhost' : '127.0.0.1');
+$dbPort = (string) arg('db-port', $dbDriver === 'mysql' ? '3306' : '5432');
+$dumpName = $dbDriver === 'mysql' ? 'mysqldump' : 'pg_dump';
+$dumpVar  = $dbDriver === 'mysql' ? 'MYSQLDUMP_PATH=/usr/bin/mysqldump' : 'PG_DUMP_PATH=/usr/bin/pg_dump';
 
 // ---------------------------------------------------------------------------------------------
 // Secrets
@@ -161,13 +168,14 @@ SUPERADMIN_USERNAME=superadmin
 SUPERADMIN_PASSWORD_HASH={$superadminHash}
 
 # --- Database ------------------------------------------------------------------------------------
+DB_DRIVER={$dbDriver}
 DB_HOST={$dbHost}
 DB_PORT={$dbPort}
 DB_NAME={$dbName}
 DB_USER={$dbUser}
 DB_PASS={$dbPass}
 
-# The flat-file fallback must stay off in production. If Postgres is unreachable the correct
+# The flat-file fallback must stay off in production. If the database is unreachable the correct
 # behaviour is a loud failure, not a silent switch to a second source of truth for balances that
 # nothing backs up and that never reconciles with the database when it returns.
 ALLOW_JSON_FALLBACK=false
@@ -255,12 +263,12 @@ APP_TIMEZONE=Asia/Kolkata
 # so nothing else surfaces it: idle colour rounds stop settling and Aviator freezes mid-phase.
 CRON_STALE_SECONDS=300
 
-# Nightly pg_dump (php-backend/cron/backup.php). BACKUP_DIR must sit OUTSIDE the document root —
+# Nightly {$dumpName} (php-backend/cron/backup.php). BACKUP_DIR must sit OUTSIDE the document root —
 # these files contain every password hash on the platform.
 BACKUP_DIR=/home/CPANELUSER/backups
 BACKUP_KEEP_DAYS=14
-# Set if pg_dump is not on cron's PATH, which is common on shared hosting:
-# PG_DUMP_PATH=/usr/bin/pg_dump
+# Set if {$dumpName} is not on cron's PATH, which is common on shared hosting:
+# {$dumpVar}
 
 # DISABLE_RATE_LIMITS is intentionally absent. Setting it at all in production is a boot failure.
 

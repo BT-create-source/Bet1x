@@ -207,10 +207,27 @@ if ($IS_PRODUCTION) {
 // DATABASE_URL keeps the same name and URL shape the Node build used (postgresql://). Discrete
 // DB_* variables are also accepted because cPanel's own PostgreSQL database wizard hands those
 // out separately.
+//
+// DB_DRIVER picks the engine: 'pgsql' (the default) or 'mysql' (MySQL 8 / MariaDB 10.3+, for hosts
+// such as GoDaddy whose cPanel only offers MySQL). Left unset, it follows a mysql:// DATABASE_URL or
+// DB_PORT=3306. The two schemas are sql/schema-postgres.sql (+ migrations) and sql/schema-mysql.sql.
 $DATABASE_URL = (string) env_get('DATABASE_URL', '');
+$DB_DRIVER = strtolower(trim((string) env_get('DB_DRIVER', '')));
+if ($DB_DRIVER === '') {
+    if (preg_match('#^(mysql|mariadb)://#i', $DATABASE_URL)) $DB_DRIVER = 'mysql';
+    elseif ((string) env_get('DB_PORT', '') === '3306') $DB_DRIVER = 'mysql';
+    else $DB_DRIVER = 'pgsql';
+}
+if (in_array($DB_DRIVER, ['postgres', 'postgresql', 'pg'], true)) $DB_DRIVER = 'pgsql';
+if ($DB_DRIVER === 'mariadb') $DB_DRIVER = 'mysql';
+if ($DB_DRIVER !== 'pgsql' && $DB_DRIVER !== 'mysql') {
+    $fatal[] = 'DB_DRIVER must be "pgsql" or "mysql" (got "' . $DB_DRIVER . '").';
+    $DB_DRIVER = 'pgsql';
+}
 $DB = [
-    'host' => (string) env_get('DB_HOST', '127.0.0.1'),
-    'port' => (int) env_num('DB_PORT', 5432),
+    'driver' => $DB_DRIVER,
+    'host' => (string) env_get('DB_HOST', $DB_DRIVER === 'mysql' ? 'localhost' : '127.0.0.1'),
+    'port' => (int) env_num('DB_PORT', $DB_DRIVER === 'mysql' ? 3306 : 5432),
     'name' => (string) env_get('DB_NAME', ''),
     'user' => (string) env_get('DB_USER', ''),
     'pass' => (string) env_get('DB_PASS', ''),

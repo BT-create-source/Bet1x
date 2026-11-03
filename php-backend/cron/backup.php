@@ -55,13 +55,42 @@ if (!is_dir($backupDir)) {
 $stamp  = date('Y-m-d-Hi');
 $target = rtrim($backupDir, '/\\') . "/bet1x-{$stamp}.sql.gz";
 
-// --- Locate pg_dump ---------------------------------------------------------------------------------
+$isMysql = ($db['driver'] ?? 'pgsql') === 'mysql';
+
+// --- Locate the dump tool -------------------------------------------------------------------------
 // Shared hosts put it in varying places and often do not have it on PATH for cron.
-$dumpBin = (string) env_get('PG_DUMP_PATH', '');
+$dumpBin = (string) env_get($isMysql ? 'MYSQLDUMP_PATH' : 'PG_DUMP_PATH', '');
 if ($dumpBin === '') {
-    foreach (['/usr/bin/pg_dump', '/usr/local/bin/pg_dump', '/usr/local/pgsql/bin/pg_dump', 'pg_dump'] as $candidate) {
-        if ($candidate === 'pg_dump' || is_executable($candidate)) { $dumpBin = $candidate; break; }
+    $candidates = $isMysql
+        ? ['/usr/bin/mysqldump', '/usr/local/bin/mysqldump', '/usr/bin/mariadb-dump', 'mysqldump']
+        : ['/usr/bin/pg_dump', '/usr/local/bin/pg_dump', '/usr/local/pgsql/bin/pg_dump', 'pg_dump'];
+    foreach ($candidates as $candidate) {
+        if ($candidate === 'pg_dump' || $candidate === 'mysqldump' || is_executable($candidate)) { $dumpBin = $candidate; break; }
     }
+}
+
+if ($isMysql) {
+    // --- MySQL: credentials via a temp option file (--defaults-extra-file), never on the command
+    // line, for the same `ps` reason as the .pgpass file below.
+    $cnf = tempnam(sys_get_temp_dir(), 'bet1xdb');
+    if ($cnf === false) {
+        log_error('backup: cannot create temporary credentials file');
+        exit(1);
+    }
+    @chmod($cnf, 0600);
+    $optq = function ($v) { return '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], (string) $v) . '"'; };
+    file_put_contents($cnf, "[client]\nuser=" . $optq($db['user']) . "\npassword=" . $optq($db['pass'])
+        . "\nhost=" . $optq($db['host']) . "\nport=" . (int) $db['port'] . "\n");
+    $cmd = escapeshellarg($dumpBin)
+         . ' --defaults-extra-file=' . escapeshellarg($cnf)
+         // single-transaction gives a consistent snapshot without locking players out mid-bet.
+         . ' --single-transaction --quick --routines --triggers --no-tablespaces --default-character-set=utf8mb4 '
+         . escapeshellarg($db['name'])
+         . ' | gzip -9 > ' . escapeshellarg($target);
+    $startedAt = microtime(true);
+    exec($cmd . ' 2>&1', $output, $exitCode);
+    @unlink($cnf);
+    goto verify;
 }
 
 // --- Credentials via a temp .pgpass file, never on the command line ---------------------------------
@@ -99,6 +128,7 @@ exec($cmd . ' 2>&1', $output, $exitCode);
 @unlink($cnf);
 putenv('PGPASSFILE');
 
+verify:
 $durationMs = (int) round((microtime(true) - $startedAt) * 1000);
 $size = is_file($target) ? (int) filesize($target) : 0;
 

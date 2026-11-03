@@ -96,7 +96,8 @@ function wipe() {
     $ids = array_map(function ($r) { return (int) $r['id']; }, all('SELECT "id" FROM "SubAdmin" WHERE "username" LIKE ?', ['satest%']));
     $uids = array_map(function ($r) { return (int) $r['id']; }, all('SELECT "id" FROM "User" WHERE "username" LIKE ?', ['satest%']));
     tx(function () use ($ids, $uids) {
-        q("SET LOCAL bet1x.allow_ledger_delete = 'on'");
+        if (db_is_mysql()) q("SET @bet1x_allow_ledger_delete = 'on'");
+        else q("SET LOCAL bet1x.allow_ledger_delete = 'on'");
         if ($ids) {
             $in = implode(',', $ids);
             foreach (['SubAdminLedger', 'SubAdminCash', 'SubAdminEvent', 'SubAdminWithdrawal', 'SubAdminDeposit', 'SubAdminAllocation', 'SubAdminUser'] as $t) {
@@ -105,6 +106,7 @@ function wipe() {
             q('DELETE FROM "SubAdmin" WHERE "id" IN (' . $in . ')');
         }
         if ($uids) q('DELETE FROM "SubAdminUser" WHERE "user_id" IN (' . implode(',', $uids) . ')');
+        if (db_is_mysql()) q('SET @bet1x_allow_ledger_delete = NULL');
     });
     foreach (['Withdrawal' => 'username', 'Deposit' => 'username', 'Transaction' => 'user', 'MinesSession' => 'username', 'User' => 'username'] as $t => $col) {
         try { q('DELETE FROM "' . $t . '" WHERE "' . $col . '" LIKE ?', ['satest%']); } catch (Throwable $e) {}

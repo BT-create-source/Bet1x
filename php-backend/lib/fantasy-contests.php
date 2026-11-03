@@ -374,9 +374,11 @@ function fantasy_my_entries($userId, $matchId = null) {
 /** Is this PDO error a unique-constraint violation? */
 function fantasy_is_unique_violation(Throwable $e) {
     if ($e instanceof PDOException) {
-        // 23505 is PostgreSQL's unique_violation; 23000/1062 is MySQL's.
+        // 23505 is PostgreSQL's unique_violation. MySQL reports 23000 for EVERY integrity error
+        // (foreign key, NOT NULL too), so there only its own error number 1062 counts.
         $sqlState = isset($e->errorInfo[0]) ? (string) $e->errorInfo[0] : (string) $e->getCode();
-        if ($sqlState === '23505' || $sqlState === '23000') return true;
+        if ($sqlState === '23505') return true;
+        if ($sqlState === '23000' && isset($e->errorInfo[1]) && (int) $e->errorInfo[1] === 1062) return true;
     }
     $m = strtolower($e->getMessage());
     return strpos($m, 'duplicate key') !== false || strpos($m, 'unique constraint') !== false

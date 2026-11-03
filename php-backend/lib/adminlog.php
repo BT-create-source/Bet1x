@@ -24,7 +24,10 @@ function admin_log_ensure() {
     static $done = false;
     if ($done) return true;
     try {
-        if ((int) state_get('admin_log_schema_version') < 16) {
+        if (db_is_mysql()) {
+            // Built by sql/schema-mysql.sql; this only confirms it is there.
+            q('SELECT 1 FROM "AdminLog" LIMIT 1');
+        } elseif ((int) state_get('admin_log_schema_version') < 16) {
             q('CREATE TABLE IF NOT EXISTS "AdminLog" (
                 "id"         SERIAL PRIMARY KEY,
                 "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),

@@ -255,7 +255,7 @@ function map_game_bet($r) {
  *
  * LOWER() on both sides rather than relying on a case-insensitive column collation, because the
  * columns are deliberately utf8mb4_bin so that uniqueness stays case-SENSITIVE the way PostgreSQL's
- * default collation made it. See the note at the top of sql/schema.sql.
+ * default collation made it. See the note at the top of sql/schema-mysql.sql.
  */
 function find_user_ci($username) {
     if (!is_string($username) || $username === '') return null;
@@ -291,6 +291,8 @@ function ensure_user_identity_indexes() {
     if ($done) return;
     try {
         if ((int) state_get('user_identity_schema_version') >= 15) { $done = true; return; }
+        // MySQL: sql/schema-mysql.sql already builds these as unique generated columns.
+        if (db_is_mysql()) { $done = true; return; }
         q('CREATE UNIQUE INDEX IF NOT EXISTS "User_username_lower_key" ON "User" (LOWER("username"))');
         q('CREATE UNIQUE INDEX IF NOT EXISTS "User_email_lower_key" ON "User" (LOWER("email"))
            WHERE "email" IS NOT NULL AND "email" <> \'\'');
@@ -317,10 +319,16 @@ function is_placeholder_email(array $user) {
     return false;
 }
 
-/** True if a database error is a unique-constraint violation (Postgres SQLSTATE 23505). */
+/**
+ * True if a database error is a unique-constraint violation: Postgres SQLSTATE 23505, or MySQL
+ * error 1062 (MySQL reports SQLSTATE 23000 for every integrity error, so its own code is the test).
+ */
 function is_unique_violation(Throwable $e) {
-    return ($e instanceof PDOException && (string) $e->getCode() === '23505')
-        || strpos($e->getMessage(), '23505') !== false;
+    if ($e instanceof PDOException) {
+        if ((string) $e->getCode() === '23505') return true;
+        if (isset($e->errorInfo[1]) && (int) $e->errorInfo[1] === 1062) return true;
+    }
+    return strpos($e->getMessage(), '23505') !== false || strpos($e->getMessage(), '1062 Duplicate entry') !== false;
 }
 
 function get_or_create_user($username, $allowCreate = null) {

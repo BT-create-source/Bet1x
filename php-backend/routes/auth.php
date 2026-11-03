@@ -72,7 +72,7 @@ function register_auth_routes(Router $app) {
         $res->status($ready ? 200 : 503)->json([
             'ready'         => $ready,
             'database'      => $dbOk ? 'connected' : 'unavailable',
-            'store'         => $dbOk ? 'postgres' : (json_fallback_allowed() ? 'json-fallback' : 'none'),
+            'store'         => $dbOk ? (db_is_mysql() ? 'mysql' : 'postgres') : (json_fallback_allowed() ? 'json-fallback' : 'none'),
             'cron'          => $cronAgeSec === null ? 'never-run' : ($cronOk ? 'ok' : 'stale'),
             'cron_age_sec'  => $cronAgeSec,
             'env'           => cfg('NODE_ENV'),

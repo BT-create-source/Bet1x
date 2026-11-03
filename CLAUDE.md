@@ -73,6 +73,15 @@ for Admin/Super Admin). Sub-admin tokens (role `subadmin`) live in `$req->subadm
 `admin.html` (Sub-Admins tab) and the super admin page; shared rendering in `assets/js/subadmin-common.js`,
 styles `assets/css/subadmin.css`. Migration 018 (self-applying); tests `php-backend/test_subadmin.php`; DEPLOY.md §16.
 
+**Database engine (PHP backend)**: one codebase runs on PostgreSQL or MySQL 8/MariaDB, picked by
+`DB_DRIVER` in `php-backend/.env` (`pgsql` default, `mysql` for MySQL-only hosts like GoDaddy). SQL is
+written once in Postgres dialect with "quoted" identifiers; `lib/db.php` sets MySQL sessions to
+ANSI_QUOTES/PIPES_AS_CONCAT/READ COMMITTED/UTC/found-rows and `db_mysql_sql()` rewrites `ON CONFLICT`,
+`IS NOT DISTINCT FROM` and `CAST(… AS integer|numeric)`. Never write `RETURNING`, `INTERVAL '…'` or
+`pg_advisory_*` directly — use `lastInsertId()`, `sql_ago()` and `db_xact_lock()`. MySQL schema is the
+single file `sql/schema-mysql.sql` (+ optional `schema-mysql-protect.sql`); keep it in step with every
+new `migration-0XX-postgres.sql`.
+
 The `README.md` describes an earlier "pitch demo, no backend" mode (pure HTML/CSS/JS with localStorage);
 the repo has since grown a real backend, so treat the README's "no backend" framing as historical/optional
 rather than how the app currently runs.

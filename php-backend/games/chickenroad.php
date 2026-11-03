@@ -332,6 +332,6 @@ function cr_live_feed() {
         return ['player' => $masked, 'amount' => (float) $r['amount']];
     }, $rows);
     $online = (int) scalar('SELECT COUNT(*) FROM "ChickenRoadSession"
-                            WHERE "updated_at" > CURRENT_TIMESTAMP(3) - INTERVAL \'5 minutes\'', [], 0);
+                            WHERE "updated_at" > ?', [sql_ago(300)], 0);
     return ['wins' => $wins, 'online' => $online];
 }
