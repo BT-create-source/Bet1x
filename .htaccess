@@ -60,11 +60,14 @@ DirectoryIndex index.html
     RewriteCond %{ENV:REDIRECT_STATUS} ^$
     RewriteRule ^(CLAUDE|README|DEPLOYMENT|SECURITY)\.md$ - [F,L]
 
-    # --- Optional: force HTTPS for static files too. -----------------------------------------------
-    # The API enforces this itself via FORCE_HTTPS. Uncomment once a certificate is installed.
-    # RewriteCond %{HTTPS} off
-    # RewriteCond %{HTTP:X-Forwarded-Proto} !https
-    # RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=308,L]
+    # --- Force HTTPS for pages and static files too. -------------------------------------------------
+    # The API enforces this itself via FORCE_HTTPS. Comment these out again if the certificate is
+    # ever removed. /.well-known/ stays reachable over plain HTTP so certificate validation (ZeroSSL
+    # file upload, AutoSSL) keeps working at renewal time.
+    RewriteCond %{HTTPS} off
+    RewriteCond %{HTTP:X-Forwarded-Proto} !https
+    RewriteCond %{REQUEST_URI} !^/\.well-known/
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
 </IfModule>
 
 # --- 3. Static response headers, matching what express.static sent --------------------------------
