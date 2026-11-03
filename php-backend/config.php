@@ -313,6 +313,12 @@ $TEENPATTI_COMMISSION_PCT = max(0.0, min(20.0, (float) env_num('TEENPATTI_COMMIS
 // loose enough not to page on a single slow tick, tight enough to catch a genuinely dead cron
 // while games are still recoverable. Set to 0 to disable the check.
 $CRON_STALE_SECONDS = (int) env_num('CRON_STALE_SECONDS', 300);
+// Optional: enables GET/POST /api/cron/tick (routes/cron.php) for hosts whose cron jobs do not run.
+// Empty = that URL does not exist. It is a password: long and random, never reused.
+$CRON_HTTP_KEY = (string) env_get('CRON_HTTP_KEY', '');
+if ($CRON_HTTP_KEY !== '' && strlen($CRON_HTTP_KEY) < 32) {
+    $fatal[] = 'CRON_HTTP_KEY must be at least 32 random characters (or left empty to disable /api/cron/tick).';
+}
 
 // --- Risk controls (php-backend/lib/riskcontrols.php) ---
 // Registration carries no email confirmation and no KYC, and phone verification is off unless
@@ -456,6 +462,7 @@ $CONFIG = [
     'TEENPATTI_AUTO_BOT_FILL'  => $TEENPATTI_AUTO_BOT_FILL,
     'TEENPATTI_COMMISSION_PCT' => $TEENPATTI_COMMISSION_PCT,
     'CRON_STALE_SECONDS'         => $CRON_STALE_SECONDS,
+    'CRON_HTTP_KEY'              => $CRON_HTTP_KEY,
     'SIGNUP_MAX_PER_IP_PER_DAY'  => $SIGNUP_MAX_PER_IP_PER_DAY,
     'WITHDRAWAL_DAILY_MAX'       => $WITHDRAWAL_DAILY_MAX,
     'WITHDRAWAL_DAILY_COUNT_MAX' => $WITHDRAWAL_DAILY_COUNT_MAX,

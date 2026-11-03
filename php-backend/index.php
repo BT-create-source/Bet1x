@@ -90,6 +90,7 @@ require_once __DIR__ . '/routes/astronaut.php';
 require_once __DIR__ . '/routes/towerrush.php';
 require_once __DIR__ . '/routes/subadmin.php';
 require_once __DIR__ . '/routes/legacy.php';
+require_once __DIR__ . '/routes/cron.php';
 
 // -------------------------------------------------------------------------------------------------
 // Request / response
@@ -117,6 +118,9 @@ try {
 
         // 1. Health, readiness, auth  (registers the /api/db/users/{status,login,signup} aliases)
         register_auth_routes($app);
+        // 1a. The background tick over HTTP, for hosts whose cron does not run. Exists only when
+        //     CRON_HTTP_KEY is set, and answers only to that key.
+        register_cron_routes($app);
         // 1b. Phone verification for signup. Public by necessity — the caller has no account yet —
         //     and rate limited accordingly. Registered here so it sits outside the /api/db gate.
         register_otp_routes($app);

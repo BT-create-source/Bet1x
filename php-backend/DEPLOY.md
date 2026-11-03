@@ -292,6 +292,22 @@ Patti lobby never fills, a colour round that ends with nobody watching does not 
 next visitor arrives, and Aviator sits in whatever phase it was in when the last player left. The
 cron runs exactly the same functions those requests would have, so an unattended site keeps running.
 
+### If the host's cron never runs (seen on GoDaddy)
+
+Some plans accept cron jobs in cPanel but never execute them (no log file appears even with
+output redirected to one). Use an outside scheduler instead:
+
+1. Add a long random key to `php-backend/.env`: `CRON_HTTP_KEY=` + 48 hex characters
+   (`php -r "echo bin2hex(random_bytes(24));"`). Without it the URL below does not exist.
+2. At a free scheduler (cron-job.org, UptimeRobot), add a job every **1 minute** opening
+   `https://SITE/api/cron/tick?key=THAT_KEY` (or send the key as an `X-Cron-Key` header).
+3. `/api/ready` should show `"cron":"ok"` within a minute or two.
+
+It runs `cron_main_tick()` (`lib/cron.php`), the same function as `cron/tick.php`, under the same
+overlap lock, so leaving a host cron in place as well can never double a tick. A leaked key lets
+someone run the tick more often than once a minute and nothing else; change it in `.env` to revoke.
+Cricket's `cricket-tick.php` is not covered by this URL — needed only once cricket is switched on.
+
 ### Detecting a dead cron
 
 Because none of the above breaks page loads, a stopped cron is otherwise silent — you would find out

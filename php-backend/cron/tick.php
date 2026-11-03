@@ -53,51 +53,12 @@ require_once __DIR__ . '/../games/teenpatti.php';
 require_once __DIR__ . '/../games/mines.php';
 require_once __DIR__ . '/../games/astronaut.php';
 
-$startedAt = microtime(true);
+require_once __DIR__ . '/../lib/cron.php';
 
 if (!db_ready()) {
     log_error('cron: database unreachable, tick skipped');
     exit(1);
 }
 
-with_named_lock('cron_tick', 5, function () {
-    // 1. Aviator — advance the phase machine (waiting -> running -> crashed -> waiting).
-    try { aviator_tick(); }
-    catch (Throwable $e) { log_error('cron: aviator tick failed', ['message' => $e->getMessage()]); }
-
-    // 2. Colour Prediction — settle any round that ended while nobody was polling.
-    // Settles an Astronaut round nobody is watching, so auto cash-outs and losses never sit open.
-    try { astro_tick(); }
-    catch (Throwable $e) { log_error('cron: astronaut tick failed', ['message' => $e->getMessage()]); }
-
-    try { color_advance_all_rooms(); }
-    catch (Throwable $e) { log_error('cron: colour settlement failed', ['message' => $e->getMessage()]); }
-
-    // 3. Teen Patti — turn timeouts, stuck tables, presence eviction, filler turns, post-hand
-    //    resets, and the organic traffic engine that keeps idle rooms looking alive.
-    try { tp_sweep(); }
-    catch (Throwable $e) { log_error('cron: teen patti sweep failed', ['message' => $e->getMessage()]); }
-
-    // 4. Housekeeping for the tables that replaced in-memory state.
-    try { live_presence_sweep(); }  catch (Throwable $e) {}
-    try { rate_limit_sweep(); }     catch (Throwable $e) {}
-    try { rig_trim(); }             catch (Throwable $e) {}
-});
-
-$durationMs = (int) round((microtime(true) - $startedAt) * 1000);
-
-// Heartbeat. Written only on a run that reached the end, so it records "the tick actually
-// completed", not merely "the file was invoked".
-//
-// This is what makes a dead cron detectable. Without it a stopped cron is silent: the site keeps
-// serving pages, but an idle colour round never settles and an Aviator flight sits in whatever
-// phase it was in when the last player left. /api/ready compares this timestamp to now and reports
-// the deployment as not-ready once it goes stale, which is the signal an uptime monitor can alert
-// on. See CRON_STALE_SECONDS in config.
-try {
-    state_set('cron_last_run', ['at' => now_ms(), 'duration_ms' => $durationMs]);
-} catch (Throwable $e) {
-    log_error('cron: could not record heartbeat', ['message' => $e->getMessage()]);
-}
-
-log_debug('cron: tick complete', ['ms' => $durationMs]);
+// The work, the overlap lock and the heartbeat live in lib/cron.php, shared with /api/cron/tick.
+cron_main_tick();
