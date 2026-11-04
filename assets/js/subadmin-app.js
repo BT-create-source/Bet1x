@@ -358,7 +358,9 @@
   function viewUser(id) {
     var body = K.openModal({ title: 'User details', wide: true, html: '<div class="sa-loading">Loading…</div>' });
     api('/api/subadmin/users/' + encodeURIComponent(id)).then(function (d) {
-      body.innerHTML = '<div class="sa-actions" style="margin-bottom:12px;"><button type="button" class="sa-btn primary" data-act="user-deposit" data-id="' + esc(d.user.id) + '">Record deposit</button></div>' + K.userDetailHtml(d);
+      body.innerHTML = '<div class="sa-actions" style="margin-bottom:12px;">' +
+        '<button type="button" class="sa-btn good" data-act="user-deposit" data-id="' + esc(d.user.id) + '">Deposit</button>' +
+        '<button type="button" class="sa-btn bad" data-act="user-withdraw" data-id="' + esc(d.user.id) + '">Withdraw</button></div>' + K.userDetailHtml(d);
     }).catch(function (err) { body.innerHTML = '<div class="sa-error">' + esc(err.message) + '</div>'; });
   }
 
@@ -399,6 +401,48 @@
           return post('/api/subadmin/deposits', body).then(function (d) {
             S.users = null;
             done(d.replayed ? 'That deposit was already saved.' : (stage === 'confirmed' ? 'Deposit confirmed — ' + coins(d.deposit.coins) + ' coins credited to ' + d.deposit.username + '.' : 'Deposit saved.'));
+          });
+        }
+      });
+    }).catch(function (err) { K.toast(err.message, 'error'); });
+  }
+
+  // Counter cash-out: the player hands back coins and is paid on the spot, in one step.
+  function newWithdrawal(userId) {
+    ensureUsers().then(function (users) {
+      var u = null;
+      users.forEach(function (x) { if (String(x.id) === String(userId)) u = x; });
+      if (!u) { K.toast('User not found among your users.', 'error'); return; }
+      var key = K.newKey(), bal = Number(u.wallet_balance) || 0;
+      if (bal < 1) { K.toast(u.username + ' has no coins to withdraw.', 'error'); return; }
+      K.formModal({
+        title: 'Withdraw for ' + u.username,
+        sub: u.username + ' has ' + coins(bal) + ' coins. The coins leave their balance now; only save once you have paid them.',
+        submitLabel: 'Withdraw and mark paid',
+        html: '<div class="sa-form">' +
+          K.field('coins', 'Coins to withdraw', K.input('coins', 'number', 'required min="1" step="1" max="' + esc(Math.floor(bal)) + '" inputmode="decimal"'), 'Up to ' + coins(bal) + '.') +
+          K.field('amount_paid', 'Amount paid (₹)', K.input('amount_paid', 'number', 'required min="0.01" step="0.01" inputmode="decimal"'), 'Filled in at ' + inr(S.rate) + ' per coin; change it if you agreed a different amount.') +
+          K.field('method', 'Paid by', K.methodSelect('method', S.methods, 'Cash')) +
+          K.field('reference', 'Payment reference (optional)', K.input('reference', 'text', 'maxlength="64" placeholder="UPI UTR / receipt no."')) +
+          K.field('notes', 'Notes (optional)', '<textarea id="saf_notes" name="notes" maxlength="300"></textarea>', '', true) +
+          '<div class="sa-field wide"><label class="sa-check"><input type="checkbox" name="confirm" value="1"> I confirm I have paid ' + esc(u.username) + ' this amount.</label></div></div>',
+        onOpen: function (form) {
+          var touched = false;
+          form.elements.amount_paid.addEventListener('input', function () { touched = true; });
+          form.elements.coins.addEventListener('input', function () {
+            if (!touched) { var c = parseFloat(this.value); form.elements.amount_paid.value = isFinite(c) ? Math.round(c * S.rate * 100) / 100 : ''; }
+          });
+        },
+        onSubmit: function (form) {
+          if (!form.elements.confirm.checked) throw new Error('Tick the box to confirm you have paid the player.');
+          return post('/api/subadmin/withdrawals', {
+            user_id: u.id, coins: form.elements.coins.value, amount_paid: form.elements.amount_paid.value,
+            method: form.elements.method.value, reference: form.elements.reference.value.trim(), notes: form.elements.notes.value.trim(),
+            confirm: true, idempotency_key: key,
+          }).then(function (r) {
+            S.users = null;
+            if (r.coin_balance !== undefined && r.coin_balance !== null) setInventory(r.coin_balance);
+            done(r.replayed ? 'That withdrawal was already saved.' : 'Withdrawn — ' + coins(r.withdrawal.coins) + ' coins from ' + r.withdrawal.username + ', paid ' + inr(r.withdrawal.paid_amount) + '.');
           });
         }
       });
@@ -524,6 +568,7 @@
       case 'new-user': return newUser();
       case 'user-view': return viewUser(id);
       case 'user-deposit': K.closeModal(); return newDeposit(id);
+      case 'user-withdraw': K.closeModal(); return newWithdrawal(id);
       case 'new-deposit': return newDeposit(null);
       case 'dep-payment': return depositPayment(id);
       case 'dep-confirm': return depositConfirm(id);

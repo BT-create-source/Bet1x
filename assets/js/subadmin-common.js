@@ -403,10 +403,16 @@
   function usersHtml(list, opts) {
     opts = opts || {};
     var rows = (list || []).map(function (u) {
-      var acts = btn('user-view', u.id, 'View');
-      if (opts.subadmin) acts = btn('user-deposit', u.id, 'Record deposit', 'good') + acts;
+      // A sub-admin gets Deposit / Withdraw; the player's name opens their details. The Admin's
+      // console keeps View (and Remove).
+      var acts = opts.subadmin
+        ? btn('user-deposit', u.id, 'Deposit', 'good') + btn('user-withdraw', u.id, 'Withdraw', 'bad')
+        : btn('user-view', u.id, 'View');
       if (opts.admin) acts += btn('user-unassign', u.id, 'Remove', 'bad', ' data-name="' + esc(u.username) + '"');
-      return '<tr data-user-row="' + esc(String(u.username).toLowerCase() + ' ' + String(u.email || '').toLowerCase()) + '"><td><b>' + esc(u.username) + '</b><div class="sa-who">' + esc(u.email || '') + '</div></td>' +
+      var name = opts.subadmin
+        ? '<button type="button" class="sa-btn link" data-act="user-view" data-id="' + esc(u.id) + '" title="View details">' + esc(u.username) + '</button>'
+        : '<b>' + esc(u.username) + '</b>';
+      return '<tr data-user-row="' + esc(String(u.username).toLowerCase() + ' ' + String(u.email || '').toLowerCase()) + '"><td>' + name + '<div class="sa-who">' + esc(u.email || '') + '</div></td>' +
         '<td class="num sa-num">' + coins(u.wallet_balance) + '</td><td class="num sa-num">' + coins(u.coins_bought) + '<div class="sa-who">' + esc(u.deposits) + ' deposits</div></td>' +
         '<td class="num sa-num">' + coins(u.coins_withdrawn) + (u.open_withdrawals ? '<div class="sa-who sa-warn">' + esc(u.open_withdrawals) + ' open</div>' : '') + '</td>' +
         '<td class="num sa-num">' + coins(u.wagered) + ' / ' + coins(u.won) + '<div class="sa-who">' + esc(u.bets) + ' bets</div></td>' +

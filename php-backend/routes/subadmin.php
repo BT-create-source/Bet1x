@@ -206,6 +206,13 @@ function register_subadmin_routes(Router $app) {
         });
     });
 
+    // Counter cash-out started by the sub-admin for one of their users (the "Withdraw" button).
+    $app->post('/api/subadmin/withdrawals', limiter('wallet'), 'require_subadmin_ready', function (Req $req, Res $res) {
+        sa_handle($res, function () use ($req) {
+            return sa_user_cashout($req->subadmin['id'], (array) $req->body, sa_actor($req));
+        });
+    });
+
     $app->post('/api/subadmin/withdrawals/:id/approve', limiter('wallet'), 'require_subadmin_ready', function (Req $req, Res $res) {
         sa_handle($res, function () use ($req) {
             return sa_withdrawal_approve(sa_path_ref($req, 'id'), $req->subadmin['id'], sa_actor($req));

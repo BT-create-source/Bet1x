@@ -1251,6 +1251,66 @@ function sa_withdrawal_paid($withdrawalId, $subadminId, array $in, array $actor)
     });
 }
 
+/**
+ * Counter cash-out, started by the sub-admin: the player hands back coins and is paid in rupees on
+ * the spot (the "Withdraw" button on My Users). It is the player's own withdrawal flow done in one
+ * step — the same Withdrawal + Transaction rows, held exactly like a routed request, then marked
+ * paid by sa_withdrawal_paid() — so reports, the coin ledger, the player's history and the Admin's
+ * reversal all treat it like any other paid withdrawal. One transaction: either all of it happens
+ * or none of it does.
+ *
+ * $in: user_id, coins, amount_paid, method, reference, notes, confirm (must be true), idempotency_key.
+ * The withdrawal id is derived from the request key, so a double-click or a retried request finds the
+ * first cash-out instead of taking the coins twice.
+ */
+function sa_user_cashout($subadminId, array $in, array $actor) {
+    $coins = sa_amount($in['coins'] ?? null, 'Coins', 1, 10000000);
+    $notes = sa_text($in['notes'] ?? null, 300, 'Notes');
+    $key = sa_idempotency_key($in['idempotency_key'] ?? null);
+    if ($key === null) sa_fail('Missing request key — please reload the page and try again.');
+    if (!sa_bool($in['confirm'] ?? false)) sa_fail('Tick the box to confirm you have paid the player.');
+    $userId = is_numeric($in['user_id'] ?? null) ? (int) $in['user_id'] : 0;
+    $withdrawalId = 'WSA_' . strtoupper(substr(hash('sha256', (int) $subadminId . ':' . $key), 0, 20));
+
+    return tx(function () use ($subadminId, $coins, $notes, $userId, $withdrawalId, $in, $actor) {
+        sa_lock($subadminId);
+        $existing = one('SELECT * FROM "SubAdminWithdrawal" WHERE "withdrawal_id" = ?', [$withdrawalId]);
+        if ($existing) {
+            return ['withdrawal' => sa_withdrawal_view($existing), 'coin_balance' => sa_inventory($subadminId), 'replayed' => true];
+        }
+        $sa = sa_find($subadminId);
+        if (!$sa || $sa['status'] !== 'active') sa_fail('This sub-admin account is not active.', 403);
+        $user = sa_user_of($subadminId, $userId);
+
+        // Take the coins from the player. The conditional debit is what makes an over-withdrawal
+        // impossible, even against a bet placed in the same instant.
+        if (debit_wallet($user['id'], $coins) === null) {
+            sa_fail($user['username'] . ' has only ' . round2((float) $user['wallet_balance']) . ' coins.', 400, 'insufficient_balance');
+        }
+        $now = ms_to_sql();
+        $details = 'Cash-out in person with sub-admin ' . $sa['username'] . ($notes !== null && $notes !== '' ? ' — ' . $notes : '');
+        q('INSERT INTO "Withdrawal" ("withdrawal_id","username","amount","method","details","status","created_at","updated_at")
+           VALUES (?,?,?,?,?,?,?,?)',
+          [$withdrawalId, $user['username'], $coins, 'Sub-admin', $details, 'Pending', $now, $now]);
+        insert_transaction(new_record_id('WTH'), $user['username'], 'Withdrawal', $coins,
+                           'Withdrawal Request ' . $withdrawalId . ': ' . $details, 'Pending');
+        $rate = sa_rate();
+        q('INSERT INTO "SubAdminWithdrawal" ("withdrawal_id","subadmin_id","user_id","username","coins","rate","rupee_equivalent","status","created_at")
+           VALUES (?,?,?,?,?,?,?,\'Pending\',?)',
+          [$withdrawalId, (int) $subadminId, (int) $user['id'], $user['username'], $coins, $rate, round2($coins * $rate), $now]);
+        sa_ledger('withdrawal_reserved', 'user:' . (int) $user['id'], 'reserve:' . $withdrawalId, $coins, $subadminId, $actor, [
+            'rupees' => round2($coins * $rate), 'user_id' => $user['id'], 'username' => $user['username'], 'ref' => $withdrawalId,
+            'inventory_after' => sa_inventory($subadminId), 'notes' => 'Counter cash-out started by the sub-admin',
+        ]);
+        sa_event($subadminId, 'user_cashout', $actor, ['withdrawal_id' => $withdrawalId, 'coins' => $coins], $user['id'], $user['username']);
+
+        // ...and settle it exactly like any routed request the sub-admin pays (same transaction).
+        $paid = sa_withdrawal_paid($withdrawalId, $subadminId, $in, $actor);
+        $paid['replayed'] = false;
+        return $paid;
+    });
+}
+
 /** Pending/Approved -> Rejected: the held coins go back to the player. */
 function sa_withdrawal_reject($withdrawalId, $subadminId, $reason, array $actor) {
     $reason = sa_text($reason, 300, 'Reason', true, 3);

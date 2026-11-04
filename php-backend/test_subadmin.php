@@ -452,6 +452,33 @@ check($c === 200 && ($b['handled_by_subadmin'] ?? null) === null && !one('SELECT
       'a player with no sub-admin withdraws exactly as before (Admin queue)');
 [$c] = http('POST', '/api/admin.php?action=reject_withdrawal', $ADMIN, ['withdrawal_id' => $b['withdrawal_id'] ?? '']);
 check($c === 200 && near(wallet($P_OTHER['id']), 3000), 'and the Admin\'s existing Reject refunds it as before');
+// Counter cash-out: the sub-admin's own "Withdraw" button (player paid on the spot, one step).
+$w0 = wallet($U1['id']); $i0 = inv($sa1); $k = key8();
+$co = ['user_id' => $U1['id'], 'coins' => 50, 'amount_paid' => 50, 'method' => 'Cash', 'reference' => 'SATESTCO0001', 'confirm' => true, 'idempotency_key' => $k];
+[$c, $b] = http('POST', '/api/subadmin/withdrawals', $T1, $co);
+$WC = $b['withdrawal']['withdrawal_id'] ?? '';
+check($c === 200 && ($b['withdrawal']['status'] ?? '') === 'Paid' && near($b['withdrawal']['paid_amount'] ?? 0, 50) && near(wallet($U1['id']), $w0 - 50),
+      'Withdraw: 50 coins leave the player and the payout is recorded as paid, in one step (' . $c . ')');
+check(one('SELECT "status" FROM "Withdrawal" WHERE "withdrawal_id" = ?', [$WC])['status'] === 'Completed'
+      && one('SELECT "status" FROM "Transaction" WHERE "user" = ? AND "details" LIKE ?', ['satest_u1', 'Withdrawal Request ' . $WC . '%'])['status'] === 'Completed',
+      'the player\'s own withdrawal record and history show it Completed');
+check(near(inv($sa1), $i0) && one('SELECT "to_account" FROM "SubAdminLedger" WHERE "ref" = ? AND "type" = \'withdrawal_paid\'', [$WC])['to_account'] === 'admin_supply'
+      && one('SELECT 1 FROM "SubAdminLedger" WHERE "ref" = ? AND "type" = \'withdrawal_reserved\'', [$WC]),
+      'the coin ledger records it like any paid withdrawal (held, then retired to the Admin supply; inventory untouched)');
+[$c, $b] = http('POST', '/api/subadmin/withdrawals', $T1, $co);
+check($c === 200 && !empty($b['replayed']) && near(wallet($U1['id']), $w0 - 50), 'the same submission again takes nothing more');
+$w0 = wallet($U1['id']);
+$res = burst('/api/subadmin/withdrawals', $T1, ['user_id' => $U1['id'], 'coins' => 10, 'amount_paid' => 10, 'method' => 'Cash', 'confirm' => true, 'idempotency_key' => key8()]);
+check(near(wallet($U1['id']), $w0 - 10), 'eight simultaneous Withdraw clicks take the coins exactly once (wallet ' . wallet($U1['id']) . ')');
+$before = (int) scalar('SELECT COUNT(*) FROM "SubAdminWithdrawal" WHERE "subadmin_id" = ?', [$sa1]); $w0 = wallet($U1['id']);
+[$c, $b] = http('POST', '/api/subadmin/withdrawals', $T1, ['user_id' => $U1['id'], 'coins' => 999999, 'amount_paid' => 1, 'method' => 'Cash', 'confirm' => true, 'idempotency_key' => key8()]);
+check($c === 400 && ($b['code'] ?? '') === 'insufficient_balance' && near(wallet($U1['id']), $w0)
+      && (int) scalar('SELECT COUNT(*) FROM "SubAdminWithdrawal" WHERE "subadmin_id" = ?', [$sa1]) === $before,
+      'more coins than the player has: refused, nothing taken and nothing recorded');
+[$c] = http('POST', '/api/subadmin/withdrawals', $T1, ['user_id' => $U1['id'], 'coins' => 5, 'amount_paid' => 5, 'method' => 'Cash', 'idempotency_key' => key8()]);
+check($c === 400 && near(wallet($U1['id']), $w0), "Withdraw needs the 'I have paid the player' confirmation ($c)");
+[$c] = http('POST', '/api/subadmin/withdrawals', $T2, ['user_id' => $U1['id'], 'coins' => 5, 'amount_paid' => 5, 'method' => 'Cash', 'confirm' => true, 'idempotency_key' => key8()]);
+check($c === 404 && near(wallet($U1['id']), $w0), "sub-admin 2 cannot withdraw from sub-admin 1's player ($c)");
 reconciled($sa1, 'sub-admin 1 after withdrawals');
 
 // =================================================================================================
