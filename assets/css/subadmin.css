@@ -113,6 +113,15 @@
   background: var(--sa-surface-2); color: var(--sa-text); font-family: inherit; font-size: 13.5px; color-scheme: dark;
 }
 .sa-root textarea { min-height: 64px; resize: vertical; }
+/* Show/hide password eye (assets/js/subadmin-app.js addPasswordEyes) */
+.sa-pw-wrap { position: relative; display: block; width: 100%; }
+.sa-root .sa-pw-wrap input { padding-right: 44px; }
+.sa-pw-eye {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px;
+  padding: 0; margin: 0; border: 0; border-radius: 7px; background: none; color: var(--sa-dim); cursor: pointer;
+}
+.sa-pw-eye:hover { color: var(--sa-text); background: color-mix(in srgb, var(--sa-text) 8%, transparent); }
 .sa-root input:focus-visible, .sa-root select:focus-visible, .sa-root textarea:focus-visible, .sa-root button:focus-visible {
   outline: 2px solid var(--sa-accent); outline-offset: 1px;
 }

@@ -89,7 +89,47 @@
   }
   function setInventory(n) { if (n !== undefined && n !== null) { S.inv = Number(n) || 0; $('saInvChip').textContent = coins(n); } }
 
+  // ------------------------------------------------------------------------- show / hide password
+  // Every password box on this page gets a small eye button that toggles it between hidden and
+  // visible: the sign-in form, the forced first-password form and the Settings form (which is
+  // rendered later, hence the observer).
+  var EYE_OPEN = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  var EYE_SHUT = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-7 0-11-7-11-7a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 7 11 7a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>';
+  function addPasswordEyes(root) {
+    var inputs = (root || document).querySelectorAll('input[type="password"]:not([data-eye])');
+    Array.prototype.forEach.call(inputs, function (input) {
+      input.setAttribute('data-eye', '1');
+      var wrap = document.createElement('span');
+      wrap.className = 'sa-pw-wrap';
+      input.parentNode.insertBefore(wrap, input);
+      wrap.appendChild(input);
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'sa-pw-eye';
+      b.setAttribute('aria-label', 'Show password');
+      b.setAttribute('aria-pressed', 'false');
+      b.innerHTML = EYE_OPEN;
+      b.addEventListener('click', function () {
+        var show = input.type === 'password';
+        input.type = show ? 'text' : 'password';
+        b.innerHTML = show ? EYE_SHUT : EYE_OPEN;
+        b.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+        b.setAttribute('aria-pressed', show ? 'true' : 'false');
+        input.focus();
+      });
+      wrap.appendChild(b);
+      // Hide it again whenever its form is submitted, so a visible password never lingers on screen.
+      if (input.form) input.form.addEventListener('submit', function () {
+        if (input.type !== 'password') { input.type = 'password'; b.innerHTML = EYE_OPEN; b.setAttribute('aria-label', 'Show password'); b.setAttribute('aria-pressed', 'false'); }
+      });
+    });
+  }
+
   function boot() {
+    addPasswordEyes(document);
+    if (window.MutationObserver) {
+      new MutationObserver(function () { addPasswordEyes(document); }).observe(document.body, { childList: true, subtree: true });
+    }
     $('saLoginForm').addEventListener('submit', function (e) {
       e.preventDefault();
       var btn = $('saLoginBtn');
