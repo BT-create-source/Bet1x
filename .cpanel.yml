@@ -1,4 +1,17 @@
 ---
+# cPanel "Git Version Control" deployment (Manage -> Pull or Deploy -> "Deploy HEAD Commit").
+#
+# The repository is cloned OUTSIDE public_html (e.g. ~/repositories/bet1x); these tasks copy only
+# the website into public_html — the same files cpanel_deploy.zip contains. Nothing is deleted on
+# the server, and php-backend/.env is not in the repository, so the live settings are never touched.
 deployment:
   tasks:
-    - /bin/echo "Deployed."
+    - export DEPLOYPATH=$HOME/public_html
+    - /bin/cp -f *.html .htaccess $DEPLOYPATH/
+    - /bin/cp -Rf assets $DEPLOYPATH/
+    - /bin/mkdir -p $DEPLOYPATH/hen-studio
+    - /bin/cp -Rf hen-studio/src $DEPLOYPATH/hen-studio/
+    - /bin/cp -Rf php-backend $DEPLOYPATH/
+    - /bin/rm -rf $DEPLOYPATH/php-backend/tests $DEPLOYPATH/php-backend/DEPLOY.md
+    - /bin/rm -f $DEPLOYPATH/php-backend/test_*.php
+    - /bin/echo "Deployed bet1x to $DEPLOYPATH"
