@@ -17,7 +17,7 @@ $files = @(
 )
 foreach ($key in $gameKeys) {
     $files += "$key.html"
-    $files += "assets/game_$key.svg"
+    $files += "assets/game_$key.webp"
     $files += "php-backend/games/originals/$key.php"
 }
 Add-Type -AssemblyName System.IO.Compression

@@ -9,7 +9,7 @@ The PHP/cPanel application now contains Dice, Coinflip, Wheel, Plinko, Keno, Rou
 - `php-backend/routes/originals.php`: `/api/originals/*` and operator configuration endpoints.
 - `assets/js/originals.js`, `assets/css/originals.css`: shared player page framework.
 - `assets/js/admin-originals.js`: the admin dashboard's Originals tab.
-- Eleven root HTML pages, lobby covers in `assets/game_*.svg`, lobby cards and shared game drawer entries.
+- Eleven root HTML pages, generated WebP lobby covers in `assets/game_*.webp`, lobby cards and shared game drawer entries. Artwork prompts are retained in `docs/originals-thumbnail-prompts.json`.
 
 Every stake and payout is committed with its round in one database transaction. Duplicate play references replay the original round; action steps prevent duplicate hits/cash-outs. Blackjack's dealer hole card and active server seeds stay server-side. Open rounds survive reloads and retain their starting RTP and return limit. Seed hashes are available before the first bet; rotation reveals prior seeds and is blocked while any round is open.
 

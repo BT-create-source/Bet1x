@@ -1,0 +1,60 @@
+{
+  "mode": "Built-in image_gen",
+  "assets": [
+    {
+      "game": "dice",
+      "path": "assets/game_dice.webp",
+      "prompt": "Use case: stylized-concept. Asset: full-bleed landscape casino game lobby thumbnail, 3:2 composition, designed to read at 340x255 px. Premium polished 3D game cover illustration, tactile materials, dramatic cinematic lighting, rich saturated jewel colors, strong large central subject, gold rim highlights, clean professional rendering, subtle depth of field. Dark navy casino website with gold/red accents. Keep main subject centered in upper 65% with dark quiet lower 25% reserved for real HTML game name; quiet top left for a small badge. NO typography, no words, no logos, no watermark, no surrounding card frame, no UI screenshot, no blank placeholder. Two oversized glossy ivory dice with engraved ruby-red pips tumbling above a midnight-blue felt table, a few elegant gold chips around the lower sides, vivid ruby and warm gold studio lighting, crisp dramatic close-up, dynamic motion."
+    },
+    {
+      "game": "coinflip",
+      "path": "assets/game_coinflip.webp",
+      "prompt": "Use case: stylized-concept. Asset: full-bleed landscape casino game lobby thumbnail, 3:2 composition, designed to read at 340x255 px. Premium polished 3D game cover illustration, tactile materials, dramatic cinematic lighting, rich saturated jewel colors, strong large central subject, gold rim highlights, clean professional rendering, subtle depth of field. Dark navy casino website with gold/red accents. Keep main subject centered in upper 65% with dark quiet lower 25% reserved for real HTML game name; quiet top left for a small badge. NO typography, no words, no logos, no watermark, no surrounding card frame, no UI screenshot, no blank placeholder. A large beautifully minted thick gold coin caught mid-flip above a deep royal purple velvet casino table, raised starburst emblem rather than any text on its face, two smaller gold coins glinting nearby, luminous gold reflections, dynamic diagonal composition."
+    },
+    {
+      "game": "wheel",
+      "path": "assets/game_wheel.webp",
+      "prompt": "Use case: stylized-concept. Asset: full-bleed landscape casino game lobby thumbnail, 3:2 composition, designed to read at 340x255 px. Premium polished 3D game cover illustration, tactile materials, dramatic cinematic lighting, rich saturated jewel colors, strong large central subject, gold rim highlights, clean professional rendering, subtle depth of field. Dark navy casino website with gold/red accents. Keep main subject centered in upper 65% with dark quiet lower 25% reserved for real HTML game name; quiet top left for a small badge. NO typography, no words, no logos, no watermark, no surrounding card frame, no UI screenshot, no blank placeholder. A spectacular three-dimensional fortune prize wheel, thick polished gold rim, alternating jewel ruby, violet, sapphire and emerald segments, luminous gold star icons in a few segments, elegant golden pointer above the wheel, three-quarter angle, wheel fills the upper center, purple casino lighting. Not a roulette wheel."
+    },
+    {
+      "game": "plinko",
+      "path": "assets/game_plinko.webp",
+      "prompt": "Use case: stylized-concept. Asset: full-bleed landscape casino game lobby thumbnail, 3:2 composition, designed to read at 340x255 px. Premium polished 3D game cover illustration, tactile materials, cinematic dramatic lighting, rich saturated jewel colors, strong large central subject, gold rim highlights, clean professional rendering, subtle depth of field. Dark navy casino website with gold/red accents. Keep main subject centered in upper 65% with dark quiet lower 25% reserved for real HTML game name; quiet top left for a small badge. NO typography, no words, no logos, no watermark, no surrounding card frame, no UI screenshot, no blank placeholder. A luxurious triangular PLINKO board of shiny brass pegs on a deep sapphire panel, one bright ruby-red ball bouncing down the pegs with a short golden trail, jewel-colored prize slots along its base, dimensional three-quarter view, dark purple arcade casino atmosphere."
+    },
+    {
+      "game": "keno",
+      "path": "assets/game_keno.webp",
+      "prompt": "Use case: stylized-concept. Asset: full-bleed landscape casino game lobby thumbnail, 3:2 composition, designed to read at 340x255 px. Premium polished 3D game cover illustration, tactile materials, cinematic dramatic lighting, rich saturated jewel colors, strong large central subject, gold rim highlights, clean professional rendering, subtle depth of field. Dark navy casino website with gold/red accents. Keep main subject centered in upper 65% with dark quiet lower 25% reserved for real HTML game name; quiet top left for a small badge. NO typography, no words, no logos, no watermark, no surrounding card frame, no UI screenshot, no blank placeholder. A tight cluster of glossy lottery Keno balls, large ruby, emerald, sapphire and gold spheres with ivory round inset number circles displaying a few simple numbers such as 7, 21 and 35, some golden chips beneath, a softly focused dark blue number board in the background. Focus on colorful numbered balls, no dice and no roulette."
+    },
+    {
+      "game": "roulette",
+      "path": "assets/game_roulette.webp",
+      "prompt": "Use case: stylized-concept. Asset: full-bleed landscape casino game lobby thumbnail, 3:2 composition, designed to read at 340x255 px. Premium polished 3D game cover illustration, tactile materials, cinematic dramatic lighting, rich saturated jewel colors, strong large central subject, gold rim highlights, clean professional rendering, subtle depth of field. Dark navy casino website with gold/red accents. Keep main subject centered in upper 65% with dark quiet lower 25% reserved for real HTML game name; quiet top left for a small badge. NO typography, no words, no logos, no watermark, no surrounding card frame, no UI screenshot, no blank placeholder. An exquisite European roulette wheel with polished dark mahogany bowl and gold spindle, authentic alternating red and black numbered pockets with one green zero pocket, one ivory ball perched over the rim, dramatic three-quarter macro angle, ruby and emerald casino atmosphere. Physical pocket numerals allowed, no titles."
+    },
+    {
+      "game": "baccarat",
+      "path": "assets/game_baccarat.webp",
+      "prompt": "Use case: stylized-concept. Asset: full-bleed landscape casino game lobby thumbnail, 3:2 composition, designed to read at 340x255 px. Premium polished 3D game cover illustration, tactile materials, cinematic dramatic lighting, rich saturated jewel colors, strong large central subject, gold rim highlights, clean professional rendering, subtle depth of field. Dark navy casino website with gold/red accents. Keep main subject centered in upper 65% with dark quiet lower 25% reserved for real HTML game name; quiet top left for a small badge. NO typography, no words, no logos, no watermark, no surrounding card frame, no UI screenshot, no blank placeholder. A sophisticated baccarat table close-up, a pair of ivory playing cards on a deep sapphire felt table with gold edging, king of hearts and nine of spades clearly visible, neat stacks of ruby and blue casino chips framing the cards, a luxurious warm gold and cool blue casino atmosphere, crisp elegant high-end card game artwork."
+    },
+    {
+      "game": "andarbahar",
+      "path": "assets/game_andarbahar.webp",
+      "prompt": "Use case: stylized-concept. Asset: full-bleed landscape casino game lobby thumbnail, 3:2 composition, designed to read at 340x255 px. Premium polished 3D game cover illustration, tactile materials, cinematic dramatic lighting, rich saturated jewel colors, strong large central subject, gold rim highlights, clean professional rendering, subtle depth of field. Dark navy casino website with gold/red accents. Keep main subject centered in upper 65% with dark quiet lower 25% reserved for real HTML game name; quiet top left for a small badge. NO typography, no words, no logos, no watermark, no surrounding card frame, no UI screenshot, no blank placeholder. Indian Andar Bahar card-game cover: one prominent ivory joker playing card standing in the center with a beautifully drawn traditional jester illustration; two separate fanned runs of playing cards spread to its left and right on rich emerald green felt, gold and magenta casino chips at the edges, vibrant luxurious Indian casino mood. No words on the card, no title text."
+    },
+    {
+      "game": "slots",
+      "path": "assets/game_slots.webp",
+      "prompt": "Use case: stylized-concept. Asset: full-bleed landscape casino game lobby thumbnail, 3:2 composition, designed to read at 340x255 px. Premium polished 3D game cover illustration, tactile materials, cinematic dramatic lighting, rich saturated jewel colors, strong large central subject, gold rim highlights, clean professional rendering, subtle depth of field. Dark navy casino website with gold/red accents. Keep main subject centered in upper 65% with dark quiet lower 25% reserved for real HTML game name; quiet top left for a small badge. NO typography, no words, no logos, no watermark, no surrounding card frame, no UI screenshot, no blank placeholder. A sumptuous classic three-reel slot machine in gleaming sculpted gold with ruby-red trim, three large bright red sevens lined up on ivory reels, a shiny red lever ball, a few gold coins cascading at the sides, deep purple casino backdrop, iconic close-up readable at small size. Only the three physical reel numerals 7 7 7, no other lettering."
+    },
+    {
+      "game": "blackjack",
+      "path": "assets/game_blackjack.webp",
+      "prompt": "Use case: stylized-concept. Asset: full-bleed landscape casino game lobby thumbnail, 3:2 composition, designed to read at 340x255 px. Premium polished 3D game cover illustration, tactile materials, cinematic dramatic lighting, rich saturated jewel colors, strong large central subject, gold rim highlights, clean professional rendering, subtle depth of field. Dark navy casino website with gold/red accents. Keep main subject centered in upper 65% with dark quiet lower 25% reserved for real HTML game name; quiet top left for a small badge. NO typography, no words, no logos, no watermark, no surrounding card frame, no UI screenshot, no blank placeholder. Blackjack 21 casino cover: two oversized beautiful ivory playing cards, Ace of Spades and King of Hearts, crisply recognizable and fanned at a dynamic diagonal above emerald green casino felt, large gold-edged black chips and ruby chips beside them, dramatic emerald and warm gold lighting, premium polished 3D rendered game art."
+    },
+    {
+      "game": "matka",
+      "path": "assets/game_matka.webp",
+      "prompt": "Use case: stylized-concept. Asset: full-bleed landscape casino game lobby thumbnail, 3:2 composition, designed to read at 340x255 px. Premium polished 3D game cover illustration, tactile materials, cinematic dramatic lighting, rich saturated jewel colors, strong large central subject, gold rim highlights, clean professional rendering, subtle depth of field. Dark navy casino website with gold/red accents. Keep main subject centered in upper 65% with dark quiet lower 25% reserved for real HTML game name; quiet top left for a small badge. NO typography, no words, no logos, no watermark, no surrounding card frame, no UI screenshot, no blank placeholder. Indian Matka lottery game cover: a handsome traditional rounded terracotta matka pot with warm glazed orange-brown texture, wide open mouth with several small numbered ivory and gold lottery balls spilling out, a few numbered balls suspended just above the opening, luxurious burgundy velvet and subtle gold Indian ornamental details in the background, cinematic warm amber lighting, iconic close-up. No text or game title; simple digits on balls allowed."
+    }
+  ]
+}

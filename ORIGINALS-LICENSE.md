@@ -1,6 +1,6 @@
 # Originals attribution
 
-The game selection and visual/mechanics references came from [Paidguy/casino](https://github.com/Paidguy/casino). The bet1x integration uses its own PHP rules, wallet transactions and theme-matched frontend rather than the source project's browser wallet. Original bet1x cover artwork is generated as SVG.
+The game selection and visual/mechanics references came from [Paidguy/casino](https://github.com/Paidguy/casino). The bet1x integration uses its own PHP rules, wallet transactions and theme-matched frontend rather than the source project's browser wallet. Original bet1x cover artwork was generated with the built-in image generation tool and is served as compressed WebP. The prompts are retained in `docs/originals-thumbnail-prompts.json`.
 
 Upstream license: https://github.com/Paidguy/casino/blob/main/LICENSE
 
