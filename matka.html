@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Matka — bet1x</title>
+  <link rel="stylesheet" href="assets/css/style.css?v=20261014j">
+  <link rel="stylesheet" href="assets/css/game-shell.css?v=20261104o">
+  <link rel="stylesheet" href="assets/css/originals.css?v=20261104o">
+  <style>
+    .mk-stage { width:100%; max-width:650px; text-align:center; }
+    .mk-draw { display:flex; align-items:center; justify-content:center; gap:10px; padding:30px 0; flex-wrap:wrap; }
+    .mk-ball { background:radial-gradient(circle at 35% 25%,#ffe9a6,#ffc53d 65%,#b9851b); color:#382500; border-radius:16px; padding:22px 14px; font:800 clamp(24px,5vw,40px) var(--font-mono); box-shadow:0 12px 28px #0005; }
+    .mk-ball small { display:block; font:600 11px var(--font-body); letter-spacing:2px; margin-bottom:8px; }
+    .mk-list { display:flex; flex-direction:column; gap:6px; width:100%; text-align:left; }
+    .mk-bet { display:flex; justify-content:space-between; gap:10px; padding:12px; background:var(--surface-2); border-radius:8px; font-size:13px; }
+    .mk-bet.win { outline:2px solid var(--gold); }
+    #mkMarketName { color:var(--gold); font:700 20px var(--font-display); }
+  </style>
+</head>
+<body class="exchange-theme">
+  <nav class="navbar exchange-header"><div class="exchange-logo-box">Bet1x</div><div id="headerAuthArea"></div></nav>
+  <main class="og-wrap" id="og"></main>
+  <div class="footer">bet1x — play responsibly; 18+ only.</div>
+  <script src="assets/js/ui-common.js?v=20261014l"></script>
+  <script src="assets/js/password-eye.js?v=20261104b"></script>
+  <script src="assets/js/sound-fx.js"></script>
+  <script src="assets/js/originals.js?v=20261104p"></script>
+  <script>
+  (function () {
+    const $ = (id) => document.getElementById(id);
+    let bets = [];
+    function list(winners) {
+      $('mkBets').innerHTML = bets.map((b,i) => '<div class="mk-bet' + ((winners || []).includes(i) ? ' win' : '') + '"><span>' + Orig.esc(b.type + ' · ' + b.value) + '</span><b>' + Orig.money(b.amount) + '</b></div>').join('') || '<div class="og-empty">Choose a bet and add chips.</div>';
+      Orig.setTotal(bets.reduce((s,b) => s+b.amount,0));
+    }
+    function add() {
+      if (Orig.state.busy) return;
+      const type = $('mkType').value;
+      let value = $('mkValue').value.trim().toLowerCase();
+      const valid = type === 'single' ? /^\d$/.test(value) : type === 'jodi' ? /^\d{2}$/.test(value) : type === 'panna' ? /^\d{3}$/.test(value) : /^(odd|even)$/.test(value);
+      if (!valid) { Orig.msg('Enter ' + ({single:'one digit (0–9)',jodi:'two digits (00–99)',panna:'three digits',oddeven:'odd or even'})[type] + '.',true); return; }
+      if (type === 'panna') value = value.split('').sort((a,b) => (+a || 10)-(+b || 10)).join('');
+      if (bets.length >= 40) { Orig.msg('Use up to 40 bets per draw.',true); return; }
+      bets.push({type,value,amount:Orig.chip()}); list(); Orig.msg('');
+    }
+    Orig.mount({
+      game:'matka', title:'Matka', sub:'Instant open & close draw', playLabel:'Draw', chipMode:true,
+      controls:'<div class="og-field"><label class="og-lbl" for="mkMarket">Market</label><select class="og-input" id="mkMarket" data-og-lock></select></div><div class="og-field"><label class="og-lbl" for="mkType">Bet type</label><select class="og-input" id="mkType" data-og-lock><option value="single">Single</option><option value="jodi">Jodi</option><option value="panna">Panna</option><option value="oddeven">Odd / Even</option></select></div><div class="og-field"><label class="og-lbl" for="mkValue">Your selection</label><input class="og-input" id="mkValue" maxlength="4" placeholder="0–9" data-og-lock><span id="mkPay" class="og-howto"></span></div><button type="button" class="og-chipbtn" id="mkAdd" data-og-lock>Add selected chip</button>',
+      stage:'<div class="mk-stage"><div id="mkMarketName">Instant Matka</div><div class="og-howto">Each bet creates its own draw. Markets are labels; there are no scheduled results.</div><div class="mk-draw"><div class="mk-ball"><small>OPEN</small><span id="mkOpen">???</span></div><div class="mk-ball"><small>JODI</small><span id="mkJodi">??</span></div><div class="mk-ball"><small>CLOSE</small><span id="mkClose">???</span></div></div><div class="mk-list" id="mkBets"></div></div>',
+      howto:(info) => '<b>Instant Matka:</b> select a market label, bet type and number, add chips, then draw. Single predicts the open ank (sum of open digits modulo 10); Jodi predicts open and close anks. Panna predicts the sorted open digits (0 sorts last); Odd/Even predicts the open ank parity. Returns include the stake: Single <b>' + Orig.fmtMult(info.pays.single) + '</b>, Jodi <b>' + Orig.fmtMult(info.pays.jodi) + '</b>, Odd/Even <b>' + Orig.fmtMult(info.pays.oddeven) + '</b>. Panna returns ' + Orig.fmtMult(info.pays.panna_single) + ' for distinct digits, ' + Orig.fmtMult(info.pays.panna_double) + ' for a pair, or ' + Orig.fmtMult(info.pays.panna_triple) + ' for a triple. Each draw is individual and resolves immediately.',
+      collect:() => ({market:$('mkMarket').value,bets:bets.map((b) => ({...b}))}),
+      onUndo:() => { if (!Orig.state.busy) { bets.pop(); list(); } },
+      onClear:() => { if (!Orig.state.busy) { bets=[]; list(); } },
+      resultText:(r) => Orig.esc(r.result.market) + ' · <b>' + Orig.esc(r.result.display) + '</b>',
+      verifyFloats:6,
+      verify:(f) => 'Open digits: ' + f.slice(0,3).map((v) => Math.floor(v*10)).join(', ') + '; close digits: ' + f.slice(3,6).map((v) => Math.floor(v*10)).join(', '),
+      onMount:() => {
+        $('mkAdd').onclick=add;
+        $('mkType').onchange=() => { $('mkValue').value=''; $('mkValue').placeholder=({single:'0–9',jodi:'00–99',panna:'e.g. 120',oddeven:'odd or even'})[$('mkType').value]; };
+        list();
+      },
+      onLoad:(d) => { const selected=$('mkMarket').value; $('mkMarket').innerHTML=d.info.markets.map((m) => '<option>' + Orig.esc(m) + '</option>').join(''); if(selected) $('mkMarket').value=selected; },
+      onResult:async (r) => {
+        $('mkMarketName').textContent=r.result.market; $('mkOpen').textContent='???'; $('mkJodi').textContent='??'; $('mkClose').textContent='???';
+        await Orig.sleep(350); $('mkOpen').textContent=r.result.open_panna; Orig.sound('tick');
+        await Orig.sleep(350); $('mkJodi').textContent=r.result.jodi; Orig.sound('tick');
+        await Orig.sleep(350); $('mkClose').textContent=r.result.close_panna; list(r.result.winning_bets);
+      }
+    });
+  })();
+  </script>
+  <script src="assets/js/game-shell.js?v=20261104o" data-mode="nav" defer></script>
+</body>
+</html>

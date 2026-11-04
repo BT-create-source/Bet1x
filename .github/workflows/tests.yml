@@ -51,6 +51,8 @@ jobs:
         run: |
           psql -h 127.0.0.1 -U postgres -d bet1x_test -v ON_ERROR_STOP=1 -q -f php-backend/sql/schema-postgres.sql
           for f in php-backend/sql/migration-0*-postgres.sql; do psql -h 127.0.0.1 -U postgres -d bet1x_test -v ON_ERROR_STOP=1 -q -f "$f"; done
+      - name: Originals maths, wallet races and game rules
+        run: php php-backend/test_originals.php --quick
       - name: Run the backend suites
         run: |
           fail=0

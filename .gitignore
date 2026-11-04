@@ -63,3 +63,6 @@ desktop.ini
 # Browser test output (Playwright)
 e2e-report/
 test-results/
+test-results-plinko/
+test-results-audit/
+test-results-audit-rounds/

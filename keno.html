@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Keno — bet1x</title>
+  <link rel="stylesheet" href="assets/css/style.css?v=20261014j">
+  <link rel="stylesheet" href="assets/css/game-shell.css?v=20261014i">
+  <link rel="stylesheet" href="assets/css/originals.css?v=20261104o">
+  <style>
+    .kn-board { display: grid; grid-template-columns: repeat(8, 1fr); gap: 7px; width: 100%; max-width: 620px; }
+    .kn-cell { aspect-ratio: 1.15; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: 800 clamp(13px, 1.8vw, 17px) var(--font-mono);
+      cursor: pointer; transition: transform .1s, background .15s, border-color .15s, box-shadow .2s; padding: 0; }
+    .kn-cell:hover { border-color: #3d4590; }
+    .kn-cell.pick { background: var(--violet-soft); border-color: var(--violet); color: #d9c2ff; }
+    .kn-cell.drawn { background: #12162f; color: var(--text-faint); border-color: #2b3160; }
+    .kn-cell.hit { background: var(--green); border-color: var(--green); color: #04140b; box-shadow: 0 0 18px rgba(46,212,122,.45); transform: scale(1.04); }
+    .kn-cell:disabled { cursor: default; }
+    .kn-pay { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; margin-top: 16px; max-width: 620px; }
+    .kn-pay span { padding: 6px 9px; border-radius: 8px; background: var(--bg-soft); border: 1px solid var(--border); font: 700 12px var(--font-mono); color: var(--text); min-width: 48px; text-align: center; }
+    .kn-pay span small { display: block; font: 600 10px var(--font-body); color: var(--text-dim); }
+    .kn-pay span.on { border-color: var(--green); color: var(--green); background: var(--green-soft); }
+  </style>
+</head>
+<body class="exchange-theme">
+  <nav class="navbar exchange-header">
+    <div class="exchange-logo-box">Bet1x</div>
+    <div id="headerAuthArea"></div>
+  </nav>
+  <main class="og-wrap" id="og"></main>
+  <div class="footer">bet1x — play responsibly; 18+ only.</div>
+
+  <script src="assets/js/ui-common.js?v=20261014l"></script>
+  <script src="assets/js/password-eye.js?v=20261104b"></script>
+  <script src="assets/js/sound-fx.js"></script>
+  <script src="assets/js/originals.js?v=20261104p"></script>
+  <script>
+  (function () {
+    const $ = (id) => document.getElementById(id);
+    let picks = [3, 11, 19, 24, 32];
+    let drawn = [], hits = [];
+
+    function board() {
+      const html = [];
+      for (let n = 1; n <= 40; n++) {
+        const cls = hits.includes(n) ? 'hit' : drawn.includes(n) ? 'drawn' : picks.includes(n) ? 'pick' : '';
+        html.push('<button type="button" class="kn-cell ' + cls + '" data-n="' + n + '" data-og-lock>' + n + '</button>');
+      }
+      $('knBoard').innerHTML = html.join('');
+      $('knBoard').querySelectorAll('.kn-cell').forEach((b) => { b.onclick = () => toggle(+b.dataset.n); });
+      paytable(hits.length, drawn.length > 0);
+      $('knCount').textContent = picks.length + ' / 10';
+    }
+    function paytable(h, show) {
+      const t = (Orig.state.info && Orig.state.info.tables) ? Orig.state.info.tables[picks.length] : null;
+      if (!t) { $('knPay').innerHTML = '<span style="min-width:auto;color:var(--text-dim)">Pick 1 to 10 numbers</span>'; return; }
+      $('knPay').innerHTML = t.map((m, i) => '<span class="' + (show && i === h ? 'on' : '') + '"><small>' + i + ' hit' + (i === 1 ? '' : 's') + '</small>' + (m > 0 ? Orig.fmtMult(m) : '—') + '</span>').join('');
+    }
+    function toggle(n) {
+      if (Orig.state.busy) return;
+      drawn = []; hits = [];
+      if (picks.includes(n)) picks = picks.filter((x) => x !== n);
+      else if (picks.length < 10) picks.push(n);
+      else { Orig.msg('You can pick up to 10 numbers.', true); return; }
+      Orig.msg(''); Orig.sound('click');
+      board();
+    }
+
+    Orig.mount({
+      game: 'keno', title: 'Keno', sub: 'Pick up to 10 numbers', playLabel: 'Draw',
+      controls: '<div class="og-field"><div class="og-lbl"><span>Your numbers</span><span id="knCount"></span></div>' +
+        '<div class="og-row2"><button type="button" class="og-chipbtn" id="knAuto" data-og-lock>Auto pick</button><button type="button" class="og-chipbtn" id="knClear" data-og-lock>Clear</button></div></div>',
+      stage: '<div class="kn-board" id="knBoard"></div><div class="kn-pay" id="knPay"></div>',
+      howto: (info, cfg) => 'Pick <b>1 to 10</b> numbers from 1–40, then draw. Ten numbers are drawn; the more of yours they hit, the more you win (see the pay table under the board — it changes with how many you pick). ' +
+        'Every pay table returns <b>' + (cfg.rtp * 100).toFixed(0) + '%</b> on average.',
+      collect: () => { if (!picks.length) throw new Error('Pick at least one number.'); return { picks: picks.slice().sort((a, b) => a - b) }; },
+      resultText: (r) => '<b>' + r.result.hits.length + '/' + r.params.picks.length + '</b> hits',
+      verifyFloats: 10,
+      verify: (f) => {
+        const pool = Array.from({ length: 40 }, (_, i) => i + 1), out = [];
+        for (let i = 0; i < 10; i++) { const j = Math.min(pool.length - 1, Math.floor(f[i] * pool.length)); out.push(pool[j]); pool.splice(j, 1); }
+        return 'Drawn (each float picks from the numbers left): <b>' + out.join(', ') + '</b>';
+      },
+      onMount: () => {
+        $('knAuto').onclick = () => {
+          const want = picks.length || 10, pool = Array.from({ length: 40 }, (_, i) => i + 1), out = [];
+          while (out.length < want) out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+          picks = out; drawn = []; hits = []; board(); Orig.sound('click');
+        };
+        $('knClear').onclick = () => { picks = []; drawn = []; hits = []; board(); };
+      },
+      onLoad: board,
+      onResult: async (round) => {
+        drawn = []; hits = []; board();
+        for (const n of round.result.drawn) {
+          drawn.push(n);
+          if (round.params.picks.includes(n)) { hits.push(n); Orig.sound('gemReveal'); } else Orig.sound('tick');
+          board();
+          await Orig.sleep(160);
+        }
+      },
+    });
+  })();
+  </script>
+  <script src="assets/js/game-shell.js?v=20261104o" data-mode="nav" defer></script>
+</body>
+</html>

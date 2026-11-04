@@ -88,6 +88,7 @@ require_once __DIR__ . '/routes/mines.php';
 require_once __DIR__ . '/routes/chickenroad.php';
 require_once __DIR__ . '/routes/astronaut.php';
 require_once __DIR__ . '/routes/towerrush.php';
+require_once __DIR__ . '/routes/originals.php';
 require_once __DIR__ . '/routes/subadmin.php';
 require_once __DIR__ . '/routes/legacy.php';
 require_once __DIR__ . '/routes/cron.php';
@@ -157,6 +158,9 @@ try {
         register_chickenroad_routes($app);
         register_astronaut_routes($app);
         register_towerrush_routes($app);
+        // 10b'. bet1x Originals: Dice, Coinflip, Wheel, Plinko, Keno, Roulette, Baccarat, Andar Bahar,
+        //       Slots, Blackjack, Matka (lib/originals.php + games/originals/*).
+        register_originals_routes($app);
         // 10c. Sub-admins: their own /api/subadmin/* console, and the management endpoints under
         //      /api/admin (registered after step 5, so the require_admin gate on /api/admin applies).
         register_subadmin_routes($app);

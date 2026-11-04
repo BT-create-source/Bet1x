@@ -160,6 +160,7 @@ function risk_total_wagered($username) {
     $stakes  = ['Color Guess Wager', 'Aviator Wager', 'Teen Patti Boot', 'Teen Patti Chaal', 'Teen Patti Show',
                 'Mines Bet', 'Chicken Road Bet', 'Astronaut Bet Round', 'Tower Rush Bet', 'Ball by Ball Bet',
                 'Cricket Bet', 'Your Eleven Entry'];
+    if (function_exists('originals_bet_prefixes')) $stakes = array_merge($stakes, originals_bet_prefixes());
     $refunds = ['Astronaut Bet Cancelled', 'Ball by Ball Refund', 'Cricket Refund', 'Your Eleven Refund'];
     $sum = function (array $prefixes, $type) use ($username) {
         $like = implode(' OR ', array_fill(0, count($prefixes), '"details" LIKE ?'));

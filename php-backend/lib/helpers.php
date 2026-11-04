@@ -173,6 +173,8 @@ function map_user($r) {
 }
 
 function map_transaction($r) {
+    $game = function_exists('classify_gameplay_transaction') ? classify_gameplay_transaction($r['details']) : null;
+    $labels = $game && function_exists('game_labels') ? game_labels() : [];
     return [
         'id'        => $r['id'],
         'user'      => $r['user'],
@@ -181,6 +183,9 @@ function map_transaction($r) {
         'details'   => $r['details'],
         'status'    => $r['status'],
         'timestamp' => js_iso($r['timestamp']),
+        'game'      => $game['game'] ?? null,
+        'game_kind' => $game['kind'] ?? null,
+        'game_label'=> $game ? ($labels[$game['game']] ?? $game['game']) : null,
     ];
 }
 

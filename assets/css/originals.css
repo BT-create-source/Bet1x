@@ -1,0 +1,121 @@
+/* =================================================================================================
+   bet1x Originals — shared layout for Dice, Coinflip, Wheel, Plinko, Keno, Roulette, Baccarat,
+   Andar Bahar, Slots, Blackjack and Matka (assets/js/originals.js). Uses the site's tokens from
+   style.css so every game reads as part of bet1x.
+   ================================================================================================= */
+
+.og-wrap { max-width: 1180px; margin: 18px auto 0; padding: 0 14px; box-sizing: border-box; }
+.og-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 2px 12px; flex-wrap: wrap; }
+.og-title h1 { margin: 0; font: 700 22px var(--font-display); color: var(--text); letter-spacing: .2px; }
+.og-title h1 small { font: 500 13px var(--font-body); color: var(--text-dim); margin-left: 10px; }
+.og-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; background: var(--surface-2);
+  border: 1px solid var(--border); color: var(--text-dim); font: 600 12px var(--font-body); }
+.og-pill b { color: var(--gold); }
+
+.og-main { display: grid; grid-template-columns: 330px 1fr; gap: 14px; align-items: stretch; }
+@media (max-width: 860px) { .og-main { grid-template-columns: 1fr; } .og-panel { order: 2; } .og-stage { order: 1; } }
+
+/* ---- control panel ------------------------------------------------------------------------------ */
+.og-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow-card);
+  display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.og-field { display: flex; flex-direction: column; gap: 6px; }
+.og-lbl { display: flex; justify-content: space-between; font: 600 11.5px var(--font-body); color: var(--text-dim); text-transform: uppercase; letter-spacing: .06em; }
+.og-lbl span:last-child { text-transform: none; letter-spacing: 0; color: var(--text-faint); }
+.og-amount { display: flex; align-items: stretch; background: var(--bg-soft); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.og-amount span.cur { display: flex; align-items: center; padding: 0 10px; color: var(--gold); font: 700 15px var(--font-display); }
+.og-amount input { flex: 1; min-width: 0; background: transparent; border: 0; color: var(--text); font: 700 16px var(--font-mono); padding: 11px 4px; outline: none; }
+.og-amount button { border: 0; border-left: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: 700 12px var(--font-body); padding: 0 12px; cursor: pointer; }
+.og-amount button:hover { background: #222a52; }
+.og-quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.og-chipbtn, .og-seg button { border: 1px solid var(--border); background: var(--surface-2); color: var(--text); border-radius: 9px; padding: 8px 6px;
+  font: 600 12.5px var(--font-body); cursor: pointer; transition: border-color .15s, background .15s, color .15s; }
+.og-chipbtn:hover, .og-seg button:hover { border-color: #39407a; }
+.og-seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+.og-seg button.on { background: var(--gold-soft); border-color: var(--gold); color: var(--gold); }
+.og-input { width: 100%; box-sizing: border-box; background: var(--bg-soft); border: 1px solid var(--border); border-radius: 10px; color: var(--text);
+  font: 600 14px var(--font-mono); padding: 10px 12px; outline: none; }
+.og-input:focus, .og-amount:focus-within { border-color: var(--gold); }
+
+.og-play { border: 0; border-radius: 12px; padding: 15px; font: 800 16px var(--font-display); letter-spacing: .3px; cursor: pointer;
+  background: linear-gradient(180deg, #ffd36a, var(--gold)); color: #1b1404; box-shadow: 0 6px 22px rgba(255,197,61,.25); transition: transform .08s, filter .15s; }
+.og-play:hover { filter: brightness(1.05); }
+.og-play:active { transform: translateY(1px); }
+.og-play:disabled { filter: grayscale(.6) brightness(.7); cursor: not-allowed; box-shadow: none; }
+.og-play.green { background: linear-gradient(180deg, #4ff0a0, var(--green)); color: #04140b; box-shadow: 0 6px 22px rgba(46,212,122,.25); }
+.og-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.og-msg { min-height: 18px; font: 500 12.5px var(--font-body); color: var(--text-dim); }
+.og-msg.err { color: var(--red); }
+.og-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.og-stat { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 10px; padding: 9px 10px; }
+.og-stat .k { font: 600 10.5px var(--font-body); color: var(--text-dim); text-transform: uppercase; letter-spacing: .06em; }
+.og-stat .v { font: 700 15px var(--font-mono); color: var(--text); margin-top: 3px; }
+.og-stat .v.good { color: var(--green); }
+
+/* ---- stage ------------------------------------------------------------------------------------- */
+.og-stage { position: relative; background: radial-gradient(120% 90% at 50% 0%, #1b2250 0%, var(--surface) 55%, #0f1330 100%);
+  border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-card); min-height: 460px; overflow: hidden;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 18px; box-sizing: border-box; }
+.og-banner { position: absolute; left: 50%; top: 16px; transform: translate(-50%, -12px); opacity: 0; pointer-events: none; z-index: 5;
+  padding: 10px 18px; border-radius: 12px; font: 800 18px var(--font-display); white-space: nowrap; transition: opacity .25s, transform .25s;
+  background: rgba(11,14,29,.88); border: 1px solid var(--border); backdrop-filter: blur(6px); }
+.og-banner.show { opacity: 1; transform: translate(-50%, 0); }
+.og-banner.win { color: var(--green); border-color: rgba(46,212,122,.5); box-shadow: 0 0 30px rgba(46,212,122,.25); }
+.og-banner.lose { color: var(--text-dim); }
+.og-banner small { display: block; font: 600 12px var(--font-body); color: var(--text-dim); text-align: center; margin-top: 2px; }
+
+/* ---- below: history + fairness ----------------------------------------------------------------- */
+.og-below { max-width: 1180px; margin: 14px auto 24px; padding: 0 14px; box-sizing: border-box; display: grid; grid-template-columns: 1fr 360px; gap: 14px; }
+@media (max-width: 860px) { .og-below { grid-template-columns: 1fr; } }
+.og-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow-card); min-width: 0; }
+.og-card h3 { margin: 0 0 10px; font: 700 15px var(--font-display); color: var(--text); display: flex; justify-content: space-between; align-items: center; }
+.og-tbl { width: 100%; border-collapse: collapse; font: 500 12.5px var(--font-body); }
+.og-tbl th { text-align: left; color: var(--text-dim); font-weight: 600; padding: 6px 6px; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+.og-tbl td { padding: 7px 6px; border-bottom: 1px solid rgba(38,43,74,.55); color: var(--text); vertical-align: middle; }
+.og-tbl td.num { font-family: var(--font-mono); text-align: right; }
+.og-tbl th.num { text-align: right; }
+.og-tbl .w { color: var(--green); font-weight: 700; }
+.og-tbl .l { color: var(--text-dim); }
+.og-tbl tr:last-child td { border-bottom: 0; }
+.og-link { background: none; border: 0; padding: 0; color: var(--gold); font: 600 12px var(--font-body); cursor: pointer; }
+.og-empty { color: var(--text-faint); font: 500 13px var(--font-body); padding: 14px 0; text-align: center; }
+.og-kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; font: 500 12px var(--font-body); align-items: center; }
+.og-kv dt { color: var(--text-dim); }
+.og-kv dd { margin: 0; font-family: var(--font-mono); color: var(--text); word-break: break-all; font-size: 11.5px; }
+.og-howto { color: var(--text-dim); font: 400 13px/1.6 var(--font-body); }
+.og-howto b { color: var(--text); }
+.og-paytable { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.og-paytable span { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px; font: 600 12px var(--font-mono); color: var(--text); }
+.og-paytable span i { font-style: normal; color: var(--text-dim); margin-right: 5px; font-family: var(--font-body); }
+
+/* ---- modal ------------------------------------------------------------------------------------- */
+.og-modal { position: fixed; inset: 0; background: rgba(5,7,16,.72); display: flex; align-items: center; justify-content: center; z-index: 9000; padding: 16px; }
+.og-modal-card { width: 100%; max-width: 520px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow-card); max-height: 88vh; overflow: auto; }
+.og-modal-card h3 { margin: 0 0 12px; font: 700 17px var(--font-display); display: flex; justify-content: space-between; }
+.og-modal-card h3 button { background: none; border: 0; color: var(--text-dim); font-size: 22px; cursor: pointer; line-height: 1; }
+
+/* ---- playing cards ----------------------------------------------------------------------------- */
+.og-card-face { width: 58px; height: 82px; border-radius: 8px; background: linear-gradient(180deg, #fff, #eef0f7); color: #14172b; position: relative;
+  box-shadow: 0 6px 16px rgba(0,0,0,.45); display: inline-flex; flex-direction: column; justify-content: space-between; padding: 5px 6px; box-sizing: border-box;
+  font: 800 16px var(--font-display); flex: 0 0 auto; animation: og-deal .32s ease-out both; }
+.og-card-face.red { color: #d3203f; }
+.og-card-face .s { font-size: 22px; align-self: center; line-height: 1; }
+.og-card-face .r2 { align-self: flex-end; transform: rotate(180deg); }
+.og-card-face.back { background: repeating-linear-gradient(45deg, #2a3170 0 6px, #232a62 6px 12px); border: 3px solid #fff; }
+.og-card-face.back > * { display: none; }
+.og-card-face.sm { width: 40px; height: 56px; font-size: 12.5px; padding: 3px 4px; }
+.og-card-face.sm .s { font-size: 15px; }
+.og-card-face.hit { box-shadow: 0 0 0 3px var(--gold), 0 6px 16px rgba(0,0,0,.45); }
+@keyframes og-deal { from { opacity: 0; transform: translateY(-26px) rotate(-8deg) scale(.9); } to { opacity: 1; transform: none; } }
+
+/* ---- chips (table games) ----------------------------------------------------------------------- */
+.og-chips { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.og-chip { aspect-ratio: 1; border-radius: 50%; border: 3px dashed rgba(255,255,255,.55); color: #fff; font: 800 11.5px var(--font-display); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 0 3px rgba(0,0,0,.18), 0 3px 8px rgba(0,0,0,.35); padding: 0; }
+.og-chip.on { outline: 3px solid var(--gold); outline-offset: 2px; }
+.og-chip[data-v="10"]   { background: #3d6be0; } .og-chip[data-v="50"]   { background: #1aa36a; }
+.og-chip[data-v="100"]  { background: #d23b5a; } .og-chip[data-v="500"]  { background: #8a4be6; }
+.og-chip[data-v="1000"] { background: #e08a1e; } .og-chip[data-v="5000"] { background: #222; border-color: var(--gold); color: var(--gold); }
+.og-stack { position: absolute; right: 4px; top: 4px; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 11px; background: var(--gold); color: #1b1404;
+  font: 800 10.5px var(--font-body); display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,.4); pointer-events: none; }
+
+.og-hidden { display: none !important; }

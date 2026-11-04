@@ -36,6 +36,8 @@ function rename_blocked_reason($username) {
          'You have an Astronaut bet in play.'],
         ['SELECT COUNT(*) FROM "TeenPattiSeat" WHERE LOWER("username") = LOWER(?)',
          'You are seated at a Teen Patti table.'],
+        ['SELECT COUNT(*) FROM "OriginalsRound" WHERE LOWER("username") = LOWER(?) AND "status" = \'open\'',
+         'You have a Blackjack or Coinflip round in progress.'],
     ];
     foreach ($checks as [$sql, $reason]) {
         try {
@@ -110,6 +112,12 @@ function register_settings_routes(Router $app) {
                 }
                 throw $dupErr;
             }
+
+            // The originals keep the player's seeds and round history by name: move them along.
+            try {
+                q('UPDATE "OriginalsSeed" SET "username" = ? WHERE "username" = ?', [$newUsername, $user['username']]);
+                q('UPDATE "OriginalsRound" SET "username" = ? WHERE "username" = ?', [$newUsername, $user['username']]);
+            } catch (Throwable $e) { /* originals not used on this deployment yet */ }
 
             // The signed token embeds the username, so a rename has to reissue one — otherwise
             // every subsequent request would keep acting as the now-nonexistent old name.

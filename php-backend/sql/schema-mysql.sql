@@ -1013,6 +1013,51 @@ CREATE TABLE IF NOT EXISTS `SubAdminEvent` (
   CONSTRAINT `SubAdminEvent_subadmin_fk` FOREIGN KEY (`subadmin_id`) REFERENCES `SubAdmin` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
+-- -------------------------------------------------------------------------------------------------
+-- Migration 019 — bet1x Originals (lib/originals.php; also created there on first use)
+-- -------------------------------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS `OriginalsSeed` (
+  `username`              VARCHAR(191) NOT NULL,
+  `server_seed`           VARCHAR(128) NOT NULL,
+  `server_seed_hash`      VARCHAR(128) NOT NULL,
+  `client_seed`           VARCHAR(64) NOT NULL,
+  `nonce`                 BIGINT NOT NULL DEFAULT 0,
+  `prev_server_seed`      VARCHAR(128) NULL,
+  `prev_server_seed_hash` VARCHAR(128) NULL,
+  `prev_client_seed`      VARCHAR(64) NULL,
+  `prev_nonce`            BIGINT NULL,
+  `updated_at`            DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+CREATE TABLE IF NOT EXISTS `OriginalsRound` (
+  `id`               BIGINT NOT NULL AUTO_INCREMENT,
+  `round_ref`        VARCHAR(40) NOT NULL,
+  `username`         VARCHAR(191) NOT NULL,
+  `game`             VARCHAR(32) NOT NULL,
+  `client_ref`       VARCHAR(80) NOT NULL,
+  `bet_amount`       DOUBLE NOT NULL,
+  `payout`           DOUBLE NOT NULL DEFAULT 0,
+  `multiplier`       DOUBLE NOT NULL DEFAULT 0,
+  `status`           VARCHAR(16) NOT NULL,
+  `params`           MEDIUMTEXT NULL,
+  `state`            MEDIUMTEXT NULL,
+  `result`           MEDIUMTEXT NULL,
+  `server_seed`      VARCHAR(128) NOT NULL,
+  `server_seed_hash` VARCHAR(128) NOT NULL,
+  `client_seed`      VARCHAR(64) NOT NULL,
+  `nonce`            BIGINT NOT NULL,
+  `created_at`       DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `settled_at`       DATETIME(3) NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `OriginalsRound_ref_key` (`round_ref`),
+  UNIQUE KEY `OriginalsRound_user_ref_key` (`username`, `client_ref`),
+  KEY `OriginalsRound_user_idx` (`username`, `id`),
+  KEY `OriginalsRound_open_idx` (`username`, `game`, `status`),
+  KEY `OriginalsRound_created_idx` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
 -- =================================================================================================
 -- SEED — the house account. REQUIRED: Teen Patti's house-win paths fail silently without it.
 -- Its password is deliberately not a valid bcrypt hash, so nobody can sign in as the house.
@@ -1054,5 +1099,6 @@ INSERT INTO `GameState` (`key`, `data`) VALUES
   ('session_presence_schema_version', '17'),
   ('user_identity_schema_version', '15'),
   ('subadmin_schema_version', '18'),
-  ('bbb_schema_version', '14')
+  ('bbb_schema_version', '14'),
+  ('originals_schema_version', '1')
 ON DUPLICATE KEY UPDATE `key` = `key`;

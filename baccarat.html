@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Baccarat — bet1x</title>
+  <link rel="stylesheet" href="assets/css/style.css?v=20261014j">
+  <link rel="stylesheet" href="assets/css/game-shell.css?v=20261014i">
+  <link rel="stylesheet" href="assets/css/originals.css?v=20261104o">
+  <style>
+    .bc-hands { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; width: 100%; max-width: 680px; margin-bottom: 18px; }
+    .bc-hand { background: rgba(11,14,29,.5); border: 1px solid var(--border); border-radius: 14px; padding: 12px; min-height: 140px; transition: box-shadow .25s, border-color .25s; }
+    .bc-hand h4 { margin: 0 0 10px; display: flex; justify-content: space-between; font: 800 14px var(--font-display); letter-spacing: 1px; }
+    .bc-hand.p h4 { color: #6aa2ff; } .bc-hand.b h4 { color: #ff6b85; }
+    .bc-hand h4 b { font: 800 22px var(--font-mono); color: var(--text); }
+    .bc-hand.won { border-color: var(--gold); box-shadow: 0 0 26px rgba(255,197,61,.3); }
+    .bc-cards { display: flex; gap: 6px; flex-wrap: wrap; min-height: 82px; }
+    .bc-spots { display: grid; grid-template-columns: 1fr 1.3fr 1fr 1.3fr 1fr; gap: 6px; width: 100%; max-width: 680px; }
+    .bc-spot { position: relative; border-radius: 12px; padding: 14px 6px; text-align: center; cursor: pointer; border: 2px solid transparent; transition: filter .12s, border-color .2s; user-select: none; }
+    .bc-spot:hover { filter: brightness(1.2); }
+    .bc-spot b { display: block; font: 800 14px var(--font-display); color: #fff; }
+    .bc-spot small { font: 600 11px var(--font-mono); color: rgba(255,255,255,.75); }
+    .bc-spot.player { background: #1d3f8f; } .bc-spot.banker { background: #8f1d36; } .bc-spot.tie { background: #136d47; }
+    .bc-spot.pp { background: #26325f; } .bc-spot.bp { background: #4a2533; }
+    .bc-spot.win { border-color: var(--gold); box-shadow: 0 0 18px rgba(255,197,61,.45); }
+    .bc-road { display: grid; grid-template-rows: repeat(6, 22px); grid-auto-flow: column; grid-auto-columns: 22px; gap: 3px; margin-top: 16px; max-width: 100%; overflow: hidden; }
+    .bc-road span { border-radius: 50%; display: flex; align-items: center; justify-content: center; font: 800 10px var(--font-display); color: #fff; }
+  </style>
+</head>
+<body class="exchange-theme">
+  <nav class="navbar exchange-header">
+    <div class="exchange-logo-box">Bet1x</div>
+    <div id="headerAuthArea"></div>
+  </nav>
+  <main class="og-wrap" id="og"></main>
+  <div class="footer">bet1x — play responsibly; 18+ only.</div>
+
+  <script src="assets/js/ui-common.js?v=20261014l"></script>
+  <script src="assets/js/password-eye.js?v=20261104b"></script>
+  <script src="assets/js/sound-fx.js"></script>
+  <script src="assets/js/originals.js?v=20261104p"></script>
+  <script>
+  (function () {
+    const $ = (id) => document.getElementById(id);
+    const SPOTS = [['player_pair', 'pp', 'P Pair', '12x'], ['player', 'player', 'PLAYER', '2x'], ['tie', 'tie', 'TIE', '9x'], ['banker', 'banker', 'BANKER', '1.95x'], ['banker_pair', 'bp', 'B Pair', '12x']];
+    let bets = {}, undo = [], road = [];
+    const val = (c) => { const r = c.slice(0, -1); return r === 'A' ? 1 : ['10', 'J', 'Q', 'K'].includes(r) ? 0 : +r; };
+    const total = (cs) => cs.reduce((a, c) => a + val(c), 0) % 10;
+
+    function spots() {
+      $('bcSpots').innerHTML = SPOTS.map(([k, cls, label, pay]) => '<div class="bc-spot ' + cls + '" data-k="' + k + '"><b>' + label + '</b><small>' + pay + '</small>' +
+        (bets[k] ? '<span class="og-stack">' + bets[k] + '</span>' : '') + '</div>').join('');
+      $('bcSpots').querySelectorAll('.bc-spot').forEach((s) => { s.onclick = () => place(s.dataset.k); });
+      Orig.setTotal(Object.values(bets).reduce((a, b) => a + b, 0));
+    }
+    function place(k) {
+      if (Orig.state.busy) return;
+      bets[k] = (bets[k] || 0) + Orig.chip(); undo.push([k, Orig.chip()]); Orig.sound('chipStack'); spots();
+    }
+    function drawRoad() {
+      $('bcRoad').innerHTML = road.slice(-60).map((w) => '<span style="background:' + (w === 'player' ? '#2f63d6' : w === 'banker' ? '#d6304f' : '#1aa36a') + '">' + w[0].toUpperCase() + '</span>').join('');
+    }
+
+    Orig.mount({
+      game: 'baccarat', title: 'Baccarat', sub: 'Player, Banker or Tie', playLabel: 'Deal', chipMode: true,
+      stage: '<div class="bc-hands"><div class="bc-hand p" id="bcP"><h4>PLAYER <b id="bcPT">–</b></h4><div class="bc-cards" id="bcPC"></div></div>' +
+        '<div class="bc-hand b" id="bcB"><h4>BANKER <b id="bcBT">–</b></h4><div class="bc-cards" id="bcBC"></div></div></div>' +
+        '<div class="bc-spots" id="bcSpots"></div><div class="bc-road" id="bcRoad"></div>',
+      howto: 'Bet on <b>Player</b>, <b>Banker</b> or <b>Tie</b> (and the Pair side bets), then deal. The hand closest to 9 wins; cards are worth their face value, tens and pictures 0, aces 1. ' +
+        'Standard third-card rules decide the draws. Pays (stake included): Player 2x, Banker 1.95x, Tie 9x, Pairs 12x. On a tie, Player and Banker bets are returned.',
+      collect: () => ({ bets: Object.keys(bets).map((k) => ({ type: k, amount: bets[k] })) }),
+      onClear: () => { bets = {}; undo = []; spots(); },
+      onUndo: () => { const u = undo.pop(); if (!u) return; bets[u[0]] -= u[1]; if (bets[u[0]] <= 0) delete bets[u[0]]; spots(); },
+      resultText: (r) => '<b style="color:' + (r.result.winner === 'player' ? '#6aa2ff' : r.result.winner === 'banker' ? '#ff6b85' : 'var(--green)') + '">' + r.result.winner.toUpperCase() + '</b> ' +
+        '<span style="color:var(--text-dim)">' + r.result.player_total + ' – ' + r.result.banker_total + '</span>',
+      verifyFloats: 6,
+      verify: (f) => 'Cards in deal order (each float picks one of 52): ' + f.slice(0, 6).map((x) => { const i = Math.floor(x * 52); return ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'][Math.floor(i / 4)] + '♠♥♦♣'[i % 4]; }).join(' ') +
+        ' (Player, Banker, Player, Banker, then any third cards)',
+      onMount: spots,
+      onLoad: (d) => { road = (d.recent || []).slice().reverse().map((r) => r.result.winner); drawRoad(); },
+      onResult: async (round) => {
+        const r = round.result;
+        ['bcP', 'bcB'].forEach((id) => $(id).classList.remove('won'));
+        document.querySelectorAll('.bc-spot').forEach((s) => s.classList.remove('win'));
+        $('bcPC').innerHTML = ''; $('bcBC').innerHTML = ''; $('bcPT').textContent = '–'; $('bcBT').textContent = '–';
+        const order = [['P', r.player[0]], ['B', r.banker[0]], ['P', r.player[1]], ['B', r.banker[1]]];
+        if (r.player[2]) order.push(['P', r.player[2]]);
+        if (r.banker[2]) order.push(['B', r.banker[2]]);
+        const shown = { P: [], B: [] };
+        for (const [side, c] of order) {
+          shown[side].push(c);
+          $('bc' + side + 'C').insertAdjacentHTML('beforeend', Orig.cardHTML(c));
+          $('bc' + side + 'T').textContent = total(shown[side]);
+          Orig.sound('cardDeal');
+          await Orig.sleep(480);
+        }
+        if (r.winner !== 'tie') $(r.winner === 'player' ? 'bcP' : 'bcB').classList.add('won');
+        const winners = [r.winner];
+        if (r.player_pair) winners.push('player_pair');
+        if (r.banker_pair) winners.push('banker_pair');
+        document.querySelectorAll('.bc-spot').forEach((s) => { if (winners.includes(s.dataset.k)) s.classList.add('win'); });
+        road.push(r.winner); drawRoad();
+      },
+    });
+  })();
+  </script>
+  <script src="assets/js/game-shell.js?v=20261104o" data-mode="nav" defer></script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blackjack — bet1x</title>
+  <link rel="stylesheet" href="assets/css/style.css?v=20261014j">
+  <link rel="stylesheet" href="assets/css/game-shell.css?v=20261104o">
+  <link rel="stylesheet" href="assets/css/originals.css?v=20261104o">
+  <style>
+    .bj-table { width:100%; text-align:center; padding:20px 0; }
+    .bj-label { color:var(--text-dim); text-transform:uppercase; letter-spacing:2px; font-size:12px; margin-bottom:14px; }
+    .bj-cards { display:flex; justify-content:center; flex-wrap:wrap; gap:8px; min-height:120px; }
+    .bj-rule { color:var(--gold); border-top:1px solid var(--border); border-bottom:1px solid var(--border); padding:16px; margin:24px 0; font:700 14px var(--font-display); letter-spacing:2px; }
+    .bj-hands { display:flex; flex-wrap:wrap; justify-content:center; gap:18px; }
+    .bj-hand { padding:14px; border:2px solid transparent; border-radius:14px; min-width:140px; }
+    .bj-hand.active { border-color:var(--gold); background:rgba(255,197,61,.05); }
+    .bj-score { margin-top:10px; font:700 15px var(--font-mono); }
+    #bjActions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    #bjInsurance { grid-column:1/-1; font-size:12px; color:var(--text-dim); }
+  </style>
+</head>
+<body class="exchange-theme">
+  <nav class="navbar exchange-header"><div class="exchange-logo-box">Bet1x</div><div id="headerAuthArea"></div></nav>
+  <main class="og-wrap" id="og"></main>
+  <div class="footer">bet1x — play responsibly; 18+ only.</div>
+  <script src="assets/js/ui-common.js?v=20261014l"></script>
+  <script src="assets/js/password-eye.js?v=20261104b"></script>
+  <script src="assets/js/sound-fx.js"></script>
+  <script src="assets/js/originals.js?v=20261104p"></script>
+  <script>
+  (function () {
+    const $ = (id) => document.getElementById(id);
+    const labels = {hit:'Hit', stand:'Stand', double:'Double', split:'Split', insurance:'Take insurance', no_insurance:'No insurance'};
+    function show(round) {
+      const r = round && round.result, open = round && round.status === 'open';
+      $('ogPlay').hidden = !!open;
+      $('ogAmount').disabled = !!open;
+      $('bjActions').hidden = !open;
+      $('bjActions').style.display = open ? 'grid' : 'none';
+      if (!r) return;
+      $('bjDealer').innerHTML = r.dealer.map((c) => Orig.cardHTML(c)).join('');
+      $('bjDealerTotal').textContent = r.dealer_total + (open ? ' + hidden card' : '');
+      $('bjHands').innerHTML = r.hands.map((h, i) => '<div class="bj-hand' + (open && r.phase === 'player' && i === r.active ? ' active' : '') + '"><div class="bj-label">Hand ' + (i+1) + ' · ' + Orig.money(h.bet) + '</div><div class="bj-cards">' + h.cards.map((c) => Orig.cardHTML(c)).join('') + '</div><div class="bj-score">' + h.total + (h.soft ? ' soft' : '') + (h.outcome ? ' · ' + Orig.esc(h.outcome) : '') + '</div></div>').join('');
+      $('bjActions').querySelectorAll('[data-action]').forEach((b) => { b.hidden = !r.actions.includes(b.dataset.action); });
+      $('bjInsurance').hidden = r.phase !== 'insurance';
+      $('bjInsurance').textContent = 'Dealer shows an Ace. Insurance costs ' + Orig.money(r.hands[0].bet / 2) + ' and returns 3x if the dealer has blackjack.';
+    }
+    Orig.mount({
+      game:'blackjack', title:'Blackjack', sub:'Beat the dealer to 21', playLabel:'Deal cards',
+      afterPlay:'<div id="bjActions" hidden><div id="bjInsurance"></div>' + Object.keys(labels).map((a) => '<button type="button" class="og-chipbtn" data-og-lock data-action="' + a + '">' + labels[a] + '</button>').join('') + '</div>',
+      stage:'<div class="bj-table"><div class="bj-label">Dealer</div><div class="bj-cards" id="bjDealer">' + Orig.cardHTML('??') + Orig.cardHTML('??') + '</div><div class="bj-score" id="bjDealerTotal"></div><div class="bj-rule">BLACKJACK PAYS 3:2</div><div class="bj-hands" id="bjHands"><div class="bj-label">Place your bet to deal</div></div></div>',
+      howto:'Get closer to <b>21</b> than the dealer without going over. Aces count as 1 or 11. Hit takes a card; Stand ends your turn. Double adds your hand’s stake and takes one final card. Split equal ranks into two hands for another stake; one split is allowed. Split Aces receive one card each. The dealer stands on all 17s. Blackjack returns 2.5x, a win 2x, and a push returns your stake. Insurance is offered against an Ace. Cards are drawn from an infinite shoe. The displayed RTP is an estimate with good play; your decisions affect the return.',
+      collect:() => ({}),
+      resultText:(r) => r.result.hands.map((h) => Orig.esc(h.outcome || '') + ' (' + h.total + ')').join(' / '),
+      onMount:() => { $('bjActions').querySelectorAll('[data-action]').forEach((b) => { b.onclick = () => Orig.action(b.dataset.action); }); },
+      onLoad:(d) => show(d.open_round || d.recent[0]),
+      onResult:async (r) => { Orig.sound('cardFlip'); show(r); await Orig.sleep(250); },
+      onAction:async (r) => { Orig.sound('cardFlip'); show(r); await Orig.sleep(250); }
+    });
+  })();
+  </script>
+  <script src="assets/js/game-shell.js?v=20261104o" data-mode="nav" defer></script>
+</body>
+</html>

@@ -208,6 +208,9 @@ function register_profile_routes(Router $app) {
 
             $rounds = profile_build_rounds($classified);
             $rounds = array_merge($rounds, profile_astronaut_rounds($user['username']));
+            // bet1x Originals: one row per round from OriginalsRound (a Blackjack double or split is
+            // several stakes in one round, which the ledger pairing above cannot fold together).
+            if (function_exists('originals_history_rows')) $rounds = array_merge($rounds, originals_history_rows($user['username']));
             usort($rounds, function ($a, $b) { return strcmp($b['timestamp'], $a['timestamp']); });
 
             $wins = 0; $losses = 0; $totalWon = 0.0; $totalLost = 0.0;

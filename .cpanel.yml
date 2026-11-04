@@ -8,6 +8,7 @@ deployment:
   tasks:
     - export DEPLOYPATH=$HOME/public_html
     - /bin/cp -f *.html .htaccess $DEPLOYPATH/
+    - /bin/cp -f ORIGINALS-LICENSE.md $DEPLOYPATH/
     - /bin/cp -Rf assets $DEPLOYPATH/
     - /bin/mkdir -p $DEPLOYPATH/hen-studio
     - /bin/cp -Rf hen-studio/src $DEPLOYPATH/hen-studio/

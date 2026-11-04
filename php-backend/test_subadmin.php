@@ -21,7 +21,8 @@ if (PHP_SAPI !== 'cli') { http_response_code(403); exit("CLI only.\n"); }
 ini_set('display_errors', '1');
 error_reporting(E_ALL & ~E_DEPRECATED);
 require_once __DIR__ . '/config.php';
-foreach (['json', 'logger', 'db', 'http', 'auth', 'helpers', 'subadmin'] as $f) require_once __DIR__ . "/lib/$f.php";
+if (cfg('IS_PRODUCTION')) { fwrite(STDERR, "Refusing to run money tests in production.\n"); exit(1); }
+foreach (['json', 'logger', 'db', 'http', 'auth', 'helpers', 'subadmin', 'originals', 'riskcontrols'] as $f) require_once __DIR__ . "/lib/$f.php";
 
 $pass = 0; $fail = 0; $failures = [];
 function check($cond, $label) {
@@ -42,7 +43,8 @@ $servers = [];
 $env = array_merge(getenv(), ['DISABLE_RATE_LIMITS' => 'true']);
 foreach ($PORTS as $p) {
     $log = sys_get_temp_dir() . DIRECTORY_SEPARATOR . "subadmin_$p.log";
-    $cmd = escapeshellarg(PHP_BINARY) . ' -d extension=pdo_pgsql -S 127.0.0.1:' . $p . ' ' . escapeshellarg($root . '/router.php');
+    $ext = db_is_mysql() ? 'pdo_mysql' : 'pdo_pgsql';
+    $cmd = escapeshellarg(PHP_BINARY) . (extension_loaded($ext) ? '' : ' -d extension=' . $ext) . ' -S 127.0.0.1:' . $p . ' ' . escapeshellarg($root . '/router.php');
     $servers[] = proc_open($cmd, [1 => ['file', $log, 'w'], 2 => ['file', $log, 'a']], $pipes, $root, $env);
 }
 register_shutdown_function(function () use (&$servers) {
@@ -108,7 +110,7 @@ function wipe() {
         if ($uids) q('DELETE FROM "SubAdminUser" WHERE "user_id" IN (' . implode(',', $uids) . ')');
         if (db_is_mysql()) q('SET @bet1x_allow_ledger_delete = NULL');
     });
-    foreach (['Withdrawal' => 'username', 'Deposit' => 'username', 'Transaction' => 'user', 'MinesSession' => 'username', 'User' => 'username'] as $t => $col) {
+    foreach (['Withdrawal' => 'username', 'Deposit' => 'username', 'Transaction' => 'user', 'MinesSession' => 'username', 'OriginalsRound' => 'username', 'OriginalsSeed' => 'username', 'User' => 'username'] as $t => $col) {
         try { q('DELETE FROM "' . $t . '" WHERE "' . $col . '" LIKE ?', ['satest%']); } catch (Throwable $e) {}
     }
     try { q('DELETE FROM "AdminLog" WHERE "actor" LIKE ?', ['satest%']); } catch (Throwable $e) {}
@@ -582,6 +584,86 @@ check($c === 200, 'the Admin console stats still load');
 check($c === 200, 'the Super Admin dashboard still loads');
 
 // =================================================================================================
+section('14. Originals: sub-admin funding, all games, reports and cash-outs');
+$savedOriginals = state_get('originals_config');
+state_set('originals_config', []);
+[$c, $b] = http('POST', '/api/subadmin/users', $T1, ['username' => 'satest_originals', 'password' => 'Originals#Test123']);
+$OU = ['id' => (int) ($b['user']['id'] ?? 0), 'name' => 'satest_originals'];
+[$c, $b] = http('POST', '/api/auth/login', null, ['username' => $OU['name'], 'password' => 'Originals#Test123']);
+$OU['tok'] = $b['token'] ?? '';
+$inventory = inv($sa1);
+[$c, $b] = http('POST', '/api/subadmin/deposits', $T1, ['user_id' => $OU['id'], 'coins' => 1000, 'amount_inr' => 1000, 'method' => 'Cash', 'stage' => 'confirmed', 'idempotency_key' => key8()]);
+check($c === 200 && near(wallet($OU['id']), 1000) && near(inv($sa1), $inventory - 1000), 'Originals player signs in normally and receives a confirmed sub-admin deposit');
+$inventory = inv($sa1); $staked = 0; $paid = 0; $otherBalance = wallet($P_OTHER['id']);
+[$c, $baseline] = http('GET', '/api/admin/game-stats', $ADMIN);
+$bodies = [
+    'dice' => ['bet_amount' => 10, 'chance' => 50, 'direction' => 'under', 'username' => $P_OTHER['name']],
+    'coinflip' => ['bet_amount' => 10, 'side' => 'heads'],
+    'wheel' => ['bet_amount' => 10, 'risk' => 'low', 'segments' => 10],
+    'plinko' => ['bet_amount' => 10, 'risk' => 'low', 'rows' => 8],
+    'keno' => ['bet_amount' => 10, 'picks' => [1, 2, 3]],
+    'roulette' => ['bets' => [['type' => 'red', 'amount' => 10]]],
+    'baccarat' => ['bets' => [['type' => 'banker', 'amount' => 10]]],
+    'andarbahar' => ['bets' => [['type' => 'andar', 'amount' => 10]]],
+    'slots' => ['bet_amount' => 10],
+    'blackjack' => ['bet_amount' => 10],
+    'matka' => ['bets' => [['type' => 'single', 'value' => '7', 'amount' => 10]]],
+];
+foreach ($bodies as $g => $body) {
+    [$c, $b] = http('POST', "/api/originals/$g/play", $OU['tok'], $body + ['client_ref' => key8()]);
+    $round = $b['round'] ?? null;
+    for ($guard = 0; $round && $round['status'] === 'open' && $guard < 10; $guard++) {
+        $action = $g === 'coinflip' ? 'cashout' : ($round['result']['phase'] === 'insurance' ? 'no_insurance' : 'stand');
+        [$c, $b] = http('POST', "/api/originals/$g/action", $OU['tok'], ['round_ref' => $round['round_ref'], 'step' => $round['step'], 'action' => $action]);
+        $round = $b['round'] ?? null;
+    }
+    if ($round) { $staked += $round['bet']; $paid += $round['payout']; }
+    check($c === 200 && $round && $round['status'] === 'settled' && near(wallet($OU['id']), 1000 - $staked + $paid) && near(inv($sa1), $inventory), "$g: funded player settles through the shared wallet; sub-admin inventory stays unchanged");
+}
+check(near(wallet($P_OTHER['id']), $otherBalance), 'a player-supplied username cannot redirect an Originals bet into someone else\'s wallet');
+[$c, $userDetail] = http('GET', '/api/subadmin/users/' . $OU['id'], $T1);
+$gameRows = array_values(array_filter($userDetail['transactions'] ?? [], function ($t) { return !empty($t['game']); }));
+check($c === 200 && count(array_unique(array_column($gameRows, 'game'))) === 11, 'sub-admin user detail shows classified transactions for all eleven games');
+$stakeRows = array_filter($gameRows, function ($t) { return $t['game_kind'] === 'wager'; });
+check(near(array_sum(array_column($stakeRows, 'amount')), $staked) && near(risk_total_wagered($OU['name']), $staked), 'all Originals stakes count toward withdrawal turnover and the sub-admin ledger view');
+[$c, $summary] = http('GET', '/api/subadmin/summary', $T1);
+$originalLabels = array_column(originals_catalogue(), 'label');
+$summaryRows = array_values(array_filter($summary['game_activity']['per_game'] ?? [], function ($g) use ($originalLabels) { return in_array($g['label'], $originalLabels, true); }));
+check($c === 200 && count($summaryRows) === 11 && near(array_sum(array_column($summaryRows, 'wagered')), $staked) && near(array_sum(array_column($summaryRows, 'won')), $paid), 'sub-admin dashboard reports all eleven Originals with exactly their stakes and payouts');
+[$cu, $users] = http('GET', '/api/subadmin/users?q=' . $OU['name'], $T1);
+$byUser = $users['users'][0] ?? [];
+check($cu === 200 && near($byUser['wagered'] ?? -1, $staked) && near($byUser['won'] ?? -1, $paid), 'sub-admin player list attributes the same stakes and payouts to the correct player');
+[$c, $adminDetail] = http('GET', "/api/admin/subadmins/$sa1", $ADMIN);
+check($c === 200 && json_encode($summary['game_activity']) === json_encode($adminDetail['game_activity']), 'Admin and sub-admin see identical gameplay reporting');
+[$c, $stats] = http('GET', '/api/admin/game-stats', $ADMIN);
+$statsOK = $c === 200;
+foreach (array_keys($bodies) as $g) if (($stats['stats'][$g]['total'] ?? -1) !== ($baseline['stats'][$g]['total'] ?? 0) + 1) $statsOK = false;
+check($statsOK, 'admin per-game statistics include the new round from every Originals game');
+[$c, $txns] = http('GET', '/api/admin.php?action=transactions', $ADMIN);
+$mine = array_values(array_filter($txns, function ($t) use ($OU) { return $t['user'] === $OU['name'] && !empty($t['game']); }));
+check($c === 200 && count(array_unique(array_column($mine, 'game'))) === 11 && count(array_filter($mine, function ($t) { return strpos($t['details'], ' Round OR') !== false; })) === count($mine), 'admin transaction feed identifies every Originals game and correlates its stake/payout with a round reference');
+[$c] = http('POST', '/api/admin/originals/config', $T1, ['game' => 'dice', 'rtp' => 80]);
+check($c === 401, 'sub-admin sessions cannot change game settings');
+$walletBefore = wallet($OU['id']);
+[$c, $b] = $wd($OU['tok'], 100); $wid = $b['withdrawal_id'] ?? '';
+[$c2] = http('POST', "/api/subadmin/withdrawals/$wid/paid", $T1, ['amount_paid' => 100, 'method' => 'Cash', 'confirm' => true]);
+check($c === 200 && $c2 === 200 && near(wallet($OU['id']), $walletBefore - 100) && near(inv($sa1), $inventory), 'after all eleven games, a normal cashier withdrawal is routed and paid once without changing sub-admin inventory');
+$walletBefore = wallet($OU['id']);
+[$c] = http('POST', '/api/subadmin/withdrawals', $T1, ['user_id' => $OU['id'], 'coins' => 20, 'amount_paid' => 20, 'method' => 'Cash', 'confirm' => true, 'idempotency_key' => key8()]);
+[$c2, $sync] = http('GET', '/api/originals/dice/state', $OU['tok']);
+check($c === 200 && $c2 === 200 && near($sync['balance'], $walletBefore - 20), 'a sub-admin counter cash-out immediately reaches the same game wallet');
+$ledgerIn = (float) scalar('SELECT COALESCE(SUM("amount"),0) FROM "Transaction" WHERE "user" = ? AND "type" = \'Deposit\' AND "status" = \'Completed\'', [$OU['name']], 0);
+$ledgerOut = (float) scalar('SELECT COALESCE(SUM("amount"),0) FROM "Transaction" WHERE "user" = ? AND "type" = \'Withdrawal\' AND "status" = \'Completed\'', [$OU['name']], 0);
+check(near(wallet($OU['id']), $ledgerIn - $ledgerOut) && figures($sa1)['reconciled'], 'the funded player wallet and sub-admin inventory both reconcile after games and both payout routes');
+// The platform-funded account uses the same game engine and its own Admin withdrawal queue.
+$beforePlatform = wallet($P_OTHER['id']);
+[$c, $platformRound] = http('POST', '/api/originals/dice/play', $P_OTHER['tok'], ['client_ref' => key8(), 'bet_amount' => 10, 'chance' => 50, 'direction' => 'under']);
+[$c2, $b] = $wd($P_OTHER['tok'], 100);
+$platformWithdrawal = $b['withdrawal_id'] ?? '';
+[$c3] = http('POST', '/api/admin.php?action=approve_withdrawal', $ADMIN, ['withdrawal_id' => $platformWithdrawal]);
+check($c === 200 && $c2 === 200 && $c3 === 200 && near(wallet($P_OTHER['id']), $beforePlatform - 10 + ($platformRound['round']['payout'] ?? 0) - 100), 'platform-approved deposit funds an Originals bet, then an Admin-approved withdrawal debits the same wallet exactly once');
+if ($savedOriginals === null) q('DELETE FROM "GameState" WHERE "key" = ?', ['originals_config']); else state_set('originals_config', $savedOriginals);
+
 if ($origSettings === null) q('DELETE FROM "GameState" WHERE "key" = ?', ['subadmin_settings']); else state_set('subadmin_settings', $origSettings);
 wipe();
 echo "\n$pass passed, $fail failed\n";

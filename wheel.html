@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wheel — bet1x</title>
+  <link rel="stylesheet" href="assets/css/style.css?v=20261014j">
+  <link rel="stylesheet" href="assets/css/game-shell.css?v=20261014i">
+  <link rel="stylesheet" href="assets/css/originals.css?v=20261104o">
+  <style>
+    .wh-box { position: relative; width: min(400px, 82vw); aspect-ratio: 1; }
+    .wh-svg { width: 100%; height: 100%; transition: transform 3.4s cubic-bezier(.12,.75,.12,1); filter: drop-shadow(0 16px 40px rgba(0,0,0,.55)); }
+    .wh-pointer { position: absolute; left: 50%; top: -6px; transform: translateX(-50%); width: 0; height: 0; border-left: 16px solid transparent; border-right: 16px solid transparent;
+      border-top: 30px solid var(--gold); filter: drop-shadow(0 3px 6px rgba(0,0,0,.6)); z-index: 2; }
+    .wh-hub { position: absolute; left: 50%; top: 50%; width: 34%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(circle at 40% 35%, #283068, #12163a);
+      border: 3px solid #2f3778; display: flex; align-items: center; justify-content: center; flex-direction: column; color: var(--text); font: 800 28px var(--font-mono); }
+    .wh-hub small { font: 600 11px var(--font-body); color: var(--text-dim); }
+    .wh-legend { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 20px; max-width: 620px; }
+    .wh-legend span { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 9px; background: var(--bg-soft); border: 1px solid var(--border); font: 700 12.5px var(--font-mono); }
+    .wh-legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+    .wh-legend em { font-style: normal; color: var(--text-dim); font: 500 11px var(--font-body); }
+  </style>
+</head>
+<body class="exchange-theme">
+  <nav class="navbar exchange-header">
+    <div class="exchange-logo-box">Bet1x</div>
+    <div id="headerAuthArea"></div>
+  </nav>
+  <main class="og-wrap" id="og"></main>
+  <div class="footer">bet1x — play responsibly; 18+ only.</div>
+
+  <script src="assets/js/ui-common.js?v=20261014l"></script>
+  <script src="assets/js/password-eye.js?v=20261104b"></script>
+  <script src="assets/js/sound-fx.js"></script>
+  <script src="assets/js/originals.js?v=20261104p"></script>
+  <script>
+  (function () {
+    const $ = (id) => document.getElementById(id);
+    let risk = 'medium', segs = 20, rot = 0;
+    const color = (m) => m <= 0 ? '#2a2f55' : m < 1 ? '#5b6390' : m < 2 ? '#2ed47a' : m < 5 ? '#3d8bff' : m < 15 ? '#a56bff' : '#ffc53d';
+    const table = () => ((Orig.state.info && Orig.state.info.tables) ? Orig.state.info.tables[risk][segs] : []);
+
+    function draw() {
+      const t = table(); if (!t.length) return;
+      const n = t.length, R = 100, step = 360 / n;
+      let svg = '';
+      t.forEach((m, i) => {
+        const a0 = (i * step - 90) * Math.PI / 180, a1 = ((i + 1) * step - 90) * Math.PI / 180;
+        const x0 = 100 + R * Math.cos(a0), y0 = 100 + R * Math.sin(a0), x1 = 100 + R * Math.cos(a1), y1 = 100 + R * Math.sin(a1);
+        svg += '<path d="M100,100 L' + x0.toFixed(2) + ',' + y0.toFixed(2) + ' A' + R + ',' + R + ' 0 0 1 ' + x1.toFixed(2) + ',' + y1.toFixed(2) + ' Z" fill="' + color(m) + '" stroke="#0b0e1d" stroke-width="0.8"/>';
+        const am = ((i + 0.5) * step - 90) * Math.PI / 180, tx = 100 + 80 * Math.cos(am), ty = 100 + 80 * Math.sin(am);
+        if (n <= 20) svg += '<text x="' + tx.toFixed(1) + '" y="' + ty.toFixed(1) + '" fill="' + (m >= 15 ? '#1b1404' : '#fff') + '" font-size="' + (n <= 10 ? 7.5 : 5.5) + '" font-weight="800" text-anchor="middle" dominant-baseline="middle" transform="rotate(' + ((i + 0.5) * step) + ' ' + tx.toFixed(1) + ' ' + ty.toFixed(1) + ')">' + (m > 0 ? m + 'x' : '') + '</text>';
+      });
+      svg += '<circle cx="100" cy="100" r="99" fill="none" stroke="#2f3778" stroke-width="2"/>';
+      $('whSvg').innerHTML = svg;
+      const uniq = {};
+      t.forEach((m) => { uniq[m] = (uniq[m] || 0) + 1; });
+      $('whLegend').innerHTML = Object.keys(uniq).map(Number).sort((a, b) => b - a)
+        .map((m) => '<span><i style="background:' + color(m) + '"></i>' + (m > 0 ? m + 'x' : '0x') + ' <em>' + (uniq[m] / n * 100).toFixed(0) + '%</em></span>').join('');
+      document.querySelectorAll('#whRisk button').forEach((b) => b.classList.toggle('on', b.dataset.v === risk));
+      document.querySelectorAll('#whSegs button').forEach((b) => b.classList.toggle('on', +b.dataset.v === segs));
+    }
+
+    Orig.mount({
+      game: 'wheel', title: 'Wheel', sub: 'Spin the fortune wheel', playLabel: 'Spin',
+      controls:
+        '<div class="og-field"><div class="og-lbl"><span>Risk</span></div><div class="og-seg" id="whRisk"><button type="button" data-v="low" data-og-lock>Low</button><button type="button" data-v="medium" data-og-lock>Medium</button><button type="button" data-v="high" data-og-lock>High</button></div></div>' +
+        '<div class="og-field"><div class="og-lbl"><span>Segments</span></div><div class="og-seg" id="whSegs"><button type="button" data-v="10" data-og-lock>10</button><button type="button" data-v="20" data-og-lock>20</button><button type="button" data-v="30" data-og-lock>30</button></div></div>',
+      stage: '<div class="wh-box"><div class="wh-pointer"></div><svg class="wh-svg" id="whSvg" viewBox="0 0 200 200"></svg><div class="wh-hub"><span id="whHub">—</span><small>multiplier</small></div></div><div class="wh-legend" id="whLegend"></div>',
+      howto: (info, cfg) => 'Choose a <b>risk</b> and how many <b>segments</b>, then spin. You win the multiplier the pointer stops on. ' +
+        'Low risk wins often with small multipliers; High risk mostly misses but carries the biggest prize. Every layout pays back <b>' + (cfg.rtp * 100).toFixed(0) + '%</b> on average.',
+      collect: () => ({ risk, segments: segs }),
+      resultText: (r) => '<b>' + Orig.fmtMult(r.result.multiplier) + '</b> <span style="color:var(--text-dim)">' + r.params.risk + ' · ' + r.params.segments + '</span>',
+      verifyFloats: 1,
+      verify: (f, r) => 'Segment = floor(' + f[0].toFixed(8) + ' × ' + r.params.segments + ') = <b>' + Math.floor(f[0] * r.params.segments) + '</b> (counted clockwise from the top)',
+      onMount: () => {
+        document.querySelectorAll('#whRisk button').forEach((b) => { b.onclick = () => { risk = b.dataset.v; draw(); Orig.sound('click'); }; });
+        document.querySelectorAll('#whSegs button').forEach((b) => { b.onclick = () => { segs = +b.dataset.v; draw(); Orig.sound('click'); }; });
+      },
+      onLoad: draw,
+      onResult: async (round) => {
+        const n = round.params.segments, step = 360 / n, i = round.result.index;
+        const target = -((i + 0.5) * step) + (Math.random() - 0.5) * step * 0.6;
+        const base = rot - (rot % 360);
+        rot = base + 360 * 5 + ((target % 360) + 360) % 360;
+        $('whHub').textContent = '…';
+        $('whSvg').style.transform = 'rotate(' + rot + 'deg)';
+        Orig.sound('tick');
+        await Orig.sleep(3450);
+        $('whHub').textContent = Orig.fmtMult(round.result.multiplier);
+      },
+    });
+  })();
+  </script>
+  <script src="assets/js/game-shell.js?v=20261104o" data-mode="nav" defer></script>
+</body>
+</html>

@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Roulette — bet1x</title>
+  <link rel="stylesheet" href="assets/css/style.css?v=20261014j">
+  <link rel="stylesheet" href="assets/css/game-shell.css?v=20261014i">
+  <link rel="stylesheet" href="assets/css/originals.css?v=20261104o">
+  <style>
+    .rl-top { display: flex; align-items: center; gap: 22px; margin-bottom: 18px; flex-wrap: wrap; justify-content: center; }
+    .rl-wheelbox { position: relative; width: 200px; height: 200px; }
+    .rl-wheel { width: 100%; height: 100%; transition: transform 4s cubic-bezier(.12,.7,.1,1); filter: drop-shadow(0 12px 30px rgba(0,0,0,.6)); }
+    .rl-ptr { position: absolute; left: 50%; top: -4px; transform: translateX(-50%); border-left: 9px solid transparent; border-right: 9px solid transparent; border-top: 16px solid #fff; z-index: 2; }
+    .rl-res { width: 92px; height: 92px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font: 800 38px var(--font-mono); color: #fff;
+      background: #262b4a; border: 4px solid rgba(255,255,255,.15); box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+    .rl-res.red { background: #d3203f; } .rl-res.black { background: #15182c; } .rl-res.green { background: #1aa36a; }
+    .rl-hist { display: flex; gap: 4px; flex-wrap: wrap; max-width: 260px; }
+    .rl-hist span { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font: 700 11px var(--font-mono); color: #fff; }
+    .rl-table { display: grid; grid-template-columns: 0.9fr repeat(12, 1fr) 0.9fr; gap: 3px; width: 100%; max-width: 760px; user-select: none; }
+    .rl-c { position: relative; border-radius: 6px; display: flex; align-items: center; justify-content: center; font: 800 clamp(11px, 1.5vw, 15px) var(--font-mono); color: #fff;
+      cursor: pointer; padding: 10px 0; border: 1px solid rgba(255,255,255,.08); transition: filter .12s, box-shadow .15s; min-height: 38px; }
+    .rl-c:hover { filter: brightness(1.25); }
+    .rl-c.red { background: #b81c38; } .rl-c.black { background: #1b1f38; } .rl-c.green { background: #128552; }
+    .rl-c.out { background: #222852; font-family: var(--font-body); font-size: clamp(10px, 1.2vw, 13px); }
+    .rl-c.win { box-shadow: 0 0 0 3px var(--gold), 0 0 18px rgba(255,197,61,.5); z-index: 1; }
+    .rl-zero { grid-row: span 3; }
+  </style>
+</head>
+<body class="exchange-theme">
+  <nav class="navbar exchange-header">
+    <div class="exchange-logo-box">Bet1x</div>
+    <div id="headerAuthArea"></div>
+  </nav>
+  <main class="og-wrap" id="og"></main>
+  <div class="footer">bet1x — play responsibly; 18+ only.</div>
+
+  <script src="assets/js/ui-common.js?v=20261014l"></script>
+  <script src="assets/js/password-eye.js?v=20261104b"></script>
+  <script src="assets/js/sound-fx.js"></script>
+  <script src="assets/js/originals.js?v=20261104p"></script>
+  <script>
+  (function () {
+    const $ = (id) => document.getElementById(id);
+    const REDS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
+    const ORDER = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
+    const col = (n) => n === 0 ? 'green' : REDS.includes(n) ? 'red' : 'black';
+    let bets = {}, undo = [], rot = 0, past = [];
+
+    function cell(key, label, cls, extra) { return '<div class="rl-c ' + cls + '" data-k="' + key + '"' + (extra || '') + '>' + label + '</div>'; }
+    function table() {
+      let h = cell('straight|0', '0', 'green rl-zero', ' style="grid-row:1/span 3;grid-column:1"');
+      for (let row = 0; row < 3; row++) {
+        for (let c = 0; c < 12; c++) {
+          const n = 3 * c + (3 - row);
+          h += cell('straight|' + n, n, col(n), ' style="grid-row:' + (row + 1) + ';grid-column:' + (c + 2) + '"');
+        }
+        h += cell('column|' + (3 - row), '2:1', 'out', ' style="grid-row:' + (row + 1) + ';grid-column:14"');
+      }
+      ['1st 12', '2nd 12', '3rd 12'].forEach((l, i) => { h += cell('dozen|' + (i + 1), l, 'out', ' style="grid-row:4;grid-column:' + (2 + i * 4) + '/span 4"'); });
+      [['low|', '1–18'], ['even|', 'EVEN'], ['red|', '<span style="color:#ff5a76">RED</span>'], ['black|', 'BLACK'], ['odd|', 'ODD'], ['high|', '19–36']]
+        .forEach(([k, l], i) => { h += cell(k, l, 'out', ' style="grid-row:5;grid-column:' + (2 + i * 2) + '/span 2"'); });
+      $('rlTable').innerHTML = h;
+      $('rlTable').querySelectorAll('.rl-c').forEach((c) => { c.onclick = () => place(c.dataset.k); });
+      stacks();
+    }
+    function stacks() {
+      $('rlTable').querySelectorAll('.rl-c').forEach((c) => {
+        const old = c.querySelector('.og-stack'); if (old) old.remove();
+        const a = bets[c.dataset.k];
+        if (a) { const s = document.createElement('span'); s.className = 'og-stack'; s.textContent = a >= 1000 ? (a / 1000).toFixed(a % 1000 ? 1 : 0) + 'K' : a; c.appendChild(s); }
+      });
+      Orig.setTotal(Object.values(bets).reduce((a, b) => a + b, 0));
+      $('rlInsideBets').textContent = Object.keys(bets).filter((k) => /^(split|street|corner|line)\|/.test(k)).map((k) => k.replace('|', ' ') + ': ' + Orig.money(bets[k])).join(' · ');
+    }
+    function place(k) {
+      if (Orig.state.busy) return;
+      document.querySelectorAll('.rl-c.win').forEach((c) => c.classList.remove('win'));
+      bets[k] = (bets[k] || 0) + Orig.chip(); undo.push([k, Orig.chip()]); Orig.sound('chipStack'); stacks();
+    }
+    function wheel() {
+      const n = ORDER.length, step = 360 / n; let s = '';
+      ORDER.forEach((num, i) => {
+        const a0 = (i * step - 90 - step / 2) * Math.PI / 180, a1 = ((i + 1) * step - 90 - step / 2) * Math.PI / 180;
+        const p = (r, a) => (100 + r * Math.cos(a)).toFixed(2) + ',' + (100 + r * Math.sin(a)).toFixed(2);
+        const fill = num === 0 ? '#128552' : REDS.includes(num) ? '#b81c38' : '#15182c';
+        s += '<path d="M' + p(98, a0) + ' A98,98 0 0 1 ' + p(98, a1) + ' L' + p(62, a1) + ' A62,62 0 0 0 ' + p(62, a0) + ' Z" fill="' + fill + '" stroke="#c9a34e" stroke-width=".5"/>';
+        const am = (i * step - 90) * Math.PI / 180, tx = 100 + 82 * Math.cos(am), ty = 100 + 82 * Math.sin(am);
+        s += '<text x="' + tx.toFixed(1) + '" y="' + ty.toFixed(1) + '" fill="#fff" font-size="8" font-weight="800" text-anchor="middle" dominant-baseline="middle" transform="rotate(' + (i * step) + ' ' + tx.toFixed(1) + ' ' + ty.toFixed(1) + ')">' + num + '</text>';
+      });
+      s += '<circle cx="100" cy="100" r="60" fill="#1a2040" stroke="#c9a34e" stroke-width="2"/><circle cx="100" cy="100" r="18" fill="#c9a34e"/>';
+      $('rlWheel').innerHTML = s;
+    }
+    function history() { $('rlHist').innerHTML = past.slice(0, 16).map((n) => '<span style="background:' + ({ red: '#b81c38', black: '#15182c', green: '#128552' })[col(n)] + '">' + n + '</span>').join(''); }
+    function insideOptions() {
+      const type = $('rlInsideType').value, options = [];
+      if (type === 'split') {
+        [1,2,3].forEach((n) => options.push(['0-' + n, '0 / ' + n]));
+        for (let n=1;n<=36;n++) {
+          if(n%3 && n<36) options.push([n+'-'+(n+1),n+' / '+(n+1)]);
+          if(n<=33) options.push([n+'-'+(n+3),n+' / '+(n+3)]);
+        }
+      } else if(type === 'corner') {
+        for(let n=1;n<=32;n++) if(n%3) options.push([String(n),[n,n+1,n+3,n+4].join(' / ')]);
+      } else {
+        for(let n=1;n<=(type==='street'?12:11);n++) options.push([String(n),(3*n-2)+' – '+(type==='street'?3*n:3*n+3)]);
+      }
+      $('rlInsideValue').innerHTML=options.map(([v,l]) => '<option value="'+v+'">'+l+'</option>').join('');
+    }
+
+    Orig.mount({
+      game: 'roulette', title: 'Roulette', sub: 'European single zero', playLabel: 'Spin', chipMode: true,
+      controls: '<div class="og-field"><label class="og-lbl" for="rlInsideType">Inside bet</label><select class="og-input" id="rlInsideType" data-og-lock><option value="split">Split · 18x</option><option value="street">Street · 12x</option><option value="corner">Corner · 9x</option><option value="line">Line · 6x</option></select><label class="og-lbl" for="rlInsideValue">Numbers covered</label><select class="og-input" id="rlInsideValue" data-og-lock></select><button type="button" class="og-chipbtn" id="rlInsideAdd" data-og-lock>Add selected chip</button></div>',
+      stage: '<div class="rl-top"><div class="rl-wheelbox"><div class="rl-ptr"></div><svg class="rl-wheel" id="rlWheel" viewBox="0 0 200 200"></svg></div>' +
+        '<div style="display:flex;flex-direction:column;align-items:center;gap:10px;"><div class="rl-res" id="rlRes">?</div><div class="rl-hist" id="rlHist"></div></div></div>' +
+        '<div class="rl-table" id="rlTable"></div><div class="og-howto" id="rlInsideBets" style="margin-top:12px"></div>',
+      howto: '<b>Pick a chip</b>, tap the table to place it (tap again to add more), then spin. ' +
+        'Payouts include your stake: a single number pays <b>36x</b>, a column or dozen <b>3x</b>, red/black, odd/even, 1–18/19–36 <b>2x</b>. Zero (green) loses every outside bet. ' +
+        'Use the inside bet selector for splits (18x), streets (12x), corners (9x) and lines (6x). Single-zero European rules: every bet returns <b>97.3%</b>.',
+      collect: () => ({ bets: Object.keys(bets).map((k) => { const [type, value] = k.split('|'); return { type, value, amount: bets[k] }; }) }),
+      onClear: () => { bets = {}; undo = []; stacks(); },
+      onUndo: () => { const u = undo.pop(); if (!u) return; bets[u[0]] -= u[1]; if (bets[u[0]] <= 0) delete bets[u[0]]; stacks(); },
+      resultText: (r) => '<span style="display:inline-flex;width:22px;height:22px;border-radius:50%;align-items:center;justify-content:center;color:#fff;font:700 11px var(--font-mono);background:' +
+        ({ red: '#b81c38', black: '#15182c', green: '#128552' })[r.result.color] + '">' + r.result.number + '</span> <span style="color:var(--text-dim)">' + r.params.bets.length + ' bet' + (r.params.bets.length > 1 ? 's' : '') + '</span>',
+      verifyFloats: 1,
+      verify: (f) => 'Number = floor(' + f[0].toFixed(8) + ' × 37) = <b>' + Math.floor(f[0] * 37) + '</b>',
+      onMount: () => { table(); wheel(); insideOptions(); $('rlInsideType').onchange=insideOptions; $('rlInsideAdd').onclick=() => place($('rlInsideType').value+'|'+$('rlInsideValue').value); },
+      onLoad: (d) => { past = (d.recent || []).map((r) => r.result.number); history(); },
+      onResult: async (round) => {
+        const n = round.result.number, i = ORDER.indexOf(n), step = 360 / ORDER.length;
+        const base = rot - (rot % 360);
+        rot = base + 360 * 6 + ((-(i * step)) % 360 + 360) % 360;
+        $('rlRes').className = 'rl-res'; $('rlRes').textContent = '…';
+        $('rlWheel').style.transform = 'rotate(' + rot + 'deg)';
+        Orig.sound('tick');
+        await Orig.sleep(4050);
+        $('rlRes').className = 'rl-res ' + col(n); $('rlRes').textContent = n;
+        past.unshift(n); history();
+        const won = round.result.winning_bets.map((ix) => round.params.bets[ix]);
+        document.querySelectorAll('.rl-c').forEach((c) => {
+          const [t, v] = c.dataset.k.split('|');
+          if ((t === 'straight' && +v === n) || won.some((b) => b.type === t && String(b.value || '') === String(v || ''))) c.classList.add('win');
+        });
+      },
+    });
+  })();
+  </script>
+  <script src="assets/js/game-shell.js?v=20261104o" data-mode="nav" defer></script>
+</body>
+</html>

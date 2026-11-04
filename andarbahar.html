@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Andar Bahar — bet1x</title>
+  <link rel="stylesheet" href="assets/css/style.css?v=20261014j">
+  <link rel="stylesheet" href="assets/css/game-shell.css?v=20261014i">
+  <link rel="stylesheet" href="assets/css/originals.css?v=20261104o">
+  <style>
+    .ab-joker { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 14px; }
+    .ab-joker small { font: 700 11px var(--font-body); letter-spacing: 2px; color: var(--gold); }
+    .ab-row { width: 100%; max-width: 720px; display: grid; grid-template-columns: 74px 1fr; gap: 8px; align-items: center; margin-bottom: 8px;
+      background: rgba(11,14,29,.45); border: 1px solid var(--border); border-radius: 12px; padding: 8px; min-height: 72px; transition: border-color .25s, box-shadow .25s; }
+    .ab-row h4 { margin: 0; font: 800 14px var(--font-display); letter-spacing: 1px; text-align: center; }
+    .ab-row.a h4 { color: #6aa2ff; } .ab-row.b h4 { color: #ff6b85; }
+    .ab-row.won { border-color: var(--gold); box-shadow: 0 0 22px rgba(255,197,61,.3); }
+    .ab-cards { display: flex; gap: 4px; flex-wrap: wrap; }
+    .ab-spots { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 100%; max-width: 720px; margin-top: 8px; }
+    .ab-side { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; width: 100%; max-width: 720px; margin-top: 6px; }
+    .ab-spot { position: relative; border-radius: 11px; padding: 12px 6px; text-align: center; cursor: pointer; border: 2px solid transparent; user-select: none; transition: filter .12s; }
+    .ab-spot:hover { filter: brightness(1.2); }
+    .ab-spot b { display: block; font: 800 14px var(--font-display); color: #fff; }
+    .ab-spot small { font: 600 11px var(--font-mono); color: rgba(255,255,255,.75); }
+    .ab-spot.andar { background: #1d3f8f; } .ab-spot.bahar { background: #8f1d36; } .ab-spot.cards { background: #252b57; padding: 8px 4px; }
+    .ab-spot.cards b { font-size: 12.5px; }
+    .ab-spot.win { border-color: var(--gold); box-shadow: 0 0 16px rgba(255,197,61,.45); }
+  </style>
+</head>
+<body class="exchange-theme">
+  <nav class="navbar exchange-header">
+    <div class="exchange-logo-box">Bet1x</div>
+    <div id="headerAuthArea"></div>
+  </nav>
+  <main class="og-wrap" id="og"></main>
+  <div class="footer">bet1x — play responsibly; 18+ only.</div>
+
+  <script src="assets/js/ui-common.js?v=20261014l"></script>
+  <script src="assets/js/password-eye.js?v=20261104b"></script>
+  <script src="assets/js/sound-fx.js"></script>
+  <script src="assets/js/originals.js?v=20261104p"></script>
+  <script>
+  (function () {
+    const $ = (id) => document.getElementById(id);
+    let bets = {}, undo = [];
+    const key = (t, v) => t + '|' + (v || '');
+
+    function spots() {
+      const p = (Orig.state.info && Orig.state.info.pays) || { andar: {}, bahar: {}, cards: {} };
+      const stack = (k) => bets[k] ? '<span class="og-stack">' + bets[k] + '</span>' : '';
+      $('abMain').innerHTML = '<div class="ab-spot andar" data-k="andar|"><b>ANDAR</b><small>' + (p.andar.pays || '–') + 'x</small>' + stack('andar|') + '</div>' +
+        '<div class="ab-spot bahar" data-k="bahar|"><b>BAHAR</b><small>' + (p.bahar.pays || '–') + 'x</small>' + stack('bahar|') + '</div>';
+      $('abSide').innerHTML = Object.keys(p.cards || {}).map((b) => '<div class="ab-spot cards" data-k="cards|' + b + '"><b>' + b + ' cards</b><small>' + p.cards[b].pays + 'x</small>' + stack('cards|' + b) + '</div>').join('');
+      document.querySelectorAll('.ab-spot').forEach((s) => { s.onclick = () => place(s.dataset.k); });
+      Orig.setTotal(Object.values(bets).reduce((a, b) => a + b, 0));
+    }
+    function place(k) {
+      if (Orig.state.busy) return;
+      bets[k] = (bets[k] || 0) + Orig.chip(); undo.push([k, Orig.chip()]); Orig.sound('chipStack'); spots();
+    }
+
+    Orig.mount({
+      game: 'andarbahar', title: 'Andar Bahar', sub: 'Andar or Bahar?', playLabel: 'Deal', chipMode: true,
+      stage: '<div class="ab-joker"><small>JOKER</small><div id="abJoker">' + Orig.cardHTML('??') + '</div></div>' +
+        '<div class="ab-row a" id="abA"><h4>ANDAR</h4><div class="ab-cards" id="abAC"></div></div>' +
+        '<div class="ab-row b" id="abB"><h4>BAHAR</h4><div class="ab-cards" id="abBC"></div></div>' +
+        '<div class="ab-spots" id="abMain"></div><div class="ab-side" id="abSide"></div>',
+      howto: (info, cfg) => 'The first card is the <b>Joker</b>. Cards are then dealt one at a time to <b>Andar</b> (first) and <b>Bahar</b>, alternately, until one matches the Joker\'s rank — that side wins. ' +
+        'Because Andar gets the first card it wins slightly more often, so it pays a little less. Side bets: guess how many cards are dealt before the match. ' +
+        'Every payout is the exact odds at <b>' + (cfg.rtp * 100).toFixed(0) + '%</b>, from a freshly shuffled 52-card pack.',
+      collect: () => ({ bets: Object.keys(bets).map((k) => { const [type, value] = k.split('|'); return { type, value, amount: bets[k] }; }) }),
+      onClear: () => { bets = {}; undo = []; spots(); },
+      onUndo: () => { const u = undo.pop(); if (!u) return; bets[u[0]] -= u[1]; if (bets[u[0]] <= 0) delete bets[u[0]]; spots(); },
+      resultText: (r) => '<b style="color:' + (r.result.winner === 'andar' ? '#6aa2ff' : '#ff6b85') + '">' + r.result.winner.toUpperCase() + '</b> <span style="color:var(--text-dim)">Joker ' + r.result.joker + ' · ' + r.result.cards_dealt + ' cards</span>',
+      verifyFloats: 4,
+      verify: () => 'The pack is shuffled with Fisher-Yates using the round\'s random numbers in order (the first card after shuffling is the Joker).',
+      onMount: spots,
+      onLoad: spots,
+      onResult: async (round) => {
+        const r = round.result;
+        $('abA').classList.remove('won'); $('abB').classList.remove('won');
+        document.querySelectorAll('.ab-spot').forEach((s) => s.classList.remove('win'));
+        $('abAC').innerHTML = ''; $('abBC').innerHTML = '';
+        $('abJoker').innerHTML = Orig.cardHTML(r.joker); Orig.sound('cardFlip');
+        await Orig.sleep(500);
+        const total = r.andar.length + r.bahar.length, delay = Math.max(70, Math.min(280, 4200 / total));
+        for (let i = 0; i < total; i++) {
+          const side = i % 2 === 0 ? 'A' : 'B', c = (side === 'A' ? r.andar : r.bahar)[Math.floor(i / 2)];
+          const last = i === total - 1;
+          $('ab' + side + 'C').insertAdjacentHTML('beforeend', Orig.cardHTML(c, { sm: true, hit: last }));
+          if (i % 2 === 0 || last) Orig.sound('cardDeal');
+          await Orig.sleep(delay);
+        }
+        $(r.winner === 'andar' ? 'abA' : 'abB').classList.add('won');
+        document.querySelectorAll('.ab-spot').forEach((s) => {
+          const [t, v] = s.dataset.k.split('|');
+          if (t === r.winner) s.classList.add('win');
+          if (t === 'cards') { const [lo, hi] = v.split('-').map(Number); if (r.cards_dealt >= lo && r.cards_dealt <= hi) s.classList.add('win'); }
+        });
+      },
+    });
+  })();
+  </script>
+  <script src="assets/js/game-shell.js?v=20261104o" data-mode="nav" defer></script>
+</body>
+</html>

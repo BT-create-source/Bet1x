@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plinko — bet1x</title>
+  <link rel="stylesheet" href="assets/css/style.css?v=20261014j">
+  <link rel="stylesheet" href="assets/css/game-shell.css?v=20261014i">
+  <link rel="stylesheet" href="assets/css/originals.css?v=20261104o">
+  <style>
+    .pk-box { width: 100%; max-width: 700px; display: flex; flex-direction: column; align-items: center; }
+    .pk-canvas { width: 100%; aspect-ratio: 1.15; display: block; }
+    .pk-buckets { display: grid; width: 100%; gap: 1px; margin-top: 2px; box-sizing: border-box; }
+    .pk-b { min-width: 0; border: 0; border-radius: 5px; padding: 8px 0; text-align: center; font-family: var(--font-mono); font-weight: 800; font-size: inherit; color: #1b1404; cursor: pointer; transition: transform .15s, box-shadow .15s; }
+    .pk-b.hit { transform: translateY(5px); box-shadow: 0 0 0 2px #fff, 0 0 18px rgba(255,255,255,.4); }
+  </style>
+</head>
+<body class="exchange-theme">
+  <nav class="navbar exchange-header">
+    <div class="exchange-logo-box">Bet1x</div>
+    <div id="headerAuthArea"></div>
+  </nav>
+  <main class="og-wrap" id="og"></main>
+  <div class="footer">bet1x — play responsibly; 18+ only.</div>
+
+  <script src="assets/js/ui-common.js?v=20261014l"></script>
+  <script src="assets/js/password-eye.js?v=20261104b"></script>
+  <script src="assets/js/sound-fx.js"></script>
+  <script src="assets/js/originals.js?v=20261104p"></script>
+  <script>
+  (function () {
+    const $ = (id) => document.getElementById(id);
+    let risk = 'medium', rows = 16, ball = null, raf = 0;
+    const table = () => ((Orig.state.info && Orig.state.info.tables) ? Orig.state.info.tables[risk][rows] : []);
+    function bucketColor(i, n) {
+      const d = Math.abs(i - (n - 1) / 2) / ((n - 1) / 2);   // 0 middle .. 1 edge
+      const c0 = [61, 139, 255], c1 = [255, 197, 61], c2 = [255, 75, 110];
+      const mix = (a, b, t) => a.map((x, k) => Math.round(x + (b[k] - x) * t));
+      const c = d < 0.6 ? mix(c0, c1, d / 0.6) : mix(c1, c2, (d - 0.6) / 0.4);
+      return 'rgb(' + c.join(',') + ')';
+    }
+    function geom(cv) {
+      const W = cv.width, H = cv.height, top = H * 0.06, gapY = (H * 0.9) / (rows + 0.5), gapX = W / (rows + 2.2);
+      return { W, H, top, gapY, gapX, pinR: Math.max(2.2, gapX * 0.11) };
+    }
+    function pinX(g, r, k) { return g.W / 2 + (k - (r + 2) / 2) * g.gapX; }   // row r has r+3 pins, k = 0..r+2
+    function render() {
+      const cv = $('pkCanvas'), ctx = cv.getContext('2d');
+      const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+      if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+      const g = geom(cv);
+      ctx.clearRect(0, 0, g.W, g.H);
+      for (let r = 0; r < rows; r++) for (let k = 0; k < r + 3; k++) {
+        ctx.beginPath(); ctx.arc(pinX(g, r, k), g.top + r * g.gapY, g.pinR, 0, Math.PI * 2);
+        ctx.fillStyle = '#d6dbff'; ctx.shadowColor = 'rgba(160,170,255,.6)'; ctx.shadowBlur = 6; ctx.fill(); ctx.shadowBlur = 0;
+      }
+      if (ball) {
+        ctx.beginPath(); ctx.arc(ball.x, ball.y, g.pinR * 2.1, 0, Math.PI * 2);
+        const gr = ctx.createRadialGradient(ball.x - 3, ball.y - 3, 1, ball.x, ball.y, g.pinR * 2.1);
+        gr.addColorStop(0, '#fff5cf'); gr.addColorStop(1, '#ffc53d');
+        ctx.fillStyle = gr; ctx.shadowColor = 'rgba(255,197,61,.8)'; ctx.shadowBlur = 14; ctx.fill(); ctx.shadowBlur = 0;
+      }
+    }
+    function drawBuckets(hit) {
+      const t = table(); if (!t.length) return;
+      const el = $('pkBuckets');
+      el.style.gridTemplateColumns = 'repeat(' + t.length + ', minmax(0, 1fr))';
+      const cv = $('pkCanvas'); const pad = cv.clientWidth / (rows + 2.2) * 0.6;
+      el.style.padding = '0 ' + pad + 'px';
+      const compact = cv.clientWidth < 500;
+      const labels = t.map((m) => compact ? String(m >= 100 ? Math.floor(m) : m).replace(/^0\./, '.') : Orig.fmtMult(m));
+      const cellWidth = (cv.clientWidth - 2 * pad - (t.length - 1)) / t.length;
+      el.style.fontSize = Math.min(12, (cellWidth - 1) / (Math.max(...labels.map((l) => l.length)) * 0.63)) + 'px';
+      el.innerHTML = t.map((m, i) => '<button type="button" class="pk-b' + (i === hit ? ' hit' : '') + '" title="' + Orig.fmtMult(m) + '" aria-label="Bucket ' + i + ': ' + Orig.fmtMult(m) + '" style="background:' + bucketColor(i, t.length) + '">' + labels[i] + '</button>').join('');
+      el.querySelectorAll('button').forEach((b, i) => { b.onclick = () => { $('pkBucketInfo').textContent = 'Bucket ' + i + ' · ' + Orig.fmtMult(t[i]); }; });
+      $('pkBucketInfo').textContent = hit == null ? 'Tap a bucket for its exact multiplier.' : 'Bucket ' + hit + ' · ' + Orig.fmtMult(t[hit]);
+      document.querySelectorAll('#pkRisk button').forEach((b) => b.classList.toggle('on', b.dataset.v === risk));
+      $('pkRowsVal').textContent = rows;
+      $('pkRows').value = rows;
+    }
+    function animate(path) {
+      return new Promise((resolve) => {
+        const cv = $('pkCanvas'), g = geom(cv);
+        // After r rows with p rights the ball sits above pin p+1 of row r (x = middle + (p - r/2) gaps);
+        // it ends over bucket p, which the bucket strip below centres at the same x.
+        const pts = [{ x: g.W / 2, y: g.top - g.gapY * 0.9 }];
+        let p = 0;
+        for (let r = 0; r < rows; r++) {
+          pts.push({ x: g.W / 2 + (p - r / 2) * g.gapX, y: g.top + r * g.gapY - g.pinR * 2.6 });
+          p += path[r] ? 1 : 0;
+        }
+        pts.push({ x: g.W / 2 + (p - rows / 2) * g.gapX, y: g.top + rows * g.gapY });
+        let i = 0, t0 = performance.now();
+        const seg = Math.max(70, 150 - rows * 4);
+        cancelAnimationFrame(raf);
+        const step = (now) => {
+          let t = (now - t0) / seg;
+          while (t >= 1 && i < pts.length - 2) { i++; t0 += seg; t = (now - t0) / seg; if (i % 2 === 0) Orig.sound('tick'); }
+          if (i >= pts.length - 1 || (i === pts.length - 2 && t >= 1)) { ball = pts[pts.length - 1]; render(); ball = null; resolve(); return; }
+          t = Math.min(1, t);
+          const a = pts[i], b = pts[i + 1];
+          ball = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t - Math.sin(t * Math.PI) * g.gapY * 0.35 };
+          render(); raf = requestAnimationFrame(step);
+        };
+        raf = requestAnimationFrame(step);
+      });
+    }
+
+    Orig.mount({
+      game: 'plinko', title: 'Plinko', sub: 'Drop the ball, up to 1000x', playLabel: 'Drop ball',
+      controls:
+        '<div class="og-field"><div class="og-lbl"><span>Risk</span></div><div class="og-seg" id="pkRisk"><button type="button" data-v="low" data-og-lock>Low</button><button type="button" data-v="medium" data-og-lock>Medium</button><button type="button" data-v="high" data-og-lock>High</button></div></div>' +
+        '<div class="og-field"><div class="og-lbl"><span>Rows</span><span id="pkRowsVal">16</span></div><input type="range" id="pkRows" min="8" max="16" step="1" value="16" data-og-lock style="accent-color:var(--gold)"></div>',
+      stage: '<div class="pk-box"><canvas class="pk-canvas" id="pkCanvas"></canvas><div class="pk-buckets" id="pkBuckets"></div><div id="pkBucketInfo" class="og-howto" role="status" style="margin-top:12px"></div></div>',
+      howto: (info, cfg) => 'Pick a <b>risk</b> and the number of <b>rows</b>, then drop the ball. At every pin it goes left or right with equal chance and lands in a bucket at the bottom. ' +
+        'Edge buckets are rare and pay the most — up to <b>1000x</b> on 16 rows at High risk. Every board pays back <b>' + (cfg.rtp * 100).toFixed(0) + '%</b> on average.',
+      collect: () => ({ risk, rows }),
+      resultText: (r) => '<b>' + Orig.fmtMult(r.result.multiplier) + '</b> <span style="color:var(--text-dim)">' + r.params.risk + ' · ' + r.params.rows + ' rows</span>',
+      verifyFloats: 16,
+      verify: (f, r) => 'Path (0.5 or more = right): ' + f.slice(0, r.params.rows).map((x) => x >= 0.5 ? 'R' : 'L').join('') + ' → bucket <b>' + f.slice(0, r.params.rows).filter((x) => x >= 0.5).length + '</b>',
+      onMount: () => {
+        document.querySelectorAll('#pkRisk button').forEach((b) => { b.onclick = () => { risk = b.dataset.v; drawBuckets(); Orig.sound('click'); }; });
+        $('pkRows').addEventListener('input', (e) => { rows = +e.target.value; render(); drawBuckets(); });
+        window.addEventListener('resize', () => { render(); drawBuckets(); });
+        render();
+      },
+      onLoad: () => { render(); drawBuckets(); },
+      onResult: async (round) => {
+        drawBuckets();
+        await animate(round.result.path);
+        drawBuckets(round.result.bucket);
+      },
+    });
+  })();
+  </script>
+  <script src="assets/js/game-shell.js?v=20261104o" data-mode="nav" defer></script>
+</body>
+</html>

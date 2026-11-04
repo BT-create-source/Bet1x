@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Slots — bet1x</title>
+  <link rel="stylesheet" href="assets/css/style.css?v=20261014j">
+  <link rel="stylesheet" href="assets/css/game-shell.css?v=20261014i">
+  <link rel="stylesheet" href="assets/css/originals.css?v=20261104o">
+  <style>
+    .sl-frame { position: relative; padding: 14px; border-radius: 20px; background: linear-gradient(180deg, #2a2f66, #151a3d); border: 2px solid #c9a34e;
+      box-shadow: 0 0 0 4px #1a1f47, 0 18px 50px rgba(0,0,0,.55), inset 0 0 30px rgba(255,197,61,.12); width: 100%; max-width: 640px; box-sizing: border-box; }
+    .sl-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; position: relative; }
+    .sl-reel { display: grid; grid-template-rows: repeat(3, 1fr); gap: 8px; }
+    .sl-cell { aspect-ratio: 1; border-radius: 12px; background: radial-gradient(circle at 50% 35%, #232a5e, #12163a); border: 1px solid #343c80;
+      display: flex; align-items: center; justify-content: center; font: 900 clamp(20px, 4vw, 38px) var(--font-display); transition: box-shadow .2s, transform .2s; overflow: hidden; }
+    .sl-cell.spin { filter: blur(1.5px); transform: translateY(2px); }
+    .sl-cell.win { box-shadow: 0 0 0 3px var(--gold), 0 0 22px rgba(255,197,61,.55); transform: scale(1.04); }
+    .sym-ten { color: #5aa6ff; } .sym-jack { color: #2ed47a; } .sym-queen { color: #c08bff; } .sym-king { color: #ff9a3d; }
+    .sym-seven { color: #ff3d63; text-shadow: 0 0 14px rgba(255,61,99,.6); }
+    .sym-wild { color: #1b1404; background: linear-gradient(180deg, #ffe08a, #ffc53d); border-radius: 8px; padding: 4px 6px; font-size: clamp(11px, 1.8vw, 16px); letter-spacing: 1px; }
+    .sym-scatter { font-size: clamp(22px, 4.2vw, 40px); filter: drop-shadow(0 0 8px rgba(255,220,100,.8)); }
+    .sl-lines { position: absolute; inset: 0; pointer-events: none; }
+    .sl-info { display: flex; gap: 10px; margin-top: 14px; justify-content: center; flex-wrap: wrap; }
+    .sl-free { display: none; padding: 8px 14px; border-radius: 10px; background: var(--violet-soft); border: 1px solid var(--violet); color: #dcc6ff; font: 800 14px var(--font-display); }
+    .sl-free.show { display: inline-block; }
+    .sl-pt { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 14px; margin-top: 10px; }
+    .sl-pt div { display: flex; justify-content: space-between; align-items: center; font: 600 12px var(--font-mono); color: var(--text); border-bottom: 1px dashed rgba(38,43,74,.8); padding: 3px 0; }
+    .sl-pt span:first-child { font: 900 16px var(--font-display); }
+  </style>
+</head>
+<body class="exchange-theme">
+  <nav class="navbar exchange-header">
+    <div class="exchange-logo-box">Bet1x</div>
+    <div id="headerAuthArea"></div>
+  </nav>
+  <main class="og-wrap" id="og"></main>
+  <div class="footer">bet1x — play responsibly; 18+ only.</div>
+
+  <script src="assets/js/ui-common.js?v=20261014l"></script>
+  <script src="assets/js/password-eye.js?v=20261104b"></script>
+  <script src="assets/js/sound-fx.js"></script>
+  <script src="assets/js/originals.js?v=20261104p"></script>
+  <script>
+  (function () {
+    const $ = (id) => document.getElementById(id);
+    const SYM = { ten: '10', jack: 'J', queen: 'Q', king: 'K', gem: '💎', crown: '👑', seven: '7', wild: '<span class="sym-wild">WILD</span>', scatter: '<span class="sym-scatter">⭐</span>' };
+    const KEYS = Object.keys(SYM);
+    const symHTML = (s) => '<span class="sym-' + s + '">' + SYM[s] + '</span>';
+    let grid = [['ten', 'king', 'jack'], ['gem', 'seven', 'queen'], ['crown', 'wild', 'ten'], ['jack', 'scatter', 'king'], ['queen', 'ten', 'gem']];
+
+    function build() {
+      $('slGrid').innerHTML = grid.map((col, c) => '<div class="sl-reel">' + col.map((s, r) => '<div class="sl-cell" id="slc' + c + r + '">' + symHTML(s) + '</div>').join('') + '</div>').join('') +
+        '<svg class="sl-lines" id="slLines"></svg>';
+    }
+    function setCell(c, r, s, spin) { const el = $('slc' + c + r); el.innerHTML = symHTML(s); el.classList.toggle('spin', !!spin); el.classList.remove('win'); }
+    async function spinTo(g) {
+      $('slLines').innerHTML = '';
+      const stopAt = [600, 800, 1000, 1200, 1400], t0 = performance.now();
+      await new Promise((resolve) => {
+        const tick = () => {
+          const t = performance.now() - t0;
+          let done = 0;
+          for (let c = 0; c < 5; c++) {
+            if (t >= stopAt[c]) { if (!$('slc' + c + '0').dataset.stopped) { for (let r = 0; r < 3; r++) { setCell(c, r, g[c][r], false); } $('slc' + c + '0').dataset.stopped = 1; Orig.sound('tick'); } done++; }
+            else for (let r = 0; r < 3; r++) setCell(c, r, KEYS[Math.floor(Math.random() * KEYS.length)], true);
+          }
+          if (done === 5) resolve(); else setTimeout(tick, 70);
+        };
+        for (let c = 0; c < 5; c++) delete $('slc' + c + '0').dataset.stopped;
+        tick();
+      });
+      grid = g;
+    }
+    function showWins(wins) {
+      const lines = (Orig.state.info && Orig.state.info.lines) || [];
+      const box = $('slGrid').getBoundingClientRect();
+      let svg = '';
+      const colors = ['#ffc53d', '#2ed47a', '#5aa6ff', '#ff6b85', '#c08bff', '#ff9a3d', '#3de0d0', '#fff', '#a8ff3d', '#ff3dd0'];
+      wins.forEach((w) => {
+        const rows = lines[w.line];
+        const pts = rows.map((r, c) => { const b = $('slc' + c + r).getBoundingClientRect(); return [(b.left + b.width / 2 - box.left).toFixed(1), (b.top + b.height / 2 - box.top).toFixed(1)]; });
+        svg += '<polyline points="' + pts.map((p) => p.join(',')).join(' ') + '" fill="none" stroke="' + colors[w.line % 10] + '" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>';
+        for (let c = 0; c < w.count; c++) $('slc' + c + rows[c]).classList.add('win');
+      });
+      const sv = $('slLines');
+      sv.setAttribute('viewBox', '0 0 ' + box.width + ' ' + box.height);
+      sv.innerHTML = svg;
+    }
+    function paytable(info) {
+      const pt = info.paytable || {};
+      return '<div class="sl-pt">' + Object.keys(pt).map((s) => '<div><span>' + symHTML(s) + '</span><span>' + pt[s].map((v) => (v / 10).toFixed(2)).join(' / ') + '</span></div>').join('') + '</div>';
+    }
+
+    Orig.mount({
+      game: 'slots', title: 'Slots', sub: '5 reels · 10 lines · free spins', playLabel: 'Spin',
+      stage: '<div class="sl-frame"><div class="sl-grid" id="slGrid"></div></div><div class="sl-info"><span class="sl-free" id="slFree"></span></div>',
+      howto: (info, cfg) => 'Spin 5 reels across <b>10 paylines</b> (your bet is split evenly across them). 3, 4 or 5 matching symbols from the left on a line win; ' +
+        '<b>WILD</b> stands in for any symbol. <b>3 or more ⭐ anywhere</b> give <b>' + (info.free_spins || 5) + ' free spins</b> with every win <b>x' + (info.free_multiplier || 3) + '</b>. ' +
+        'Returns <b>' + (cfg.rtp * 100).toFixed(0) + '%</b> on average. Pays below are multiples of your total bet for 3 / 4 / 5 of a kind:' + paytable(info),
+      collect: () => ({}),
+      resultText: (r) => (r.result.wins.length ? '<b>' + r.result.wins.length + ' line' + (r.result.wins.length > 1 ? 's' : '') + '</b>' : '<span style="color:var(--text-dim)">no line</span>') +
+        (r.result.free_spins && r.result.free_spins.length ? ' <span style="color:var(--violet)">+ free spins</span>' : ''),
+      verifyFloats: 15,
+      verify: () => 'Each of the 15 cells (reel by reel, top to bottom) is one random number, mapped onto the weighted symbol list.',
+      onMount: build,
+      onResult: async (round) => {
+        const r = round.result;
+        $('slFree').classList.remove('show');
+        Orig.sound('roundStart');
+        await spinTo(r.grid);
+        if (r.wins.length) { showWins(r.wins); Orig.sound('win'); await Orig.sleep(900); }
+        if (r.free_spins && r.free_spins.length) {
+          $('slFree').classList.add('show');
+          Orig.banner(true, '⭐ FREE SPINS!', r.free_spins.length + ' spins, every win x3');
+          Orig.sound('bigWin');
+          await Orig.sleep(1400);
+          let tot = 0;
+          for (let i = 0; i < r.free_spins.length; i++) {
+            const f = r.free_spins[i];
+            $('slFree').textContent = 'Free spin ' + (i + 1) + ' / ' + r.free_spins.length + ' · won ' + Orig.money(tot);
+            await spinTo(f.grid);
+            if (f.wins.length) { showWins(f.wins); tot += f.win; $('slFree').textContent = 'Free spin ' + (i + 1) + ' / ' + r.free_spins.length + ' · won ' + Orig.money(tot); await Orig.sleep(700); }
+            await Orig.sleep(350);
+          }
+        }
+      },
+    });
+  })();
+  </script>
+  <script src="assets/js/game-shell.js?v=20261104o" data-mode="nav" defer></script>
+</body>
+</html>

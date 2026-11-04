@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dice — bet1x</title>
+  <link rel="stylesheet" href="assets/css/style.css?v=20261014j">
+  <link rel="stylesheet" href="assets/css/game-shell.css?v=20261014i">
+  <link rel="stylesheet" href="assets/css/originals.css?v=20261104o">
+  <style>
+    .dc-roll { font: 800 clamp(54px, 9vw, 96px) var(--font-mono); color: var(--text); letter-spacing: -1px; margin: 10px 0 26px; transition: color .2s; }
+    .dc-roll.win { color: var(--green); text-shadow: 0 0 30px rgba(46,212,122,.35); }
+    .dc-roll.lose { color: var(--red); }
+    .dc-box { width: 100%; max-width: 640px; }
+    .dc-track { position: relative; height: 18px; border-radius: 9px; background: var(--red); margin: 30px 0 8px; box-shadow: inset 0 2px 6px rgba(0,0,0,.4); }
+    .dc-zone { position: absolute; top: 0; bottom: 0; background: var(--green); border-radius: 9px; transition: left .2s, width .2s; }
+    .dc-range { position: absolute; inset: -12px 0; width: 100%; margin: 0; opacity: 0; cursor: ew-resize; }
+    .dc-handle { position: absolute; top: 50%; width: 30px; height: 30px; border-radius: 8px; background: #fff; transform: translate(-50%, -50%); box-shadow: 0 4px 12px rgba(0,0,0,.5);
+      pointer-events: none; display: flex; align-items: center; justify-content: center; color: #333; font: 700 11px var(--font-body); transition: left .2s; }
+    .dc-marker { position: absolute; top: -40px; transform: translateX(-50%); transition: left .55s cubic-bezier(.2,.8,.2,1); pointer-events: none; opacity: 0; }
+    .dc-marker span { display: block; padding: 4px 8px; border-radius: 8px; font: 800 13px var(--font-mono); background: var(--surface-2); border: 2px solid var(--text); color: var(--text); }
+    .dc-marker.win span { border-color: var(--green); color: var(--green); }
+    .dc-marker.lose span { border-color: var(--red); color: var(--red); }
+    .dc-scale { display: flex; justify-content: space-between; font: 600 12px var(--font-mono); color: var(--text-dim); }
+    .dc-info { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 28px; }
+    .dc-info .og-stat { text-align: center; }
+  </style>
+</head>
+<body class="exchange-theme">
+  <nav class="navbar exchange-header">
+    <div class="exchange-logo-box">Bet1x</div>
+    <div id="headerAuthArea"></div>
+  </nav>
+  <main class="og-wrap" id="og"></main>
+  <div class="footer">bet1x — play responsibly; 18+ only.</div>
+
+  <script src="assets/js/ui-common.js?v=20261014l"></script>
+  <script src="assets/js/password-eye.js?v=20261104b"></script>
+  <script src="assets/js/sound-fx.js"></script>
+  <script src="assets/js/originals.js?v=20261104p"></script>
+  <script>
+  (function () {
+    let chance = 49.5, dir = 'over';
+    const rtp = () => (Orig.state.config ? Orig.state.config.rtp : 0.99);
+    const mult = () => Math.floor(rtp() * 100 / chance * 10000) / 10000;
+    const target = () => dir === 'under' ? chance : +(100 - chance).toFixed(2);
+    const $ = (id) => document.getElementById(id);
+
+    function draw() {
+      const z = $('dcZone');
+      if (dir === 'under') { z.style.left = '0%'; z.style.width = chance + '%'; } else { z.style.left = (100 - chance) + '%'; z.style.width = chance + '%'; }
+      $('dcHandle').style.left = target() + '%';
+      $('dcHandle').textContent = target().toFixed(target() % 1 ? 2 : 0);
+      $('dcRange').value = target();
+      $('dcMult').textContent = mult().toFixed(4) + 'x';
+      $('dcTarget').textContent = (dir === 'under' ? 'Under ' : 'Over ') + target().toFixed(2);
+      $('dcChance').textContent = chance.toFixed(2) + '%';
+      $('dcChanceIn').value = chance;
+      $('dcWinAmt').textContent = Orig.money(Orig.amount() * mult());
+      document.querySelectorAll('#dcDir button').forEach((b) => b.classList.toggle('on', b.dataset.d === dir));
+    }
+    function setChance(c) { chance = Math.max(2, Math.min(98, Math.round(c * 100) / 100)); draw(); }
+
+    Orig.mount({
+      game: 'dice', title: 'Dice', sub: 'Roll over or under', playLabel: 'Roll',
+      controls:
+        '<div class="og-field"><div class="og-lbl"><span>Roll</span></div><div class="og-seg" id="dcDir"><button type="button" data-d="under" data-og-lock>Under</button><button type="button" data-d="over" data-og-lock>Over</button></div></div>' +
+        '<div class="og-field"><label class="og-lbl" for="dcChanceIn"><span>Win chance %</span><span>2 – 98</span></label><input class="og-input" id="dcChanceIn" type="number" min="2" max="98" step="0.01" data-og-lock></div>' +
+        '<div class="og-stats"><div class="og-stat"><div class="k">Multiplier</div><div class="v" id="dcMult">—</div></div><div class="og-stat"><div class="k">Win</div><div class="v good" id="dcWinAmt">—</div></div></div>',
+      stage:
+        '<div class="dc-box"><div style="text-align:center"><div class="dc-roll" id="dcRoll">50.00</div></div>' +
+        '<div class="dc-track"><div class="dc-zone" id="dcZone"></div><div class="dc-handle" id="dcHandle"></div><div class="dc-marker" id="dcMarker"><span id="dcMarkerTxt"></span></div>' +
+        '<input class="dc-range" id="dcRange" type="range" min="2" max="98" step="0.5" aria-label="Target"></div>' +
+        '<div class="dc-scale"><span>0</span><span>25</span><span>50</span><span>75</span><span>100</span></div>' +
+        '<div class="dc-info"><div class="og-stat"><div class="k">Multiplier</div><div class="v" id="dcMult2"></div></div><div class="og-stat"><div class="k">Target</div><div class="v" id="dcTarget"></div></div><div class="og-stat"><div class="k">Win chance</div><div class="v" id="dcChance"></div></div></div></div>',
+      howto: (info, cfg) => 'Pick a <b>win chance</b> and whether the roll must be <b>under</b> or <b>over</b> the target. The roll is a number from 0.00 to 99.99. ' +
+        'Lower chance pays more: the multiplier is ' + (cfg.rtp * 100).toFixed(0) + ' ÷ chance (e.g. 50% pays ' + (Math.floor(cfg.rtp * 100 / 50 * 10000) / 10000).toFixed(2) + 'x, 10% pays ' +
+        (Math.floor(cfg.rtp * 100 / 10 * 10000) / 10000).toFixed(2) + 'x). Press <b>Space</b> to roll.',
+      collect: () => ({ chance, direction: dir }),
+      onAmount: draw,
+      onMount: () => {
+        document.querySelectorAll('#dcDir button').forEach((b) => { b.onclick = () => { dir = b.dataset.d; draw(); Orig.sound('click'); }; });
+        $('dcChanceIn').addEventListener('change', (e) => setChance(+e.target.value || 50));
+        $('dcRange').addEventListener('input', (e) => { const t = +e.target.value; setChance(dir === 'under' ? t : 100 - t); });
+        const sync = () => { $('dcMult2').textContent = $('dcMult').textContent; };
+        new MutationObserver(sync).observe($('dcMult'), { childList: true });
+        draw(); sync();
+      },
+      onLoad: draw,
+      resultText: (r) => '<b>' + Number(r.result.roll).toFixed(2) + '</b> <span style="color:var(--text-dim)">' + (r.params.direction === 'under' ? '&lt; ' : '&gt; ') + Number(r.result.target).toFixed(2) + '</span>',
+      verifyFloats: 1,
+      verify: (f, r) => 'Roll = floor(' + f[0].toFixed(8) + ' × 10000) ÷ 100 = <b>' + (Math.floor(f[0] * 10000) / 100).toFixed(2) + '</b>',
+      onResult: async (round) => {
+        const roll = round.result.roll, win = round.result.win;
+        const m = $('dcMarker'), el = $('dcRoll');
+        m.className = 'dc-marker'; m.style.opacity = 1; $('dcMarkerTxt').textContent = roll.toFixed(2);
+        requestAnimationFrame(() => { m.style.left = roll + '%'; });
+        el.className = 'dc-roll';
+        const start = performance.now(), from = parseFloat(el.textContent) || 0;
+        await new Promise((res) => {
+          const step = (t) => { const k = Math.min(1, (t - start) / 450); el.textContent = (from + (roll - from) * (1 - Math.pow(1 - k, 3))).toFixed(2); if (k < 1) requestAnimationFrame(step); else res(); };
+          requestAnimationFrame(step);
+        });
+        el.textContent = roll.toFixed(2);
+        el.className = 'dc-roll ' + (win ? 'win' : 'lose'); m.className = 'dc-marker ' + (win ? 'win' : 'lose');
+      },
+    });
+  })();
+  </script>
+  <script src="assets/js/game-shell.js?v=20261104o" data-mode="nav" defer></script>
+</body>
+</html>

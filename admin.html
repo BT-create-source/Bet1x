@@ -412,6 +412,7 @@
         <button class="admin-tab-btn" onclick="switchAdminTab('wagers', this)">Game Betting History</button>
         <button class="admin-tab-btn active" onclick="switchAdminTab('cheats', this)">Outcome Bias Console</button>
         <button class="admin-tab-btn" data-feature="cricket" onclick="switchAdminTab('cricket', this)">Cricket Ops</button>
+        <button class="admin-tab-btn" onclick="switchAdminTab('originals', this)">Originals</button>
         <button class="admin-tab-btn" onclick="switchAdminTab('newgames', this)">Chicken Road, Astronaut &amp; Tower Rush</button>
       </div>
 
@@ -1057,6 +1058,7 @@
 
     <!-- Tab: Chicken Road, Astronaut & Tower Rush settings — filled by assets/js/admin-newgames.js -->
     <div id="admin-newgames" class="admin-content"></div>
+    <div id="admin-originals" class="admin-content"></div>
 
     <!-- Tab 6: Cricket Ops (Your 11 + Boundary Baazi) -->
     <div id="admin-cricket" class="admin-content" data-feature="cricket">
@@ -1216,6 +1218,7 @@
   <script src="assets/js/sound-fx.js"></script>
   <script src="assets/js/qrcode-gen.js"></script>
   <script src="assets/js/admin-newgames.js"></script>
+  <script src="assets/js/admin-originals.js?v=20261104o"></script>
   <script src="assets/js/subadmin-common.js?v=20261022a"></script>
   <script src="assets/js/subadmin-console.js?v=20261022a"></script>
   <script>
@@ -2332,8 +2335,17 @@
     }
 
     // Tab 4: Render Betting History
+    function isGameplayTransaction(t) {
+      if (Object.prototype.hasOwnProperty.call(t, 'game')) return !!t.game && t.game !== 'referral';
+      return !!t.details && /Teen Patti|Cricket|Color Room|Color Guess|Aviator|Vimaan|Wager|Mines/.test(t.details);
+    }
     function parseBetTransaction(t) {
       const details = t.details || '';
+      if (t.game) {
+        const round = details.match(/Round\s*#?([A-Za-z0-9_]+)/i);
+        return { roundId: round ? round[1] : '—', gameType: t.game_label || t.game,
+          selection: t.game_kind === 'win' ? 'Payout' : 'Stake' };
+      }
       let roundId = '—';
       let gameType = 'Game';
       let selection = '—';
@@ -2391,7 +2403,7 @@
       if (window.isOfflineMode) {
         tbody.innerHTML = '';
         const txns = JSON.parse(localStorage.getItem('bet1x_transactions') || '[]');
-        const wagers = txns.filter(t => t.details && (t.details.includes('Teen Patti') || t.details.includes('Cricket') || t.details.includes('Color Room') || t.details.includes('Color Guess') || t.details.includes('Aviator') || t.details.includes('Vimaan') || t.details.includes('Wager') || t.details.includes('Mines')));
+        const wagers = txns.filter(isGameplayTransaction);
         if (wagers.length === 0) {
           tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-dim); padding:16px;">No game bets logs found.</td></tr>`;
           return;
@@ -2421,7 +2433,7 @@
         .then(res => res.json())
         .then(txns => {
           tbody.innerHTML = '';
-          const wagers = txns.filter(t => t.details && (t.details.includes('Teen Patti') || t.details.includes('Cricket') || t.details.includes('Color Room') || t.details.includes('Color Guess') || t.details.includes('Aviator') || t.details.includes('Vimaan') || t.details.includes('Wager') || t.details.includes('Mines')));
+          const wagers = txns.filter(isGameplayTransaction);
 
           if (wagers.length === 0) {
             tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-dim); padding:16px;">No game bets logs found.</td></tr>`;

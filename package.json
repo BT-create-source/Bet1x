@@ -30,6 +30,8 @@
     "docker:logs": "docker compose logs -f app",
     "test:load": "node backend/test_load.js",
     "test:ui": "playwright test",
+    "test:originals": "php php-backend/test_originals.php --quick",
+    "test:ui:originals": "playwright test e2e/originals.spec.js",
     "test:ui:report": "playwright show-report e2e-report",
     "test:ui:live": "playwright test e2e/pages.spec.js",
     "test:seed": "php -d extension=pdo_pgsql php-backend/tools/e2e-seed.php"

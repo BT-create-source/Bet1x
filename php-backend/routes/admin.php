@@ -61,6 +61,11 @@ function classify_gameplay_transaction($details) {
     // Referral commission is money the house pays out, so it is a cost against profit. It has no
     // wager side: its row shows only what was paid.
     if ($details === 'Referral Bonus Claimed')               return ['game' => 'referral', 'kind' => 'win'];
+    // bet1x Originals: "<Label> Bet" / "<Label> Win" (lib/originals.php).
+    if (function_exists('originals_classify')) {
+        $o = originals_classify($details);
+        if ($o) return ['game' => $o['game'], 'kind' => $o['kind']];
+    }
     return null;
 }
 
@@ -77,7 +82,9 @@ function game_labels() {
         'youreleven'  => 'Your 11',
         'cricket'     => 'Cricket (match betting)',
         'referral'    => 'Referral commission paid',
-    ];
+    ] + (function_exists('originals_catalogue')
+        ? array_map(function ($g) { return $g['label']; }, originals_catalogue())
+        : []);
 }
 
 /**
@@ -108,6 +115,11 @@ function game_design_payback() {
             $out['cricket'] = 'margin ' . $pct($c['mo_margin']) . ' / ' . $pct($c['bm_margin']);
         }
     } catch (Throwable $e) {}
+    try {
+        if (function_exists('originals_config_all') && db_ready()) {
+            foreach (originals_config_all() as $k => $c) $out[$k] = $pct($c['rtp']) . ($k === 'blackjack' ? ' with good play' : '');
+        }
+    } catch (Throwable $e) {}
     return $out;
 }
 
@@ -127,6 +139,9 @@ function game_expected_payback() {
     try { if (function_exists('tr_config_get'))    $out['towerrush']   = (float) tr_config_get()['rtp']; } catch (Throwable $e) {}
     try { if (function_exists('bbb_config'))       $out['bbb']         = 1 - ((float) bbb_config()['rake_pct']) / 100; } catch (Throwable $e) {}
     try { if (function_exists('mx_config'))        $out['cricket']     = 1 - (float) mx_config()['mo_margin']; } catch (Throwable $e) {}
+    try {
+        if (function_exists('originals_config_all') && db_ready()) foreach (originals_config_all() as $k => $c) $out[$k] = (float) $c['rtp'];
+    } catch (Throwable $e) {}
     return $out;
 }
 
@@ -137,7 +152,10 @@ function game_expected_payback() {
  */
 function game_payout_spread() {
     return ['color_guess' => 1.5, 'aviator' => 2.5, 'mines' => 1.8, 'youreleven' => 3.0, 'cricket' => 1.2,
-            'teenpatti' => 1.8, 'chickenroad' => 1.8, 'astronaut' => 2.5, 'towerrush' => 1.8, 'bbb' => 2.0];
+            'teenpatti' => 1.8, 'chickenroad' => 1.8, 'astronaut' => 2.5, 'towerrush' => 1.8, 'bbb' => 2.0,
+            // bet1x Originals — sized for their wildest bet types (2% dice, 16-row high plinko, straight-up roulette).
+            'dice' => 7.0, 'coinflip' => 3.0, 'wheel' => 4.0, 'plinko' => 8.0, 'keno' => 6.0, 'roulette' => 6.0,
+            'baccarat' => 1.5, 'andarbahar' => 2.5, 'slots' => 5.0, 'blackjack' => 1.3, 'matka' => 7.0];
 }
 
 /** Upper tail of the normal distribution: the chance of doing at least this well by luck. */
@@ -1195,6 +1213,20 @@ function register_admin_routes(Router $app) {
                     'total_payout'  => $totalPayout,
                     'house_profit'  => $totalWagered - $totalPayout,
                 ];
+            }
+            if (function_exists('originals_ensure') && originals_ensure()) {
+                foreach (originals_catalogue() as $key => $meta) {
+                    $r = one('SELECT COUNT(*) AS total,
+                        SUM(CASE WHEN "status" = \'open\' THEN 1 ELSE 0 END) AS active,
+                        SUM(CASE WHEN "status" = \'settled\' AND "payout" > "bet_amount" THEN 1 ELSE 0 END) AS won,
+                        SUM(CASE WHEN "status" = \'settled\' AND "payout" < "bet_amount" THEN 1 ELSE 0 END) AS lost,
+                        COALESCE(SUM("bet_amount"),0) AS wagered, COALESCE(SUM("payout"),0) AS paid
+                        FROM "OriginalsRound" WHERE "game" = ?', [$key]);
+                    $stats[$key] = ['total' => (int) $r['total'], 'active' => (int) $r['active'],
+                        'won' => (int) $r['won'], 'lost' => (int) $r['lost'],
+                        'total_wagered' => (float) $r['wagered'], 'total_payout' => (float) $r['paid'],
+                        'house_profit' => (float) $r['wagered'] - (float) $r['paid']];
+                }
             }
             $res->json(['success' => true, 'stats' => $stats]);
         } catch (Throwable $err) {
