@@ -7,7 +7,7 @@
 .og-wrap { max-width: 1180px; margin: 18px auto 0; padding: 0 14px; box-sizing: border-box; }
 /* Match the full-screen games: only the menu and live balance above the game. */
 body.originals-game .navbar.exchange-header { display: none !important; }
-body.originals-game .og-wrap { margin-top: 72px; }
+body.originals-game .og-wrap { margin-top: 56px; }
 body.originals-game .gs-burger { top: 16px; left: 16px; }
 .og-wallet:not([hidden]) {
   display: inline-flex; align-items: center; position: absolute; top: 16px; left: 64px; z-index: 2100;
