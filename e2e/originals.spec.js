@@ -77,6 +77,7 @@ test('fairness: rotate and verify a completed Dice round',async ({page}) => {
   await page.locator('#ogRotate').click();
   await page.waitForFunction(h=>Orig.state.seed.server_seed_hash!==h,hash);
   await expect(page.locator('#ogMsg')).toContainText('Seed changed');
+  await page.getByText('Verify a recent round',{exact:true}).click();
   await page.locator('[data-verify="0"]').click();
   await expect(page.locator('#ogVerifyOut')).toContainText('matches the hash');
   watch.expectClean();

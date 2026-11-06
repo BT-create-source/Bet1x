@@ -173,7 +173,12 @@
       html += '<dl class="og-kv" style="margin-top:10px;"><dt>Previous server seed</dt><dd>' + esc(s.previous.server_seed) + '</dd><dt>Its hash</dt><dd>' +
         esc(s.previous.server_seed_hash) + '</dd><dt>Client seed</dt><dd>' + esc(s.previous.client_seed) + '</dd><dt>Rounds</dt><dd>' + esc(s.previous.last_nonce) + '</dd></dl>';
     }
+    if (S.recent.length) {
+      html += '<details class="og-round-verification"><summary>Verify a recent round</summary><div class="og-paytable">' +
+        S.recent.map((r, i) => '<button type="button" class="og-link" data-verify="' + i + '">' + esc(r.round_ref) + '</button>').join('') + '</div></details>';
+    }
     el.innerHTML = html;
+    el.querySelectorAll('[data-verify]').forEach((b) => { b.onclick = () => verify(S.recent[+b.dataset.verify]); });
     $('ogRotate').onclick = async () => {
       const cs = $('ogClientSeed').value.trim();
       setBusy(true);
@@ -192,14 +197,15 @@
     if (!el) return;
     if (!S.signedIn) { el.innerHTML = '<div class="og-empty">Sign in to play and see your rounds here.</div>'; return; }
     if (!S.recent.length) { el.innerHTML = '<div class="og-empty">No rounds yet — place your first bet.</div>'; return; }
-    el.innerHTML = '<table class="og-tbl"><thead><tr><th>Result</th><th class="num">Bet</th><th class="num">Multiplier</th><th class="num">Payout</th><th></th></tr></thead><tbody>' +
-      S.recent.map((r, i) => {
-        const won = r.payout > 0;
+    el.innerHTML = '<table class="og-tbl"><thead><tr><th>Result</th><th class="num">Bet</th><th class="num">Multiplier</th><th class="num">Payout</th><th>Outcome</th></tr></thead><tbody>' +
+      S.recent.map((r) => {
+        const paid = Math.round(Number(r.payout || 0) * 100), stake = Math.round(Number(r.bet || 0) * 100);
+        const outcome = paid > stake ? 'win' : paid < stake ? 'loss' : 'push';
+        const won = outcome === 'win';
         const txt = S.opt.resultText ? S.opt.resultText(r) : '';
         return '<tr><td>' + txt + '</td><td class="num">' + money(r.bet) + '</td><td class="num ' + (won ? 'w' : 'l') + '">' + fmtMult(r.multiplier) + '</td>' +
-          '<td class="num ' + (won ? 'w' : 'l') + '">' + (won ? '+' + money(r.payout) : money(0)) + '</td><td><button type="button" class="og-link" data-verify="' + i + '">Verify</button></td></tr>';
+          '<td class="num ' + (won ? 'w' : 'l') + '">' + (paid > 0 ? '+' + money(r.payout) : money(0)) + '</td><td><span class="og-outcome ' + outcome + '">' + ({win: 'Win', loss: 'Loss', push: 'Push'})[outcome] + '</span></td></tr>';
       }).join('') + '</tbody></table>';
-    el.querySelectorAll('[data-verify]').forEach((b) => { b.onclick = () => verify(S.recent[+b.dataset.verify]); });
   }
 
   // ------------------------------------------------------------------------------ playing
