@@ -5,6 +5,17 @@
    ================================================================================================= */
 
 .og-wrap { max-width: 1180px; margin: 18px auto 0; padding: 0 14px; box-sizing: border-box; }
+/* Match the full-screen games: only the menu and live balance above the game. */
+body.originals-game .navbar.exchange-header { display: none !important; }
+body.originals-game .og-wrap { margin-top: 72px; }
+body.originals-game .gs-burger { top: 16px; left: 16px; }
+.og-wallet:not([hidden]) {
+  display: inline-flex; align-items: center; position: fixed; top: 16px; left: 64px; z-index: 2100;
+  height: 40px; max-width: calc(100vw - 80px); box-sizing: border-box; padding: 0 16px;
+  font: 700 14px var(--font-mono, monospace); color: var(--green, #22c55e); background: rgba(16,20,40,.82);
+  border: 1px solid rgba(255,255,255,.12); border-radius: 999px; backdrop-filter: blur(4px);
+  text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .og-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 2px 12px; flex-wrap: wrap; }
 .og-title h1 { margin: 0; font: 700 22px var(--font-display); color: var(--text); letter-spacing: .2px; }
 .og-title h1 small { font: 500 13px var(--font-body); color: var(--text-dim); margin-left: 10px; }

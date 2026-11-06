@@ -53,6 +53,11 @@
     if (window.bet1xSetWallet) window.bet1xSetWallet(b);
   }
 
+  function renderAccountBalance() {
+    const el = $('ogWallet');
+    if (el) el.hidden = !S.signedIn;
+  }
+
   let bannerTimer = null;
   function banner(win, text, sub) {
     const el = $('ogBanner');
@@ -269,13 +274,14 @@
     if (S.token !== token) {
       S.open = null; S.seed = null; S.recent = []; S.signedIn = false; S.balance = null;
       S.session = { staked: 0, won: 0 };
-      renderHistory(); renderFair(); updateStats();
+      renderHistory(); renderFair(); updateStats(); renderAccountBalance();
     }
     const d = await api(S.game + '/state');
     if (token !== sessionToken() || S.busy || revision !== S.balanceRevision) return;
     if (!d.ok) { msg(d.error || 'Could not load the game.', true); return; }
     S.token = token;
     S.config = d.config; S.info = d.info || {}; S.signedIn = !!d.signed_in; S.seed = d.seed; S.recent = d.recent || [];
+    renderAccountBalance();
     if (d.balance != null) setBalance(d.balance);
     S.open = d.open_round || null;
     S.step = S.open ? (S.open.step || 0) : 0;
@@ -322,7 +328,7 @@
           '<button type="button" data-q="half" data-og-lock>½</button><button type="button" data-q="double" data-og-lock>2×</button></div>' +
           '<div class="og-quick"><button type="button" class="og-chipbtn" data-q="min" data-og-lock>Min</button><button type="button" class="og-chipbtn" data-q="10" data-og-lock>₹10</button>' +
           '<button type="button" class="og-chipbtn" data-q="100" data-og-lock>₹100</button><button type="button" class="og-chipbtn" data-q="max" data-og-lock>Max</button></div></div>';
-    root.innerHTML =
+    root.innerHTML = '<a href="cashier.html" class="og-wallet" id="ogWallet" data-wallet-chip aria-label="Account balance" hidden></a>' +
       '<div class="og-title"><h1>' + esc(opt.title) + '<small>' + esc(opt.sub || '') + '</small></h1>' +
       '<span class="og-pill">RTP <b id="ogRtp">—</b> · Provably fair</span></div>' +
       '<div class="og-main"><aside class="og-panel">' + amountHTML + (opt.controls || '') +

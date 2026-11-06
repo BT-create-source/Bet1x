@@ -1,6 +1,6 @@
 # bet1x Originals
 
-The PHP/cPanel application now contains Dice, Coinflip, Wheel, Plinko, Keno, Roulette, Baccarat, Andar Bahar, Slots, Blackjack and Matka. Existing Crash, Mines and multiplayer Teen Patti remain the site's versions. All eleven new pages share the site's header, wallet, colours, navigation, history and fairness controls.
+The PHP/cPanel application now contains Dice, Coinflip, Wheel, Plinko, Keno, Roulette, Baccarat, Andar Bahar, Slots, Blackjack and Matka. Existing Crash, Mines and multiplayer Teen Patti remain the site's versions. All eleven new pages use the full-screen game menu and a live account balance beside it, like Aviator. Profile, sign-in/out, deposit and withdrawal controls remain in the drawer. The pages share the site's wallet, colours, navigation, history and fairness controls.
 
 ## Implementation
 
