@@ -10,7 +10,7 @@ body.originals-game .navbar.exchange-header { display: none !important; }
 body.originals-game .og-wrap { margin-top: 72px; }
 body.originals-game .gs-burger { top: 16px; left: 16px; }
 .og-wallet:not([hidden]) {
-  display: inline-flex; align-items: center; position: fixed; top: 16px; left: 64px; z-index: 2100;
+  display: inline-flex; align-items: center; position: absolute; top: 16px; left: 64px; z-index: 2100;
   height: 40px; max-width: calc(100vw - 80px); box-sizing: border-box; padding: 0 16px;
   font: 700 14px var(--font-mono, monospace); color: var(--green, #22c55e); background: rgba(16,20,40,.82);
   border: 1px solid rgba(255,255,255,.12); border-radius: 999px; backdrop-filter: blur(4px);
