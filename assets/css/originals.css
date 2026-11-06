@@ -23,6 +23,16 @@ body.originals-game .gs-burger { top: 16px; left: 16px; }
   border: 1px solid var(--border); color: var(--text-dim); font: 600 12px var(--font-body); }
 .og-pill b { color: var(--gold); }
 
+/* Desktop uses one top row for menu/balance, game title and RTP instead of reserving a separate row. */
+@media (min-width: 861px) {
+  body.originals-game .og-wrap { margin-top: 16px; }
+  body.originals-game .og-title {
+    min-height: 40px; margin-top: 0; box-sizing: border-box;
+    padding-left: max(0px, calc(260px - (100vw - min(100vw, 1180px)) / 2 - 16px));
+  }
+  body.originals-game .og-wallet { max-width: 184px; }
+}
+
 .og-main { display: grid; grid-template-columns: 330px 1fr; gap: 14px; align-items: stretch; }
 @media (max-width: 860px) { .og-main { grid-template-columns: 1fr; } .og-panel { order: 2; } .og-stage { order: 1; } }
 
