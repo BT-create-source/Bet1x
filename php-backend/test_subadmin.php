@@ -57,6 +57,10 @@ register_shutdown_function(function () use (&$servers) {
     }
 });
 function http($method, $path, $token = null, $body = null, $port = 5141) {
+    // Game integration checks must submit within the real shared betting window.
+    if ($method === 'POST' && preg_match('~^/api/originals/[^/]+/play$~', $path)) {
+        while (($clock = originals_clock())['phase'] !== 'betting' || $clock['betting_closes_at'] - $clock['server_time'] < 2000) usleep(100000);
+    }
     $ch = curl_init("http://127.0.0.1:$port$path");
     $h = ['Accept: application/json'];
     if ($token) $h[] = 'Authorization: Bearer ' . $token;
@@ -604,6 +608,7 @@ $bodies = [
     'keno' => ['bet_amount' => 10, 'picks' => [1, 2, 3]],
     'roulette' => ['bets' => [['type' => 'red', 'amount' => 10]]],
     'baccarat' => ['bets' => [['type' => 'banker', 'amount' => 10]]],
+    'dragontiger' => ['bets' => [['type' => 'dragon', 'amount' => 10], ['type' => 'tie', 'amount' => 10]]],
     'andarbahar' => ['bets' => [['type' => 'andar', 'amount' => 10]]],
     'slots' => ['bet_amount' => 10],
     'blackjack' => ['bet_amount' => 10],
@@ -623,13 +628,13 @@ foreach ($bodies as $g => $body) {
 check(near(wallet($P_OTHER['id']), $otherBalance), 'a player-supplied username cannot redirect an Originals bet into someone else\'s wallet');
 [$c, $userDetail] = http('GET', '/api/subadmin/users/' . $OU['id'], $T1);
 $gameRows = array_values(array_filter($userDetail['transactions'] ?? [], function ($t) { return !empty($t['game']); }));
-check($c === 200 && count(array_unique(array_column($gameRows, 'game'))) === 11, 'sub-admin user detail shows classified transactions for all eleven games');
+check($c === 200 && count(array_unique(array_column($gameRows, 'game'))) === count($bodies), 'sub-admin user detail shows classified transactions for every game');
 $stakeRows = array_filter($gameRows, function ($t) { return $t['game_kind'] === 'wager'; });
 check(near(array_sum(array_column($stakeRows, 'amount')), $staked) && near(risk_total_wagered($OU['name']), $staked), 'all Originals stakes count toward withdrawal turnover and the sub-admin ledger view');
 [$c, $summary] = http('GET', '/api/subadmin/summary', $T1);
 $originalLabels = array_column(originals_catalogue(), 'label');
 $summaryRows = array_values(array_filter($summary['game_activity']['per_game'] ?? [], function ($g) use ($originalLabels) { return in_array($g['label'], $originalLabels, true); }));
-check($c === 200 && count($summaryRows) === 11 && near(array_sum(array_column($summaryRows, 'wagered')), $staked) && near(array_sum(array_column($summaryRows, 'won')), $paid), 'sub-admin dashboard reports all eleven Originals with exactly their stakes and payouts');
+check($c === 200 && count($summaryRows) === count($bodies) && near(array_sum(array_column($summaryRows, 'wagered')), $staked) && near(array_sum(array_column($summaryRows, 'won')), $paid), 'sub-admin dashboard reports every Original with exactly its stakes and payouts');
 [$cu, $users] = http('GET', '/api/subadmin/users?q=' . $OU['name'], $T1);
 $byUser = $users['users'][0] ?? [];
 check($cu === 200 && near($byUser['wagered'] ?? -1, $staked) && near($byUser['won'] ?? -1, $paid), 'sub-admin player list attributes the same stakes and payouts to the correct player');
@@ -641,7 +646,7 @@ foreach (array_keys($bodies) as $g) if (($stats['stats'][$g]['total'] ?? -1) !==
 check($statsOK, 'admin per-game statistics include the new round from every Originals game');
 [$c, $txns] = http('GET', '/api/admin.php?action=transactions', $ADMIN);
 $mine = array_values(array_filter($txns, function ($t) use ($OU) { return $t['user'] === $OU['name'] && !empty($t['game']); }));
-check($c === 200 && count(array_unique(array_column($mine, 'game'))) === 11 && count(array_filter($mine, function ($t) { return strpos($t['details'], ' Round OR') !== false; })) === count($mine), 'admin transaction feed identifies every Originals game and correlates its stake/payout with a round reference');
+check($c === 200 && count(array_unique(array_column($mine, 'game'))) === count($bodies) && count(array_filter($mine, function ($t) { return strpos($t['details'], ' Round OR') !== false; })) === count($mine), 'admin transaction feed identifies every Originals game and correlates its stake/payout with a round reference');
 [$c] = http('POST', '/api/admin/originals/config', $T1, ['game' => 'dice', 'rtp' => 80]);
 check($c === 401, 'sub-admin sessions cannot change game settings');
 $walletBefore = wallet($OU['id']);

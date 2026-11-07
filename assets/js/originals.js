@@ -336,7 +336,7 @@
     S.open = d.open_round || null;
     S.step = S.open ? (S.open.step || 0) : 0;
     const rtp = $('ogRtp');
-    if (rtp) rtp.textContent = (S.config.rtp * 100).toFixed(2).replace(/\.?0+$/, '') + '%' + (S.game === 'blackjack' ? ' with good play' : S.game === 'baccarat' ? ' Banker' : '');
+    if (rtp) rtp.textContent = (S.config.rtp * 100).toFixed(2).replace(/\.?0+$/, '') + '%' + (S.opt.rtpLabel || (S.game === 'blackjack' ? ' with good play' : S.game === 'baccarat' ? ' Banker' : ''));
     const lim = $('ogLimits');
     if (lim) lim.textContent = money(S.config.min_bet) + ' – ' + money(S.config.max_bet);
     if (!S.config.enabled) msg('This game is currently unavailable.', true);

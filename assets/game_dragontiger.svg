@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="960" viewBox="0 0 720 960" role="img" aria-label="Dragon Tiger: red and blue playing cards">
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#411821"/><stop offset=".5" stop-color="#101c2a"/><stop offset="1" stop-color="#142e52"/></linearGradient>
+    <linearGradient id="gold" x2="1" y2="1"><stop stop-color="#ffe7a2"/><stop offset="1" stop-color="#b68134"/></linearGradient>
+    <radialGradient id="light"><stop stop-color="#ecbd6155"/><stop offset="1" stop-color="#ecbd6100"/></radialGradient>
+  </defs>
+  <rect width="720" height="960" fill="url(#bg)"/>
+  <circle cx="360" cy="410" r="340" fill="url(#light)"/>
+  <rect x="26" y="26" width="668" height="908" rx="32" fill="none" stroke="#ba965b" stroke-opacity=".5"/>
+  <g fill="none" stroke="#d9b974" opacity=".18"><circle cx="360" cy="410" r="265"/><circle cx="360" cy="410" r="245"/><path d="M50 410h620M360 110v600"/></g>
+  <g transform="translate(115 225) rotate(-13 130 190)">
+    <rect x="0" y="0" width="250" height="350" rx="20" fill="#f7eee0" stroke="url(#gold)" stroke-width="7"/>
+    <rect x="16" y="16" width="218" height="318" rx="10" fill="#742634"/>
+    <path d="m62 232 16-80 41-37-8-39 42 21 40-9-23 35 23 35-32 12-6 49-34-18-16 44z" fill="url(#gold)"/>
+    <path d="m94 229 31-57 37 14M105 103l-14-33M149 103l25-37" fill="none" stroke="#ffe7a2" stroke-width="7"/>
+    <circle cx="151" cy="137" r="5" fill="#742634"/>
+    <text x="125" y="300" text-anchor="middle" fill="#ffe7a2" font-size="23" font-family="Georgia,serif" letter-spacing="4">DRAGON</text>
+  </g>
+  <g transform="translate(360 245) rotate(12 125 175)">
+    <rect width="250" height="350" rx="20" fill="#f7eee0" stroke="url(#gold)" stroke-width="7"/>
+    <rect x="16" y="16" width="218" height="318" rx="10" fill="#214778"/>
+    <path d="m62 114 7-45 37 26h38l37-26 7 45 8 50-28 65-43 22-43-22-28-65z" fill="url(#gold)"/>
+    <path d="m66 135 39 17-32 9m111-26-39 17 32 9m-52-65v34m-27-26 14 30m40-30-14 30m-54 53 30 5m52-5-30 5m-14 6 8 11-8 10-8-10z" fill="none" stroke="#214778" stroke-width="8" stroke-linejoin="round"/>
+    <text x="125" y="300" text-anchor="middle" fill="#ffe7a2" font-size="23" font-family="Georgia,serif" letter-spacing="6">TIGER</text>
+  </g>
+  <circle cx="360" cy="440" r="40" fill="#131c29" stroke="url(#gold)" stroke-width="3"/>
+  <text x="360" y="449" text-anchor="middle" fill="#ffe7a2" font-size="26" font-family="Georgia,serif">VS</text>
+  <text x="360" y="694" text-anchor="middle" fill="url(#gold)" font-size="48" font-weight="bold" font-family="Georgia,serif" letter-spacing="5">DRAGON TIGER</text>
+  <text x="360" y="737" text-anchor="middle" fill="#d3c4a5" font-size="18" font-family="Arial,sans-serif" letter-spacing="5">TWO CARDS. HIGHEST WINS.</text>
+</svg>

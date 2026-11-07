@@ -43,6 +43,7 @@ build/
 coverage/
 .nyc_output/
 .cache/
+.scratch/
 
 # Editor & OS noise
 .DS_Store

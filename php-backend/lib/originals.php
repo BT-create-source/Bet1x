@@ -87,6 +87,7 @@ function originals_catalogue() {
         'keno'       => ['label' => 'Keno',        'rtp' => 0.98,  'multi' => false, 'fixed_rtp' => null,  'tag' => 'Pick up to 10 numbers'],
         'roulette'   => ['label' => 'Roulette',    'rtp' => null,  'multi' => false, 'fixed_rtp' => 36 / 37, 'tag' => 'European single zero'],
         'baccarat'   => ['label' => 'Baccarat',    'rtp' => null,  'multi' => false, 'fixed_rtp' => 0.9894, 'tag' => 'Player, Banker or Tie'],
+        'dragontiger'=> ['label' => 'Dragon Tiger','rtp' => null, 'multi' => false, 'fixed_rtp' => 25 / 26, 'tag' => 'Dragon, Tiger or Tie'],
         'andarbahar' => ['label' => 'Andar Bahar', 'rtp' => 0.97,  'multi' => false, 'fixed_rtp' => null,  'tag' => 'Andar or Bahar?'],
         'slots'      => ['label' => 'Slots',       'rtp' => 0.96,  'multi' => false, 'fixed_rtp' => null,  'tag' => '5 reels, 10 lines, free spins'],
         'blackjack'  => ['label' => 'Blackjack',   'rtp' => null,  'multi' => true,  'fixed_rtp' => 0.995, 'tag' => 'Beat the dealer to 21'],

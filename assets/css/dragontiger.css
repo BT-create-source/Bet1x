@@ -1,0 +1,32 @@
+.dt-table { width: 100%; max-width: 680px; box-sizing: border-box; padding: 24px; border: 1px solid #766442; border-radius: 24px;
+  background: radial-gradient(ellipse at 50% 20%, #254038, #10221e 72%); box-shadow: inset 0 0 50px #0005; }
+.dt-heading { text-align: center; color: var(--gold); font: 800 13px var(--font-display); letter-spacing: .22em; margin-bottom: 22px; }
+.dt-hands { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; }
+.dt-hand { text-align: center; border: 1px solid #ffffff16; border-radius: 16px; padding: 18px 8px; background: #09161b70; }
+.dt-hand h2 { margin: 0 0 16px; font: 800 18px var(--font-display); letter-spacing: .08em; }
+.dt-dragon h2 { color: #ff8b81; } .dt-tiger h2 { color: #89baff; }
+.dt-hand.won { border-color: var(--gold); box-shadow: 0 0 24px #ffc53d35; }
+.dt-card { display: flex; justify-content: center; min-height: 100px; }
+.dt-card .og-card-face { width: 68px; height: 96px; }
+.dt-vs { color: #b8ab87; font: 700 13px var(--font-display); }
+.dt-result { margin: 20px 0 16px; min-height: 24px; color: #e9e2ce; font: 700 15px var(--font-display); text-align: center; }
+.dt-spots { display: grid; grid-template-columns: 1fr .85fr 1fr; gap: 8px; }
+.dt-spot { position: relative; min-height: 88px; padding: 14px 6px; border: 2px solid transparent; border-radius: 12px; color: #fff; cursor: pointer; }
+.dt-spot strong, .dt-spot small { display: block; }
+.dt-spot strong { font: 800 14px var(--font-display); }
+.dt-spot small { margin-top: 5px; font: 600 12px var(--font-mono); }
+.dt-spot.dragon { background: #8a3036; } .dt-spot.tiger { background: #23508c; } .dt-spot.tie { background: #24674c; }
+.dt-spot:hover { filter: brightness(1.15); }
+.dt-spot:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.dt-spot.win { border-color: var(--gold); }
+.dt-spot .og-stack { position: static; display: block; margin: 7px auto 0; width: fit-content; transform: none; }
+.dt-road { display: flex; flex-wrap: wrap; gap: 5px; min-height: 24px; margin-top: 18px; }
+.dt-road span { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; color: white; font: 700 11px var(--font-display); }
+.dt-road .dragon { background: #8a3036; } .dt-road .tiger { background: #23508c; } .dt-road .tie { background: #24674c; }
+.dt-note { margin-top: 12px; text-align: center; color: #b2c2bc; font: 500 11px var(--font-body); }
+@media (max-width: 480px) {
+  .dt-table { padding: 18px 10px; border-radius: 16px; }
+  .dt-hands { gap: 6px; } .dt-hand { padding: 14px 4px; } .dt-hand h2 { font-size: 15px; }
+  .dt-spots { gap: 5px; } .dt-spot strong { font-size: 12px; }
+}
+@media (prefers-reduced-motion: reduce) { .dt-table .og-card-face { animation: none; } }

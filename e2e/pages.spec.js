@@ -12,6 +12,7 @@ const PAGES = [
   ['VIP', '/win3.html', 'body'],
   ['Teen Patti', '/teenpatti.html', 'body'],
   ['Mines', '/mining.html', 'body'],
+  ['Dragon Tiger', '/dragontiger.html', '#dtSpots'],
   ['Chicken Road', '/chickenroad.html', '.cr-actions'],
   ['Astronaut', '/astronaut.html', '#asAstro'],
   ['Cricket', '/cricket.html', 'body'],

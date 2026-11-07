@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const { login, watchErrors, expectNoSidewaysScroll, snapshot } = require('./helpers');
 
-const games = ['dice','coinflip','wheel','plinko','keno','roulette','baccarat','andarbahar','slots','blackjack','matka'];
+const games = ['dice','coinflip','wheel','plinko','keno','roulette','baccarat','dragontiger','andarbahar','slots','blackjack','matka'];
 test.beforeEach(async ({page}) => {
   // Use the local font fallbacks when external font services are unavailable.
   await page.route(/https:\/\/fonts\.(googleapis|gstatic)\.com\//, route => route.fulfill({status:200,body:'',contentType:'text/css'}));
@@ -34,9 +34,11 @@ for(const game of games) {
     if(game==='keno') await page.locator('#knAuto').click();
     if(game==='roulette') await page.locator('[data-k="red|"]').click();
     if(game==='baccarat') await page.locator('[data-k="banker"]').click();
+    if(game==='dragontiger') await page.getByRole('button', {name: 'Bet on Dragon', exact: true}).click();
     if(game==='andarbahar') await page.locator('[data-k="andar|"]').click();
     if(game==='matka') { await page.locator('#mkValue').fill('7'); await page.locator('#mkAdd').click(); }
     const response=page.waitForResponse(r=>r.url().endsWith('/'+game+'/play')&&r.request().method()==='POST');
+    await expect(page.locator('#ogPlay')).toBeEnabled({timeout: 35000});
     await page.locator('#ogPlay').click();
     const data=await (await response).json();
     expect(data.ok,JSON.stringify(data)).toBe(true);
@@ -59,6 +61,17 @@ for(const game of games) {
       await page.locator('.pk-b').last().click();
       await expect(page.locator('#pkBucketInfo')).toContainText('Bucket 16');
     }
+    if(game==='dragontiger') {
+      const oldHash = await page.evaluate(() => Orig.state.seed.server_seed_hash);
+      await page.locator('#ogRotate').click();
+      await page.waitForFunction(h => Orig.state.seed.server_seed_hash !== h, oldHash);
+      await expect(page.locator('#ogMsg')).toContainText('Seed changed.');
+      await page.getByText('Verify a recent round', {exact: true}).click();
+      await page.locator('[data-verify="0"]').click();
+      await expect(page.locator('#ogVerifyOut')).toContainText('Both cards match.');
+      await page.getByRole('button', {name: 'Close', exact: true}).click();
+    }
+    await page.evaluate(() => window.scrollTo(0, 0));
     await snapshot(page,testInfo,game+' after round');
     await page.screenshot({path:testInfo.outputPath(game+'-page.png'),fullPage:true});
     await page.getByRole('button',{name:'Menu',exact:true}).click();
@@ -103,7 +116,7 @@ test('Blackjack restores an open hand after reload and accepts the next action',
   }
 });
 
-test('lobby Originals filter displays all eleven games',async ({page}) => {
+test('lobby Originals filter displays every game',async ({page}) => {
   await page.goto('/index.html');
   await page.locator('[data-filter="originals"]').click();
   for(const game of games) await expect(page.locator('#gamesContainer a[href="'+game+'.html"]')).toBeVisible();
@@ -111,7 +124,7 @@ test('lobby Originals filter displays all eleven games',async ({page}) => {
   await expectNoSidewaysScroll(page);
 });
 
-test('operator can review and save all eleven Originals configurations',async ({page}) => {
+test('operator can review and save every Originals configuration',async ({page}) => {
   test.skip(!!process.env.BASE_URL,'local development token only');
   const {execFileSync}=require('child_process');
   const path=require('path');
@@ -119,7 +132,7 @@ test('operator can review and save all eleven Originals configurations',async ({
   expect(token).not.toBe('');
   await page.addInitScript(t=>{localStorage.setItem('bet1x_admin_token',t);localStorage.setItem('bet1x_admin_logged_in','true');localStorage.setItem('admin_active_tab','originals');},token);
   await page.goto('/admin.html');
-  await expect(page.locator('#admin-originals form')).toHaveCount(11);
+  await expect(page.locator('#admin-originals form')).toHaveCount(games.length);
   await expect(page.locator('#admin-originals')).toBeVisible();
   const fixed=page.locator('#admin-originals [data-game="blackjack"] [name="rtp"]');
   await expect(fixed).toBeDisabled();

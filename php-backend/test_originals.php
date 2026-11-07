@@ -262,7 +262,7 @@ section('5. Every game over HTTP');
 // =================================================================================================
 $A = $P['a']['tok'];
 [$c, $b] = http('GET', '/api/originals/catalogue');
-check($c === 200 && count($b['games'] ?? []) === 11, 'the catalogue lists the 11 games (' . $c . ')');
+check($c === 200 && count($b['games'] ?? []) === count(originals_catalogue()), 'the catalogue lists every game (' . $c . ')');
 [$c, $b] = http('GET', '/api/originals/dice/state');
 check($c === 200 && $b['signed_in'] === false && $b['config']['rtp'] == 0.99, 'a visitor can open a game page (settings, no account data)');
 [$c] = http('POST', '/api/originals/dice/play', null, ['client_ref' => ref(), 'bet_amount' => 10, 'chance' => 50, 'direction' => 'under']);
@@ -277,6 +277,7 @@ $bodies = [
     'keno'       => ['bet_amount' => 10, 'picks' => [1, 7, 13, 21, 28, 35, 40]],
     'roulette'   => ['bets' => [['type' => 'straight', 'value' => '17', 'amount' => 5], ['type' => 'black', 'amount' => 10], ['type' => 'split', 'value' => '0-3', 'amount' => 5]]],
     'baccarat'   => ['bets' => [['type' => 'player', 'amount' => 10], ['type' => 'tie', 'amount' => 2], ['type' => 'banker_pair', 'amount' => 1]]],
+    'dragontiger'=> ['bets' => [['type' => 'dragon', 'amount' => 10], ['type' => 'tie', 'amount' => 2]]],
     'andarbahar' => ['bets' => [['type' => 'bahar', 'amount' => 10], ['type' => 'cards', 'value' => '1-5', 'amount' => 5]]],
     'slots'      => ['bet_amount' => 20],
     'matka'      => ['bets' => [['type' => 'jodi', 'value' => '42', 'amount' => 5], ['type' => 'panna', 'value' => '127', 'amount' => 2], ['type' => 'oddeven', 'value' => 'odd', 'amount' => 10]], 'market' => 'Kalyan'],

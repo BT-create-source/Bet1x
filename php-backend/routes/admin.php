@@ -155,7 +155,7 @@ function game_payout_spread() {
             'teenpatti' => 1.8, 'chickenroad' => 1.8, 'astronaut' => 2.5, 'towerrush' => 1.8, 'bbb' => 2.0,
             // bet1x Originals — sized for their wildest bet types (2% dice, 16-row high plinko, straight-up roulette).
             'dice' => 7.0, 'coinflip' => 3.0, 'wheel' => 4.0, 'plinko' => 8.0, 'keno' => 6.0, 'roulette' => 6.0,
-            'baccarat' => 1.5, 'andarbahar' => 2.5, 'slots' => 5.0, 'blackjack' => 1.3, 'matka' => 7.0];
+            'baccarat' => 1.5, 'dragontiger' => 3.3, 'andarbahar' => 2.5, 'slots' => 5.0, 'blackjack' => 1.3, 'matka' => 7.0];
 }
 
 /** Upper tail of the normal distribution: the chance of doing at least this well by luck. */
