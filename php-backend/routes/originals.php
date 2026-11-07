@@ -38,6 +38,11 @@ function orig_user(Req $req) {
 
 function register_originals_routes(Router $app) {
 
+    $app->get('/api/originals/clock', function (Req $req, Res $res) {
+        $res->setHeader('Cache-Control', 'no-store');
+        $res->json(['ok' => true, 'clock' => originals_clock()]);
+    });
+
     $app->get('/api/originals/catalogue', function (Req $req, Res $res) {
         orig_handle($res, function () {
             $cfg = originals_config_all();

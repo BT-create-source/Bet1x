@@ -47,6 +47,28 @@ class OrigError extends RuntimeException {
 
 function orig_fail($message, $status = 400, $code = null) { throw new OrigError($message, $status, $code); }
 
+/** UTC epoch-based schedule: opening a page never starts or resets a countdown. */
+function originals_clock($now = null) {
+    $now = $now === null ? (int) floor(microtime(true) * 1000) : (int) $now;
+    $cycle = 30000;
+    $start = intdiv($now, $cycle) * $cycle;
+    $close = $start + 15000;
+    $betting = $now < $close;
+    return ['round_id' => intdiv($start, $cycle), 'server_time' => $now,
+            'phase' => $betting ? 'betting' : 'closed', 'betting_opens_at' => $start,
+            'betting_closes_at' => $close, 'next_round_at' => $start + $cycle,
+            'phase_ends_at' => $betting ? $close : $start + $cycle];
+}
+
+function originals_require_betting(array $in = [], $now = null) {
+    $clock = originals_clock($now);
+    if ($clock['phase'] !== 'betting') orig_fail('Betting is closed. Wait for the next countdown.', 409, 'betting_closed');
+    if (isset($in['round_id']) && (string) $in['round_id'] !== (string) $clock['round_id']) {
+        orig_fail('That betting window has ended. Wait for the current countdown.', 409, 'stale_round');
+    }
+    return $clock;
+}
+
 // -------------------------------------------------------------------------------------------------
 // Catalogue
 // -------------------------------------------------------------------------------------------------
@@ -341,13 +363,15 @@ function originals_play(array $user, $game, array $in) {
     if ($stake > $cfg['max_bet'] + 1e-9) orig_fail('Maximum bet is ₹' . js_num_str($cfg['max_bet']) . '.');
     $username = $user['username'];
 
-    return tx(function () use ($user, $username, $game, $meta, $cfg, $clientRef, $prep, $stake) {
+    return tx(function () use ($user, $username, $game, $meta, $cfg, $clientRef, $prep, $stake, $in) {
         $seed = orig_seed_lock($username);
         $existing = one('SELECT * FROM "OriginalsRound" WHERE "username" = ? AND "client_ref" = ?', [$username, $clientRef]);
         if ($existing) {
             if ($existing['game'] !== $game) orig_fail('That request reference belongs to another game.', 409, 'ref_conflict');
             return ['round' => orig_round_view($existing, $seed['server_seed_hash']), 'balance' => orig_balance($user['id']), 'replayed' => true];
         }
+        // Check after acquiring the lock: a request queued before close can arrive too late.
+        originals_require_betting($in);
         if ($meta['multi'] && one('SELECT 1 FROM "OriginalsRound" WHERE "username" = ? AND "game" = ? AND "status" = \'open\' LIMIT 1', [$username, $game])) {
             orig_fail('Finish your current round first.', 409, 'round_open');
         }
@@ -409,6 +433,7 @@ function originals_action(array $user, $game, array $in) {
 
         $extra = orig_money($out['extra_stake'] ?? 0);
         if ($extra > 0) {
+            originals_require_betting($in);
             if (debit_wallet($user['id'], $extra) === null) orig_fail('Insufficient balance for that.', 400, 'insufficient_balance');
             orig_ledger_bet($username, $meta['label'], $extra, 'Round ' . $roundRef . ' (' . $action . ')');
         }
@@ -442,7 +467,7 @@ function orig_balance($userId) {
 function originals_state($user, $game) {
     $meta = originals_game($game);
     $cfg = originals_config($game);
-    $out = ['ok' => true, 'game' => $game, 'label' => $meta['label'], 'config' => originals_public_config($game, $cfg),
+    $out = ['ok' => true, 'clock' => originals_clock(), 'game' => $game, 'label' => $meta['label'], 'config' => originals_public_config($game, $cfg),
             'signed_in' => (bool) $user, 'open_round' => null, 'recent' => [], 'seed' => null, 'balance' => null];
     if (function_exists('orig_' . $game . '_info')) $out['info'] = call_user_func('orig_' . $game . '_info', $cfg);
     if (!$user) return $out;

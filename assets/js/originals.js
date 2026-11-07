@@ -32,6 +32,47 @@
   const S = { game: null, opt: null, config: null, info: null, signedIn: false, balance: null, busy: false,
               token: null, balanceRevision: 0, open: null, step: 0, recent: [], seed: null, chip: 10, total: 0, session: { staked: 0, won: 0 } };
   const sessionToken = () => localStorage.getItem('bet1x_auth_token');
+  let clock = null, clockReceived = 0, clockServerNow = 0, clockPolling = false;
+
+  function bettingOpen() {
+    if (!clock || performance.now() - clockReceived > 7000) return false;
+    const now = clockServerNow + performance.now() - clockReceived;
+    // Never locally open a new round: wait for confirmation from the server.
+    return clock.phase === 'betting' && now < clock.betting_closes_at;
+  }
+
+  function renderClock() {
+    const el = $('ogClock'), btn = $('ogPlay');
+    const fresh = clock && performance.now() - clockReceived <= 7000;
+    const now = clockServerNow + performance.now() - clockReceived;
+    const open = bettingOpen();
+    if (el) {
+      el.textContent = !fresh ? 'Synchronizing betting timer...' :
+        'Round ' + clock.round_id + ' · ' + (open ? 'Betting closes in ' : 'Betting closed · next window in ') +
+        Math.max(0, Math.ceil(((open ? clock.betting_closes_at : clock.next_round_at) - now) / 1000)) + 's';
+      el.style.color = open ? 'var(--accent, #39d98a)' : 'var(--text-dim)';
+    }
+    if (btn) btn.disabled = S.busy || !!S.open || !open || !!(S.config && !S.config.enabled);
+  }
+
+  async function syncClock() {
+    if (clockPolling) return;
+    clockPolling = true;
+    const started = performance.now();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+      const res = await fetch('api/originals/clock', { cache: 'no-store', signal: controller.signal });
+      const d = await res.json();
+      if (res.ok && d.ok && d.clock && Number.isFinite(d.clock.server_time)) {
+        clock = d.clock;
+        clockReceived = performance.now();
+        // Include the full request latency so a slow connection closes conservatively.
+        clockServerNow = clock.server_time + clockReceived - started;
+      }
+    } catch (e) { /* Expired clock data disables betting until synchronization recovers. */ }
+    finally { clearTimeout(timeout); clockPolling = false; renderClock(); }
+  }
 
   async function api(path, body) {
     const token = sessionToken();
@@ -84,6 +125,7 @@
     const btn = $('ogPlay');
     if (btn) btn.disabled = b;
     document.querySelectorAll('[data-og-lock]').forEach((el) => { el.disabled = b; });
+    renderClock();
   }
 
   function updateStats() {
@@ -213,6 +255,7 @@
     if (S.busy || S.open) return;
     if (S.token !== sessionToken()) { await reload(); if (S.busy || S.open) return; }
     if (!S.signedIn) { if (window.openAuthModal) window.openAuthModal('login'); return; }
+    if (!bettingOpen()) { msg('Betting is closed. Wait for the next countdown.', true); syncClock(); return; }
     if (S.config && !S.config.enabled) { msg('This game is currently unavailable.', true); return; }
     let body;
     try { body = S.opt.collect ? S.opt.collect() : {}; } catch (e) { msg(e.message || String(e), true); return; }
@@ -222,11 +265,12 @@
       body.bet_amount = a;
     } else if (!(S.total > 0)) { msg('Place a chip first.', true); return; }
     body.client_ref = newRef();
+    body.round_id = clock.round_id;
     setBusy(true); msg('');
     sound('betPlace');
     let d = await api(S.game + '/play', body);
     if (!d.ok && d._status === 0) d = await api(S.game + '/play', body);   // one retry with the SAME ref: never a second bet
-    if (!d.ok) { setBusy(false); msg(d.error || 'Something went wrong.', true); if (d.code === 'round_open' || d.code === 'session_changed') reload(); return; }
+    if (!d.ok) { setBusy(false); msg(d.error || 'Something went wrong.', true); syncClock(); if (d.code === 'round_open' || d.code === 'session_changed') reload(); return; }
     const round = d.round;
     try { if (S.opt.onResult) await S.opt.onResult(round, d); } catch (e) { console.error(e); }
     afterRound(round, d.balance);
@@ -262,7 +306,7 @@
     if (S.busy || !S.open) return null;
     if (S.token !== sessionToken()) { await reload(); return null; }
     setBusy(true); msg('');
-    const d = await api(S.game + '/action', Object.assign({ round_ref: S.open.round_ref, step: S.step, action: name }, extra || {}));
+    const d = await api(S.game + '/action', Object.assign({ round_ref: S.open.round_ref, step: S.step, action: name, round_id: clock ? clock.round_id : null }, extra || {}));
     if (!d.ok) {
       setBusy(false); msg(d.error || 'Something went wrong.', true);
       if (d._status === 0 || d.code === 'stale' || d.code === 'round_closed' || d.code === 'session_changed') await reload();
@@ -301,6 +345,7 @@
     const how = $('ogHow');
     if (how && S.opt.howto) how.innerHTML = (typeof S.opt.howto === 'function' ? S.opt.howto(S.info, S.config) : S.opt.howto) + '<p>Maximum total return per round: <b>' + money(S.config.max_win) + '</b>. This cap can reduce the effective return on larger bets.</p>';
     if (S.opt.onLoad) S.opt.onLoad(d);
+    renderClock();
   }
 
   let refreshing = false;
@@ -338,7 +383,8 @@
       '<div class="og-title"><h1>' + esc(opt.title) + '<small>' + esc(opt.sub || '') + '</small></h1>' +
       '<span class="og-pill">RTP <b id="ogRtp">—</b> · Provably fair</span></div>' +
       '<div class="og-main"><aside class="og-panel">' + amountHTML + (opt.controls || '') +
-      '<button type="button" class="og-play" id="ogPlay">' + esc(opt.playLabel || 'Bet') + '</button>' + (opt.afterPlay || '') +
+      '<div id="ogClock" class="og-howto" role="timer" aria-label="Shared betting timer" style="margin:8px 0;font-variant-numeric:tabular-nums">Synchronizing betting timer...</div>' +
+      '<button type="button" class="og-play" id="ogPlay" disabled>' + esc(opt.playLabel || 'Bet') + '</button>' + (opt.afterPlay || '') +
       '<div class="og-msg" id="ogMsg" role="status"></div>' +
       '<div class="og-stats"><div class="og-stat"><div class="k">Session profit</div><div class="v" id="ogProfit">₹0.00</div></div>' +
       '<div class="og-stat"><div class="k">Wagered</div><div class="v" id="ogWagered">₹0.00</div></div></div></aside>' +
@@ -376,6 +422,11 @@
     });
     if (opt.onMount) opt.onMount();
     reload();
+    syncClock();
+    setInterval(syncClock, 2500);
+    setInterval(renderClock, 100);
+    window.addEventListener('focus', syncClock);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) syncClock(); });
     window.addEventListener('focus', refreshAccount);
     window.addEventListener('storage', (e) => { if (e.key === 'bet1x_auth_token' || e.key === 'bet1x_demo_wallet' || e.key === null) refreshAccount(); });
     document.addEventListener('visibilitychange', refreshAccount);
