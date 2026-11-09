@@ -3024,6 +3024,8 @@ body.exchange-theme .footer {
 }
 
 .game-cover-card-bg {
+  object-fit: cover;
+  object-position: center;
   position: absolute;
   top: 0;
   left: 0;

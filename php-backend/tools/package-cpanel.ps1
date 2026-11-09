@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 Push-Location $projectRoot
 try {
-    $files = @(git ls-files) + @('assets/js/superadmin-accounts.js','php-backend/routes/account_management.php')
+    $files = @(git ls-files) + @('assets/js/superadmin-accounts.js','assets/js/lobby-covers.js','php-backend/routes/account_management.php')
     $files = $files | Sort-Object -Unique | Where-Object {
         ($_ -match '^[^/]+\.html$' -or $_ -eq '.htaccess' -or $_ -eq 'ORIGINALS-LICENSE.md' -or $_ -match '^(assets/|hen-studio/src/|php-backend/)') -and
         $_ -notmatch '(^|/)(\.env($|\.)|node_modules/|data/|tests/|tools/|test_[^/]*$|DEPLOY\.md$)'
