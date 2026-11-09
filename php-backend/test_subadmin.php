@@ -3,6 +3,9 @@
  * Sub-Admin system — the real HTTP API against the REAL database.
  *
  *     php -d extension=pdo_pgsql -d extension=curl php-backend/test_subadmin.php
+ *     (MySQL: set DB_DRIVER=mysql and DATABASE_URL=mysql://... in the process environment.
+ *      Import sql/schema-mysql.sql AND sql/schema-mysql-protect.sql into a disposable database;
+ *      the tamper tests require the protection triggers. Use MySQL 8.0.16+ for CHECK enforcement.)
  *
  * Starts the site on four ports (php -S serves one request at a time) and drives every flow through
  * the endpoints the pages call: account creation, sign-in, password change and reset, suspension,
@@ -581,6 +584,55 @@ section('13. Existing features keep working');
 $depId = $b['deposit_id'] ?? '';
 [$c2] = http('POST', '/api/admin.php?action=approve_deposit', $ADMIN, ['deposit_id' => $depId]);
 check($c === 200 && $c2 === 200 && near(wallet($P_OTHER['id']), 3500), 'the platform\'s own UPI deposit + Admin approval still credit the player');
+$repeats = burst('/api/admin.php?action=approve_deposit', $ADMIN, ['deposit_id' => $depId]);
+check(count(array_filter($repeats, fn ($r) => $r[0] === 200)) === 0 && near(wallet($P_OTHER['id']), 3500),
+      'replayed manual deposit approvals never credit the wallet again');
+
+// Fault injection affects only this fixture's ledger row. A ledger-write failure
+// must roll back both the claimed deposit status and the preceding wallet credit.
+$rollbackPlayer = player('satest_manual_rollback', 0);
+[$rc, $rb] = http('POST', '/api/deposit.php', $rollbackPlayer['tok'],
+    ['amount' => 500, 'action' => 'submit_upi_deposit', 'utr' => 'SATESTROLLBACK' . random_int(100000, 999999)]);
+$rollbackId = $rb['deposit_id'] ?? '';
+if ($rc !== 200 || !preg_match('/^DEP_[0-9]+$/', $rollbackId)) throw new RuntimeException('Rollback deposit fixture failed.');
+q('ALTER TABLE "Transaction" ADD CONSTRAINT "satest_manual_deposit_rollback" CHECK (NOT ("status" = \'Completed\' AND "details" LIKE \'%' . $rollbackId . '%\'))');
+try {
+    [$rc] = http('POST', '/api/admin.php?action=approve_deposit', $ADMIN, ['deposit_id' => $rollbackId]);
+    $rd = one('SELECT * FROM "Deposit" WHERE "deposit_id" = ?', [$rollbackId]);
+    $rl = one('SELECT * FROM "Transaction" WHERE "user" = ? AND "type" = ?', [$rollbackPlayer['name'], 'Deposit']);
+    check($rc === 500 && $rd['status'] === 'Pending' && $rl['status'] === 'Pending' && near(wallet($rollbackPlayer['id']), 0),
+          'failed ledger update rolls back manual approval and wallet credit');
+} finally {
+    q(db_is_mysql()
+        ? 'ALTER TABLE "Transaction" DROP CHECK "satest_manual_deposit_rollback"'
+        : 'ALTER TABLE "Transaction" DROP CONSTRAINT "satest_manual_deposit_rollback"');
+}
+$retryApprovals = burst('/api/admin.php?action=approve_deposit', $ADMIN, ['deposit_id' => $rollbackId]);
+check(count(array_filter($retryApprovals, fn ($r) => $r[0] === 200)) === 1 && near(wallet($rollbackPlayer['id']), 500),
+      'failed manual approval remains retryable and concurrent retries credit once');
+
+// Exercise the existing manual reserve/release path, without a bank payout.
+[$wc, $wb] = $wd($rollbackPlayer['tok'], 200);
+$refundId = $wb['withdrawal_id'] ?? '';
+if ($wc !== 200 || !preg_match('/^WTH_[0-9]+$/', $refundId)) throw new RuntimeException('Refund fixture failed: ' . json_encode($wb));
+check(near(wallet($rollbackPlayer['id']), 300), 'manual withdrawal reserves funds before operator review');
+q('ALTER TABLE "Transaction" ADD CONSTRAINT "satest_manual_refund_rollback" CHECK (NOT ("status" = \'Rejected\' AND "details" LIKE \'%' . $refundId . '%\'))');
+try {
+    [$wc] = http('POST', '/api/admin.php?action=reject_withdrawal', $ADMIN, ['withdrawal_id' => $refundId]);
+    $wr = one('SELECT * FROM "Withdrawal" WHERE "withdrawal_id" = ?', [$refundId]);
+    $wl = one('SELECT * FROM "Transaction" WHERE "user" = ? AND "type" = ?', [$rollbackPlayer['name'], 'Withdrawal']);
+    check($wc === 500 && $wr['status'] === 'Pending' && $wl['status'] === 'Pending' && near(wallet($rollbackPlayer['id']), 300),
+          'failed refund history update rolls back rejection and keeps funds reserved');
+} finally {
+    q(db_is_mysql()
+        ? 'ALTER TABLE "Transaction" DROP CHECK "satest_manual_refund_rollback"'
+        : 'ALTER TABLE "Transaction" DROP CONSTRAINT "satest_manual_refund_rollback"');
+}
+$refundRetries = burst('/api/admin.php?action=reject_withdrawal', $ADMIN, ['withdrawal_id' => $refundId]);
+check(count(array_filter($refundRetries, fn ($r) => $r[0] === 200)) === 1 && near(wallet($rollbackPlayer['id']), 500),
+      'concurrent manual rejection retries release the reserved balance exactly once');
+[$wc] = http('POST', '/api/admin.php?action=reject_withdrawal', $ADMIN, ['withdrawal_id' => $refundId]);
+check($wc === 400 && near(wallet($rollbackPlayer['id']), 500), 'replayed withdrawal rejection cannot refund twice');
 [$c, $b] = http('GET', '/api/wallet/balance', $U1['tok']);
 check($c === 200 && near($b['balance'], wallet($U1['id'])), 'a sub-admin\'s player uses the normal wallet endpoint');
 [$c] = http('GET', '/api/admin.php?action=stats', $ADMIN);

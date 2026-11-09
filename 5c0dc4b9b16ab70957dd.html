@@ -381,6 +381,17 @@
     </div>
   </div>
 
+  <section class="panel" style="margin-bottom:20px">
+    <div class="panel-head"><h2>Find and delete player accounts</h2><span class="hint">Super admin only</span></div>
+    <form id="account-search-form" style="display:flex;gap:10px;flex-wrap:wrap">
+      <label for="account-query">Email or phone number</label>
+      <input id="account-query" type="search" minlength="3" maxlength="255" required placeholder="Email or registered phone" style="flex:1;min-width:180px">
+      <button type="submit">Search accounts</button>
+    </form>
+    <p>Deleting an account permanently removes its wallet, transactions, bets and verification records. This cannot be undone.</p>
+    <p id="account-status" role="status"></p><div id="account-results" style="overflow-x:auto"></div>
+  </section>
+
   <!-- TODAY: the house's day at a glance (India time) -->
   <section class="today-box" aria-labelledby="todayTitle">
     <div class="today-head">
@@ -1620,5 +1631,6 @@ document.addEventListener('keydown', function (e) {
 
 checkGateAndInit();
 </script>
+<script src="assets/js/superadmin-accounts.js?v=20261109a"></script>
 </body>
 </html>

@@ -45,6 +45,10 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
   check((await api('/api/auth/phone-reset/reset',{phone,password:'Changed-Password-123',confirm_password:'Changed-Password-123'})).success,'reset password using SMS');
   check((await api('/api/auth/login',{username,password:'Changed-Password-123'})).success,'login using new password');
   check((await api('/api/auth/phone-reset/reset',{phone,password:'Another-Password-123',confirm_password:'Another-Password-123'})).status===400,'reset code cannot be replayed');
+  fixture('unverify',username); delivered.delete(phone);
+  check((await api('/api/auth/phone-reset/send',{phone})).success,'unverified legacy phone receives generic response');
+  check(!delivered.has(phone),'unverified legacy phone does not receive a reset OTP');
+
  }
  rejected=true;const phone='97'+String(Date.now()).slice(-8);
  check((await api('/api/otp/send',{phone})).status===502,'provider rejection is not reported as delivered');

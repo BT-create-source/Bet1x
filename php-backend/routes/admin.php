@@ -190,7 +190,10 @@ function super_excluded_save(array $usernames) {
     return $list;
 }
 
+require_once __DIR__ . '/account_management.php';
+
 function register_admin_routes(Router $app) {
+    register_account_management_routes($app);
 
     // Operator-only from here on: house statistics, the super dashboard and the rig consoles.
     $app->useMw('/api/admin', 'require_admin');

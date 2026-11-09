@@ -7,6 +7,11 @@ $projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $archivePath = Join-Path $projectRoot 'originals-update.zip'
 $gameKeys = @('dice','coinflip','wheel','plinko','keno','roulette','baccarat','dragontiger','andarbahar','slots','blackjack','matka')
 $files = @(
+    '5c0dc4b9b16ab70957dd.html','assets/js/superadmin-accounts.js','assets/js/ui-common.js',
+    'auth.html','profile.html','subadmin.html',
+    'php-backend/routes/account_management.php','php-backend/routes/auth.php','php-backend/routes/gamesync.php',
+    'php-backend/routes/legacy.php','php-backend/routes/otp.php','php-backend/routes/password_reset.php','php-backend/routes/phone_reset.php',
+    'php-backend/config.php','php-backend/lib/otp.php','php-backend/lib/sms.php',
     'index.html','admin.html','ORIGINALS-LICENSE.md',
     'assets/css/originals.css','assets/js/originals.js','assets/js/admin-originals.js','assets/js/game-shell.js',
     'assets/css/dragontiger.css','assets/js/dragontiger.js',

@@ -7,7 +7,11 @@ require_once __DIR__ . '/../lib/helpers.php';
 set_exception_handler(function ($e) { fwrite(STDERR, $e->getMessage()); exit(1); });
 if (cfg('IS_PRODUCTION')) throw new RuntimeException('Refusing SMS tests against production configuration');
 if (!db_ready()) throw new RuntimeException('Development database unavailable');
-if (($argv[1] ?? '') === 'cleanup') {
+if (($argv[1] ?? '') === 'unverify') {
+    $name = $argv[2] ?? '';
+    if (!preg_match('/^smstest_[a-z0-9_]+$/', $name)) throw new RuntimeException('Invalid test account');
+    q('UPDATE "User" SET "phone_verified" = 0 WHERE "username" = ?', [$name]);
+} elseif (($argv[1] ?? '') === 'cleanup') {
     foreach (array_slice($argv, 2) as $name) {
         if (!preg_match('/^smstest_[a-z0-9_]+$/', $name)) throw new RuntimeException('Invalid test account');
         $u = find_user_ci($name);

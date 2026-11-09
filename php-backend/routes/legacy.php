@@ -273,27 +273,31 @@ function register_legacy_routes(Router $app) {
                         return;
                     }
 
-                    // Guard the status transition itself: a conditional update means a
-                    // double-clicked "approve" credits the player exactly once.
-                    $claimed = affected("UPDATE \"Deposit\" SET \"status\" = ?, \"updated_at\" = ?
-                                         WHERE \"deposit_id\" = ? AND \"status\" = 'Pending'",
-                                        [$approving ? 'Completed' : 'Rejected', ms_to_sql(), $depId]);
-                    if ($claimed === 0) {
+                    // Claim, wallet credit and ledger status must commit together. A
+                    // failure after claiming must leave the manual request retryable.
+                    $processed = tx(function () use ($approving, $depId, $deposit) {
+                        $claimed = affected("UPDATE \"Deposit\" SET \"status\" = ?, \"updated_at\" = ?
+                                             WHERE \"deposit_id\" = ? AND \"status\" = 'Pending'",
+                                            [$approving ? 'Completed' : 'Rejected', ms_to_sql(), $depId]);
+                        if ($claimed === 0) return false;
+
+                        if ($approving) {
+                            $user = get_or_create_user($deposit['username']);
+                            if (!$user || credit_wallet($user['id'], (float)$deposit['amount']) === null) {
+                                throw new RuntimeException('Deposit wallet credit failed.');
+                            }
+                        }
+                        q("UPDATE \"Transaction\" SET \"status\" = ?
+                           WHERE \"user\" = ? AND \"type\" = 'Deposit' AND \"status\" = 'Pending' AND \"details\" LIKE ?",
+                          [$approving ? 'Completed' : 'Rejected', $deposit['username'], '%' . $depId . '%']);
+                        return true;
+                    });
+                    if (!$processed) {
                         $res->status(400)->json(['error' => 'Deposit is already processed.']);
                         return;
                     }
-
-                    if ($approving) {
-                        $user = get_or_create_user($deposit['username']);
-                        if ($user) credit_wallet($user['id'], (float)$deposit['amount']);
-                        // Referral commission, if this depositor was referred by someone — a
-                        // no-op otherwise. Deliberately after the deposit itself is credited and
-                        // never able to fail it (see the try/catch inside that function).
-                        referral_credit_commission($deposit['username'], (float)$deposit['amount'], $depId);
-                    }
-                    q("UPDATE \"Transaction\" SET \"status\" = ?
-                       WHERE \"user\" = ? AND \"type\" = 'Deposit' AND \"status\" = 'Pending' AND \"details\" LIKE ?",
-                      [$approving ? 'Completed' : 'Rejected', $deposit['username'], '%' . $depId . '%']);
+                    // Preserve the existing best-effort referral behaviour after commit.
+                    if ($approving) referral_credit_commission($deposit['username'], (float)$deposit['amount'], $depId);
 
                     log_info('deposit ' . ($approving ? 'approved' : 'rejected'), [
                         'operator' => $req->auth['username'], 'depId' => $depId, 'amount' => (float)$deposit['amount'],
@@ -319,22 +323,30 @@ function register_legacy_routes(Router $app) {
                         return;
                     }
 
-                    $claimed = affected("UPDATE \"Withdrawal\" SET \"status\" = ?, \"updated_at\" = ?
-                                         WHERE \"withdrawal_id\" = ? AND \"status\" = 'Pending'",
-                                        [$approving ? 'Completed' : 'Rejected', ms_to_sql(), $wthId]);
-                    if ($claimed === 0) {
+                    // Rejection must release held funds and update history atomically.
+                    $processed = tx(function () use ($approving, $wthId, $withdrawal) {
+                        $claimed = affected("UPDATE \"Withdrawal\" SET \"status\" = ?, \"updated_at\" = ?
+                                             WHERE \"withdrawal_id\" = ? AND \"status\" = 'Pending'",
+                                            [$approving ? 'Completed' : 'Rejected', ms_to_sql(), $wthId]);
+                        if ($claimed === 0) return false;
+
+                        if (!$approving) {
+                            // The amount was debited when the request was raised, so rejecting refunds.
+                            $user = get_or_create_user($withdrawal['username']);
+                            if (!$user || credit_wallet($user['id'], (float)$withdrawal['amount']) === null) {
+                                throw new RuntimeException('Withdrawal refund failed.');
+                            }
+                        }
+                        q("UPDATE \"Transaction\" SET \"status\" = ?
+                           WHERE \"user\" = ? AND \"type\" = 'Withdrawal' AND \"status\" = 'Pending' AND \"details\" LIKE ?",
+                          [$approving ? 'Completed' : 'Rejected', $withdrawal['username'], '%' . $wthId . '%']);
+
+                        return true;
+                    });
+                    if (!$processed) {
                         $res->status(400)->json(['error' => 'Withdrawal is already processed.']);
                         return;
                     }
-
-                    if (!$approving) {
-                        // The amount was debited when the request was raised, so rejecting refunds.
-                        $user = get_or_create_user($withdrawal['username']);
-                        if ($user) credit_wallet($user['id'], (float)$withdrawal['amount']);
-                    }
-                    q("UPDATE \"Transaction\" SET \"status\" = ?
-                       WHERE \"user\" = ? AND \"type\" = 'Withdrawal' AND \"status\" = 'Pending' AND \"details\" LIKE ?",
-                      [$approving ? 'Completed' : 'Rejected', $withdrawal['username'], '%' . $wthId . '%']);
 
                     log_info('withdrawal ' . ($approving ? 'approved' : 'rejected'), [
                         'operator' => $req->auth['username'], 'wthId' => $wthId, 'amount' => (float)$withdrawal['amount'],

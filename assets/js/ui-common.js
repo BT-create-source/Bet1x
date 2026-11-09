@@ -1673,7 +1673,7 @@ window.sendForgotOtp = function () {
       if (otpInput) { otpInput.value = ''; otpInput.focus(); }
       // The backend answers identically whether or not the email has an account, so the message
       // here has to stay just as non-committal — it cannot say "code sent" as fact.
-      setForgotStatus(window.bet1xForgotPassword.sms ? 'If this number is verified on an account, a code has been sent by SMS.' :
+      setForgotStatus(window.bet1xForgotPassword.sms ? 'If this number is verified on an account, a code has been sent by SMS. Previously unverified numbers cannot receive password-reset codes. If nothing arrives, contact support or check delivery with your SMS provider.' :
         'If that email is registered, a code has been sent. Check your inbox and Spam/Junk folder.');
       startForgotOtpCooldown(60);
     })
@@ -1694,7 +1694,7 @@ window.verifyForgotOtp = function () {
   const email = emailInput.value.trim();
   if (!forgotValid(email)) { setForgotStatus('Enter a valid registered contact.', 'error'); return; }
   const code = otpInput.value.trim();
-  if (!code) { setForgotStatus('Enter the code that was sent to your email.', 'error'); return; }
+  if (!code) { setForgotStatus(window.bet1xForgotPassword.sms ? 'Enter the code sent by SMS.' : 'Enter the code that was sent to your email.', 'error'); return; }
 
   btn.disabled = true;
   btn.textContent = 'Checking...';
