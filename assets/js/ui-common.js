@@ -961,6 +961,9 @@ window.handleAuthSubmit = function(e, type) {
       errEl.style.display = 'block';
       return;
     }
+    if (window.bet1xPhoneVerify.enabled && window.bet1xPhoneVerify.verifiedPhone !== phoneVal) {
+      errEl.textContent = 'Please verify your mobile number first.'; errEl.style.display = 'block'; return;
+    }
 
     // Email, verified via OTP when the deployment has it switched on. The address is sent so the
     // server can match it against the verification it recorded; the server decides, not this check,
@@ -1191,6 +1194,44 @@ window.bet1xEmailVerify = {
   verifiedEmail: '',     // for exactly this address — a later edit invalidates it
   cooldownTimer: null
 };
+window.bet1xPhoneVerify = {enabled: false, verifiedPhone: '', timer: null};
+
+async function signupPhoneRequest(action) {
+  const state = window.bet1xPhoneVerify;
+  const input = document.getElementById('signup-phone');
+  const phone = normaliseMobileInput(input.value);
+  const status = document.getElementById('signup-phone-status');
+  const button = document.getElementById('signup-phone-' + action);
+  if (!phone) { status.textContent = 'Enter a valid 10-digit mobile number.'; return; }
+  const body = {phone};
+  if (action === 'verify') body.otp = document.getElementById('signup-phone-code').value.trim();
+  button.disabled = true;
+  status.textContent = action === 'send' ? 'Sending code...' : 'Checking code...';
+  try {
+    const response = await fetch(getApiPrefix() + 'api/otp/' + action, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const data = await response.json();
+    if (normaliseMobileInput(input.value) !== phone) return;
+    if (!response.ok || !data.success) throw new Error(data.error || 'Could not complete phone verification.');
+    if (action === 'verify') {
+      state.verifiedPhone = phone;
+      document.getElementById('signup-phone-code').disabled = true;
+      document.getElementById('signup-phone-send').disabled = true;
+      status.textContent = 'Mobile number verified.';
+    } else {
+      document.getElementById('signup-phone-code-group').hidden = false;
+      document.getElementById('signup-phone-code').value = '';
+      status.textContent = 'Code sent by SMS. Enter it below.';
+      let remaining = data.retry_after || 60;
+      clearInterval(state.timer);
+      button.disabled = true; button.textContent = 'Resend in ' + remaining + 's';
+      state.timer = setInterval(() => {
+        if (--remaining <= 0) { clearInterval(state.timer); state.timer = null; button.disabled = !!state.verifiedPhone; button.textContent = 'Send OTP'; }
+        else button.textContent = 'Resend in ' + remaining + 's';
+      },1000);
+    }
+  } catch (e) { status.textContent = e.message || 'Could not reach the server.'; }
+  finally { if (action === 'verify' || !state.timer) button.disabled = !!state.verifiedPhone; }
+}
 
 // Digits only, and never more than the last ten of them.
 //
@@ -1380,21 +1421,28 @@ function resetEmailVerification() {
 // for the decision.
 function probeEmailVerification() {
   const state = window.bet1xEmailVerify;
-  if (state.probed) { applyEmailVerificationVisibility(); return; }
+  if (state.probed) { applyEmailVerificationVisibility(); return state.promise || Promise.resolve(); }
   state.probed = true;
 
-  fetch(getApiPrefix() + 'api/health')
+  state.promise = fetch(getApiPrefix() + 'api/health', {cache:'no-store'})
     .then(res => res.json())
     .then(data => {
       state.enabled = !!(data && data.email_verification);
+      window.bet1xPhoneVerify.enabled = !!(data && data.phone_verification);
       applyEmailVerificationVisibility();
     })
     .catch(err => {
+      state.probed = false;
       console.warn('Email-verification probe failed, leaving signup unchanged:', err);
     });
+  return state.promise;
 }
 
 function applyEmailVerificationVisibility() {
+  const phoneSend = document.getElementById('signup-phone-send');
+  if (phoneSend) { phoneSend.hidden = !window.bet1xPhoneVerify.enabled; phoneSend.style.display = window.bet1xPhoneVerify.enabled ? '' : 'none'; }
+  const phoneStatus = document.getElementById('signup-phone-status');
+  if (phoneStatus) phoneStatus.hidden = !window.bet1xPhoneVerify.enabled;
   const sendBtn = document.getElementById('signup-email-otp-send');
   if (sendBtn) sendBtn.style.display = window.bet1xEmailVerify.enabled ? '' : 'none';
   if (!window.bet1xEmailVerify.enabled) {
@@ -1428,11 +1476,25 @@ window.generateSignupUsername = function () {
 };
 
 function wireSignupVerification() {
-  // Phone: a plain field now, just digit-formatted as the player types — no OTP wiring.
+  document.getElementById('signup-phone-send').onclick = () => signupPhoneRequest('send');
+  document.getElementById('signup-phone-verify').onclick = () => signupPhoneRequest('verify');
+  // Normalize the number and discard verification if the recipient changes.
   const phoneInput = document.getElementById('signup-phone');
   if (phoneInput) {
     phoneInput.addEventListener('input', () => {
       phoneInput.value = trimMobileDigits(phoneInput.value);
+      const state = window.bet1xPhoneVerify;
+      if (state.verifiedPhone !== normaliseMobileInput(phoneInput.value)) {
+        state.verifiedPhone = '';
+        clearInterval(state.timer); state.timer = null;
+        document.getElementById('signup-phone-send').disabled = false;
+        document.getElementById('signup-phone-send').textContent = 'Send OTP';
+        document.getElementById('signup-phone-status').textContent = '';
+        document.getElementById('signup-phone-code-group').hidden = true;
+        document.getElementById('signup-phone-code').value = '';
+        document.getElementById('signup-phone-code').disabled = false;
+        document.getElementById('signup-phone-verify').disabled = false;
+      }
     });
   }
 
@@ -1545,8 +1607,16 @@ function resetForgotPasswordForm() {
   setForgotStatus('');
 }
 
-window.showForgotPasswordForm = function () {
+window.showForgotPasswordForm = async function () {
+  await probeEmailVerification();
   resetForgotPasswordForm();
+  const sms = window.bet1xPhoneVerify.enabled;
+  window.bet1xForgotPassword.sms = sms;
+  const identity = document.getElementById('forgot-email');
+  identity.type = sms ? 'tel' : 'email';
+  identity.placeholder = sms ? 'Verified mobile number' : 'you@example.com';
+  identity.autocomplete = sms ? 'tel' : 'email';
+  document.querySelector('label[for="forgot-email"]').textContent = sms ? 'Registered Mobile Number' : 'Email Address';
   const tabsBar = document.getElementById('auth-tabs-bar');
   const loginForm = document.getElementById('form-login');
   const signupForm = document.getElementById('form-signup');
@@ -1565,24 +1635,28 @@ window.showLoginFormFromForgot = function () {
   switchAuthTab('login');
 };
 
+function forgotValid(value) { return window.bet1xForgotPassword.sms ? !!normaliseMobileInput(value) : isValidEmail(value); }
+function forgotPayload(value) { return window.bet1xForgotPassword.sms ? {phone: normaliseMobileInput(value)} : {email:value}; }
+function forgotPath(action) { return window.bet1xForgotPassword.sms ? 'api/auth/phone-reset/' + action : action === 'reset' ? 'api/auth/reset-password' : 'api/auth/forgot-password/' + action; }
+
 window.sendForgotOtp = function () {
   const input = document.getElementById('forgot-email');
   const btn = document.getElementById('forgot-otp-send');
   if (!input || !btn) return;
 
   const email = input.value.trim();
-  if (!isValidEmail(email)) {
-    showForgotError('Enter a valid email address.');
+  if (!forgotValid(email)) {
+    showForgotError('Enter your registered ' + (window.bet1xForgotPassword.sms ? 'mobile number.' : 'email address.'));
     return;
   }
   document.getElementById('forgot-error').style.display = 'none';
   btn.disabled = true;
   btn.textContent = 'Sending...';
 
-  fetch(getApiPrefix() + 'api/auth/forgot-password/send', {
+  fetch(getApiPrefix() + forgotPath('send'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: email })
+    body: JSON.stringify(forgotPayload(email))
   })
     .then(res => res.json().then(data => ({ ok: res.ok, data })))
     .then(result => {
@@ -1599,8 +1673,8 @@ window.sendForgotOtp = function () {
       if (otpInput) { otpInput.value = ''; otpInput.focus(); }
       // The backend answers identically whether or not the email has an account, so the message
       // here has to stay just as non-committal — it cannot say "code sent" as fact.
-      setForgotStatus('If that email is registered, a code has been sent. It expires in a few '
-                     + 'minutes. Not in your inbox? Check your Spam/Junk folder.');
+      setForgotStatus(window.bet1xForgotPassword.sms ? 'If this number is verified on an account, a code has been sent by SMS.' :
+        'If that email is registered, a code has been sent. Check your inbox and Spam/Junk folder.');
       startForgotOtpCooldown(60);
     })
     .catch(err => {
@@ -1618,7 +1692,7 @@ window.verifyForgotOtp = function () {
   if (!emailInput || !otpInput || !btn) return;
 
   const email = emailInput.value.trim();
-  if (!isValidEmail(email)) { setForgotStatus('Enter a valid email address.', 'error'); return; }
+  if (!forgotValid(email)) { setForgotStatus('Enter a valid registered contact.', 'error'); return; }
   const code = otpInput.value.trim();
   if (!code) { setForgotStatus('Enter the code that was sent to your email.', 'error'); return; }
 
@@ -1626,10 +1700,10 @@ window.verifyForgotOtp = function () {
   btn.textContent = 'Checking...';
   setForgotStatus('Checking the code...');
 
-  fetch(getApiPrefix() + 'api/auth/forgot-password/verify', {
+  fetch(getApiPrefix() + forgotPath('verify'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: email, otp: code })
+    body: JSON.stringify(Object.assign(forgotPayload(email), {otp:code}))
   })
     .then(res => res.json().then(data => ({ ok: res.ok, data })))
     .then(result => {
@@ -1643,7 +1717,7 @@ window.verifyForgotOtp = function () {
       const state = window.bet1xForgotPassword;
       state.verified = true;
       state.verifiedEmail = email.toLowerCase();
-      setForgotStatus('Email verified. Choose a new password below.', 'success');
+      setForgotStatus('Contact verified. Choose a new password below.', 'success');
       btn.disabled = true;
       otpInput.disabled = true;
       const sendBtn = document.getElementById('forgot-otp-send');
@@ -1695,14 +1769,13 @@ window.submitPasswordReset = function () {
   btn.disabled = true;
   btn.textContent = 'Resetting...';
 
-  fetch(getApiPrefix() + 'api/auth/reset-password', {
+  fetch(getApiPrefix() + forgotPath('reset'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      email: email,
+    body: JSON.stringify(Object.assign(forgotPayload(email), {
       password: newPassInput.value,
       confirm_password: confirmPassInput.value
-    })
+    }))
   })
     .then(res => res.json().then(data => ({ ok: res.ok, data })))
     .then(result => {
@@ -1831,8 +1904,15 @@ function injectAuthModal() {
           <label for="signup-phone">Mobile Number</label>
           <!-- maxlength is 16, not 10, so that pasting "+91 98765 43210" is not truncated to
                "+91 98765 " before the input handler can reduce it to the ten digits. -->
-          <input type="tel" id="signup-phone" placeholder="10-digit mobile number" required
-                 autocomplete="tel" inputmode="numeric" maxlength="16">
+          <div style="display:flex;gap:8px"><input type="tel" id="signup-phone" placeholder="10-digit mobile number" required
+                 autocomplete="tel" inputmode="numeric" maxlength="16" style="flex:1;min-width:0">
+            <button type="button" id="signup-phone-send" class="btn btn-ghost" hidden style="display:none;white-space:nowrap">Send OTP</button></div>
+          <div id="signup-phone-status" role="status" hidden></div>
+          <div id="signup-phone-code-group" hidden style="margin-top:8px">
+            <label for="signup-phone-code">SMS verification code</label>
+            <div style="display:flex;gap:8px"><input id="signup-phone-code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="Enter SMS code" style="flex:1;min-width:0">
+              <button type="button" id="signup-phone-verify" class="btn btn-ghost">Verify</button></div>
+          </div>
         </div>
         <div class="auth-form-group" id="signup-referral-group">
           <label for="signup-referral-code">Referral Code <span style="color:var(--text-dim); font-weight:400;">(optional)</span></label>

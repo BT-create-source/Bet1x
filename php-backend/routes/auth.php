@@ -12,6 +12,7 @@ require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/helpers.php';
 require_once __DIR__ . '/../lib/ratelimit.php';
 require_once __DIR__ . '/../lib/riskcontrols.php';
+require_once __DIR__ . '/../lib/otp.php';
 
 function register_auth_routes(Router $app) {
 
@@ -244,12 +245,16 @@ function register_auth_routes(Router $app) {
         }
 
         $hashedPassword = hash_password($password);
+        $phone = sms_normalise_indian_mobile($req->b('phone'));
+        if (cfg('PHONE_VERIFICATION_REQUIRED') && (!$phone || !otp_is_verified($phone))) {
+            $res->status(400)->json(['error' => 'Please verify your mobile number first.']); return;
+        }
         ensure_user_identity_indexes();   // "Bob" and "bob" can never both exist
 
         try {
             $newUser = null;
             try {
-                $newUser = tx(function () use ($username, $email, $hashedPassword, $startingBalance, $signupIp) {
+                $newUser = tx(function () use ($username, $email, $hashedPassword, $startingBalance, $signupIp, $phone) {
                     $existing = one('SELECT * FROM "User" WHERE LOWER("username") = LOWER(?) OR LOWER("email") = LOWER(?) LIMIT 1',
                                     [$username, $email]);
                     if ($existing) {
@@ -277,6 +282,13 @@ function register_auth_routes(Router $app) {
                           [$username, $email, $hashedPassword, $startingBalance, ms_to_sql()]);
                     }
                     $created = find_user_ci($username);
+                    if (cfg('PHONE_VERIFICATION_REQUIRED')) {
+                        $verification = one('SELECT * FROM "PhoneOtp" WHERE "phone" = ? FOR UPDATE', [$phone]);
+                        if (!$verification || !otp_is_verified($phone)) throw new RuntimeException('Please verify your mobile number first.');
+                        if (one('SELECT "id" FROM "User" WHERE "phone" = ? AND "id" <> ? LIMIT 1', [$phone, $created['id']])) throw new RuntimeException('This mobile number is already registered.');
+                        q('UPDATE "User" SET "phone" = ?, "phone_verified" = 1 WHERE "id" = ?', [$phone, $created['id']]);
+                        otp_consume($phone);
+                    }
 
                     if ($startingBalance > 0) {
                         insert_transaction(new_record_id('DEP'), $username, 'Deposit', $startingBalance,
@@ -291,7 +303,7 @@ function register_auth_routes(Router $app) {
                     return;
                 }
 
-                if (!json_fallback_allowed()) throw $dbErr;
+                if (!json_fallback_allowed() || cfg('PHONE_VERIFICATION_REQUIRED')) throw $dbErr;
                 $users = readJsonTable('users');
                 foreach ($users as $u) {
                     if (strtolower($u['username'] ?? '') === strtolower($username)) {

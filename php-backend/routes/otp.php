@@ -46,7 +46,7 @@ function register_otp_routes(Router $app) {
             if (empty($result['ok'])) {
                 $body = ['error' => $result['error']];
                 if (!empty($result['retry_after'])) $body['retry_after'] = $result['retry_after'];
-                $res->status(429)->json($body);
+                $res->status($result['status'] ?? 429)->json($body);
                 return;
             }
 

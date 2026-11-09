@@ -121,7 +121,7 @@ $SUPERADMIN_ACCESS_TOKEN = (string) env_get('SUPERADMIN_ACCESS_TOKEN', '');
 // --- Phone verification (Fast2SMS) ---------------------------------------------------------------
 //
 // PHONE_VERIFICATION_REQUIRED is the master switch. With it false nothing changes: signup ignores
-// phone entirely and no SMS is ever sent, so the feature can be deployed dark and turned on once the
+// phone verification and no signup SMS is sent, so the feature can be deployed dark and turned on once the
 // SMS account is confirmed working.
 $PHONE_VERIFICATION_REQUIRED = env_bool('PHONE_VERIFICATION_REQUIRED', false);
 

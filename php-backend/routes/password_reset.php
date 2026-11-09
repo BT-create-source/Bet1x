@@ -24,8 +24,10 @@ require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/helpers.php';
 require_once __DIR__ . '/../lib/email_otp.php';
 require_once __DIR__ . '/../lib/ratelimit.php';
+require_once __DIR__ . '/phone_reset.php';
 
 function register_password_reset_routes(Router $app) {
+    register_phone_reset_routes($app);
 
     // --- POST /api/auth/forgot-password/send ----------------------------------------------------
     //

@@ -812,16 +812,19 @@ function register_gamesync_routes(Router $app) {
                 }
 
                 // --- Phone number -------------------------------------------------------------
-                // Collected at signup as plain contact info. NOT OTP-gated: Fast2SMS's OTP route
-                // needs account-side enablement that is still pending (see PHONE_VERIFICATION_REQUIRED
-                // in config.php), so for now this is stored unverified (phone_verified stays 0 below)
-                // rather than blocking every signup on a channel that cannot currently deliver a code.
-                // Re-enabling verification later is a config flip, not a code change — the otp.php /
-                // sms.php / migration-003 machinery is untouched, just not consulted here anymore.
+                // Phone verification is enforced server-side whenever Fast2SMS signup is enabled.
                 $phone = sms_normalise_indian_mobile($req->b('phone') ?? $req->q('phone'));
                 if ($phone === null) {
                     $res->status(400)->json(['error' => 'Enter a valid 10-digit Indian mobile number.']);
                     return;
+                }
+                if (cfg('PHONE_VERIFICATION_REQUIRED')) {
+                    if (!otp_is_verified($phone)) {
+                        $res->status(400)->json(['error' => 'Please verify your mobile number first.']); return;
+                    }
+                    if (one('SELECT "id" FROM "User" WHERE "phone" = ? LIMIT 1', [$phone])) {
+                        $res->status(409)->json(['error' => 'This mobile number is already registered.']); return;
+                    }
                 }
 
                 // --- Email verification ---------------------------------------------------------
@@ -869,14 +872,17 @@ function register_gamesync_routes(Router $app) {
 
                 // signup_ip / bonus_credited come from migration-002; fall back to the original
                 // column set so a database that has not had it applied still registers users.
+                $writeSignup = function () use ($username, $email, $hashed, $startingBalance, $signupIp, $phone) {
+                if (cfg('PHONE_VERIFICATION_REQUIRED') && !otp_is_verified($phone)) throw new RuntimeException('Please verify your mobile number first.');
                 try {
-                    // phone_verified is always 0 now: the number above is collected, not OTP-checked.
+                    // The verified flag is earned by the OTP flow, never supplied by the browser.
                     q('INSERT INTO "User" ("username","email","password","wallet_balance","created_at","signup_ip","bonus_credited","phone","phone_verified")
                        VALUES (?,?,?,?,?,?,?,?,?)',
                       [$username, $email, $hashed, $startingBalance, ms_to_sql(),
                        $signupIp, $startingBalance > 0 ? 1 : 0,
-                       $phone, 0]);
+                       $phone, cfg('PHONE_VERIFICATION_REQUIRED') ? 1 : 0]);
                 } catch (Throwable $colErr) {
+                    if (cfg('PHONE_VERIFICATION_REQUIRED')) throw $colErr;
                     // Another signup took this name or email a moment ago (the check above passed
                     // for both). Not a missing column, so do not retry with the old column set.
                     if (is_unique_violation($colErr)) {
@@ -891,6 +897,10 @@ function register_gamesync_routes(Router $app) {
 
                 // Spend the verification so one code cannot register a second account.
                 if (cfg('EMAIL_VERIFICATION_REQUIRED')) email_otp_consume($email);
+                if (cfg('PHONE_VERIFICATION_REQUIRED')) otp_consume($phone);
+                return $user;
+                };
+                $user = cfg('PHONE_VERIFICATION_REQUIRED') ? tx_locked('phone-otp', $phone, $writeSignup) : $writeSignup();
 
                 // Referral attribution — optional, and deliberately best-effort: a signup must
                 // never fail because of a bad/foreign referral code, or because migration-005

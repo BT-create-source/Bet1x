@@ -41,7 +41,10 @@ function otp_generate() {
  * $phone must already be normalised by sms_normalise_indian_mobile().
  * Returns ['ok'=>true,'retry_after'=>int] or ['ok'=>false,'error'=>string,'retry_after'=>int|null].
  */
-function otp_issue($phone) {
+function otp_issue($phone, $purpose = 'signup') {
+    $number = $phone;
+    $phone = otp_storage_key($phone, $purpose);
+    return tx_locked('phone-otp', $phone, function () use ($phone, $number) {
     $now       = now_ms();
     $cooldown  = (int) cfg('OTP_RESEND_COOLDOWN_SEC', 60) * 1000;
     $dailyCap  = (int) cfg('OTP_MAX_SENDS_PER_DAY', 8);
@@ -80,10 +83,10 @@ function otp_issue($phone) {
 
     // Send BEFORE writing, so a provider failure does not consume one of the user's daily sends or
     // start a cooldown they cannot use.
-    $sent = sms_send_otp($phone, $code);
+    $sent = sms_send_otp($number, $code);
     if (empty($sent['ok'])) {
         return ['ok' => false, 'error' => $sent['error'] ?? 'Could not send the code.',
-                'retry_after' => null];
+                'retry_after' => null, 'status' => 502];
     }
 
     q('INSERT INTO "PhoneOtp" ("phone","otp_hash","expires_at","attempts","last_sent_at","sent_count","window_start","verified_at")
@@ -99,6 +102,7 @@ function otp_issue($phone) {
       [$phone, $hash, $now + $ttl, $now, $sentCount + 1, $windowStart]);
 
     return ['ok' => true, 'retry_after' => (int) cfg('OTP_RESEND_COOLDOWN_SEC', 60)];
+    });
 }
 
 /**
@@ -108,7 +112,9 @@ function otp_issue($phone) {
  * confirm server-side that this number really was verified — a client that simply claims it was
  * gets nowhere.
  */
-function otp_check($phone, $code) {
+function otp_check($phone, $code, $purpose = 'signup') {
+    $phone = otp_storage_key($phone, $purpose);
+    return tx_locked('phone-otp', $phone, function () use ($phone, $code) {
     $now = now_ms();
     $row = one('SELECT * FROM "PhoneOtp" WHERE "phone" = ?', [$phone]);
     if (!$row) {
@@ -140,6 +146,7 @@ function otp_check($phone, $code) {
 
     q('UPDATE "PhoneOtp" SET "verified_at" = ? WHERE "phone" = ?', [$now, $phone]);
     return ['ok' => true];
+    });
 }
 
 /**
@@ -149,13 +156,20 @@ function otp_check($phone, $code) {
  * short: a verification is meant to be spent immediately on the registration that prompted it, not
  * banked and reused hours later.
  */
-function otp_is_verified($phone, $withinSeconds = 900) {
+function otp_is_verified($phone, $withinSeconds = 900, $purpose = 'signup') {
+    $phone = otp_storage_key($phone, $purpose);
     $row = one('SELECT "verified_at" FROM "PhoneOtp" WHERE "phone" = ?', [$phone]);
     if (!$row || $row['verified_at'] === null) return false;
     return (now_ms() - (int) $row['verified_at']) <= $withinSeconds * 1000;
 }
 
 /** Consume the verification so one code cannot register two accounts. */
-function otp_consume($phone) {
+function otp_consume($phone, $purpose = 'signup') {
+    $phone = otp_storage_key($phone, $purpose);
     q('DELETE FROM "PhoneOtp" WHERE "phone" = ?', [$phone]);
+}
+
+function otp_storage_key($phone, $purpose = 'signup') {
+    if (!in_array($purpose, ['signup', 'reset'], true)) throw new InvalidArgumentException('Unknown OTP purpose');
+    return $purpose === 'reset' ? 'reset:' . $phone : $phone;
 }

@@ -60,6 +60,7 @@ function sms_send_otp($phone, $code) {
     }
 
     $route = strtolower((string) cfg('FAST2SMS_ROUTE', 'otp'));
+    if (!in_array($route, ['otp', 'dlt', 'q'], true)) return ['ok' => false, 'error' => 'The configured SMS route is not supported.'];
     $body  = ['numbers' => $phone];
 
     if ($route === 'otp') {
@@ -121,7 +122,7 @@ function sms_send_otp($phone, $code) {
         'phone'    => $phone,
         'route'    => $route,
         'http'     => $status,
-        'response' => is_string($raw) ? substr($raw, 0, 300) : null,
+        'provider_code' => is_array($decoded) ? ($decoded['status_code'] ?? null) : null,
     ]);
     return ['ok' => false, 'error' => 'Could not send the code right now. Please try again shortly.'];
 }
