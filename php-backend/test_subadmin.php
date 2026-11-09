@@ -23,6 +23,7 @@ error_reporting(E_ALL & ~E_DEPRECATED);
 require_once __DIR__ . '/config.php';
 if (cfg('IS_PRODUCTION')) { fwrite(STDERR, "Refusing to run money tests in production.\n"); exit(1); }
 foreach (['json', 'logger', 'db', 'http', 'auth', 'helpers', 'subadmin', 'originals', 'riskcontrols'] as $f) require_once __DIR__ . "/lib/$f.php";
+require_once __DIR__ . '/tests/originals_http_helpers.php';
 
 $pass = 0; $fail = 0; $failures = [];
 function check($cond, $label) {
@@ -69,7 +70,7 @@ function http($method, $path, $token = null, $body = null, $port = 5141) {
     $raw = curl_exec($ch);
     $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
-    return [$code, json_decode((string) $raw, true), (string) $raw];
+    return originals_test_resolve($path, $token, [$code, json_decode((string) $raw, true), (string) $raw], $port);
 }
 function burst($path, $token, $body, $copies = 8) {
     global $PORTS;
@@ -614,8 +615,13 @@ $bodies = [
     'blackjack' => ['bet_amount' => 10],
     'matka' => ['bets' => [['type' => 'single', 'value' => '7', 'amount' => 10]]],
 ];
+$queuedResponses = [];
+$GLOBALS['ORIGINALS_TEST_DEFER'] = true;
+try {
+    foreach ($bodies as $g => $body) $queuedResponses[$g] = http('POST', "/api/originals/$g/play", $OU['tok'], $body + ['client_ref' => key8()]);
+} finally { $GLOBALS['ORIGINALS_TEST_DEFER'] = false; }
 foreach ($bodies as $g => $body) {
-    [$c, $b] = http('POST', "/api/originals/$g/play", $OU['tok'], $body + ['client_ref' => key8()]);
+    [$c, $b] = originals_test_resolve("/api/originals/$g/play", $OU['tok'], $queuedResponses[$g]);
     $round = $b['round'] ?? null;
     for ($guard = 0; $round && $round['status'] === 'open' && $guard < 10; $guard++) {
         $action = $g === 'coinflip' ? 'cashout' : ($round['result']['phase'] === 'insurance' ? 'no_insurance' : 'stand');
@@ -623,7 +629,10 @@ foreach ($bodies as $g => $body) {
         $round = $b['round'] ?? null;
     }
     if ($round) { $staked += $round['bet']; $paid += $round['payout']; }
-    check($c === 200 && $round && $round['status'] === 'settled' && near(wallet($OU['id']), 1000 - $staked + $paid) && near(inv($sa1), $inventory), "$g: funded player settles through the shared wallet; sub-admin inventory stays unchanged");
+    // Other submitted games may still be queued; their stakes are already reserved too.
+    $liveStake = (float) scalar('SELECT COALESCE(SUM("bet_amount"),0) FROM "OriginalsRound" WHERE "username" = ?', [$OU['name']]);
+    $livePaid = (float) scalar('SELECT COALESCE(SUM("payout"),0) FROM "OriginalsRound" WHERE "username" = ?', [$OU['name']]);
+    check($c === 200 && $round && $round['status'] === 'settled' && near(wallet($OU['id']), 1000 - $liveStake + $livePaid) && near(inv($sa1), $inventory), "$g: funded player settles through the shared wallet; sub-admin inventory stays unchanged");
 }
 check(near(wallet($P_OTHER['id']), $otherBalance), 'a player-supplied username cannot redirect an Originals bet into someone else\'s wallet');
 [$c, $userDetail] = http('GET', '/api/subadmin/users/' . $OU['id'], $T1);
@@ -642,7 +651,11 @@ check($cu === 200 && near($byUser['wagered'] ?? -1, $staked) && near($byUser['wo
 check($c === 200 && json_encode($summary['game_activity']) === json_encode($adminDetail['game_activity']), 'Admin and sub-admin see identical gameplay reporting');
 [$c, $stats] = http('GET', '/api/admin/game-stats', $ADMIN);
 $statsOK = $c === 200;
-foreach (array_keys($bodies) as $g) if (($stats['stats'][$g]['total'] ?? -1) !== ($baseline['stats'][$g]['total'] ?? 0) + 1) $statsOK = false;
+foreach (array_keys($bodies) as $g) {
+    $actual = (int) scalar('SELECT COUNT(*) FROM "OriginalsRound" WHERE "game" = ?', [$g]);
+    $fixture = (int) scalar('SELECT COUNT(*) FROM "OriginalsRound" WHERE "game" = ? AND "username" = ?', [$g, $OU['name']]);
+    if (($stats['stats'][$g]['total'] ?? -1) !== $actual || $fixture !== 1) $statsOK = false;
+}
 check($statsOK, 'admin per-game statistics include the new round from every Originals game');
 [$c, $txns] = http('GET', '/api/admin.php?action=transactions', $ADMIN);
 $mine = array_values(array_filter($txns, function ($t) use ($OU) { return $t['user'] === $OU['name'] && !empty($t['game']); }));

@@ -32,6 +32,8 @@
   const S = { game: null, opt: null, config: null, info: null, signedIn: false, balance: null, busy: false,
               token: null, balanceRevision: 0, open: null, step: 0, recent: [], seed: null, chip: 10, total: 0, session: { staked: 0, won: 0 } };
   const sessionToken = () => localStorage.getItem('bet1x_auth_token');
+  S.pending = []; S.publicRounds = null;
+  const sharedGame = () => !['blackjack', 'coinflip'].includes(S.game);
   let clock = null, clockReceived = 0, clockServerNow = 0, clockPolling = false;
 
   function bettingOpen() {
@@ -43,6 +45,9 @@
 
   function renderClock() {
     const el = $('ogClock'), btn = $('ogPlay');
+    const roundLabel = $('ogRoundId');
+    if (roundLabel) roundLabel.textContent = S.open ? 'Your round ID: ' + S.open.round_ref :
+      clock ? (sharedGame() ? 'Round ID: ' : 'Betting window ID: ') + clock.round_id : 'Synchronizing round ID...';
     const fresh = clock && performance.now() - clockReceived <= 7000;
     const now = clockServerNow + performance.now() - clockReceived;
     const open = bettingOpen();
@@ -62,21 +67,55 @@
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
     try {
-      const res = await fetch('api/originals/clock', { cache: 'no-store', signal: controller.signal });
+      const res = await fetch('api/originals/' + (sharedGame() ? S.game + '/public' : 'clock'), { cache: 'no-store', signal: controller.signal });
       const d = await res.json();
       if (res.ok && d.ok && d.clock && Number.isFinite(d.clock.server_time)) {
         clock = d.clock;
         clockReceived = performance.now();
         // Include the full request latency so a slow connection closes conservatively.
         clockServerNow = clock.server_time + clockReceived - started;
+        if (d.public_rounds) renderPublic(d.public_rounds);
+        if (S.pending.length && !S.busy) await reload();
       }
     } catch (e) { /* Expired clock data disables betting until synchronization recovers. */ }
     finally { clearTimeout(timeout); clockPolling = false; renderClock(); }
   }
 
+  function publicSummary(round, rich) {
+    const r = round.result, game = S.game;
+    const cards = codes => codes.map(c => rich ? cardHTML(c, { sm: true }) : esc(c)).join(rich ? '' : ' ');
+    if (game === 'dice') return '<strong>' + Number(r.roll).toFixed(2) + '</strong>';
+    if (game === 'keno') return r.drawn.map(n => '<b class="og-public-ball">' + n + '</b>').join('');
+    if (game === 'roulette') return '<strong>' + r.number + '</strong> ' + esc(r.color || '');
+    if (game === 'dragontiger') return '<div class="og-public-cards"><span>Dragon</span>' + cards([r.dragon]) + '<span>' + esc(r.winner.toUpperCase()) + '</span>' + cards([r.tiger]) + '<span>Tiger</span></div>';
+    if (game === 'baccarat') return '<div class="og-public-cards"><span>Player ' + r.player_total + '</span>' + cards(r.player) + '<span>' + esc(r.winner.toUpperCase()) + '</span>' + cards(r.banker) + '<span>Banker ' + r.banker_total + '</span></div>';
+    if (game === 'andarbahar') return '<div class="og-public-cards"><span>Joker</span>' + cards([r.joker]) + '<strong>' + esc(r.winner.toUpperCase()) + '</strong></div><small>' + r.cards_dealt + ' cards dealt · matching card ' + esc((r[r.winner] || []).slice(-1)[0]) + '</small>';
+    if (game === 'matka') return '<strong>' + esc(r.display) + '</strong>';
+    if (game === 'wheel') return 'Wheel stop <strong>' + Number(r.position_degrees).toFixed(2) + '°</strong><small>Sector ' + (r.index + 1) + '/10 · ' + fmtMult(r.multiplier) + ' on the 10-sector medium layout. All layouts use the same stop angle.</small>';
+    if (game === 'plinko') return 'Pocket <strong>' + r.bucket + '/16</strong><small>' + r.path.map(v => v ? 'R' : 'L').join(' ') + ' · 16-row shared path; shorter layouts use its first rows.</small>';
+    if (game === 'slots') return '<div class="og-public-reels">' + [0,1,2].map(row => '<div>' + r.grid.map(col => '<span>' + esc(col[row]) + '</span>').join('') + '</div>').join('') + '</div>';
+    return '';
+  }
+
+  function renderPublic(data) {
+    const previous = S.publicRounds;
+    S.publicRounds = data;
+    const panel = $('ogPublic'); if (!panel) return;
+    panel.hidden = false;
+    if (previous && previous.current.round_id === data.current.round_id &&
+        (previous.history[0] || {}).round_id === (data.history[0] || {}).round_id) return;
+    const history = data.history || [], latest = history[0];
+    $('ogPublicCurrent').textContent = 'Round ' + data.current.round_id + ' · betting window 15 seconds';
+    $('ogPublicHash').textContent = data.current.server_seed_hash;
+    $('ogPublicResult').innerHTML = latest ? publicSummary(latest, true) : 'First public result appears when betting closes.';
+    $('ogPublicRound').textContent = latest ? 'Published result · round ' + latest.round_id : 'Waiting for the first result';
+    $('ogPublicHistory').innerHTML = history.slice(0, 10).map(r => '<details><summary>Round ' + r.round_id + '</summary><div>' + publicSummary(r, false) +
+      '</div><small>Server seed: ' + esc(r.server_seed) + '<br>Hash: ' + esc(r.server_seed_hash) + '<br>Client: ' + esc(r.client_seed) + ' · Nonce: ' + r.nonce + '</small></details>').join('');
+  }
+
   async function api(path, body) {
     const token = sessionToken();
-    const opts = body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
+    const opts = body === undefined ? { cache: 'no-store' } : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
     let res, data = null;
     try { res = await fetch('api/originals/' + path, opts); data = await res.json(); } catch (e) {}
     if (token !== sessionToken()) return { ok: false, _status: 409, code: 'session_changed', error: 'Your account changed. Refreshing the game.' };
@@ -203,6 +242,12 @@
   function renderFair() {
     const el = $('ogFair');
     if (!el) return;
+    if (sharedGame()) {
+      el.innerHTML = '<div class="og-howto">All players share the public round seed. Its hash is committed before betting closes; the seed is revealed with the public result above. Your number, risk or layout changes your payout, while the underlying draw is shared.</div>' +
+        (S.recent.length ? '<div class="og-paytable">' + S.recent.map((r, i) => '<button type="button" class="og-link" data-verify="' + i + '">Verify ' + esc(r.round_ref) + '</button>').join('') + '</div>' : '');
+      el.querySelectorAll('[data-verify]').forEach(b => { b.onclick = () => verify(S.recent[+b.dataset.verify]); });
+      return;
+    }
     if (!S.signedIn) { el.innerHTML = '<div class="og-howto">Sign in to see your seeds. Every result comes from your seed pair and can be checked afterwards.</div>'; return; }
     const s = S.seed || {};
     let html = '<dl class="og-kv"><dt>Server seed (hash)</dt><dd>' + esc(s.server_seed_hash || 'created with your first bet') + '</dd>' +
@@ -272,6 +317,11 @@
     if (!d.ok && d._status === 0) d = await api(S.game + '/play', body);   // one retry with the SAME ref: never a second bet
     if (!d.ok) { setBusy(false); msg(d.error || 'Something went wrong.', true); syncClock(); if (d.code === 'round_open' || d.code === 'session_changed') reload(); return; }
     const round = d.round;
+    if (round.status === 'queued') {
+      S.pending.push(round); setBalance(d.balance); setBusy(false);
+      msg('Bet accepted for round ' + round.shared_round_id + '. Result appears after betting closes.');
+      return;
+    }
     try { if (S.opt.onResult) await S.opt.onResult(round, d); } catch (e) { console.error(e); }
     afterRound(round, d.balance);
   }
@@ -322,15 +372,19 @@
   async function reload() {
     const token = sessionToken(), revision = S.balanceRevision;
     if (S.token !== token) {
-      S.open = null; S.seed = null; S.recent = []; S.signedIn = false; S.balance = null;
+      S.open = null; S.seed = null; S.recent = []; S.pending = []; S.signedIn = false; S.balance = null;
       S.session = { staked: 0, won: 0 };
       renderHistory(); renderFair(); updateStats(); renderAccountBalance();
     }
     const d = await api(S.game + '/state');
     if (token !== sessionToken() || S.busy || revision !== S.balanceRevision) return;
     if (!d.ok) { msg(d.error || 'Could not load the game.', true); return; }
+    const waiting = S.pending.slice();
+    if (d.public_rounds) renderPublic(d.public_rounds);
     S.token = token;
     S.config = d.config; S.info = d.info || {}; S.signedIn = !!d.signed_in; S.seed = d.seed; S.recent = d.recent || [];
+    S.pending = d.pending || [];
+    if (S.pending.length) msg(S.pending.length + ' accepted bet(s) awaiting the public result.');
     renderAccountBalance();
     if (d.balance != null) setBalance(d.balance);
     S.open = d.open_round || null;
@@ -344,7 +398,21 @@
     renderHistory(); renderFair();
     const how = $('ogHow');
     if (how && S.opt.howto) how.innerHTML = (typeof S.opt.howto === 'function' ? S.opt.howto(S.info, S.config) : S.opt.howto) + '<p>Maximum total return per round: <b>' + money(S.config.max_win) + '</b>. This cap can reduce the effective return on larger bets.</p>';
-    if (S.opt.onLoad) S.opt.onLoad(d);
+    const newlySettled = waiting.some(p => S.recent.some(r => r.round_ref === p.round_ref));
+    if (S.opt.onLoad && !newlySettled) S.opt.onLoad(d);
+    for (const pending of waiting) {
+      const settled = S.recent.find(r => r.round_ref === pending.round_ref);
+      if (settled) {
+        setBusy(true);
+        try { if (S.opt.onResult) await S.opt.onResult(settled, d); } catch (e) { console.error(e); }
+        if (token !== sessionToken()) { setBusy(false); await reload(); return; }
+        // The loaded history already contains this round; afterRound inserts it once.
+        S.recent = S.recent.filter(r => r.round_ref !== settled.round_ref);
+        afterRound(settled, d.balance);
+        msg('Round ' + settled.shared_round_id + ' settled.');
+      }
+    }
+    if (newlySettled && S.opt.onLoad) S.opt.onLoad(d);
     renderClock();
   }
 
@@ -381,7 +449,11 @@
           '<button type="button" class="og-chipbtn" data-q="100" data-og-lock>₹100</button><button type="button" class="og-chipbtn" data-q="max" data-og-lock>Max</button></div></div>';
     root.innerHTML = '<a href="cashier.html" class="og-wallet" id="ogWallet" data-wallet-chip aria-label="Account balance" hidden></a>' +
       '<div class="og-title"><h1>' + esc(opt.title) + '<small>' + esc(opt.sub || '') + '</small></h1>' +
+      '<span class="og-round-id" id="ogRoundId" aria-label="Current round ID">Synchronizing round ID...</span>' +
       '<span class="og-pill">RTP <b id="ogRtp">—</b> · Provably fair</span></div>' +
+      '<section class="og-public" id="ogPublic" hidden><div class="og-public-head"><b>Public results · same on every device</b><span id="ogPublicCurrent"></span></div>' +
+      '<div id="ogPublicRound" class="og-howto"></div><div id="ogPublicResult" class="og-public-result" aria-live="polite"></div>' +
+      '<details><summary>Recent public rounds &amp; fairness</summary><div id="ogPublicHistory"></div><small>Current round commitment: <code id="ogPublicHash"></code></small></details></section>' +
       '<div class="og-main"><aside class="og-panel">' + amountHTML + (opt.controls || '') +
       '<div id="ogClock" class="og-howto" role="timer" aria-label="Shared betting timer" style="margin:8px 0;font-variant-numeric:tabular-nums">Synchronizing betting timer...</div>' +
       '<button type="button" class="og-play" id="ogPlay" disabled>' + esc(opt.playLabel || 'Bet') + '</button>' + (opt.afterPlay || '') +
@@ -423,7 +495,7 @@
     if (opt.onMount) opt.onMount();
     reload();
     syncClock();
-    setInterval(syncClock, 2500);
+    setInterval(syncClock, 1500);
     setInterval(renderClock, 100);
     window.addEventListener('focus', syncClock);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) syncClock(); });

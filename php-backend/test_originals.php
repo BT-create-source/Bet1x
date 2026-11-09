@@ -26,6 +26,7 @@ require_once __DIR__ . '/config.php';
 if (cfg('IS_PRODUCTION')) { fwrite(STDERR, "Refusing to run money tests in production.\n"); exit(1); }
 foreach (['json', 'logger', 'db', 'http', 'auth', 'helpers', 'originals'] as $f) require_once __DIR__ . "/lib/$f.php";
 foreach (array_keys(originals_catalogue()) as $g) originals_game($g);
+require_once __DIR__ . '/tests/originals_http_helpers.php';
 
 $QUICK = in_array('--quick', $argv, true);
 $pass = 0; $fail = 0; $failures = [];
@@ -195,6 +196,7 @@ register_shutdown_function(function () use (&$servers) {
     }
 });
 function http($method, $path, $token = null, $body = null, $port = 5141) {
+    if ($method === 'POST') originals_test_wait_window($path);
     $ch = curl_init("http://127.0.0.1:$port$path");
     $h = ['Accept: application/json'];
     if ($token) $h[] = 'Authorization: Bearer ' . $token;
@@ -203,9 +205,10 @@ function http($method, $path, $token = null, $body = null, $port = 5141) {
     $raw = curl_exec($ch);
     $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
-    return [$code, json_decode((string) $raw, true), $raw];
+    return originals_test_resolve($path, $token, [$code, json_decode((string) $raw, true), $raw], $port);
 }
 function burst($path, $token, $bodies) {
+    originals_test_wait_window($path);
     global $PORTS;
     $mh = curl_multi_init(); $hs = [];
     foreach ($bodies as $i => $body) {
@@ -222,7 +225,7 @@ function burst($path, $token, $bodies) {
         curl_multi_remove_handle($mh, $ch); curl_close($ch);
     }
     curl_multi_close($mh);
-    return $out;
+    return array_map(function ($r) use ($path, $token) { return originals_test_resolve($path, $token, $r); }, $out);
 }
 $up = 0;
 foreach ($PORTS as $p) { for ($i = 0; $i < 60; $i++) { [$c] = http('GET', '/api/originals/catalogue', null, null, $p); if ($c === 200) { $up++; break; } usleep(250000); } }
@@ -282,7 +285,7 @@ $bodies = [
     'slots'      => ['bet_amount' => 20],
     'matka'      => ['bets' => [['type' => 'jodi', 'value' => '42', 'amount' => 5], ['type' => 'panna', 'value' => '127', 'amount' => 2], ['type' => 'oddeven', 'value' => 'odd', 'amount' => 10]], 'market' => 'Kalyan'],
 ];
-$ROUNDS = $QUICK ? 6 : 15;
+$ROUNDS = $QUICK ? 1 : 3; // Each real public round now includes the 15-second betting window.
 foreach ($bodies as $g => $body) {
     $okAll = true; $bal = bal('a'); $stakes = 0; $wins = 0;
     for ($i = 0; $i < $ROUNDS; $i++) {
@@ -309,10 +312,9 @@ $res = burst('/api/originals/wheel/play', $A, array_fill(0, 8, $burstBody));
 $refs = array_unique(array_map(function ($x) { return $x[1]['round']['round_ref'] ?? null; }, $res));
 check(count($refs) === 1 && (int) scalar('SELECT COUNT(*) FROM "OriginalsRound" WHERE "username" = ? AND "client_ref" = ?', ['ortest_a', $burstBody['client_ref']]) === 1
       && near(bal('a'), $b0 - 30 + $res[0][1]['round']['payout']), 'eight simultaneous copies of one click (four servers): exactly one bet');
-$nBefore = (int) scalar('SELECT "nonce" FROM "OriginalsSeed" WHERE "username" = ?', ['ortest_a']);
 $res = burst('/api/originals/dice/play', $A, array_map(function () { return ['client_ref' => ref(), 'bet_amount' => 10, 'chance' => 50, 'direction' => 'over']; }, range(1, 8)));
 $nonces = array_map(function ($x) { return $x[1]['round']['nonce'] ?? -1; }, $res); sort($nonces);
-check($nonces === range($nBefore, $nBefore + 7) && reconciles('a'), 'eight different simultaneous bets: eight rounds, nonces ' . $nBefore . '..' . ($nBefore + 7) . ' each used once, wallet reconciles');
+check(count(array_unique($nonces)) === 1 && $nonces[0] > 0 && count(array_unique(array_map(function ($x) { return $x[1]['round']['round_ref'] ?? ''; }, $res))) === 8 && reconciles('a'), 'eight simultaneous accepted bets share one public draw, retain unique references and reconcile');
 
 // Refusals.
 $b0 = bal('c');

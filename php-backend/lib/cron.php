@@ -21,6 +21,13 @@ function cron_main_tick() {
 
     with_named_lock('cron_tick', 5, function () use (&$ran) {
         $ran = true;
+        // Public Originals settle accepted bets even when every bettor has left the page.
+        try {
+            require_once __DIR__ . '/originals.php';
+            if (originals_ensure()) foreach (originals_catalogue() as $game => $meta) {
+                if (originals_is_shared($game)) originals_shared_public($game);
+            }
+        } catch (Throwable $e) { log_error('cron: public Originals settlement failed', ['message' => $e->getMessage()]); }
         // 1. Aviator — advance the phase machine (waiting -> running -> crashed -> waiting).
         try { aviator_tick(); }
         catch (Throwable $e) { log_error('cron: aviator tick failed', ['message' => $e->getMessage()]); }

@@ -18,6 +18,7 @@ body.originals-game .gs-burger { top: 16px; left: 16px; }
 }
 .og-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 2px 12px; flex-wrap: wrap; }
 .og-title h1 { margin: 0; font: 700 22px var(--font-display); color: var(--text); letter-spacing: .2px; }
+.og-round-id { color: var(--gold); border: 1px solid var(--gold); background: var(--gold-soft); border-radius: 8px; padding: 7px 10px; font: 700 13px var(--font-mono); overflow-wrap: anywhere; }
 .og-title h1 small { font: 500 13px var(--font-body); color: var(--text-dim); margin-left: 10px; }
 .og-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; background: var(--surface-2);
   border: 1px solid var(--border); color: var(--text-dim); font: 600 12px var(--font-body); }
@@ -103,6 +104,21 @@ body.originals-game .gs-burger { top: 16px; left: 16px; }
 .og-outcome.loss { color: var(--red); background: rgba(255,75,110,.12); }
 .og-outcome.push { color: var(--text-dim); background: var(--surface-2); }
 .og-round-verification { margin-top: 14px; color: var(--text-dim); font-size: 12px; }
+.og-public { background: var(--surface); border: 1px solid var(--gold); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; min-width: 0; }
+.og-public[hidden] { display: none; }
+.og-public-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; color: var(--gold); font-size: 13px; margin-bottom: 8px; }
+.og-public-head span { color: var(--text-dim); font-size: 12px; }
+.og-public-result { min-height: 64px; padding: 12px 0; color: var(--text); font: 700 20px var(--font-display); }
+.og-public-result strong { font-size: 30px; color: var(--gold); }
+.og-public-result small { display: block; margin-top: 6px; color: var(--text-dim); font: 500 12px var(--font-body); }
+.og-public-cards { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.og-public-cards span { font-size: 13px; }
+.og-public-ball { display: inline-grid; place-items: center; width: 32px; height: 32px; margin: 3px; border-radius: 50%; background: var(--gold-soft); color: var(--gold); font: 700 14px var(--font-mono); }
+.og-public details { margin: 7px 0; font-size: 12px; color: var(--text-dim); }
+.og-public summary { cursor: pointer; }
+.og-public small, .og-public code { overflow-wrap: anywhere; }
+.og-public-reels > div { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.og-public-reels span { padding: 5px; text-align: center; background: var(--surface-2); font-size: 12px; border-radius: 4px; }
 .og-round-verification summary { cursor: pointer; }
 .og-round-verification .og-link { padding: 4px 0; }
 .og-empty { color: var(--text-faint); font: 500 13px var(--font-body); padding: 14px 0; text-align: center; }

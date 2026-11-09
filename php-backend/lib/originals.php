@@ -1,7 +1,7 @@
 <?php
 /**
- * bet1x Originals — the shared engine behind the single-player "originals": Dice, Coinflip, Wheel,
- * Plinko, Keno, Roulette, Baccarat, Andar Bahar, Slots, Blackjack and Matka.
+ * bet1x Originals — public clock-driven rounds for the ten single-step games, with interactive
+ * personal rounds retained for Blackjack and Coinflip. See originals_shared.php for public draws.
  *
  * Game list and ideas from the MIT-licensed github.com/Paidguy/casino (an educational, browser-only
  * simulator). Its code was not reused as-is: there every result and the balance lived in the browser,
@@ -9,7 +9,7 @@
  * server, every payout table is computed so it returns exactly the RTP the operator sets (each game's
  * test proves it), and the money moves like the site's other games. See ORIGINALS-LICENSE.md.
  *
- * MONEY: each bet or action is ONE database transaction, with the player's seed row locked first:
+ * PERSONAL GAME MONEY: each bet or action is ONE transaction, with the player's seed row locked first:
  *   lock seed row  ->  take the stake  ->  decide the result  ->  pay any win  ->  write the round and
  *   the ledger  ->  commit.
  * The lock serialises everything one player does in the originals, so double clicks and parallel
@@ -17,7 +17,7 @@
  * taken without a round, a win is never paid twice). A repeated request with the same client_ref
  * returns the round it already created instead of betting again.
  *
- * FAIRNESS (provably fair, the scheme Stake and the source project use): every player has a hidden
+ * PERSONAL GAME FAIRNESS (Blackjack and Coinflip): every player has a hidden
  * server seed (its SHA-256 hash is shown before they play), a client seed they may choose, and a
  * nonce that counts their rounds. Round n's random numbers are
  *     HMAC_SHA256(key = server_seed, message = "client_seed:nonce:cursor")
@@ -32,8 +32,9 @@
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/helpers.php';
+require_once __DIR__ . '/originals_shared.php';
 
-const ORIGINALS_SCHEMA_VERSION = 1;
+const ORIGINALS_SCHEMA_VERSION = 2;
 
 class OrigError extends RuntimeException {
     public $status;
@@ -157,6 +158,16 @@ function originals_ensure() {
             if (!is_string($sql) || $sql === '') throw new RuntimeException('migration-019 file missing');
             db_or_throw()->exec($sql);
         }
+        $indexed = with_named_lock('originals_public_index', 10, function () {
+            if (db_is_mysql()) {
+                $exists = scalar('SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ?', ['OriginalsRound', 'OriginalsRound_shared_idx'], 0);
+                if (!(int) $exists) db_or_throw()->exec('CREATE INDEX `OriginalsRound_shared_idx` ON `OriginalsRound` (`game`, `status`, `username`, `id`)');
+            } else {
+                db_or_throw()->exec('CREATE INDEX IF NOT EXISTS "OriginalsRound_shared_idx" ON "OriginalsRound" ("game", "status", "username", "id")');
+            }
+            return true;
+        });
+        if (!$indexed) return $done = false;
         state_set('originals_schema_version', ORIGINALS_SCHEMA_VERSION);
         return $done = true;
     } catch (Throwable $e) {
@@ -318,7 +329,8 @@ function orig_money($x) { return floor((float) $x * 100 + 1e-7) / 100; }
 function orig_json($v) { return json_encode($v, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); }
 
 function orig_round_view(array $r, $activeHash = null) {
-    $settled = $r['status'] !== 'open';
+    $settled = $r['status'] === 'settled';
+    $state = json_decode((string) $r['state'], true);
     $out = [
         'round_ref' => $r['round_ref'], 'game' => $r['game'], 'status' => $r['status'],
         'bet' => (float) $r['bet_amount'], 'payout' => (float) $r['payout'], 'multiplier' => (float) $r['multiplier'],
@@ -326,6 +338,13 @@ function orig_round_view(array $r, $activeHash = null) {
         'server_seed_hash' => $r['server_seed_hash'], 'client_seed' => $r['client_seed'], 'nonce' => (int) $r['nonce'],
         'created_at' => js_iso($r['created_at']),
     ];
+    if (isset($state['shared_round_id'])) $out['shared_round_id'] = (int) $state['shared_round_id'];
+    if ($r['status'] === 'queued') {
+        $out['result'] = null;
+        $out['payout'] = 0;
+        $out['multiplier'] = 0;
+        $out['closes_at'] = (int) $state['closes_at'];
+    }
     if (!$settled) $out['step'] = (int) (json_decode((string) $r['state'], true)['step'] ?? 0);
     // The seed is shown once it is no longer the player's active one (they rotated), never before.
     if ($settled && $activeHash !== null && $r['server_seed_hash'] !== $activeHash) $out['server_seed'] = $r['server_seed'];
@@ -362,6 +381,7 @@ function originals_play(array $user, $game, array $in) {
     $stake = orig_money($prep['stake']);
     if ($stake < $cfg['min_bet'] - 1e-9) orig_fail('Minimum bet is ₹' . js_num_str($cfg['min_bet']) . '.');
     if ($stake > $cfg['max_bet'] + 1e-9) orig_fail('Maximum bet is ₹' . js_num_str($cfg['max_bet']) . '.');
+    if (originals_is_shared($game)) return originals_shared_queue($user, $game, $clientRef, $in, $prep);
     $username = $user['username'];
 
     return tx(function () use ($user, $username, $game, $meta, $cfg, $clientRef, $prep, $stake, $in) {
@@ -468,18 +488,20 @@ function orig_balance($userId) {
 function originals_state($user, $game) {
     $meta = originals_game($game);
     $cfg = originals_config($game);
+    $public = originals_shared_public($game);
     $out = ['ok' => true, 'clock' => originals_clock(), 'game' => $game, 'label' => $meta['label'], 'config' => originals_public_config($game, $cfg),
-            'signed_in' => (bool) $user, 'open_round' => null, 'recent' => [], 'seed' => null, 'balance' => null];
+            'signed_in' => (bool) $user, 'public_rounds' => $public, 'pending' => [], 'open_round' => null, 'recent' => [], 'seed' => null, 'balance' => null];
     if (function_exists('orig_' . $game . '_info')) $out['info'] = call_user_func('orig_' . $game . '_info', $cfg);
     if (!$user) return $out;
     $username = $user['username'];
     $out['seed'] = originals_seed_info($username);
     $active = $out['seed']['server_seed_hash'];
-    $out['balance'] = (float) $user['wallet_balance'];
+    $out['balance'] = orig_balance($user['id']);
+    $out['pending'] = array_map(function ($r) { return orig_round_view($r); }, all('SELECT * FROM "OriginalsRound" WHERE "username" = ? AND "game" = ? AND "status" = \'queued\' ORDER BY "id"', [$username, $game]));
     $open = one('SELECT * FROM "OriginalsRound" WHERE "username" = ? AND "game" = ? AND "status" = \'open\' ORDER BY "id" DESC LIMIT 1', [$username, $game]);
     if ($open) $out['open_round'] = orig_round_view($open, $active) + ['step' => (int) (json_decode((string) $open['state'], true)['step'] ?? 0)];
     $out['recent'] = array_map(function ($r) use ($active) { return orig_round_view($r, $active); },
-        all('SELECT * FROM "OriginalsRound" WHERE "username" = ? AND "game" = ? AND "status" <> \'open\' ORDER BY "id" DESC LIMIT 20', [$username, $game]));
+        all('SELECT * FROM "OriginalsRound" WHERE "username" = ? AND "game" = ? AND "status" = \'settled\' ORDER BY "id" DESC LIMIT 20', [$username, $game]));
     return $out;
 }
 

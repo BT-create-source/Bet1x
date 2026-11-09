@@ -1217,7 +1217,7 @@ function register_admin_routes(Router $app) {
             if (function_exists('originals_ensure') && originals_ensure()) {
                 foreach (originals_catalogue() as $key => $meta) {
                     $r = one('SELECT COUNT(*) AS total,
-                        SUM(CASE WHEN "status" = \'open\' THEN 1 ELSE 0 END) AS active,
+                        SUM(CASE WHEN "status" IN (\'open\', \'queued\') THEN 1 ELSE 0 END) AS active,
                         SUM(CASE WHEN "status" = \'settled\' AND "payout" > "bet_amount" THEN 1 ELSE 0 END) AS won,
                         SUM(CASE WHEN "status" = \'settled\' AND "payout" < "bet_amount" THEN 1 ELSE 0 END) AS lost,
                         COALESCE(SUM("bet_amount"),0) AS wagered, COALESCE(SUM("payout"),0) AS paid

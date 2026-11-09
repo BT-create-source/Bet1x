@@ -10,6 +10,7 @@ $files = @(
     'index.html','admin.html','ORIGINALS-LICENSE.md',
     'assets/css/originals.css','assets/js/originals.js','assets/js/admin-originals.js','assets/js/game-shell.js',
     'assets/css/dragontiger.css','assets/js/dragontiger.js',
+    'php-backend/lib/originals_shared.php','php-backend/lib/cron.php',
     'php-backend/index.php','php-backend/lib/originals.php','php-backend/lib/riskcontrols.php','php-backend/lib/helpers.php',
     'php-backend/routes/originals.php','php-backend/routes/admin.php','php-backend/routes/profile.php','php-backend/routes/settings.php',
     'php-backend/sql/migration-019-originals-postgres.sql','php-backend/sql/schema-mysql.sql',
@@ -18,8 +19,7 @@ $files = @(
 )
 foreach ($key in $gameKeys) {
     $files += "$key.html"
-    if ($key -eq 'dragontiger') { $files += 'assets/game_dragontiger.svg' }
-    else { $files += "assets/game_$key.webp" }
+    $files += "assets/game_$key.webp"
     $files += "php-backend/games/originals/$key.php"
 }
 Add-Type -AssemblyName System.IO.Compression

@@ -38,6 +38,14 @@ function orig_user(Req $req) {
 
 function register_originals_routes(Router $app) {
 
+    $app->get('/api/originals/:game/public', function (Req $req, Res $res) {
+        $res->setHeader('Cache-Control', 'no-store');
+        orig_handle($res, function () use ($req) {
+            $public = originals_shared_public((string) $req->p('game'));
+            return ['clock' => $public['clock'] ?? originals_clock(), 'public_rounds' => $public];
+        });
+    });
+
     $app->get('/api/originals/clock', function (Req $req, Res $res) {
         $res->setHeader('Cache-Control', 'no-store');
         $res->json(['ok' => true, 'clock' => originals_clock()]);
@@ -67,6 +75,7 @@ function register_originals_routes(Router $app) {
     });
 
     $app->get('/api/originals/:game/state', function (Req $req, Res $res) {
+        $res->setHeader('Cache-Control', 'no-store');
         orig_handle($res, function () use ($req) {
             $user = $req->auth ? orig_user($req) : null;
             return originals_state($user, (string) $req->p('game'));

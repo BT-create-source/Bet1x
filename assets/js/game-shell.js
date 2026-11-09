@@ -67,7 +67,7 @@
       ['keno.html', 'Keno', 'assets/game_keno.webp', 'NEW'],
       ['roulette.html', 'Roulette', 'assets/game_roulette.webp', 'NEW'],
       ['baccarat.html', 'Baccarat', 'assets/game_baccarat.webp', 'NEW'],
-      ['dragontiger.html', 'Dragon Tiger', 'assets/game_dragontiger.svg', 'NEW'],
+      ['dragontiger.html', 'Dragon Tiger', 'assets/game_dragontiger.webp', 'NEW'],
       ['andarbahar.html', 'Andar Bahar', 'assets/game_andarbahar.webp', 'NEW'],
       ['slots.html', 'Slots', 'assets/game_slots.webp', 'NEW'],
       ['blackjack.html', 'Blackjack', 'assets/game_blackjack.webp', 'NEW'],

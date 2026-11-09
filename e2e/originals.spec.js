@@ -29,7 +29,8 @@ for(const game of games) {
     const watch=watchErrors(page);
     await login(page); await ready(page,game); await finish(page);
     const before=await page.evaluate(() => Orig.state.balance);
-    const hash=await page.evaluate(() => Orig.state.seed.server_seed_hash);
+    const shared=!['blackjack','coinflip'].includes(game);
+    const hash=await page.evaluate(() => Orig.state.publicRounds ? Orig.state.publicRounds.current.server_seed_hash : Orig.state.seed.server_seed_hash);
     expect(hash).toMatch(/^[a-f0-9]{64}$/);
     if(game==='keno') await page.locator('#knAuto').click();
     if(game==='roulette') await page.locator('[data-k="red|"]').click();
@@ -42,14 +43,17 @@ for(const game of games) {
     await page.locator('#ogPlay').click();
     const data=await (await response).json();
     expect(data.ok,JSON.stringify(data)).toBe(true);
-    expect(data.round.server_seed_hash).toBe(hash);
-    await page.waitForFunction(() => !Orig.state.busy);
-    expect(await page.evaluate(() => Orig.state.balance)).toBeCloseTo(before-data.round.bet+data.round.payout,2);
+    if (!shared) expect(data.round.server_seed_hash).toBe(hash);
+    else expect(data.round.status).toBe('queued');
+    await page.waitForFunction(() => !Orig.state.busy && !Orig.state.pending.length);
+    const resolved = shared ? await page.evaluate(ref => Orig.state.recent.find(r => r.round_ref === ref), data.round.round_ref) : data.round;
+    expect(await page.evaluate(() => Orig.state.balance)).toBeCloseTo(before-resolved.bet+resolved.payout,2);
     await finish(page);
     const round=await page.evaluate(() => Orig.state.recent[0]);
     expect(round.status).toBe('settled');
     await expect(page.locator('#ogHistory tbody tr')).not.toHaveCount(0);
-    await expect(page.locator('#ogMsg')).toBeEmpty();
+    if (shared) await expect(page.locator('#ogMsg')).toContainText('settled');
+    else await expect(page.locator('#ogMsg')).toBeEmpty();
     await expectNoSidewaysScroll(page);
     if(game==='plinko') {
       const bounds=await page.evaluate(()=>{
@@ -62,11 +66,6 @@ for(const game of games) {
       await expect(page.locator('#pkBucketInfo')).toContainText('Bucket 16');
     }
     if(game==='dragontiger') {
-      const oldHash = await page.evaluate(() => Orig.state.seed.server_seed_hash);
-      await page.locator('#ogRotate').click();
-      await page.waitForFunction(h => Orig.state.seed.server_seed_hash !== h, oldHash);
-      await expect(page.locator('#ogMsg')).toContainText('Seed changed.');
-      await page.getByText('Verify a recent round', {exact: true}).click();
       await page.locator('[data-verify="0"]').click();
       await expect(page.locator('#ogVerifyOut')).toContainText('Both cards match.');
       await page.getByRole('button', {name: 'Close', exact: true}).click();
@@ -80,17 +79,12 @@ for(const game of games) {
   });
 }
 
-test('fairness: rotate and verify a completed Dice round',async ({page}) => {
+test('fairness: verify a completed public Dice round',async ({page}) => {
   const watch=watchErrors(page);
   await login(page); await ready(page,'dice');
+  await expect(page.locator('#ogPlay')).toBeEnabled({timeout: 35000});
   await page.locator('#ogPlay').click();
-  await page.waitForFunction(() => !Orig.state.busy && Orig.state.recent.length>0);
-  const hash=await page.evaluate(() => Orig.state.seed.server_seed_hash);
-  await page.locator('#ogClientSeed').fill('browser-verification');
-  await page.locator('#ogRotate').click();
-  await page.waitForFunction(h=>Orig.state.seed.server_seed_hash!==h,hash);
-  await expect(page.locator('#ogMsg')).toContainText('Seed changed');
-  await page.getByText('Verify a recent round',{exact:true}).click();
+  await page.waitForFunction(() => !Orig.state.busy && !Orig.state.pending.length && Orig.state.recent.length>0);
   await page.locator('[data-verify="0"]').click();
   await expect(page.locator('#ogVerifyOut')).toContainText('matches the hash');
   watch.expectClean();
