@@ -37,6 +37,7 @@ for (const game of games) test(game + ': a non-bettor sees the public round anim
   });
   await page.goto('/' + game + '.html');
   await page.waitForFunction(() => window.Orig?.state.stageReady);
+  await expect(page.locator('#ogPublic')).toHaveCount(0);
   if (game === 'wheel') { await page.locator('#whRisk [data-v=high]').click(); await page.locator('#whSegs [data-v="30"]').click(); }
   if (game === 'plinko') {
     await page.locator('#pkRows').evaluate(input => { input.value = '8'; });

@@ -293,7 +293,7 @@
     const el = $('ogFair');
     if (!el) return;
     if (sharedGame()) {
-      el.innerHTML = '<div class="og-howto">All players share the public round seed. Its hash is committed before betting closes; the seed is revealed with the public result above. Your number, risk or layout changes your payout, while the underlying draw is shared.</div>' +
+      el.innerHTML = '<div class="og-howto">All players share the public round seed. Its hash is committed before betting closes; the seed is published by the server after betting closes. Your number, risk or layout changes your payout, while the underlying draw is shared.</div>' +
         (S.recent.length ? '<div class="og-paytable">' + S.recent.map((r, i) => '<button type="button" class="og-link" data-verify="' + i + '">Verify ' + esc(r.round_ref) + '</button>').join('') + '</div>' : '');
       el.querySelectorAll('[data-verify]').forEach(b => { b.onclick = () => verify(S.recent[+b.dataset.verify]); });
       return;
@@ -508,9 +508,6 @@
       '<div class="og-title"><h1>' + esc(opt.title) + '<small>' + esc(opt.sub || '') + '</small></h1>' +
       '<span class="og-round-id" id="ogRoundId" aria-label="Current round ID">Synchronizing round ID...</span>' +
       '<span class="og-pill">RTP <b id="ogRtp">—</b> · Provably fair</span></div>' +
-      '<section class="og-public" id="ogPublic" hidden><div class="og-public-head"><b>Public results · same on every device</b><span id="ogPublicCurrent"></span></div>' +
-      '<div id="ogPublicRound" class="og-howto"></div><div id="ogPublicResult" class="og-public-result" aria-live="polite"></div>' +
-      '<details><summary>Recent public rounds &amp; fairness</summary><div id="ogPublicHistory"></div><small>Current round commitment: <code id="ogPublicHash"></code></small></details></section>' +
       '<div class="og-main"><aside class="og-panel">' + amountHTML + (opt.controls || '') +
       '<div id="ogClock" class="og-howto" role="timer" aria-label="Shared betting timer" style="margin:8px 0;font-variant-numeric:tabular-nums">Synchronizing betting timer...</div>' +
       '<button type="button" class="og-play" id="ogPlay" disabled>' + esc(opt.playLabel || 'Bet') + '</button>' + (opt.afterPlay || '') +

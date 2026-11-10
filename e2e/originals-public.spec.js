@@ -9,8 +9,8 @@ for (const game of games) test(game + ': public results require no bet or accoun
   const errors = watchErrors(page);
   await page.goto('/' + game + '.html');
   await page.waitForFunction(() => window.Orig && Orig.state.publicRounds && Orig.state.publicRounds.history.length);
-  await expect(page.locator('#ogPublic')).toBeVisible();
-  await expect(page.locator('#ogPublicResult')).not.toBeEmpty();
+  await expect(page.locator('#ogPublic')).toHaveCount(0);
+  await expect(page.locator('#ogStage')).toHaveAttribute('data-playback','complete');
   expect(await page.evaluate(() => Orig.state.signedIn)).toBe(false);
   expect(await page.evaluate(() => Orig.state.pending.length)).toBe(0);
   const other = await browser.newPage({baseURL: test.info().project.use.baseURL || process.env.BASE_URL || `http://127.0.0.1:${process.env.E2E_PORT || 5077}`});
