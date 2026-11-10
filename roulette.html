@@ -38,7 +38,7 @@
   <script src="assets/js/ui-common.js?v=20261109-performance"></script>
   <script src="assets/js/password-eye.js?v=20261104b"></script>
   <script src="assets/js/sound-fx.js"></script>
-  <script src="assets/js/originals.js?v=20261110-stage-only"></script>
+  <script src="assets/js/originals.js?v=20261110-custom-amount"></script>
   <script>
   (function () {
     const $ = (id) => document.getElementById(id);
@@ -76,7 +76,8 @@
     function place(k) {
       if (Orig.state.busy) return;
       document.querySelectorAll('.rl-c.win').forEach((c) => c.classList.remove('win'));
-      bets[k] = (bets[k] || 0) + Orig.chip(); undo.push([k, Orig.chip()]); Orig.sound('chipStack'); stacks();
+      const value = Orig.chip(); if (!(value > 0)) return;
+      bets[k] = (bets[k] || 0) + value; undo.push([k, value]); Orig.sound('chipStack'); stacks();
     }
     function wheel() {
       const n = ORDER.length, step = 360 / n; let s = '';

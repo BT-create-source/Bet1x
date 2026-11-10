@@ -19,6 +19,7 @@
       button.onclick = () => {
         if (Orig.state.busy) return;
         const value = Orig.chip(), key = button.dataset.side;
+        if (!(value > 0)) return;
         if (Orig.state.config && total() + value > Orig.state.config.max_bet) {
           Orig.msg('Maximum total bet is ' + Orig.money(Orig.state.config.max_bet) + '.', true); return;
         }

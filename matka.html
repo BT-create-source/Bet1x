@@ -25,7 +25,7 @@
   <script src="assets/js/ui-common.js?v=20261109-performance"></script>
   <script src="assets/js/password-eye.js?v=20261104b"></script>
   <script src="assets/js/sound-fx.js"></script>
-  <script src="assets/js/originals.js?v=20261110-stage-only"></script>
+  <script src="assets/js/originals.js?v=20261110-custom-amount"></script>
   <script>
   (function () {
     const $ = (id) => document.getElementById(id);
@@ -42,7 +42,8 @@
       if (!valid) { Orig.msg('Enter ' + ({single:'one digit (0–9)',jodi:'two digits (00–99)',panna:'three digits',oddeven:'odd or even'})[type] + '.',true); return; }
       if (type === 'panna') value = value.split('').sort((a,b) => (+a || 10)-(+b || 10)).join('');
       if (bets.length >= 40) { Orig.msg('Use up to 40 bets per draw.',true); return; }
-      bets.push({type,value,amount:Orig.chip()}); list(); Orig.msg('');
+      const amount = Orig.chip(); if (!(amount > 0)) return;
+      bets.push({type,value,amount}); list(); Orig.msg('');
     }
     Orig.mount({
       game:'matka', title:'Matka', sub:'Instant open & close draw', playLabel:'Draw', chipMode:true,

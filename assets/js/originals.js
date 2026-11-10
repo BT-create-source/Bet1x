@@ -206,7 +206,19 @@
     return Math.round(v * 100) / 100;
   }
   function setAmount(v) { const el = $('ogAmount'); if (el) el.value = clampAmount(v); updateStats(); if (S.opt.onAmount) S.opt.onAmount(amount()); }
-  function chip() { return S.chip; }
+  function chip() {
+    const input = $('ogChipAmount');
+    if (input && (!input.checkValidity() || !(Number(input.value) > 0))) {
+      msg('Enter a valid bet amount within the displayed limits.', true); input.reportValidity(); return 0;
+    }
+    return S.chip;
+  }
+  function setChip(v) {
+    const input = $('ogChipAmount');
+    S.chip = clampAmount(v);
+    if (input) input.value = S.chip;
+    document.querySelectorAll('.og-chip').forEach(b => b.classList.toggle('on', +b.dataset.v === S.chip));
+  }
   function setTotal(v) { S.total = Math.round(v * 100) / 100; const el = $('ogTotal'); if (el) el.textContent = money(S.total); }
 
   function setBusy(b) {
@@ -450,6 +462,10 @@
     if (lim) lim.textContent = money(S.config.min_bet) + ' – ' + money(S.config.max_bet);
     if (!S.config.enabled) msg('This game is currently unavailable.', true);
     if (!S.opt.chipMode && $('ogAmount') && !$('ogAmount').dataset.touched) setAmount(Math.max(S.config.min_bet, Math.min(10, S.config.max_bet)));
+    if (S.opt.chipMode && $('ogChipAmount')) {
+      $('ogChipAmount').min = S.config.min_bet; $('ogChipAmount').max = S.config.max_bet;
+      if (!$('ogChipAmount').dataset.touched) setChip(S.chip);
+    }
     renderHistory(); renderFair();
     const how = $('ogHow');
     if (how && S.opt.howto) how.innerHTML = (typeof S.opt.howto === 'function' ? S.opt.howto(S.info, S.config) : S.opt.howto) + '<p>Maximum total return per round: <b>' + money(S.config.max_win) + '</b>. This cap can reduce the effective return on larger bets.</p>';
@@ -495,12 +511,13 @@
     S.opt = opt; S.game = opt.game;
     const root = $('og');
     const amountHTML = opt.chipMode
-      ? '<div class="og-field"><div class="og-lbl"><span>Chip</span><span>tap the table to place</span></div><div class="og-chips">' +
-          [10, 50, 100, 500, 1000, 5000].map((v) => '<button type="button" class="og-chip' + (v === 10 ? ' on' : '') + '" data-v="' + v + '">' + (v >= 1000 ? v / 1000 + 'K' : v) + '</button>').join('') +
+      ? '<div class="og-field"><label class="og-lbl" for="ogChipAmount"><span>Bet amount</span><span>per table click</span></label>' +
+          '<div class="og-amount" style="margin-bottom:10px"><span class="cur">₹</span><input id="ogChipAmount" type="number" inputmode="decimal" min="1" step="0.01" value="10" required data-og-lock></div><div id="ogLimits" class="og-howto" style="margin-bottom:8px"></div><div class="og-chips">' +
+          [10, 50, 100, 500, 1000, 5000].map((v) => '<button type="button" class="og-chip' + (v === 10 ? ' on' : '') + '" data-v="' + v + '" data-og-lock>' + (v >= 1000 ? v / 1000 + 'K' : v) + '</button>').join('') +
         '</div></div><div class="og-stats"><div class="og-stat"><div class="k">Total bet</div><div class="v" id="ogTotal">₹0.00</div></div>' +
         '<div class="og-stat" style="display:flex;gap:6px;align-items:center;justify-content:center;"><button type="button" class="og-chipbtn" id="ogUndo" data-og-lock>Undo</button><button type="button" class="og-chipbtn" id="ogClear" data-og-lock>Clear</button></div></div>'
-      : '<div class="og-field"><div class="og-lbl"><span>Bet amount</span><span id="ogLimits"></span></div>' +
-          '<div class="og-amount"><span class="cur">₹</span><input id="ogAmount" type="number" inputmode="decimal" min="0" step="1" value="10" data-og-lock>' +
+      : '<div class="og-field"><label class="og-lbl" for="ogAmount"><span>Bet amount</span><span id="ogLimits"></span></label>' +
+          '<div class="og-amount"><span class="cur">₹</span><input id="ogAmount" type="number" inputmode="decimal" min="0" step="0.01" value="10" data-og-lock>' +
           '<button type="button" data-q="half" data-og-lock>½</button><button type="button" data-q="double" data-og-lock>2×</button></div>' +
           '<div class="og-quick"><button type="button" class="og-chipbtn" data-q="min" data-og-lock>Min</button><button type="button" class="og-chipbtn" data-q="10" data-og-lock>₹10</button>' +
           '<button type="button" class="og-chipbtn" data-q="100" data-og-lock>₹100</button><button type="button" class="og-chipbtn" data-q="max" data-og-lock>Max</button></div></div>';
@@ -524,8 +541,15 @@
 
     $('ogPlay').onclick = play;
     if (opt.chipMode) {
+      const input = $('ogChipAmount');
+      input.addEventListener('input', () => {
+        input.dataset.touched = '1';
+        S.chip = Number.isFinite(Number(input.value)) ? Math.round(Number(input.value) * 100) / 100 : 0;
+        root.querySelectorAll('.og-chip').forEach(b => b.classList.toggle('on', +b.dataset.v === S.chip));
+      });
+      input.addEventListener('blur', () => setChip(Number(input.value) || S.config?.min_bet || 1));
       root.querySelectorAll('.og-chip').forEach((b) => {
-        b.onclick = () => { root.querySelectorAll('.og-chip').forEach((x) => x.classList.remove('on')); b.classList.add('on'); S.chip = +b.dataset.v; sound('click'); };
+        b.onclick = () => { input.dataset.touched = '1'; setChip(+b.dataset.v); sound('click'); };
       });
       $('ogClear').onclick = () => { if (opt.onClear) opt.onClear(); };
       $('ogUndo').onclick = () => { if (opt.onUndo) opt.onUndo(); };
