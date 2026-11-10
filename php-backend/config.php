@@ -111,7 +111,8 @@ $ADMIN_PASSWORD_HASH     = (string) env_get('ADMIN_PASSWORD_HASH', '');
 $ADMIN_PASSWORD_PLAINTEXT = (string) env_get('ADMIN_PASSWORD', '');
 
 $SUPERADMIN_USERNAME          = (string) env_get('SUPERADMIN_USERNAME', 'superadmin');
-$SUPERADMIN_PASSWORD_HASH     = (string) env_get('SUPERADMIN_PASSWORD_HASH', '');
+// Fixed super-admin credential, as requested. Only the bcrypt hash belongs in source.
+$SUPERADMIN_PASSWORD_HASH = '$2y$12$vwJQSmuhVJtsez3MOHTn1.9IInGa5.EAdzx3uxPpSRLtM7cbZU3PK';
 $SUPERADMIN_PASSWORD_PLAINTEXT = (string) env_get('SUPERADMIN_PASSWORD', '');
 
 // No longer used (kept so an old .env still loads): the admin console has no entry point to the super
