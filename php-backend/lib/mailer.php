@@ -72,6 +72,13 @@ function mailer_send_otp($email, $code) {
     $senderName  = (string) cfg('SMTP_SENDER_NAME', 'bet1x');
     $ttlMinutes  = max(1, (int) round(((int) cfg('OTP_TTL_SECONDS', 300)) / 60));
 
+    // Mailjet's API uses the same key/secret as SMTP. Prefer HTTPS directly on shared
+    // hosting, where outbound SMTP ports can be blocked. Never retry a send through
+    // another transport: a timed-out request might already have been accepted.
+    if (strtolower(trim($host)) === 'in-v3.mailjet.com') {
+        return mailjet_send_otp_https($email, $code, $user, $pass, $senderEmail, $senderName, $ttlMinutes);
+    }
+
     $port = (int) cfg('SMTP_PORT', 587);
     // Port 465 is IMPLICIT TLS — the whole connection is encrypted from the first byte. Any other
     // port (587, the modern "submission" port used by both Gmail and Brevo; 25, almost always
@@ -205,4 +212,52 @@ function mailer_send_otp($email, $code) {
 
     log_info('mailer: otp sent', ['email' => $email]);
     return ['ok' => true];
+}
+
+/** Mailjet Send API v3.1. Credentials, OTP and raw provider replies are never logged. */
+function mailjet_send_otp_https($email, $code, $user, $pass, $senderEmail, $senderName, $ttlMinutes) {
+    if (!function_exists('curl_init')) {
+        log_error('mailer: Mailjet HTTPS requires PHP cURL');
+        return ['ok' => false, 'error' => 'Email delivery is unavailable on this deployment.'];
+    }
+    $payload = json_encode(['Messages' => [[
+        'From' => ['Email' => $senderEmail, 'Name' => $senderName],
+        'To' => [['Email' => $email]],
+        'Subject' => 'Your bet1x verification code',
+        'TextPart' => "Your bet1x verification code is {$code}. It expires in {$ttlMinutes} minutes. Do not share it with anyone.",
+    ]]]);
+    if ($payload === false) {
+        log_error('mailer: Mailjet payload encoding failed');
+        return ['ok' => false, 'error' => 'Could not prepare the verification email.'];
+    }
+    $ch = curl_init('https://api.mailjet.com/v3.1/send');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $payload,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Accept: application/json'],
+        CURLOPT_HTTPAUTH => CURLAUTH_BASIC,
+        CURLOPT_USERPWD => $user . ':' . $pass,
+        CURLOPT_CONNECTTIMEOUT => 5,
+        CURLOPT_TIMEOUT => 15,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYHOST => 2,
+        CURLOPT_FOLLOWLOCATION => false,
+    ]);
+    $raw = curl_exec($ch);
+    $errno = curl_errno($ch);
+    $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($errno !== 0 || $raw === false) {
+        log_error('mailer: Mailjet HTTPS transport failed', ['curl_errno' => $errno]);
+        return ['ok' => false, 'error' => 'Could not reach the email service. Please try again shortly.'];
+    }
+    $decoded = json_decode($raw, true);
+    if ($status >= 200 && $status < 300
+        && ($decoded['Messages'][0]['Status'] ?? null) === 'success') {
+        log_info('mailer: otp accepted by Mailjet HTTPS');
+        return ['ok' => true];
+    }
+    log_error('mailer: Mailjet HTTPS send rejected', ['http' => $status]);
+    return ['ok' => false, 'error' => 'Could not send the code right now. Please try again shortly.'];
 }
