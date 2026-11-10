@@ -48,6 +48,11 @@ test('a shared Dice bet settles to the result seen by a non-betting device', asy
     const settled = await page.evaluate(ref => Orig.state.recent.find(r => r.round_ref === ref), accepted.round.round_ref);
     await other.waitForFunction(id => window.Orig && Orig.state.publicRounds && Orig.state.publicRounds.history.some(r => r.round_id === id), settled.shared_round_id, {timeout: 10000});
     const publicResult = await other.evaluate(id => Orig.state.publicRounds.history.find(r => r.round_id === id), settled.shared_round_id);
+    await expect(page.locator('#ogStage')).toHaveAttribute('data-round-id',String(settled.shared_round_id));
+    await expect(page.locator('#ogStage')).toHaveAttribute('data-playback','complete');
+    await expect(other.locator('#ogStage')).toHaveAttribute('data-round-id',String(settled.shared_round_id));
+    await expect(other.locator('#ogStage')).toHaveAttribute('data-playback','complete');
+    await expect(other.locator('#dcRoll')).toHaveText(Number(publicResult.result.roll).toFixed(2));
     expect(publicResult.result.roll).toBe(settled.result.roll);
     expect(await other.evaluate(() => Orig.state.signedIn)).toBe(false);
     expect(await page.evaluate(() => Orig.state.balance)).toBeCloseTo(before - settled.bet + settled.payout, 2);

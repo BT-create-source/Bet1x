@@ -6,7 +6,7 @@
   <title>Dice — bet1x</title>
   <link rel="stylesheet" href="assets/css/style.css?v=20261109-performance">
   <link rel="stylesheet" href="assets/css/game-shell.css?v=20261014i">
-  <link rel="stylesheet" href="assets/css/originals.css?v=20261109-round-id">
+  <link rel="stylesheet" href="assets/css/originals.css?v=20261110-public-stage">
   <style>
     .dc-roll { font: 800 clamp(54px, 9vw, 96px) var(--font-mono); color: var(--text); letter-spacing: -1px; margin: 10px 0 26px; transition: color .2s; }
     .dc-roll.win { color: var(--green); text-shadow: 0 0 30px rgba(46,212,122,.35); }
@@ -37,7 +37,7 @@
   <script src="assets/js/ui-common.js?v=20261109-performance"></script>
   <script src="assets/js/password-eye.js?v=20261104b"></script>
   <script src="assets/js/sound-fx.js"></script>
-  <script src="assets/js/originals.js?v=20261109-round-id"></script>
+  <script src="assets/js/originals.js?v=20261110-public-stage"></script>
   <script>
   (function () {
     let chance = 49.5, dir = 'over';
@@ -97,12 +97,12 @@
         requestAnimationFrame(() => { m.style.left = roll + '%'; });
         el.className = 'dc-roll';
         const start = performance.now(), from = parseFloat(el.textContent) || 0;
-        await new Promise((res) => {
+        if (!round.instant) await new Promise((res) => {
           const step = (t) => { const k = Math.min(1, (t - start) / 450); el.textContent = (from + (roll - from) * (1 - Math.pow(1 - k, 3))).toFixed(2); if (k < 1) requestAnimationFrame(step); else res(); };
           requestAnimationFrame(step);
         });
         el.textContent = roll.toFixed(2);
-        el.className = 'dc-roll ' + (win ? 'win' : 'lose'); m.className = 'dc-marker ' + (win ? 'win' : 'lose');
+        el.className = 'dc-roll ' + (round.spectator ? '' : win ? 'win' : 'lose'); m.className = 'dc-marker ' + (round.spectator ? '' : win ? 'win' : 'lose');
       },
     });
   })();

@@ -31,3 +31,5 @@ npx playwright test e2e/sms-otp.spec.js
 ```
 
 After the real key is privately configured and the changes deployed, a delivery test needs an explicitly chosen recipient number. Provider acceptance alone does not prove handset delivery; check both the recipient and Fast2SMS delivery reports. These tests do not establish the account's production route permissions.
+
+Rejection diagnostics classify the actual provider message rather than guessing from numeric codes: Fast2SMS's official error tables disagree on some numbers, including 996. The user sees an allowlisted explanation and reference code; server logs contain `provider_reason` and `provider_code`, never the raw response, API key or OTP. `php php-backend/tests/sms_errors.php` checks the conflicting-code cases and secret redaction. The default remains `otp`; no automatic paid-route fallback is enabled.

@@ -6,7 +6,7 @@
   <title>Roulette — bet1x</title>
   <link rel="stylesheet" href="assets/css/style.css?v=20261109-performance">
   <link rel="stylesheet" href="assets/css/game-shell.css?v=20261014i">
-  <link rel="stylesheet" href="assets/css/originals.css?v=20261109-round-id">
+  <link rel="stylesheet" href="assets/css/originals.css?v=20261110-public-stage">
   <style>
     .rl-top { display: flex; align-items: center; gap: 22px; margin-bottom: 18px; flex-wrap: wrap; justify-content: center; }
     .rl-wheelbox { position: relative; width: 200px; height: 200px; }
@@ -38,7 +38,7 @@
   <script src="assets/js/ui-common.js?v=20261109-performance"></script>
   <script src="assets/js/password-eye.js?v=20261104b"></script>
   <script src="assets/js/sound-fx.js"></script>
-  <script src="assets/js/originals.js?v=20261109-round-id"></script>
+  <script src="assets/js/originals.js?v=20261110-public-stage"></script>
   <script>
   (function () {
     const $ = (id) => document.getElementById(id);
@@ -125,8 +125,9 @@
       verifyFloats: 1,
       verify: (f) => 'Number = floor(' + f[0].toFixed(8) + ' × 37) = <b>' + Math.floor(f[0] * 37) + '</b>',
       onMount: () => { table(); wheel(); insideOptions(); $('rlInsideType').onchange=insideOptions; $('rlInsideAdd').onclick=() => place($('rlInsideType').value+'|'+$('rlInsideValue').value); },
-      onLoad: (d) => { past = (d.recent || []).map((r) => r.result.number); history(); },
+      onLoad: (d) => { past = (d.public_rounds ? d.public_rounds.history.slice(1) : d.recent || []).map((r) => r.result.number); history(); },
       onResult: async (round) => {
+        document.querySelectorAll('.rl-c').forEach(c => c.classList.remove('win'));
         const n = round.result.number, i = ORDER.indexOf(n), step = 360 / ORDER.length;
         const base = rot - (rot % 360);
         rot = base + 360 * 6 + ((-(i * step)) % 360 + 360) % 360;
@@ -136,7 +137,7 @@
         await Orig.sleep(4050);
         $('rlRes').className = 'rl-res ' + col(n); $('rlRes').textContent = n;
         past.unshift(n); history();
-        const won = round.result.winning_bets.map((ix) => round.params.bets[ix]);
+        const won = (round.result.winning_bets || []).map((ix) => round.params.bets[ix]);
         document.querySelectorAll('.rl-c').forEach((c) => {
           const [t, v] = c.dataset.k.split('|');
           if ((t === 'straight' && +v === n) || won.some((b) => b.type === t && String(b.value || '') === String(v || ''))) c.classList.add('win');

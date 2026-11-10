@@ -6,7 +6,7 @@
   <title>Slots — bet1x</title>
   <link rel="stylesheet" href="assets/css/style.css?v=20261109-performance">
   <link rel="stylesheet" href="assets/css/game-shell.css?v=20261014i">
-  <link rel="stylesheet" href="assets/css/originals.css?v=20261109-round-id">
+  <link rel="stylesheet" href="assets/css/originals.css?v=20261110-public-stage">
   <style>
     .sl-frame { position: relative; padding: 14px; border-radius: 20px; background: linear-gradient(180deg, #2a2f66, #151a3d); border: 2px solid #c9a34e;
       box-shadow: 0 0 0 4px #1a1f47, 0 18px 50px rgba(0,0,0,.55), inset 0 0 30px rgba(255,197,61,.12); width: 100%; max-width: 640px; box-sizing: border-box; }
@@ -40,7 +40,7 @@
   <script src="assets/js/ui-common.js?v=20261109-performance"></script>
   <script src="assets/js/password-eye.js?v=20261104b"></script>
   <script src="assets/js/sound-fx.js"></script>
-  <script src="assets/js/originals.js?v=20261109-round-id"></script>
+  <script src="assets/js/originals.js?v=20261110-public-stage"></script>
   <script>
   (function () {
     const $ = (id) => document.getElementById(id);
@@ -54,9 +54,9 @@
         '<svg class="sl-lines" id="slLines"></svg>';
     }
     function setCell(c, r, s, spin) { const el = $('slc' + c + r); el.innerHTML = symHTML(s); el.classList.toggle('spin', !!spin); el.classList.remove('win'); }
-    async function spinTo(g) {
+    async function spinTo(g, speed = 1) {
       $('slLines').innerHTML = '';
-      const stopAt = [600, 800, 1000, 1200, 1400], t0 = performance.now();
+      const stopAt = [600, 800, 1000, 1200, 1400].map(ms => ms * speed), t0 = performance.now();
       await new Promise((resolve) => {
         const tick = () => {
           const t = performance.now() - t0;
@@ -108,8 +108,19 @@
         const r = round.result;
         $('slFree').classList.remove('show');
         Orig.sound('roundStart');
-        await spinTo(r.grid);
+        await spinTo(r.grid, round.instant ? 0 : 1);
         if (r.wins.length) { showWins(r.wins); Orig.sound('win'); await Orig.sleep(900); }
+        if (round.public_view && r.free_spins && r.free_spins.length) {
+          $('slFree').classList.add('show');
+          for (let i = 0; i < r.free_spins.length; i++) {
+            const bonus = r.free_spins[i];
+            $('slFree').textContent = 'Public bonus spin ' + (i + 1) + ' / ' + r.free_spins.length;
+            await spinTo(bonus.grid, round.instant ? 0 : 0.12);
+            if (bonus.wins.length) showWins(bonus.wins);
+            await Orig.sleep(60);
+          }
+          return;
+        }
         if (r.free_spins && r.free_spins.length) {
           $('slFree').classList.add('show');
           Orig.banner(true, '⭐ FREE SPINS!', r.free_spins.length + ' spins, every win x3');

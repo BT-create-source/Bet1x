@@ -21,7 +21,7 @@
   const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const money = (n) => '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const fmtMult = (m) => { const v = Math.floor(Number(m || 0) * 100 + 1e-6) / 100; return (v >= 100 && v === Math.floor(v) ? String(v) : v.toFixed(2)) + 'x'; };   // never shown higher than it is
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const sleep = (ms) => new Promise((r) => setTimeout(r, S.stageInstant ? 0 : ms));
   const sound = (name) => { try { if (window.SoundFX) window.SoundFX.play(name); } catch (e) {} };
   const newRef = () => {
     const b = new Uint8Array(10);
@@ -33,6 +33,7 @@
               token: null, balanceRevision: 0, open: null, step: 0, recent: [], seed: null, chip: 10, total: 0, session: { staked: 0, won: 0 } };
   const sessionToken = () => localStorage.getItem('bet1x_auth_token');
   S.pending = []; S.publicRounds = null;
+  S.stageReady = false; S.stageRoundId = null; S.stageAnimating = false; S.stageNext = null;
   const sharedGame = () => !['blackjack', 'coinflip'].includes(S.game);
   let clock = null, clockReceived = 0, clockServerNow = 0, clockPolling = false;
 
@@ -76,6 +77,7 @@
         clockServerNow = clock.server_time + clockReceived - started;
         if (d.public_rounds) renderPublic(d.public_rounds);
         if (S.pending.length && !S.busy) await reload();
+        await playPublicStage();
       }
     } catch (e) { /* Expired clock data disables betting until synchronization recovers. */ }
     finally { clearTimeout(timeout); clockPolling = false; renderClock(); }
@@ -99,7 +101,10 @@
 
   function renderPublic(data) {
     const previous = S.publicRounds;
+    if (previous && data.current.round_id < previous.current.round_id) return;
     S.publicRounds = data;
+    const latestStage = (data.history || [])[0];
+    if (latestStage && (S.stageRoundId == null || latestStage.round_id > S.stageRoundId)) S.stageNext = latestStage;
     const panel = $('ogPublic'); if (!panel) return;
     panel.hidden = false;
     if (previous && previous.current.round_id === data.current.round_id &&
@@ -111,6 +116,51 @@
     $('ogPublicRound').textContent = latest ? 'Published result · round ' + latest.round_id : 'Waiting for the first result';
     $('ogPublicHistory').innerHTML = history.slice(0, 10).map(r => '<details><summary>Round ' + r.round_id + '</summary><div>' + publicSummary(r, false) +
       '</div><small>Server seed: ' + esc(r.server_seed) + '<br>Hash: ' + esc(r.server_seed_hash) + '<br>Client: ' + esc(r.client_seed) + ' · Nonce: ' + r.nonce + '</small></details>').join('');
+  }
+
+  /** Public facts drive the stage; no synthetic stake, payout or wallet update is created. */
+  function publicStageRound(published) {
+    const personal = S.recent.find(r => Number(r.shared_round_id) === Number(published.round_id));
+    if (personal) return Object.assign({}, personal, {public_view:true, spectator:false,
+      result:Object.assign({}, personal.result, S.game === 'wheel' ? {position_degrees:published.result.position_degrees} : {})});
+    const params = Object.assign({}, published.params);
+    const result = Object.assign({winning_bets:[], hits:[], win:null, market:params.market}, published.result);
+    if (S.game === 'keno') params.picks = [];
+    if (S.game === 'wheel' || S.game === 'plinko') {
+      Object.assign(params, S.opt.collect());
+      if (S.game === 'wheel') result.index = Math.min(params.segments - 1, Math.floor(result.position_degrees / 360 * params.segments));
+      else { result.path = result.path.slice(0, params.rows); result.bucket = result.path.filter(Boolean).length; }
+      const table = S.info.tables[params.risk][params.segments || params.rows];
+      result.multiplier = table[S.game === 'wheel' ? result.index : result.bucket];
+    }
+    return {shared_round_id:published.round_id, round_ref:'public:' + published.round_id, params, result,
+      status:'settled', public_view:true, spectator:true};
+  }
+
+  async function playPublicStage() {
+    if (!sharedGame() || !S.stageReady || S.stageAnimating || S.busy || document.hidden || !S.stageNext) return;
+    const published = S.stageNext;
+    // Give a bettor's state request time to load its exact layout/selection before animating.
+    if (S.pending.some(r => Number(r.shared_round_id) === Number(published.round_id)) &&
+        !S.recent.some(r => Number(r.shared_round_id) === Number(published.round_id))) return;
+    S.stageNext = null; S.stageRoundId = Number(published.round_id); S.stageAnimating = true;
+    const currentId = Math.max(Number(clock?.round_id || 0), Number(S.publicRounds?.current.round_id || 0));
+    S.stageInstant = Number(published.round_id) < currentId;
+    setBusy(true);
+    const stage = $('ogStage'), label = $('ogStageStatus');
+    stage.classList.toggle('og-stage-instant', S.stageInstant);
+    stage.dataset.roundId = String(published.round_id); stage.dataset.playback = 'playing';
+    label.textContent = 'Round ' + published.round_id + ' · Playing';
+    try { if (S.opt.onResult) await S.opt.onResult(Object.assign(publicStageRound(published), {instant:S.stageInstant})); }
+    catch (e) { console.error('Public stage animation failed', e); }
+    finally {
+      stage.dataset.playback = 'complete'; label.textContent = 'Round ' + published.round_id + ' · Result';
+      if (S.stageInstant) { void stage.offsetWidth; await new Promise(requestAnimationFrame); }
+      S.stageInstant = false; stage.classList.remove('og-stage-instant');
+      S.stageAnimating = false; setBusy(false);
+    }
+    // A backgrounded or slow tab catches up to the newest published round, never a replay queue.
+    if (S.stageNext && Number(S.stageNext.round_id) > S.stageRoundId) await playPublicStage();
   }
 
   async function api(path, body) {
@@ -369,7 +419,12 @@
     return round;
   }
 
-  async function reload() {
+  let reloadPromise = null;
+  function reload() {
+    if (!reloadPromise) reloadPromise = loadState().finally(() => { reloadPromise = null; });
+    return reloadPromise;
+  }
+  async function loadState() {
     const token = sessionToken(), revision = S.balanceRevision;
     if (S.token !== token) {
       S.open = null; S.seed = null; S.recent = []; S.pending = []; S.signedIn = false; S.balance = null;
@@ -399,20 +454,22 @@
     const how = $('ogHow');
     if (how && S.opt.howto) how.innerHTML = (typeof S.opt.howto === 'function' ? S.opt.howto(S.info, S.config) : S.opt.howto) + '<p>Maximum total return per round: <b>' + money(S.config.max_win) + '</b>. This cap can reduce the effective return on larger bets.</p>';
     const newlySettled = waiting.some(p => S.recent.some(r => r.round_ref === p.round_ref));
-    if (S.opt.onLoad && !newlySettled) S.opt.onLoad(d);
+    if (S.opt.onLoad && !newlySettled && (!sharedGame() || !S.stageReady)) S.opt.onLoad(d);
+    S.stageReady = true;
+    await playPublicStage();
     for (const pending of waiting) {
       const settled = S.recent.find(r => r.round_ref === pending.round_ref);
       if (settled) {
         setBusy(true);
-        try { if (S.opt.onResult) await S.opt.onResult(settled, d); } catch (e) { console.error(e); }
-        if (token !== sessionToken()) { setBusy(false); await reload(); return; }
+        try { if (!sharedGame() && S.opt.onResult) await S.opt.onResult(settled, d); } catch (e) { console.error(e); }
+        if (token !== sessionToken()) { setBusy(false); setTimeout(reload, 0); return; }
         // The loaded history already contains this round; afterRound inserts it once.
         S.recent = S.recent.filter(r => r.round_ref !== settled.round_ref);
         afterRound(settled, d.balance);
         msg('Round ' + settled.shared_round_id + ' settled.');
       }
     }
-    if (newlySettled && S.opt.onLoad) S.opt.onLoad(d);
+    if (newlySettled && !sharedGame() && S.opt.onLoad) S.opt.onLoad(d);
     renderClock();
   }
 
@@ -460,7 +517,7 @@
       '<div class="og-msg" id="ogMsg" role="status"></div>' +
       '<div class="og-stats"><div class="og-stat"><div class="k">Session profit</div><div class="v" id="ogProfit">₹0.00</div></div>' +
       '<div class="og-stat"><div class="k">Wagered</div><div class="v" id="ogWagered">₹0.00</div></div></div></aside>' +
-      '<section class="og-stage" id="ogStage"><div class="og-banner" id="ogBanner"></div>' + (opt.stage || '') + '</section></div>';
+      '<section class="og-stage" id="ogStage"><div class="og-banner" id="ogBanner"></div><div id="ogStageStatus" class="og-howto" aria-live="polite"></div>' + (opt.stage || '') + '</section></div>';
     const below = document.createElement('div');
     below.className = 'og-below';
     below.innerHTML = '<div style="display:flex;flex-direction:column;gap:14px;min-width:0;"><div class="og-card"><h3>Your recent rounds</h3><div id="ogHistory"></div></div>' +

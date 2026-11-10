@@ -10,7 +10,7 @@
  * ---------------------------------
  * It never logs the code. A verification code in the error log is a code an operator, a log shipper
  * or anyone with server access can read and use, which defeats the point of hashing it in the
- * database. Failures log the phone number and the provider's own message, never the digits.
+ * database. Failures log the phone number and an allowlisted reason, never raw provider text.
  */
 
 require_once __DIR__ . '/logger.php';
@@ -44,6 +44,39 @@ function sms_normalise_indian_mobile($raw) {
     // Indian mobiles are 10 digits and start 6-9. Anything else is a typo or a landline.
     if (!preg_match('/^[6-9]\d{9}$/', $digits)) return null;
     return $digits;
+}
+
+/** Classify the actual reply, never raw-log provider text (it can echo keys or OTP values).
+ * Fast2SMS's published code tables disagree, notably for 996, so code alone is not a diagnosis.
+ */
+function sms_provider_reason($reply) {
+    if (!is_array($reply)) return 'unknown';
+    $message = $reply['message'] ?? '';
+    if (is_array($message)) $message = implode(' ', array_filter($message, 'is_string'));
+    if (!is_string($message)) return 'unknown';
+    if (preg_match('/\bkyc\b|identity verification/i', $message)) return 'kyc_required';
+    if (preg_match('/spam|same content|same number|duplicate|too many/i', $message)) return 'repeat_blocked';
+    if (preg_match('/blacklist|whitelist|IP address|authorized IP/i', $message)) return 'ip_restricted';
+    if (preg_match('/route|template|sender id/i', $message)) return 'route_not_enabled';
+    if (preg_match('/authentication|authorization|api key/i', $message)) return 'credentials_rejected';
+    if (preg_match('/balance|credit|recharge|wallet/i', $message)) return 'balance_or_activation';
+    return 'unknown';
+}
+
+function sms_provider_error($reply) {
+    $reason = sms_provider_reason($reply);
+    $messages = [
+        'kyc_required'=>'Fast2SMS says account KYC is required for OTP delivery. Please contact site support.',
+        'repeat_blocked'=>'Fast2SMS blocked repeated SMS requests. Please wait before requesting another code.',
+        'ip_restricted'=>'Fast2SMS has restricted this server from sending SMS. Please contact site support.',
+        'credentials_rejected'=>'Fast2SMS rejected the configured credentials. Please contact site support.',
+        'balance_or_activation'=>'Fast2SMS requires wallet credit or account activation. Please contact site support.',
+        'route_not_enabled'=>'Fast2SMS has not enabled the configured SMS route or template. Please contact site support.',
+        'unknown'=>'Fast2SMS rejected the SMS request. Please contact site support.'
+    ];
+    $code = is_array($reply) ? ($reply['status_code'] ?? null) : null;
+    $code = is_scalar($code) && preg_match('/^\d{3,5}$/', (string) $code) ? (string) $code : null;
+    return ['reason'=>$reason, 'code'=>$code, 'error'=>$messages[$reason] . ($code ? ' (SMS-' . $code . ')' : '')];
 }
 
 /**
@@ -111,18 +144,19 @@ function sms_send_otp($phone, $code) {
     $decoded = json_decode((string) $raw, true);
 
     // Fast2SMS answers {"return":true,...} on success. Treat anything else as a failure and log the
-    // provider's own words, which is what makes a misconfigured route or an exhausted balance
-    // diagnosable instead of just "it didn't work".
+    // allowlisted classification, which identifies the cause without recording echoed secrets.
     if ($status === 200 && is_array($decoded) && !empty($decoded['return'])) {
         log_info('sms: otp sent', ['phone' => $phone, 'route' => $route]);
         return ['ok' => true];
     }
 
+    $failure = sms_provider_error($decoded);
     log_error('sms: provider rejected the send', [
         'phone'    => $phone,
         'route'    => $route,
         'http'     => $status,
-        'provider_code' => is_array($decoded) ? ($decoded['status_code'] ?? null) : null,
+        'provider_code' => $failure['code'],
+        'provider_reason' => $failure['reason'],
     ]);
-    return ['ok' => false, 'error' => 'Could not send the code right now. Please try again shortly.'];
+    return ['ok' => false, 'error' => $failure['error']];
 }

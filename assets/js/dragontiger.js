@@ -64,7 +64,7 @@
     },
     onMount: () => { spots(); $('dtDC').innerHTML = Orig.cardHTML('??'); $('dtTC').innerHTML = Orig.cardHTML('??'); },
     onLoad: data => {
-      road = (data.recent || []).slice().reverse().map(round => round.result.winner); drawRoad();
+      road = (data.public_rounds ? data.public_rounds.history.slice(1) : data.recent || []).slice().reverse().map(round => round.result.winner); drawRoad();
       const latest = (data.recent || [])[0];
       if (latest) {
         $('dtDC').innerHTML = Orig.cardHTML(latest.result.dragon);

@@ -92,7 +92,8 @@ function originals_shared_public($game) {
             // Public facts have no personal win/loss, selection, stake or account information.
             unset($result['win'], $result['target'], $result['hits'], $result['winning_bets'], $result['market']);
             if ($game === 'dice') unset($result['multiplier']);
-            if ($game === 'wheel') $result['position_degrees'] = round(orig_float_at($seed, 'public:' . $game, $r, 0) * 360, 4);
+            // Preserve precision when a viewer maps this stop to 20/30 sectors, not just the reference 10.
+            if ($game === 'wheel') $result['position_degrees'] = orig_float_at($seed, 'public:' . $game, $r, 0) * 360;
             $history[] = ['round_id' => $r, 'game' => $game, 'params' => $params, 'result' => $result,
                 'server_seed' => $seed, 'server_seed_hash' => hash('sha256', $seed),
                 'client_seed' => 'public:' . $game, 'nonce' => $r, 'published_at' => $r * 30000 + 15000];

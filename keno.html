@@ -6,7 +6,7 @@
   <title>Keno — bet1x</title>
   <link rel="stylesheet" href="assets/css/style.css?v=20261109-performance">
   <link rel="stylesheet" href="assets/css/game-shell.css?v=20261014i">
-  <link rel="stylesheet" href="assets/css/originals.css?v=20261109-round-id">
+  <link rel="stylesheet" href="assets/css/originals.css?v=20261110-public-stage">
   <style>
     .kn-board { display: grid; grid-template-columns: repeat(8, 1fr); gap: 7px; width: 100%; max-width: 620px; }
     .kn-cell { aspect-ratio: 1.15; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: 800 clamp(13px, 1.8vw, 17px) var(--font-mono);
@@ -33,12 +33,12 @@
   <script src="assets/js/ui-common.js?v=20261109-performance"></script>
   <script src="assets/js/password-eye.js?v=20261104b"></script>
   <script src="assets/js/sound-fx.js"></script>
-  <script src="assets/js/originals.js?v=20261109-round-id"></script>
+  <script src="assets/js/originals.js?v=20261110-public-stage"></script>
   <script>
   (function () {
     const $ = (id) => document.getElementById(id);
     let picks = [3, 11, 19, 24, 32];
-    let drawn = [], hits = [];
+    let drawn = [], hits = [], spectating = false;
 
     function board() {
       const html = [];
@@ -48,7 +48,7 @@
       }
       $('knBoard').innerHTML = html.join('');
       $('knBoard').querySelectorAll('.kn-cell').forEach((b) => { b.onclick = () => toggle(+b.dataset.n); });
-      paytable(hits.length, drawn.length > 0);
+      paytable(hits.length, drawn.length > 0 && !spectating);
       $('knCount').textContent = picks.length + ' / 10';
     }
     function paytable(h, show) {
@@ -91,7 +91,7 @@
       },
       onLoad: board,
       onResult: async (round) => {
-        drawn = []; hits = []; board();
+        spectating = !!round.spectator; drawn = []; hits = []; board();
         for (const n of round.result.drawn) {
           drawn.push(n);
           if (round.params.picks.includes(n)) { hits.push(n); Orig.sound('gemReveal'); } else Orig.sound('tick');

@@ -6,7 +6,7 @@
   <title>Wheel — bet1x</title>
   <link rel="stylesheet" href="assets/css/style.css?v=20261109-performance">
   <link rel="stylesheet" href="assets/css/game-shell.css?v=20261014i">
-  <link rel="stylesheet" href="assets/css/originals.css?v=20261109-round-id">
+  <link rel="stylesheet" href="assets/css/originals.css?v=20261110-public-stage">
   <style>
     .wh-box { position: relative; width: min(400px, 82vw); aspect-ratio: 1; }
     .wh-svg { width: 100%; height: 100%; transition: transform 3.4s cubic-bezier(.12,.75,.12,1); filter: drop-shadow(0 16px 40px rgba(0,0,0,.55)); }
@@ -32,7 +32,7 @@
   <script src="assets/js/ui-common.js?v=20261109-performance"></script>
   <script src="assets/js/password-eye.js?v=20261104b"></script>
   <script src="assets/js/sound-fx.js"></script>
-  <script src="assets/js/originals.js?v=20261109-round-id"></script>
+  <script src="assets/js/originals.js?v=20261110-public-stage"></script>
   <script>
   (function () {
     const $ = (id) => document.getElementById(id);
@@ -79,8 +79,9 @@
       },
       onLoad: draw,
       onResult: async (round) => {
+        risk = round.params.risk; segs = round.params.segments; draw();
         const n = round.params.segments, step = 360 / n, i = round.result.index;
-        const target = -((i + 0.5) * step) + (Math.random() - 0.5) * step * 0.6;
+        const target = -(round.result.position_degrees != null ? round.result.position_degrees : (i + 0.5) * step);
         const base = rot - (rot % 360);
         rot = base + 360 * 5 + ((target % 360) + 360) % 360;
         $('whHub').textContent = '…';
