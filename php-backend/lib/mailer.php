@@ -166,10 +166,7 @@ function mailer_send_otp($email, $code) {
     $reply = smtp_command($sock, 'DATA');
     if (!$reply || $reply['code'] !== 354) return $fail('DATA', $reply);
 
-    $safeCode = htmlspecialchars($code, ENT_QUOTES, 'UTF-8');
-    $htmlBody = '<p>Your bet1x verification code is <strong>' . $safeCode . '</strong>.</p>'
-              . '<p>It expires in ' . $ttlMinutes . ' minute' . ($ttlMinutes === 1 ? '' : 's')
-              . '. Do not share it with anyone.</p>';
+    $htmlBody = mailer_otp_html($code, $ttlMinutes);
 
     // A multipart/alternative body: a plain-text part for clients that want it, an HTML part for
     // everyone else, both carrying the same code. Every line the OTP itself does NOT appear on is
@@ -225,6 +222,7 @@ function mailjet_send_otp_https($email, $code, $user, $pass, $senderEmail, $send
         'To' => [['Email' => $email]],
         'Subject' => 'Your bet1x verification code',
         'TextPart' => "Your bet1x verification code is {$code}. It expires in {$ttlMinutes} minutes. Do not share it with anyone.",
+        'HTMLPart' => mailer_otp_html($code, $ttlMinutes),
     ]]]);
     if ($payload === false) {
         log_error('mailer: Mailjet payload encoding failed');
@@ -260,4 +258,32 @@ function mailjet_send_otp_https($email, $code, $user, $pass, $senderEmail, $send
     }
     log_error('mailer: Mailjet HTTPS send rejected', ['http' => $status]);
     return ['ok' => false, 'error' => 'Could not send the code right now. Please try again shortly.'];
+}
+
+/** Inline styles and presentation tables keep the code readable in email clients. */
+function mailer_otp_html($code, $ttlMinutes) {
+    $safeCode = htmlspecialchars((string) $code, ENT_QUOTES, 'UTF-8');
+    $expiry = max(1, (int) $ttlMinutes);
+    $unit = $expiry === 1 ? 'minute' : 'minutes';
+    return '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        . '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        . '<title>Your Bet1x verification code</title></head>'
+        . '<body style="margin:0;padding:0;background-color:#f2f4f8;color:#172033;font-family:Arial,Helvetica,sans-serif;">'
+        . '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f2f4f8;"><tr>'
+        . '<td align="center" style="padding:32px 16px;">'
+        . '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background-color:#ffffff;border:1px solid #e2e7ef;border-radius:16px;">'
+        . '<tr><td style="padding:26px 28px;background-color:#10152d;border-radius:16px 16px 0 0;">'
+        . '<span style="font-size:26px;line-height:32px;font-weight:800;color:#ffffff;">Bet<span style="color:#22c979;">1x</span></span>'
+        . '</td></tr><tr><td style="padding:32px 28px;">'
+        . '<h1 style="margin:0 0 14px;font-size:24px;line-height:32px;color:#172033;">Your verification code</h1>'
+        . '<p style="margin:0 0 24px;font-size:16px;line-height:25px;color:#526078;">Enter this code on Bet1x to continue.</p>'
+        . '<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>'
+        . '<td align="center" style="padding:24px 12px;background-color:#eefaf3;border:1px solid #bce8ce;border-radius:12px;">'
+        . '<span style="font-family:Consolas,Monaco,monospace;font-size:36px;line-height:46px;font-weight:700;letter-spacing:6px;color:#123d2a;">' . $safeCode . '</span>'
+        . '</td></tr></table>'
+        . '<p style="margin:20px 0 0;font-size:14px;line-height:22px;color:#526078;">This code expires in <strong style="color:#172033;">' . $expiry . ' ' . $unit . '</strong>. Do not share it with anyone.</p>'
+        . '<p style="margin:24px 0 0;padding-top:22px;border-top:1px solid #e8ecf2;font-size:13px;line-height:21px;color:#68758b;">If you didn\'t request this code, you can ignore this email.</p>'
+        . '</td></tr></table>'
+        . '<p style="margin:20px 0 0;font-size:12px;line-height:20px;color:#68758b;">Bet1x &middot; Account security<br>This is an automated email.</p>'
+        . '</td></tr></table></body></html>';
 }
